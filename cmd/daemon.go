@@ -5,20 +5,28 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
 	"github.com/fero-tech/splanch/pkg/core/db"
 	p2p "github.com/fero-tech/splanch/pkg/core/p2p"
-	originatorRoutes "github.com/fero-tech/splanch/pkg/core/rest/originator"
 	utils "github.com/fero-tech/splanch/utils"
-	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 )
+
+var logger = utils.Logger()
 
 const (
 	TESTNET string = "/icm/testing"
 	MAINNET        = "/icm/mainnet"
+)
+
+type Flag string
+
+const (
+	PRIVATE_KEY Flag = "private-key"
+	NETWORK          = "network"
 )
 
 // daemonCmd represents the daemon command
@@ -32,7 +40,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		daemonFunc()
+		daemonFunc(cmd, args)
 	},
 }
 
@@ -48,10 +56,34 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// daemonCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "k", "", "Help message for toggle")
+	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
 }
 
-func daemonFunc() {
-	c := utils.LoadConfig()
+func daemonFunc(cmd *cobra.Command, args []string) {
+	cfg := utils.Config
+	ctx := context.Background()
+
+	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
+	if err != nil || len(privateKey) == 0 {
+		if len(cfg.PrivateKey) == 0 {
+			panic("Private key is required. Use --private-key flag or environment var ICM_PRIVATE_KEY")
+		}
+	}
+	if len(privateKey) > 0 {
+		cfg.PrivateKey = privateKey
+	}
+	network, err := cmd.Flags().GetString(string(NETWORK))
+	if err != nil || len(network) == 0 {
+		if len(cfg.Network) == 0 {
+			panic("Network required")
+		}
+	}
+	if len(network) > 0 {
+		cfg.Network = network
+	}
+	ctx = context.WithValue(ctx, "Config", cfg)
 	var wg sync.WaitGroup
 	errc := make(chan error)
 	// dbPath, err := ioutil.TempDir("", "badger-test")
@@ -62,24 +94,31 @@ func daemonFunc() {
 	// if err != nil {
 	// 	errc <- fmt.Errorf("Could not initialize ds: %g", err)
 	// }
+	defer wg.Wait()
+	
+	wg.Add(1)
+	go func() {
 
-	go func(priv string) {
-		wg.Add(1)
 		if err := recover(); err != nil {
+			wg.Done()
 			errc <- fmt.Errorf("P2P error: %g", err)
 		}
-		fmt.Printf("publicKey %s", priv)
-		p2p.Run(MAINNET, priv)
-	}(c.PrivateKey)
+		// logger.WithFields(logrus.Fields{
+		// 	"publicKey": "walrus",
+		// }).Infof("publicKey %s", priv)
+		p2p.Run(&ctx)
+	}()
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		if err := recover(); err != nil {
+			wg.Done()
 			errc <- fmt.Errorf("Db error: %g", err)
 		}
+		defer wg.Done()
 		db.Db()
 	}()
 
-	r := gin.Default()
-	r = originatorRoutes.Init(r)
-	r.Run("localhost:8084")
+	// r := gin.Default()
+	// r = originatorRoutes.Init(r)
+	// r.Run("localhost:8083")
 }

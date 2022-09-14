@@ -4,20 +4,18 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/fero-tech/splanch/utils"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
-
-// ChannelBufSize is the number of incoming messages to buffer for each topic.
-const ChannelBufSize = 128
 
 // Channel represents a subscription to a single PubSub topic. Messages
 // can be published to the topic with Channel.Publish, and received
 // messages are pushed to the Messages channel.
 type Channel struct {
 	// Messages is a channel of messages received from other peers in the chat channel
-	Messages chan *ChatMessage
+	Messages chan *ChannelMessage
 
 	Ctx   context.Context
 	ps    *pubsub.PubSub
@@ -29,16 +27,14 @@ type Channel struct {
 	Nick        string
 }
 
-// ChatMessage gets converted to/from JSON and sent in the body of pubsub messages.
-type ChatMessage struct {
-	Message    string
-	SenderID   string
-	SenderNick string
+// ChannelMessage gets converted to/from JSON and sent in the body of pubsub messages.
+type ChannelMessage struct {
+	Message    utils.NodeMessage
 }
 
 // JoinChannel tries to subscribe to the PubSub topic for the channel name, returning
 // a Channel on success.
-func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickname string, channelName string) (*Channel, error) {
+func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickname string, channelName string, channelBufferSize uint) (*Channel, error) {
 	// join the pubsub topic
 	topic, err := ps.Join(topicName(channelName))
 	if err != nil {
@@ -59,7 +55,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nicknam
 		ID:          selfID,
 		Nick:        nickname,
 		ChannelName: channelName,
-		Messages:    make(chan *ChatMessage, ChannelBufSize),
+		Messages:    make(chan *ChannelMessage, channelBufferSize),
 	}
 
 	// start reading messages from the subscription in a loop
@@ -68,11 +64,9 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nicknam
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *Channel) Publish(message string) error {
-	m := ChatMessage{
+func (cr *Channel) Publish(message utils.NodeMessage) error {
+	m := ChannelMessage{
 		Message:    message,
-		SenderID:   cr.ID.Pretty(),
-		SenderNick: cr.Nick,
 	}
 	msgBytes, err := json.Marshal(m)
 	if err != nil {
@@ -97,7 +91,7 @@ func (cr *Channel) readLoop() {
 		if msg.ReceivedFrom == cr.ID {
 			continue
 		}
-		cm := new(ChatMessage)
+		cm := new(ChannelMessage)
 		err = json.Unmarshal(msg.Data, cm)
 		if err != nil {
 			continue
@@ -108,5 +102,5 @@ func (cr *Channel) readLoop() {
 }
 
 func topicName(channelName string) string {
-	return "chat-channel:" + channelName
+	return "msg-channel:" + channelName
 }

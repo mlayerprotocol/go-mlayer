@@ -3,13 +3,14 @@ package p2p
 import (
 	"bufio"
 	"context"
-	"flag"
 	"fmt"
+	"math"
 	"os"
 	"time"
 
 	// "github.com/gin-gonic/gin"
-
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/fero-tech/splanch/pkg/core/chain/evm"
 	utils "github.com/fero-tech/splanch/utils"
 	"github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
@@ -24,28 +25,49 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	libp2ptls "github.com/libp2p/go-libp2p-tls"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	"github.com/sirupsen/logrus"
 	// rest "messagingprotocol/pkg/core/rest"
 )
 
 var logger = utils.Logger()
+var config utils.Configuration
+
+var protocolId string
+
+const DiscoveryServiceTag = "icm-network"
+const (
+	MessageChannel string = "icm-message-channel"
+)
+
+var peerStreams = make(map[string]peer.ID)
+var peerPubKeys = make(map[peer.ID][]byte)
+var node *host.Host
 
 // defaultNick generates a nickname based on the $USER environment variable and
 // the last 8 chars of a peer ID.
 func defaultNick(p peer.ID) string {
+	// TODO load name from flag/config
 	return fmt.Sprintf("%s-%s", os.Getenv("USER"), shortID(p))
 }
 
 // shortID returns the last 8 chars of a base58-encoded peer id.
 func shortID(p peer.ID) string {
 	pretty := p.Pretty()
-	return pretty[len(pretty)-8:]
+	return pretty[len(pretty)-12:]
 }
 
-func Run(protocolId string, privateKey string) {
-	fmt.Printf("publicKey %s", privateKey)
+func Run(mainCtx *context.Context) {
+	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(*mainCtx)
+	iConfig := ctx.Value("Config")
+	cfg, ok := iConfig.(utils.Configuration)
+	if !ok {
+
+	}
+	config = cfg
+	protocolId = config.Network
 	defer cancel()
 
 	// // To construct a simple host with all the default settings, just use `New`
@@ -71,7 +93,6 @@ func Run(protocolId string, privateKey string) {
 	)
 	// privK, _ := ethCrypto.HexToECDSA(privateKey)
 	// priv, _, err := crypto.ECDSAKeyPairFromKey(privK)
-	logger.Debug("PrivKeysssss %s", priv.GetPublic())
 	if err != nil {
 		panic(err)
 	}
@@ -123,6 +144,7 @@ func Run(protocolId string, privateKey string) {
 	if err != nil {
 		panic(err)
 	}
+	h.SetStreamHandler(protocol.ID(protocolId), handleStream)
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
@@ -133,7 +155,6 @@ func Run(protocolId string, privateKey string) {
 	if err != nil {
 		panic(err)
 	}
-	h.SetStreamHandler(protocol.ID(protocolId), handleStream)
 
 	// The last step to get fully up and running would be to connect to
 	// bootstrap peers (or any other peers). We leave this commented as
@@ -147,34 +168,20 @@ func Run(protocolId string, privateKey string) {
 	// 	h.Connect(ctx, *pi)
 	// }
 
-	logger.Debug("Hello World, my host ID is %s\n", h.ID())
-	// use the nickname from the cli flag, or a default if blank
-	nickFlag := flag.String("nick", "", "nickname to use in chat. will be generated if empty")
-	roomFlag := flag.String("room", "awesome-chat-room", "name of chat room to join")
-	flag.Parse()
+	logger.Info("Host started with ID is %s\n", h.ID())
 
-	nick := *nickFlag
-
-	if len(nick) == 0 {
-		nick = defaultNick(h.ID())
-	}
-
-	// join the room from the cli flag, or the flag default
-	room := *roomFlag
-
-	// join the chat room
-	cr, err := JoinChannel(ctx, ps, h.ID(), nick, room)
+	cr, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Printf("Hello %s", cr.ChannelName)
+	node = &h
+	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", cr.ChannelName)
 
 	// draw the UI
-	ui := NewChatUI(cr)
-	if err = ui.Run(); err != nil {
-		logger.Error("error running text UI: %s", err)
-	}
+	// ui := NewChatUI(cr)
+	// if err = ui.Run(); err != nil {
+	// 	logger.Error("error running text UI: %s", err)
+	// }
 
 }
 
@@ -189,56 +196,88 @@ type discoveryNotifee struct {
 }
 
 func handleStream(stream network.Stream) {
-	logger.Debug("Got a new stream!")
-
+	// logger.Debugf("Got a new stream! %s", stream.ID())
+	// stream.SetReadDeadline()
 	// Create a buffer stream for non blocking read and write.
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+	go readData(peerStreams[stream.ID()], rw)
+	// go sendData(rw)
 
-	go readHandshake(rw)
-	go writeData(rw)
-
-	// 'stream' will stay open until you close it (or the other side closes it).
 }
-func readHandshake(rw *bufio.ReadWriter) {
+
+func createHandshake(name string, network string) utils.Handshake {
+	pubKey := utils.GetPublicKey(config.PrivateKey)
+	data := utils.HandshakeData{Name: name, ProtocolId: network, Timestamp: int(time.Now().Unix())}
+	_, signature := utils.Sign((&data).ToString(), config.PrivateKey)
+	return utils.Handshake{Data: data, Signature: signature, Signer: pubKey}
+}
+
+func readData(p peer.ID, rw *bufio.ReadWriter) {
 	for {
-		str, err := rw.ReadString('\n')
+		hsString, err := rw.ReadString('\n')
 		if err != nil {
-			logger.Error("Error reading from buffer")
+			logger.Errorf("Error reading from buffer %w", err)
 			panic(err)
 		}
-
-		if str == "" {
-			return
+		if hsString == "" {
+			break
 		}
-		if str != "\n" {
-			// Green console colour: 	\x1b[32m
-			// Reset console colour: 	\x1b[0m
-			fmt.Printf("\x1b[32m%s\x1b[0m> \n", str)
+		logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Info("New Handshake data from peer")
+		handshake, err := utils.HandshakeFromJSON(hsString)
+		if err != nil {
+			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %w", err)
+			break
 		}
-
+		valid := isValidHandshake(handshake, p)
+		if !valid {
+			disconnect(*node, p)
+			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Disconnecting from peer (%s) with invalid handshake", p)
+		}
+		b, _ := hexutil.Decode(handshake.Signer)
+		peerPubKeys[p] = b
+		break
 	}
 }
-func writeData(rw *bufio.ReadWriter) {
-	stdReader := bufio.NewReader(os.Stdin)
 
-	for {
-		logger.Debug("> ")
-		sendData, err := stdReader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading from stdin")
-			panic(err)
-		}
+func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
+	handshakeMessage := handshake.ToJSON()
+	if math.Abs(float64(handshake.Data.Timestamp-int(time.Now().Unix()))) > utils.VALID_HANDSHAKE_SECONDS {
+		logger.WithFields(logrus.Fields{"peer": p, "data": handshakeMessage}).Warnf("Hanshake Expired: %s", handshakeMessage)
+		return false
+	}
+	message := handshake.Data.ToString()
+	isValid := utils.VerifySignature(handshake.Signer, message, handshake.Signature)
+	if !isValid {
+		logger.WithFields(logrus.Fields{"message": message, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
+		return false
+	}
+	logger.Infof("New Valid handshake from peer: %s", p)
+	// check stake balance
+	stakeContract, err := evm.StakeContract(config.RPCUrl, config.StakeContract)
+	if err != nil {
+		logger.Errorf("RPC error %w", err)
+	}
+	level, err := stakeContract.GetAccountLevel(nil, evm.ToHexAddress(handshake.Signer))
+	if level == utils.StandardAccountType {
+		logger.WithFields(logrus.Fields{"peer": p, "accountType": level}).Warnf("Inadequate stake balance for peer with address %s", handshake.Signer)
+		return false
+	}
+	return true
+}
+func sendData(p peer.ID, rw *bufio.ReadWriter, data []byte) {
 
-		_, err = rw.WriteString(fmt.Sprintf("%s\n", sendData))
-		if err != nil {
-			fmt.Println("Error writing to buffer")
-			panic(err)
-		}
-		err = rw.Flush()
-		if err != nil {
-			fmt.Println("Error flushing buffer")
-			panic(err)
-		}
+	// defer disconnect(*node, p)
+	_, err := rw.WriteString(fmt.Sprintf("%s\n", string(data)))
+	if err != nil {
+		logger.Warn("Error writing to to stream")
+		return
+	}
+	err = rw.Flush()
+	if err != nil {
+		// fmt.Println("Error flushing buffer")
+		// panic(err)
+		logger.Warn("Error flushing to to stream")
+		return
 	}
 }
 
@@ -246,15 +285,34 @@ func writeData(rw *bufio.ReadWriter) {
 // the PubSub system will automatically start interacting with them if they also
 // support PubSub.
 func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	fmt.Printf("discovered new peer %s\n", pi.ID.Pretty())
+	logger.Infof("Discovered new peer %s\n", pi.ID.Pretty())
 	err := n.h.Connect(context.Background(), pi)
+
 	if err != nil {
 		fmt.Printf("error connecting to peer %s: %s\n", pi.ID.Pretty(), err)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := n.h.NewStream(ctx, pi.ID, protocol.ID(protocolId))
+
+	if err != nil {
+		logger.Warningf("Unable to establish stream with peer: %s %w", pi.ID, err)
+	} else {
+		logger.Infof("Streaming to peer: %s", pi.ID)
+		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+		logger.Infof("New StreamID: %s", stream.ID())
+		peerStreams[stream.ID()] = pi.ID
+		hs := createHandshake(defaultNick(n.h.ID()), protocolId)
+		go sendData(pi.ID, rw, (&hs).ToJSON())
+		// go readData(rw)
+	}
+}
+
+func disconnect(h host.Host, id peer.ID) {
+	h.Network().ClosePeer(id)
 }
 
 // DiscoveryServiceTag is used in our mDNS advertisements to discover other chat peers.
-const DiscoveryServiceTag = "pubsub-chat-example"
 
 // setupDiscovery creates an mDNS discovery service and attaches it to the libp2p Host.
 // This lets us automatically discover peers on the same LAN and connect to them.

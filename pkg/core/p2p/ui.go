@@ -1,10 +1,12 @@
 package p2p
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"time"
 
+	"github.com/fero-tech/splanch/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -19,7 +21,7 @@ type ChatUI struct {
 	peersList *tview.TextView
 
 	msgW    io.Writer
-	inputCh chan string
+	inputCh chan utils.NodeMessage
 	doneCh  chan struct{}
 }
 
@@ -42,7 +44,7 @@ func NewChatUI(cr *Channel) *ChatUI {
 	})
 
 	// an input field for typing messages into
-	inputCh := make(chan string, 32)
+	inputCh := make(chan utils.NodeMessage, 32)
 	input := tview.NewInputField().
 		SetLabel(cr.Nick + " > ").
 		SetFieldWidth(0).
@@ -54,14 +56,16 @@ func NewChatUI(cr *Channel) *ChatUI {
 			// we don't want to do anything if they just tabbed away
 			return
 		}
-		line := input.GetText()
-		if len(line) == 0 {
+		text := input.GetText()
+		line := utils.NodeMessage{}
+		json.Unmarshal([]byte(text), line)
+		if len(text) == 0 {
 			// ignore blank lines
 			return
 		}
 
 		// bail if requested
-		if line == "/quit" {
+		if text == "/quit" {
 			app.Stop()
 			return
 		}
@@ -133,13 +137,6 @@ func (ui *ChatUI) refreshPeers() {
 	ui.app.Draw()
 }
 
-// displayChatMessage writes a ChatMessage from the room to the message window,
-// with the sender's nick highlighted in green.
-func (ui *ChatUI) displayChatMessage(cm *ChatMessage) {
-	prompt := withColor("green", fmt.Sprintf("<%s>:", cm.SenderNick))
-	fmt.Fprintf(ui.msgW, "%s %s\n", prompt, cm.Message)
-}
-
 // displaySelfMessage writes a message from ourself to the message window,
 // with our nick highlighted in yellow.
 func (ui *ChatUI) displaySelfMessage(msg string) {
@@ -166,7 +163,7 @@ func (ui *ChatUI) handleEvents() {
 
 		case m := <-ui.cr.Messages:
 			// when we receive a message from the chat room, print it to the message window
-			ui.displayChatMessage(m)
+			ui.displayChannelMessage(m)
 
 		case <-peerRefreshTicker.C:
 			// refresh the list of peers in the chat room periodically
