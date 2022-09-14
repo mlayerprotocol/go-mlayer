@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/fero-tech/splanch/utils"
+	"github.com/ByteGum/go-icms/utils"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -29,7 +29,7 @@ type Channel struct {
 
 // ChannelMessage gets converted to/from JSON and sent in the body of pubsub messages.
 type ChannelMessage struct {
-	Message    utils.NodeMessage
+	Message utils.NodeMessage
 }
 
 // JoinChannel tries to subscribe to the PubSub topic for the channel name, returning
@@ -66,7 +66,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nicknam
 // Publish sends a message to the pubsub topic.
 func (cr *Channel) Publish(message utils.NodeMessage) error {
 	m := ChannelMessage{
-		Message:    message,
+		Message: message,
 	}
 	msgBytes, err := json.Marshal(m)
 	if err != nil {

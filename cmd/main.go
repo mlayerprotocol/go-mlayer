@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	// db "github.com/fero-tech/splanch/pkg/core/db"
-	// p2p "github.com/fero-tech/splanch/pkg/core/p2p"
-	// originatorRoutes "github.com/fero-tech/splanch/pkg/core/rest/originator"
+	// db "github.com/ByteGum/go-icms/pkg/core/db"
+	// p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
+	// originatorRoutes "github.com/ByteGum/go-icms/pkg/core/rest/originator"
 	// // ds "github.com/ipfs/go-ds-badger"
 	// "github.com/gin-gonic/gin"
 	"io/ioutil"

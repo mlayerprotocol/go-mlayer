@@ -7,8 +7,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/fero-tech/icms/cmd"
-	config "github.com/fero-tech/icms/utils"
+	"github.com/ByteGum/go-icms/cmd"
+	config "github.com/ByteGum/go-icms/utils"
 )
 
 func main() {

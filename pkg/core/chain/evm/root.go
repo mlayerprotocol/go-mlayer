@@ -8,9 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/fero-tech/splanch/pkg/core/chain/evm/abis/registry"
-	"github.com/fero-tech/splanch/pkg/core/chain/evm/abis/stake"
-	"github.com/fero-tech/splanch/pkg/core/chain/evm/abis/token"
+	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/registry"
+	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
+	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/token"
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"

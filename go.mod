@@ -1,4 +1,4 @@
-module github.com/fero-tech/icms
+module github.com/ByteGum/go-icms
 
 go 1.17
 

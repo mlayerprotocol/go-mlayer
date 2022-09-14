@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/fero-tech/splanch/utils"
+	"github.com/ByteGum/go-icms/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -153,17 +153,17 @@ func (ui *ChatUI) handleEvents() {
 
 	for {
 		select {
-		case input := <-ui.inputCh:
-			// when the user types in a line, publish it to the chat room and print to the message window
-			err := ui.cr.Publish(input)
-			if err != nil {
-				fmt.Printf("publish error: %s", err)
-			}
-			ui.displaySelfMessage(input)
+		// case input := <-ui.inputCh:
+		// 	// when the user types in a line, publish it to the chat room and print to the message window
+		// 	err := ui.cr.Publish(input)
+		// 	if err != nil {
+		// 		fmt.Printf("publish error: %s", err)
+		// 	}
+		// 	ui.displaySelfMessage(input)
 
-		case m := <-ui.cr.Messages:
-			// when we receive a message from the chat room, print it to the message window
-			ui.displayChannelMessage(m)
+		// case m := <-ui.cr.Messages:
+		// 	// when we receive a message from the chat room, print it to the message window
+		// 	ui.displayChannelMessage(m)
 
 		case <-peerRefreshTicker.C:
 			// refresh the list of peers in the chat room periodically

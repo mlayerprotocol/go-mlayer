@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/fero-tech/splanch/pkg/core/db"
-	p2p "github.com/fero-tech/splanch/pkg/core/p2p"
-	utils "github.com/fero-tech/splanch/utils"
+	"github.com/ByteGum/go-icms/pkg/core/db"
+	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
+	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -95,7 +95,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// 	errc <- fmt.Errorf("Could not initialize ds: %g", err)
 	// }
 	defer wg.Wait()
-	
+
 	wg.Add(1)
 	go func() {
 
