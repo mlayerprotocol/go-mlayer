@@ -1,4 +1,4 @@
-module github.com/fero-tech/splanch
+module github.com/fero-tech/icms
 
 go 1.17
 

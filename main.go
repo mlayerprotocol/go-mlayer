@@ -7,8 +7,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/fero-tech/splanch/cmd"
-	config "github.com/fero-tech/splanch/utils"
+	"github.com/fero-tech/icms/cmd"
+	config "github.com/fero-tech/icms/utils"
 )
 
 func main() {
