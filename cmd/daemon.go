@@ -114,7 +114,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			wg.Done()
 			errc <- fmt.Errorf("Db error: %g", err)
 		}
-		defer wg.Done()
+		//defer wg.Done()
 		db.Db()
 	}()
 
