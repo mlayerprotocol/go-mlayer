@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var logger = utils.Logger()
+var logger = utils.Logger
 
 const (
 	TESTNET string = "/icm/testing"
@@ -64,6 +64,8 @@ func init() {
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
 	ctx := context.Background()
+	incomingMessagesc := make(chan utils.NodeMessage)
+	outgoingMessagesc := make(chan utils.NodeMessage)
 
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	if err != nil || len(privateKey) == 0 {
@@ -84,6 +86,8 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		cfg.Network = network
 	}
 	ctx = context.WithValue(ctx, "Config", cfg)
+	ctx = context.WithValue(ctx, "IncomingMessageC", incomingMessagesc)
+	ctx = context.WithValue(ctx, "OutgoinMessageC", outgoingMessagesc)
 	var wg sync.WaitGroup
 	errc := make(chan error)
 	// dbPath, err := ioutil.TempDir("", "badger-test")
@@ -95,6 +99,23 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// 	errc <- fmt.Errorf("Could not initialize ds: %g", err)
 	// }
 	defer wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		for {
+			select {
+			case inMessage, ok := <-incomingMessagesc:
+				if !ok {
+					logger.Errorf("Incomming Message channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
+				}
+				// VALIDATE AND DISTRIBUTE
+				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
+
+			}
+		}
+	}()
 
 	wg.Add(1)
 	go func() {
@@ -114,7 +135,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			wg.Done()
 			errc <- fmt.Errorf("Db error: %g", err)
 		}
-		//defer wg.Done()
+		defer wg.Done()
 		db.Db()
 	}()
 

@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var logger = Logger()
+var logger = Logger
 
 func GetPublicKey(privKey string) string {
 	privateKey, err := crypto.HexToECDSA(privKey)

@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 const (
@@ -11,34 +12,6 @@ const (
 	PlatformSolana          = "solana"
 	PlatformCosmos          = "cosmos"
 )
-
-/**
-CHAT MESSAGE
-**/
-type NodeMessage struct {
-	Timestamp uint   `json:"timestamp"`
-	ChainId   string `json:"chainId"`
-	Platform  string `json:"platform"`
-	Message   string `json:"text"`
-	Signature string `json:"signature"`
-}
-
-func (msg *NodeMessage) ToJSON() string {
-	m, _ := json.Marshal(msg)
-	return string(m)
-}
-
-func NodeMessageFromBytes(b []byte) NodeMessage {
-	var message NodeMessage
-	if err := json.Unmarshal(b, &message); err != nil {
-		panic(err)
-	}
-	return message
-}
-
-func NodeMessageFromString(msg string) NodeMessage {
-	return NodeMessageFromBytes([]byte(msg))
-}
 
 /**
 HANDSHAKE MESSAGE
@@ -89,33 +62,67 @@ func HandshakeFromString(hs string) Handshake {
 	return HandshakeFromBytes([]byte(hs))
 }
 
+func CreateHandshake(name string, network string, privateKey string) Handshake {
+	pubKey := GetPublicKey(privateKey)
+	data := HandshakeData{Name: name, ProtocolId: network, Timestamp: int(time.Now().Unix())}
+	_, signature := Sign((&data).ToString(), privateKey)
+	return Handshake{Data: data, Signature: signature, Signer: pubKey}
+}
+
 /**
 CHAT MESSAGE
 **/
 type ChatMessageHeader struct {
 	Length    int    `json:"length"`
-	Timestamp int    `json:"timestamp"`
 	Sender    string `json:"from"`
-	Receiver  string `json:"to"`
+	Receiver  string `json:"reciever"`
 	ChainId   string `json:"chainId"`
 	Platform  string `json:"platform"`
+	Timestamp uint   `json:"timestamp"`
 }
 type ChatMessageBody struct {
-	Text string `json:"text"`
-	Html string `json:"html"`
+	Subject string `json:"subject"`
+	Text    string `json:"text"`
+	Html    string `json:"html"`
 }
 type ChatMessageAction struct {
-	Contract   string `json:"contract"`
-	Abi        string `json:"abi"`
-	Action     string `json:"action"`
-	Parameters string `json:"parameters"`
+	Contract   string   `json:"contract"`
+	Abi        string   `json:"abi"`
+	Action     string   `json:"action"`
+	Parameters []string `json:"parameters"`
 }
 
 type ChatMessage struct {
-	Header    ChatMessageHeader `json:"header"`
-	Body      ChatMessageBody   `json:"body"`
-	Action    ChatMessageAction `json:"action"`
-	Signature string            `json:"signature"`
+	Header  ChatMessageHeader   `json:"header"`
+	Body    ChatMessageBody     `json:"body"`
+	Actions []ChatMessageAction `json:"actions"`
+	Origin  string              `json:"origin"`
+}
+
+/**
+NODE MESSAGE
+**/
+type NodeMessage struct {
+	Message   ChatMessage `json:"message"`
+	Signature string      `json:"signature"`
+}
+
+func (msg *NodeMessage) ToJSON() ([]byte, error) {
+	m, err := json.Marshal(msg)
+	return m, err
+}
+
+func NodeMessageFromBytes(b []byte) (NodeMessage, error) {
+	var message NodeMessage
+	// if err := json.Unmarshal(b, &message); err != nil {
+	// 	panic(err)
+	// }
+	err := json.Unmarshal(b, &message)
+	return message, err
+}
+
+func NodeMessageFromString(msg string) (NodeMessage, error) {
+	return NodeMessageFromBytes([]byte(msg))
 }
 
 func (msg *ChatMessage) ToJSON() string {
