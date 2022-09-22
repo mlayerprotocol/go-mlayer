@@ -9,3 +9,8 @@ const (
 	RelayerAccountType          = 1
 	OriginatorAccountType       = 2
 )
+
+type ReducerData struct {
+	Action  string
+	Payload interface{}
+}

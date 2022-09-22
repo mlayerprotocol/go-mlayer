@@ -96,7 +96,8 @@ type ChatMessageHeader struct {
 	Length    int    `json:"length"`
 	Timestamp int    `json:"timestamp"`
 	Sender    string `json:"from"`
-	Receiver  string `json:"to"`
+	Receiver  string `json:"receiver"`
+	Channel   string `json:"channel"`
 	ChainId   string `json:"chainId"`
 	Platform  string `json:"platform"`
 }
