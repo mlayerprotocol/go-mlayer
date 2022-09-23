@@ -13,7 +13,15 @@ import (
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
 	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/spf13/cobra"
+
+	"log"
+	"net"
+	"net/rpc"
+	"net/rpc/jsonrpc"
+
+	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
 )
+
 
 var logger = utils.Logger()
 
@@ -118,7 +126,43 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		db.Db()
 	}()
 
+	
+
+	rpc.RegisterName("HelloService", new(rpcServer.HelloService))
+	listener, err := net.Listen("tcp", ":9000")
+	if err != nil {
+			log.Fatal("ListenTCP error: ", err)
+	}
+	// wg.Add(1)
+	for {
+			conn, err := listener.Accept()
+			if err != nil {
+				// wg.Done()
+					log.Fatal("Accept error: ", err)
+			}
+			log.Printf("New connection: %+v\n", conn.RemoteAddr())
+			
+			go jsonrpc.ServeConn(conn)
+	}
+	
+
+	// // sample test endpoint
+	// http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+	// 	io.WriteString(res, "RPC SERVER LIVE!")
+	// })
+
+	// // listen and serve default HTTP server
+	// http.ListenAndServe(":9000", nil)
+
 	// r := gin.Default()
 	// r = originatorRoutes.Init(r)
 	// r.Run("localhost:8083")
 }
+
+
+// func checkError(err error) {
+//     if err != nil {
+//         fmt.Println("Fatal error ", err.Error())
+//         os.Exit(1)
+//     }
+// }
