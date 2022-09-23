@@ -64,8 +64,8 @@ func init() {
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
 	ctx := context.Background()
-	incomingMessagesc := make(chan utils.NodeMessage)
-	outgoingMessagesc := make(chan utils.NodeMessage)
+	incomingMessagesc := make(chan utils.ClientMessage)
+	outgoingMessagesc := make(chan utils.ClientMessage)
 
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	if err != nil || len(privateKey) == 0 {
@@ -138,6 +138,33 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		defer wg.Done()
 		db.Db()
 	}()
+
+	_chatinput := utils.MessageJsonInput{
+		Timestamp: 1663909754116,
+		From:      "111",
+		Reciever:  "111",
+		Platform:  "channel",
+		Type:      "html",
+		Message:   "hello world",
+		ChainId:   "",
+		Subject:   "Test Subject",
+		Signature: "909090",
+		Signer:    "0x7394030",
+		Actions: []utils.ChatMessageAction{
+			{
+				Contract: "Contract",
+				Abi:      "Abi",
+				Action:   "Action",
+				Parameters: []string{
+					"good",
+					"Jon",
+					"Doe",
+				},
+			},
+		},
+	}
+	_chatmsg := utils.CreateMessageFromJson(_chatinput)
+	fmt.Printf("Testing my function%s, %t", "_chatmsg.ToString()", utils.IsValidMessage(_chatmsg, _chatinput.Signer, _chatinput.Signature))
 
 	// r := gin.Default()
 	// r = originatorRoutes.Init(r)

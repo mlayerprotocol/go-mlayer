@@ -68,11 +68,11 @@ func Run(mainCtx *context.Context) {
 	config = cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value("IncomingMessageC").(chan utils.NodeMessage)
+	incomingMessagesC, ok := ctx.Value("IncomingMessageC").(chan utils.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value("IncomingMessageC").(chan utils.NodeMessage)
+	outgoinMessageC, ok := ctx.Value("IncomingMessageC").(chan utils.ClientMessage)
 	if !ok {
 
 	}

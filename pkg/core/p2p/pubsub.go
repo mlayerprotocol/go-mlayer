@@ -14,7 +14,7 @@ import (
 // messages are pushed to the Messages channel.
 type Channel struct {
 	// Messages is a channel of messages received from other peers in the chat channel
-	Messages chan *utils.NodeMessage
+	Messages chan *utils.ClientMessage
 
 	Ctx   context.Context
 	ps    *pubsub.PubSub
@@ -54,7 +54,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 		ID:          selfID,
 		Wallet:      walletAddress,
 		ChannelName: channelName,
-		Messages:    make(chan *utils.NodeMessage, channelBufferSize),
+		Messages:    make(chan *utils.ClientMessage, channelBufferSize),
 	}
 
 	// start reading messages from the subscription in a loop
@@ -63,7 +63,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *Channel) Publish(m utils.NodeMessage) error {
+func (cr *Channel) Publish(m utils.ClientMessage) error {
 	msgBytes, err := m.ToJSON()
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (cr *Channel) readLoop() {
 		if msg.ReceivedFrom == cr.ID {
 			continue
 		}
-		cm, err := utils.NodeMessageFromBytes(msg.Data)
+		cm, err := utils.ClientMessageFromBytes(msg.Data)
 		if err != nil {
 			continue
 		}
