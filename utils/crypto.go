@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/sirupsen/logrus"
 )
 
 var logger = Logger
@@ -27,16 +26,26 @@ func PrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
+func hashMessage(message string) []byte {
+	messageHash := crypto.Keccak256Hash([]byte(message))
+	_bytes := []byte{0x19}
+	_bytes = append(_bytes, []byte("Ethereum Signed Message:\n32")...)
+	_bytes = append(_bytes, messageHash.Bytes()...)
+	return crypto.Keccak256Hash(_bytes).Bytes()
+}
+
 func Sign(message string, privKey string) ([]byte, string) {
+
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
 		logger.Fatalf("Invalid private key %s %w", privKey, err)
 	}
 
-	hash := crypto.Keccak256Hash([]byte(message))
-	logger.WithFields(logrus.Fields{"action": "crypto.Sign", "message": message}).Infof("Message hash: %s", hash.Hex())
+	hash := hashMessage(message)
 
-	signature, err := crypto.Sign(hash.Bytes(), privateKey)
+	// logger.WithFields(logrus.Fields{"action": "crypto.Sign", "message": message}).Infof("Message hash: %s", hash.Hex())
+
+	signature, err := crypto.Sign(hash, privateKey)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -51,8 +60,11 @@ func GetSigner(message string, signature string) (string, error) {
 		logger.Debug(err)
 		return "", err
 	}
-	hash := crypto.Keccak256Hash([]byte(message))
-	signer, err := crypto.SigToPub(hash.Bytes(), decoded)
+	hash := hashMessage(message)
+	if decoded[crypto.RecoveryIDOffset] == 27 || decoded[crypto.RecoveryIDOffset] == 28 {
+		decoded[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
+	}
+	signer, err := crypto.SigToPub(hash, decoded)
 	if err != nil {
 		return "", err
 	}
