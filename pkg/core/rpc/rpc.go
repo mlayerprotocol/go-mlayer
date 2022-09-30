@@ -36,6 +36,11 @@ func (p *MessageService) Send(request utils.MessageJsonInput, reply *utils.Clien
 	if utils.IsValidMessage(chatMsg, request.Signature) {
 		privateKey := p.Cfg.PrivateKey
 		utils.Logger.Infof("private key %s", privateKey)
+
+		// TODO
+		// get public key from private key
+		// check if chatMsg.Origin == crypto.GetPublicKey(privateKey)
+
 		signature, _ := utils.Sign(request.Signature, privateKey)
 		reply.Message = chatMsg
 		reply.SenderSignature = request.Signature

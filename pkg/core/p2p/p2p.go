@@ -200,6 +200,8 @@ func Run(mainCtx *context.Context) {
 				// if err != nil {
 				// 	continue
 				// }
+				// if not a valid message, continue
+
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
 				incomingMessagesC <- *inMessage
 			}
