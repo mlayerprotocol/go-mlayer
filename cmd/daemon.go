@@ -23,7 +23,7 @@ import (
 )
 
 
-var logger = utils.Logger()
+var logger = utils.Logger
 
 const (
 	TESTNET string = "/icm/testing"
@@ -72,6 +72,8 @@ func init() {
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
 	ctx := context.Background()
+	incomingMessagesc := make(chan utils.ClientMessage)
+	outgoingMessagesc := make(chan utils.ClientMessage)
 
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	if err != nil || len(privateKey) == 0 {
@@ -92,6 +94,8 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		cfg.Network = network
 	}
 	ctx = context.WithValue(ctx, "Config", cfg)
+	ctx = context.WithValue(ctx, "IncomingMessageC", incomingMessagesc)
+	ctx = context.WithValue(ctx, "OutgoingMessageC", outgoingMessagesc)
 	var wg sync.WaitGroup
 	errc := make(chan error)
 	// dbPath, err := ioutil.TempDir("", "badger-test")
@@ -103,6 +107,34 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// 	errc <- fmt.Errorf("Could not initialize ds: %g", err)
 	// }
 	defer wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		for {
+			select {
+			case inMessage, ok := <-incomingMessagesc:
+				if !ok {
+					logger.Errorf("Incoming Message channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
+				}
+				// VALIDATE AND DISTRIBUTE
+				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
+
+				// attempt to push into outgoing message channel
+			// case outMessage, ok := <-outgoingMessagesc:
+			// 	if !ok {
+			// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+			// 		wg.Done()
+			// 		return
+			// 	}
+			// 	// VALIDATE AND DISTRIBUTE
+			// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
+
+			}
+			
+		}
+	}()
 
 	wg.Add(1)
 	go func() {
@@ -120,30 +152,33 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	go func() {
 		if err := recover(); err != nil {
 			wg.Done()
-			errc <- fmt.Errorf("Db error: %g", err)
+			errc <- fmt.Errorf("db error: %g", err)
 		}
-		//defer wg.Done()
+		defer wg.Done()
 		db.Db()
 	}()
 
 	
 
-	rpc.RegisterName("HelloService", new(rpcServer.HelloService))
-	listener, err := net.Listen("tcp", ":9000")
-	if err != nil {
-			log.Fatal("ListenTCP error: ", err)
-	}
-	// wg.Add(1)
-	for {
-			conn, err := listener.Accept()
-			if err != nil {
-				// wg.Done()
-					log.Fatal("Accept error: ", err)
-			}
-			log.Printf("New connection: %+v\n", conn.RemoteAddr())
-			
-			go jsonrpc.ServeConn(conn)
-	}
+	go func() {
+
+		rpc.RegisterName("MessageService", rpcServer.NewMessageService(&ctx))
+		listener, err := net.Listen("tcp", ":9000")
+		if err != nil {
+				log.Fatal("ListenTCP error: ", err)
+		}
+		// wg.Add(1)
+		for {
+				conn, err := listener.Accept()
+				if err != nil {
+					// wg.Done()
+						log.Fatal("Accept error: ", err)
+				}
+				log.Printf("New connection: %+v\n", conn.RemoteAddr())
+				
+				go jsonrpc.ServeConn(conn)
+		}
+	}()
 	
 
 	// // sample test endpoint
@@ -153,6 +188,31 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	// // listen and serve default HTTP server
 	// http.ListenAndServe(":9000", nil)
+	// _chatInput := utils.MessageJsonInput{
+	// 	Timestamp: 1663909754116,
+	// 	From:      "111",
+	// 	Receiver:  "111",
+	// 	Platform:  "channel",
+	// 	Type:      "html",
+	// 	Message:   "hello world",
+	// 	ChainId:   "",
+	// 	Subject:   "Test Subject",
+	// 	Signature: "909090",
+	// 	Actions: []utils.ChatMessageAction{
+	// 		{
+	// 			Contract: "Contract",
+	// 			Abi:      "Abi",
+	// 			Action:   "Action",
+	// 			Parameters: []string{
+	// 				"good",
+	// 				"Jon",
+	// 				"Doe",
+	// 			},
+	// 		},
+	// 	},
+	// }
+	// _chatMsg := utils.CreateMessageFromJson(_chatInput)
+	// fmt.Printf("Testing my function%s, %t", "_chatMsg.ToString()", utils.IsValidMessage(_chatMsg, _chatInput.Signature))
 
 	// r := gin.Default()
 	// r = originatorRoutes.Init(r)

@@ -9,9 +9,9 @@ import (
 	"time"
 
 	// "github.com/gin-gonic/gin"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
 	utils "github.com/ByteGum/go-icms/utils"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -29,7 +29,7 @@ import (
 	// rest "messagingprotocol/pkg/core/rest"
 )
 
-var logger = utils.Logger()
+var logger = utils.Logger
 var config utils.Configuration
 
 var protocolId string
@@ -61,13 +61,22 @@ func Run(mainCtx *context.Context) {
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
 	ctx, cancel := context.WithCancel(*mainCtx)
-	iConfig := ctx.Value("Config")
-	cfg, ok := iConfig.(utils.Configuration)
+	cfg, ok := ctx.Value("Config").(utils.Configuration)
 	if !ok {
 
 	}
 	config = cfg
 	protocolId = config.Network
+
+	incomingMessagesC, ok := ctx.Value("IncomingMessageC").(chan utils.ClientMessage)
+	if !ok {
+
+	}
+	outgoinMessageC, ok := ctx.Value("OutgoingMessageC").(chan utils.ClientMessage)
+	if !ok {
+
+	}
+
 	defer cancel()
 
 	// // To construct a simple host with all the default settings, just use `New`
@@ -144,6 +153,7 @@ func Run(mainCtx *context.Context) {
 	if err != nil {
 		panic(err)
 	}
+
 	h.SetStreamHandler(protocol.ID(protocolId), handleStream)
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, h)
@@ -155,6 +165,7 @@ func Run(mainCtx *context.Context) {
 	if err != nil {
 		panic(err)
 	}
+	node = &h
 
 	// The last step to get fully up and running would be to connect to
 	// bootstrap peers (or any other peers). We leave this commented as
@@ -168,20 +179,47 @@ func Run(mainCtx *context.Context) {
 	// 	h.Connect(ctx, *pi)
 	// }
 
-	logger.Info("Host started with ID is %s\n", h.ID())
+	logger.Infof("Host started with ID is %s\n", h.ID())
 
 	cr, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-	node = &h
 	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", cr.ChannelName)
+	go func() {
+		time.Sleep(10 * time.Second)
+		for {
+			select {
+			case inMessage, ok := <-cr.Messages:
+				if !ok {
+					logger.Errorf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
+					cancel()
+					return
+				}
+				// msg, err := d.ToJSON()
+				// if err != nil {
+				// 	continue
+				// }
+				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
+				incomingMessagesC <- *inMessage
+			}
+		}
+	}()
+	for {
+		select {
+		case outMessage, ok := <-outgoinMessageC:
+			if !ok {
+				logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
+				return
+			}
+			err := cr.Publish(outMessage)
+			if err != nil {
+				logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
 
-	// draw the UI
-	// ui := NewChatUI(cr)
-	// if err = ui.Run(); err != nil {
-	// 	logger.Error("error running text UI: %s", err)
-	// }
+				return
+			}
+		}
+	}
 
 }
 
@@ -205,13 +243,6 @@ func handleStream(stream network.Stream) {
 
 }
 
-func createHandshake(name string, network string) utils.Handshake {
-	pubKey := utils.GetPublicKey(config.PrivateKey)
-	data := utils.HandshakeData{Name: name, ProtocolId: network, Timestamp: int(time.Now().Unix())}
-	_, signature := utils.Sign((&data).ToString(), config.PrivateKey)
-	return utils.Handshake{Data: data, Signature: signature, Signer: pubKey}
-}
-
 func readData(p peer.ID, rw *bufio.ReadWriter) {
 	for {
 		hsString, err := rw.ReadString('\n')
@@ -228,10 +259,17 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %w", err)
 			break
 		}
-		valid := isValidHandshake(handshake, p)
-		if !valid {
+		validHandshke := isValidHandshake(handshake, p)
+		if !validHandshke {
 			disconnect(*node, p)
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Disconnecting from peer (%s) with invalid handshake", p)
+			return
+		}
+		validStake := isValidStake(handshake, p)
+		if !validStake {
+			disconnect(*node, p)
+			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsString}).Warnf("Disconnecting from peer (%s) with inadequate stake in network", p)
+			return
 		}
 		b, _ := hexutil.Decode(handshake.Signer)
 		peerPubKeys[p] = b
@@ -252,14 +290,16 @@ func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
 		return false
 	}
 	logger.Infof("New Valid handshake from peer: %s", p)
-	// check stake balance
+	return true
+}
+func isValidStake(handshake utils.Handshake, p peer.ID) bool {
 	stakeContract, err := evm.StakeContract(config.RPCUrl, config.StakeContract)
 	if err != nil {
 		logger.Errorf("RPC error %w", err)
 	}
 	level, err := stakeContract.GetAccountLevel(nil, evm.ToHexAddress(handshake.Signer))
 	if level == utils.StandardAccountType {
-		logger.WithFields(logrus.Fields{"peer": p, "accountType": level}).Warnf("Inadequate stake balance for peer with address %s", handshake.Signer)
+		logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Warnf("Inadequate stake balance for peer %s", p)
 		return false
 	}
 	return true
@@ -302,7 +342,7 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 		logger.Infof("New StreamID: %s", stream.ID())
 		peerStreams[stream.ID()] = pi.ID
-		hs := createHandshake(defaultNick(n.h.ID()), protocolId)
+		hs := utils.CreateHandshake(defaultNick(n.h.ID()), protocolId, config.PrivateKey)
 		go sendData(pi.ID, rw, (&hs).ToJSON())
 		// go readData(rw)
 	}
