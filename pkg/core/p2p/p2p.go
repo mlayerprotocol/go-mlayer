@@ -196,6 +196,8 @@ func Run(mainCtx *context.Context) {
 					cancel()
 					return
 				}
+				// !validating message
+				// !if not a valid message continue
 				// msg, err := d.ToJSON()
 				// if err != nil {
 				// 	continue
