@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"os"
 	"time"
 
@@ -302,9 +303,12 @@ func isValidStake(handshake utils.Handshake, p peer.ID) bool {
 	if err != nil {
 		logger.Errorf("RPC error %w", err)
 	}
-	level, err := stakeContract.GetAccountLevel(nil, evm.ToHexAddress(handshake.Signer))
-	if level == utils.StandardAccountType {
-		logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Warnf("Inadequate stake balance for peer %s", p)
+	level, err := stakeContract.GetNodeLevel(nil, evm.ToHexAddress(handshake.Signer))
+	i := new(big.Int).SetUint64(uint64(utils.StandardAccountType))
+
+	if level.Cmp(i) == 0 {
+
+		logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Warnf("Inadequate stake balance for peer %s ---- %s", p, err)
 		return false
 	}
 	return true
