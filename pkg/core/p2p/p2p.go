@@ -198,10 +198,13 @@ func Run(mainCtx *context.Context) {
 				}
 				// !validating message
 				// !if not a valid message continue
-				// msg, err := d.ToJSON()
-				// if err != nil {
-				// 	continue
-				// }
+				_, err := inMessage.ToJSON()
+				if err != nil {
+					continue
+				}
+				//TODO:
+				// if not a valid message, continue
+
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
 				incomingMessagesC <- *inMessage
 			}

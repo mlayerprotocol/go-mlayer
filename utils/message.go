@@ -151,20 +151,20 @@ type SuccessResponse struct {
 
 type ErrorResponse struct {
 	statusCode int
-	meta Meta
+	meta       Meta
 }
 
 type Meta struct {
 	statusCode int
-	success bool
+	success    bool
 }
 
-func ReturnError(msg string, code int) *ErrorResponse{
-	meta:= Meta{statusCode: code}
+func ReturnError(msg string, code int) *ErrorResponse {
+	meta := Meta{statusCode: code}
 	meta.success = false
 	e := ErrorResponse{statusCode: code}
-    e.meta = meta
-    return &e
+	e.meta = meta
+	return &e
 }
 
 func (msg *ClientMessage) ToJSON() ([]byte, error) {
@@ -257,7 +257,7 @@ func IsValidMessage(msg ChatMessage, signature string) bool {
 		logger.WithFields(logrus.Fields{"message": message, "signature": signature}).Warnf("Invalid signer %s", signer)
 		return false
 	} else {
-		
+
 	}
 	return true
 }

@@ -36,8 +36,13 @@ func (p *MessageService) Send(request utils.MessageJsonInput, reply *utils.Clien
 	if utils.IsValidMessage(chatMsg, request.Signature) {
 		privateKey := p.Cfg.PrivateKey
 		utils.Logger.Infof("private key %s", privateKey)
+
+		// TODO:
 		// get public key from private key
-		// check if chatmsh.origin == crypto.getpublickey
+		if chatMsg.Origin == utils.GetPublicKey(privateKey) {
+			panic("Invalid origin")
+		}
+
 		signature, _ := utils.Sign(request.Signature, privateKey)
 		reply.Message = chatMsg
 		reply.SenderSignature = request.Signature
@@ -57,4 +62,4 @@ func (p *MessageService) Send(request utils.MessageJsonInput, reply *utils.Clien
 //! create valid outgoing channel
 //! listen into incoming outgoing
 //! store in the db
-//! create a copy and broadcast to the network
+//! create a copy and broadcast to the network 
