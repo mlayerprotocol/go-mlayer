@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/registry"
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
+	stake "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stakecontract"
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/token"
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
