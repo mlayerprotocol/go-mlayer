@@ -13,7 +13,15 @@ import (
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
 	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/spf13/cobra"
+
+	"log"
+	"net"
+	"net/rpc"
+	"net/rpc/jsonrpc"
+
+	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
 )
+
 
 var logger = utils.Logger
 
@@ -64,8 +72,8 @@ func init() {
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
 	ctx := context.Background()
-	incomingMessagesc := make(chan utils.NodeMessage)
-	outgoingMessagesc := make(chan utils.NodeMessage)
+	incomingMessagesc := make(chan utils.ClientMessage)
+	outgoingMessagesc := make(chan utils.ClientMessage)
 
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	if err != nil || len(privateKey) == 0 {
@@ -87,7 +95,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}
 	ctx = context.WithValue(ctx, "Config", cfg)
 	ctx = context.WithValue(ctx, "IncomingMessageC", incomingMessagesc)
-	ctx = context.WithValue(ctx, "OutgoinMessageC", outgoingMessagesc)
+	ctx = context.WithValue(ctx, "OutgoingMessageC", outgoingMessagesc)
 	var wg sync.WaitGroup
 	errc := make(chan error)
 	// dbPath, err := ioutil.TempDir("", "badger-test")
@@ -106,14 +114,25 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			select {
 			case inMessage, ok := <-incomingMessagesc:
 				if !ok {
-					logger.Errorf("Incomming Message channel closed. Please restart server to try or adjust buffer size in config")
+					logger.Errorf("Incoming Message channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
 					return
 				}
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
 
+				// attempt to push into outgoing message channel
+			// case outMessage, ok := <-outgoingMessagesc:
+			// 	if !ok {
+			// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+			// 		wg.Done()
+			// 		return
+			// 	}
+			// 	// VALIDATE AND DISTRIBUTE
+			// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
+
 			}
+			
 		}
 	}()
 
@@ -133,13 +152,77 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	go func() {
 		if err := recover(); err != nil {
 			wg.Done()
-			errc <- fmt.Errorf("Db error: %g", err)
+			errc <- fmt.Errorf("db error: %g", err)
 		}
 		defer wg.Done()
 		db.Db()
 	}()
 
+	
+
+	go func() {
+
+		rpc.RegisterName("MessageService", rpcServer.NewMessageService(&ctx))
+		listener, err := net.Listen("tcp", ":9000")
+		if err != nil {
+				log.Fatal("ListenTCP error: ", err)
+		}
+		// wg.Add(1)
+		for {
+				conn, err := listener.Accept()
+				if err != nil {
+					// wg.Done()
+						log.Fatal("Accept error: ", err)
+				}
+				log.Printf("New connection: %+v\n", conn.RemoteAddr())
+				
+				go jsonrpc.ServeConn(conn)
+		}
+	}()
+	
+
+	// // sample test endpoint
+	// http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+	// 	io.WriteString(res, "RPC SERVER LIVE!")
+	// })
+
+	// // listen and serve default HTTP server
+	// http.ListenAndServe(":9000", nil)
+	// _chatInput := utils.MessageJsonInput{
+	// 	Timestamp: 1663909754116,
+	// 	From:      "111",
+	// 	Receiver:  "111",
+	// 	Platform:  "channel",
+	// 	Type:      "html",
+	// 	Message:   "hello world",
+	// 	ChainId:   "",
+	// 	Subject:   "Test Subject",
+	// 	Signature: "909090",
+	// 	Actions: []utils.ChatMessageAction{
+	// 		{
+	// 			Contract: "Contract",
+	// 			Abi:      "Abi",
+	// 			Action:   "Action",
+	// 			Parameters: []string{
+	// 				"good",
+	// 				"Jon",
+	// 				"Doe",
+	// 			},
+	// 		},
+	// 	},
+	// }
+	// _chatMsg := utils.CreateMessageFromJson(_chatInput)
+	// fmt.Printf("Testing my function%s, %t", "_chatMsg.ToString()", utils.IsValidMessage(_chatMsg, _chatInput.Signature))
+
 	// r := gin.Default()
 	// r = originatorRoutes.Init(r)
 	// r.Run("localhost:8083")
 }
+
+
+// func checkError(err error) {
+//     if err != nil {
+//         fmt.Println("Fatal error ", err.Error())
+//         os.Exit(1)
+//     }
+// }
