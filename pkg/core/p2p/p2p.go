@@ -299,7 +299,10 @@ func isValidStake(handshake utils.Handshake, p peer.ID) bool {
 		logger.Errorf("RPC error %w", err)
 	}
 	level, err := stakeContract.GetNodeLevel(nil, evm.ToHexAddress(handshake.Signer))
+
 	i := new(big.Int).SetUint64(uint64(utils.StandardAccountType))
+
+	fmt.Printf("level i ---  %s: %s -- %s\n", level, i, err)
 
 	if level.Cmp(i) == 0 {
 

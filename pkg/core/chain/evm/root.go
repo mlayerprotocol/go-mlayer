@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/registry"
-	stake "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stakecontract"
+	stake "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/token"
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -35,7 +35,7 @@ func StakeContract(rpc_url string, contractAddress string) (*stake.Stake, error)
 	return instance, err
 }
 
-func TokenContract(rpc_url string, contractAddress string) (*token.Abi, error) {
+func TokenContract(rpc_url string, contractAddress string) (*token.IcmToken, error) {
 	client, err := ethclient.Dial(rpc_url)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func TokenContract(rpc_url string, contractAddress string) (*token.Abi, error) {
 
 	address := common.HexToAddress(contractAddress)
 
-	instance, err := token.NewAbi(address, client)
+	instance, err := token.NewIcmToken(address, client)
 	if err != nil {
 		return nil, err
 	}
