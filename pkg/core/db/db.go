@@ -7,8 +7,8 @@ import (
 	badger "github.com/dgraph-io/badger"
 )
 
-func Db()  {
-	dir, err := ioutil.TempDir("", "badger-test")
+func Db(tmp string) {
+	dir, err := ioutil.TempDir(tmp, "badger-test")
 	if err != nil {
 		panic(err)
 	}
@@ -56,4 +56,17 @@ func Db()  {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func InitDb(tmp string) *badger.DB {
+	dir, err := ioutil.TempDir(tmp, "icm")
+	if err != nil {
+		panic(err)
+	}
+	//defer ioutil.removeDir(dir)
+	db, err := badger.Open(badger.DefaultOptions(dir))
+	if err != nil {
+		panic(err)
+	}
+	return db
 }

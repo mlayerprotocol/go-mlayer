@@ -12,6 +12,8 @@ import (
 	"github.com/ByteGum/go-icms/pkg/core/db"
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
 	utils "github.com/ByteGum/go-icms/utils"
+	"github.com/dgraph-io/badger"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/spf13/cobra"
 
 	"log"
@@ -21,7 +23,6 @@ import (
 
 	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
 )
-
 
 var logger = utils.Logger
 
@@ -74,6 +75,9 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 	incomingMessagesc := make(chan utils.ClientMessage)
 	outgoingMessagesc := make(chan utils.ClientMessage)
+	publishMessagesc := make(chan utils.ClientMessage)
+	messageDb := db.InitDb("")
+	defer messageDb.Close()
 
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	if err != nil || len(privateKey) == 0 {
@@ -96,6 +100,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, "Config", cfg)
 	ctx = context.WithValue(ctx, "IncomingMessageC", incomingMessagesc)
 	ctx = context.WithValue(ctx, "OutgoingMessageC", outgoingMessagesc)
+	ctx = context.WithValue(ctx, "PublishMessagesC", publishMessagesc)
 	var wg sync.WaitGroup
 	errc := make(chan error)
 	// dbPath, err := ioutil.TempDir("", "badger-test")
@@ -122,17 +127,59 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
 
 				// attempt to push into outgoing message channel
-			// case outMessage, ok := <-outgoingMessagesc:
-			// 	if !ok {
-			// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
-			// 		wg.Done()
-			// 		return
-			// 	}
-			// 	// VALIDATE AND DISTRIBUTE
-			// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
+				// case outMessage, ok := <-outgoingMessagesc:
+				// 	if !ok {
+				// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+				// 		wg.Done()
+				// 		return
+				// 	}
+				// 	// VALIDATE AND DISTRIBUTE
+				// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
 
 			}
-			
+
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		for {
+			select {
+			case outMessage, ok := <-outgoingMessagesc:
+				if !ok {
+					logger.Errorf("Incoming Message channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
+				}
+				// VALIDATE AND DISTRIBUTE
+
+				logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
+				txn := messageDb.NewTransaction(true) // Read-write txn
+				id, _ := gonanoid.New()
+				key := fmt.Sprintf("%s-%s-%s", outMessage.Message.Header.Sender, outMessage.Message.Origin, id)
+				outMessageData, _ := outMessage.ToJSON()
+				err = txn.SetEntry(badger.NewEntry([]byte(key), outMessageData))
+				if err != nil {
+					panic(err)
+				}
+				err = txn.Commit()
+				if err != nil {
+					panic(err)
+				}
+				publishMessagesc <- outMessage
+
+				// attempt to push into outgoing message channel
+				// case outMessage, ok := <-outgoingMessagesc:
+				// 	if !ok {
+				// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+				// 		wg.Done()
+				// 		return
+				// 	}
+				// 	// VALIDATE AND DISTRIBUTE
+				// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
+
+			}
+
 		}
 	}()
 
@@ -148,38 +195,26 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		// }).Infof("publicKey %s", priv)
 		p2p.Run(&ctx)
 	}()
-	wg.Add(1)
-	go func() {
-		if err := recover(); err != nil {
-			wg.Done()
-			errc <- fmt.Errorf("db error: %g", err)
-		}
-		defer wg.Done()
-		db.Db()
-	}()
-
-	
 
 	go func() {
 
 		rpc.RegisterName("MessageService", rpcServer.NewMessageService(&ctx))
 		listener, err := net.Listen("tcp", ":9000")
 		if err != nil {
-				log.Fatal("ListenTCP error: ", err)
+			log.Fatal("ListenTCP error: ", err)
 		}
 		// wg.Add(1)
 		for {
-				conn, err := listener.Accept()
-				if err != nil {
-					// wg.Done()
-						log.Fatal("Accept error: ", err)
-				}
-				log.Printf("New connection: %+v\n", conn.RemoteAddr())
-				
-				go jsonrpc.ServeConn(conn)
+			conn, err := listener.Accept()
+			if err != nil {
+				// wg.Done()
+				log.Fatal("Accept error: ", err)
+			}
+			log.Printf("New connection: %+v\n", conn.RemoteAddr())
+
+			go jsonrpc.ServeConn(conn)
 		}
 	}()
-	
 
 	// // sample test endpoint
 	// http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
@@ -218,7 +253,6 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// r = originatorRoutes.Init(r)
 	// r.Run("localhost:8083")
 }
-
 
 // func checkError(err error) {
 //     if err != nil {
