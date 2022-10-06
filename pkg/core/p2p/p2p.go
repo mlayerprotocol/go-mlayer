@@ -11,9 +11,13 @@ import (
 
 	// "github.com/gin-gonic/gin"
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
-	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	"github.com/multiformats/go-multiaddr"
+	"github.com/sirupsen/logrus"
+
+	utils "github.com/ByteGum/go-icms/utils"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -25,8 +29,6 @@ import (
 	noise "github.com/libp2p/go-libp2p-noise"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	libp2ptls "github.com/libp2p/go-libp2p-tls"
-	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
-	"github.com/sirupsen/logrus"
 	// rest "messagingprotocol/pkg/core/rest"
 )
 
@@ -34,6 +36,7 @@ var logger = utils.Logger
 var config utils.Configuration
 
 var protocolId string
+var privKey crypto.PrivKey
 
 const DiscoveryServiceTag = "icm-network"
 const (
@@ -62,18 +65,18 @@ func Run(mainCtx *context.Context) {
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
 	ctx, cancel := context.WithCancel(*mainCtx)
-	cfg, ok := ctx.Value("Config").(utils.Configuration)
+	cfg, ok := ctx.Value(utils.ConfigKey).(*utils.Configuration)
 	if !ok {
 
 	}
-	config = cfg
+	config = *cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value("IncomingMessageC").(chan utils.ClientMessage)
+	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(*chan utils.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value("OutgoingMessageC").(chan utils.ClientMessage)
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageCh).(*chan utils.ClientMessage)
 	if !ok {
 
 	}
@@ -96,26 +99,33 @@ func Run(mainCtx *context.Context) {
 	// that is fully configured to best support your p2p application.
 	// Let's create a second host setting some more options.
 	// Set your own keypaircsd
-	priv, _, err := crypto.GenerateKeyPair(
 
-		crypto.ECDSA, // Select your key type. Ed25519 are nice short
-		-1,           // Select key length when possible (i.e. RSA).
-	)
-	// privK, _ := ethCrypto.HexToECDSA(privateKey)
-	// priv, _, err := crypto.ECDSAKeyPairFromKey(privK)
-	if err != nil {
-		panic(err)
+	if len(cfg.NodePrivateKey) == 0 {
+		priv, _, err := crypto.GenerateKeyPair(
+			crypto.ECDSA, // Select your key type. Ed25519 are nice short
+			-1,           // Select key length when possible (i.e. RSA).
+		)
+		if err != nil {
+			panic(err)
+		}
+		privKey = priv
+	} else {
+		priv, err := crypto.UnmarshalECDSAPrivateKey(hexutil.MustDecode(cfg.NodePrivateKey))
+		if err != nil {
+			panic(err)
+		}
+		privKey = priv
 	}
+
+	// pKey, _ := privKey.Raw()
+	// fmt.Printf("Private Key %s", hexutil.Encode(pKey))
 	var idht *dht.IpfsDHT
 
 	h, err := libp2p.New(
 		// Use the keypair we generated
-		libp2p.Identity(priv),
+		libp2p.Identity(privKey),
 		// Multiple listen addresses
-		libp2p.ListenAddrStrings(
-			"/ip4/0.0.0.0/tcp/9000/ws",
-			"/ip4/0.0.0.0/tcp/0",
-		),
+		libp2p.ListenAddrStrings(cfg.Listeners...),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
@@ -135,7 +145,8 @@ func Run(mainCtx *context.Context) {
 		// Let this host use the DHT to find other hosts
 
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			idht, err = dht.New(ctx, h)
+			dht, err := dht.New(ctx, h)
+			idht = dht
 			return idht, err
 		}),
 
@@ -173,12 +184,22 @@ func Run(mainCtx *context.Context) {
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
 
-	// for _, addr := range dht.DefaultBootstrapPeers {
-	// 	pi, _ := peer.AddrInfoFromP2pAddr(addr)
-	// 	// We ignore errors as some bootstrap peers may be down
-	// 	// and that is fine.
-	// 	h.Connect(ctx, *pi)
-	// }
+	for _, addr := range cfg.BootstrapPeers {
+		fmt.Printf("Peeeeeeeer %s\n", addr)
+		addr, _ := multiaddr.NewMultiaddr(addr)
+		pi, err := peer.AddrInfoFromP2pAddr(addr)
+		if err != nil {
+			logger.Warnf("Invalid boostrap peer address (%s): %s \n", addr, err)
+		} else {
+			error := h.Connect(ctx, *pi)
+			if error != nil {
+				logger.Infof("Unable connect to boostrap peer (%s): %s \n", addr, err)
+				continue
+			}
+			logger.Infof("Connected to boostrap peer (%s)", addr)
+			handleConnect(&h, pi)
+		}
+	}
 
 	logger.Infof("Host started with ID is %s\n", h.ID())
 
@@ -193,8 +214,8 @@ func Run(mainCtx *context.Context) {
 			select {
 			case inMessage, ok := <-cr.Messages:
 				if !ok {
-					logger.Errorf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
 					cancel()
+					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
 					return
 				}
 				// !validating message
@@ -207,22 +228,26 @@ func Run(mainCtx *context.Context) {
 				// if not a valid message, continue
 
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
-				incomingMessagesC <- *inMessage
+				*incomingMessagesC <- *inMessage
 			}
 		}
 	}()
+
 	for {
 		select {
-		case outMessage, ok := <-outgoinMessageC:
-			if !ok {
-				logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
-				return
-			}
-			err := cr.Publish(outMessage)
-			if err != nil {
-				logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
+		case outMessage, ok := <-*outgoinMessageC:
+			if cfg.Validator {
+				if !ok {
+					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
+					return
+				}
 
-				return
+				err := cr.Publish(outMessage)
+				if err != nil {
+					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
+
+					return
+				}
 			}
 		}
 	}
@@ -299,20 +324,20 @@ func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
 	return true
 }
 func isValidStake(handshake utils.Handshake, p peer.ID) bool {
-	stakeContract, err := evm.StakeContract(config.RPCUrl, config.StakeContract)
-	if err != nil {
-		logger.Errorf("RPC error %w", err)
-	}
-	level, err := stakeContract.GetNodeLevel(nil, evm.ToHexAddress(handshake.Signer))
+	if handshake.Data.NodeType == utils.ValidatorNodeType && config.Validator {
+		stakeContract, err := evm.StakeContract(config.EVMRPCUrl, config.StakeContract)
+		if err != nil {
+			logger.Errorf("EVM RPC error. Could not connect to stake contract: %s", err)
+			return false
+		}
 
-	i := new(big.Int).SetUint64(uint64(utils.StandardAccountType))
-
-	fmt.Printf("level i ---  %s: %s -- %s\n", level, i, err)
-
-	if level.Cmp(i) == 0 {
-
-		logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Warnf("Inadequate stake balance for peer %s ---- %s", p, err)
-		return false
+		level, err := stakeContract.GetNodeLevel(nil, evm.ToHexAddress(handshake.Signer))
+		i := new(big.Int).SetUint64(uint64(utils.ValidatorNodeType))
+		fmt.Printf("level i ---  %s: %s -- %s\n", level, i, err)
+		if level.Cmp(i) >= 0 {
+			logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Warnf("Inadequate stake balance for validator peer %s ---- %s", p, err)
+			return false
+		}
 	}
 	return true
 }
@@ -341,22 +366,32 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	err := n.h.Connect(context.Background(), pi)
 
 	if err != nil {
-		fmt.Printf("error connecting to peer %s: %s\n", pi.ID.Pretty(), err)
+		logger.Warningf("Unable to connect with peer: %s %w", pi.ID, err)
+		return
 	}
+	handleConnect(&n.h, &pi)
+}
+
+func handleConnect(h *host.Host, pa *peer.AddrInfo) {
+	pi := *pa
+	logger.Infof("Successfully connected to peer: %s", pi.ID)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stream, err := n.h.NewStream(ctx, pi.ID, protocol.ID(protocolId))
+	stream, err := (*h).NewStream(ctx, pi.ID, protocol.ID(protocolId))
 
 	if err != nil {
-		logger.Warningf("Unable to establish stream with peer: %s %w", pi.ID, err)
+		logger.Warningf("Unable to establish stream with peer: %s %w", pi.ID, err.Error())
 	} else {
 		logger.Infof("Streaming to peer: %s", pi.ID)
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 		logger.Infof("New StreamID: %s", stream.ID())
 		peerStreams[stream.ID()] = pi.ID
-		hs := utils.CreateHandshake(defaultNick(n.h.ID()), protocolId, config.PrivateKey)
+		nodeType := utils.RelayNodeType
+		if config.Validator {
+			nodeType = utils.ValidatorNodeType
+		}
+		hs := utils.CreateHandshake(defaultNick((*h).ID()), protocolId, config.EvmPrivateKey, nodeType)
 		go sendData(pi.ID, rw, (&hs).ToJSON())
-		// go readData(rw)
 	}
 }
 

@@ -3,10 +3,9 @@ package rpc
 import (
 	// "errors"
 	"context"
-	"fmt"
 
+	services "github.com/ByteGum/go-icms/pkg/service"
 	utils "github.com/ByteGum/go-icms/utils"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type Flag string
@@ -17,44 +16,26 @@ type Flag string
 // 	message string
 // }
 
-type MessageService struct {
-	Ctx context.Context
-	Cfg utils.Configuration
+type RpcService struct {
+	Ctx            *context.Context
+	Cfg            *utils.Configuration
+	MessageService *services.MessageService
 }
 
-func NewMessageService(mainCtx *context.Context) *MessageService {
-	ctx, _ := context.WithCancel(*mainCtx)
-	cfg, _ := ctx.Value("Config").(utils.Configuration)
-	return &MessageService{
-		Ctx: ctx,
-		Cfg: cfg,
+func NewRpcService(mainCtx *context.Context) *RpcService {
+	cfg, _ := (*mainCtx).Value(utils.ConfigKey).(*utils.Configuration)
+	return &RpcService{
+		Ctx:            mainCtx,
+		Cfg:            cfg,
+		MessageService: services.NewMessageService(mainCtx),
 	}
 }
 
-func (p *MessageService) Send(request utils.MessageJsonInput, reply *utils.ClientMessage) error {
+func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *utils.ClientMessage) error {
 	chatMsg := utils.CreateMessageFromJson(request)
-	if utils.IsValidMessage(chatMsg, request.Signature) {
-		privateKey := p.Cfg.PrivateKey
-		utils.Logger.Infof("private key %s", privateKey)
-
-		// TODO:
-		// get public key from private key
-		if chatMsg.Origin == utils.GetPublicKey(privateKey) {
-			panic("Invalid origin")
-		}
-
-		signature, _ := utils.Sign(request.Signature, privateKey)
-		reply.Message = chatMsg
-		reply.SenderSignature = request.Signature
-		reply.NodeSignature = hexutil.Encode(signature)
-		outgoingMessageC, ok := p.Ctx.Value("OutgoingMessageC").(chan utils.ClientMessage)
-		if !ok {
-			utils.Logger.Error("Could not connect to outgoing channel")
-			panic("outgoing channel fail")
-		}
-		outgoingMessageC <- *reply
-		fmt.Printf("Testing my function%s, %s", chatMsg.ToString(), chatMsg.Body.Subject)
-		return nil
+	reply, err := (*p.MessageService).Send(chatMsg, request.Signature)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -62,4 +43,4 @@ func (p *MessageService) Send(request utils.MessageJsonInput, reply *utils.Clien
 //! create valid outgoing channel
 //! listen into incoming outgoing
 //! store in the db
-//! create a copy and broadcast to the network 
+//! create a copy and broadcast to the network

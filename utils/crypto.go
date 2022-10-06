@@ -17,7 +17,7 @@ func GetPublicKey(privKey string) string {
 	return crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
 }
 
-func PrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
+func EvmPrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
 		logger.Fatalf("Invalid private key %s %w", privKey, err)

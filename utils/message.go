@@ -24,6 +24,7 @@ type HandshakeData struct {
 	Timestamp  int    `json:"timestamp"`
 	ProtocolId string `json:"protocolId"`
 	Name       string `json:"name"`
+	NodeType   uint   `json:"node_type"`
 }
 
 type Handshake struct {
@@ -41,7 +42,7 @@ func (hs *Handshake) Init(jsonString string) error {
 	return er
 }
 func (hsd *HandshakeData) ToString() string {
-	return fmt.Sprintf("name:%s,timestamp:%d,protocolId:%s", hsd.Name, hsd.Timestamp, hsd.ProtocolId)
+	return fmt.Sprintf("name:%s,timestamp:%d,protocolId:%s,nodeType:%d", hsd.Name, hsd.Timestamp, hsd.ProtocolId, hsd.NodeType)
 }
 
 func (hsd *HandshakeData) ToJSON() []byte {
@@ -66,9 +67,9 @@ func HandshakeFromString(hs string) Handshake {
 	return HandshakeFromBytes([]byte(hs))
 }
 
-func CreateHandshake(name string, network string, privateKey string) Handshake {
+func CreateHandshake(name string, network string, privateKey string, nodeType uint) Handshake {
 	pubKey := GetPublicKey(privateKey)
-	data := HandshakeData{Name: name, ProtocolId: network, Timestamp: int(time.Now().Unix())}
+	data := HandshakeData{Name: name, ProtocolId: network, NodeType: nodeType, Timestamp: int(time.Now().Unix())}
 	_, signature := Sign((&data).ToString(), privateKey)
 	return Handshake{Data: data, Signature: signature, Signer: pubKey}
 }

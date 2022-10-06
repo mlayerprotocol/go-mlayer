@@ -5,7 +5,18 @@ const (
 )
 
 const (
-	StandardAccountType   uint8 = 0
-	RelayerAccountType          = 1
-	OriginatorAccountType       = 2
+	DefaultRPCPort string = "9521" // time interval within which to accept a handshake
+)
+
+const (
+	RelayNodeType     uint = 0
+	ValidatorNodeType      = 1
+)
+
+// Values withing the main context
+const (
+	ConfigKey         string = "Config"
+	OutgoingMessageCh        = "OutgoingMessageChannel"
+	IncomingMessageCh        = "IncomingMessageChannel"
+	PublishMessageCh         = "PublishMessageChannel"
 )
