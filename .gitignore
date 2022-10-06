@@ -8,4 +8,5 @@ cache
 artifacts
 secrets.json
 .openzeppelin
+.vscode
 config
