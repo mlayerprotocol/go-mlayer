@@ -9,19 +9,17 @@ import (
 	"fmt"
 	"sync"
 
+	"net"
+	"net/rpc"
+	"net/rpc/jsonrpc"
+
 	"github.com/ByteGum/go-icms/pkg/core/db"
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
 	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/spf13/cobra"
 
-	"log"
-	"net"
-	"net/rpc"
-	"net/rpc/jsonrpc"
-
 	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
 )
-
 
 var logger = utils.Logger
 
@@ -33,8 +31,11 @@ const (
 type Flag string
 
 const (
-	PRIVATE_KEY Flag = "private-key"
-	NETWORK          = "network"
+	PRIVATE_KEY      Flag = "private-key"
+	EVM_PRIVATE_KEY  Flag = "evm-private-key"
+	NODE_PRIVATE_KEY Flag = "node-private-key"
+	NETWORK               = "network"
+	RPC_PORT         Flag = "rpc-port"
 )
 
 // daemonCmd represents the daemon command
@@ -65,8 +66,11 @@ func init() {
 	// is called directly, e.g.:
 	// daemonCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "k", "", "Help message for toggle")
+	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "r", "", "(Deprecated) The evm private key. Please use --evm-private-key")
+	daemonCmd.Flags().StringP(string(EVM_PRIVATE_KEY), "e", "", "The evm private key. This is the key used to sign handshakes and messages")
+	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
 	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
+	daemonCmd.Flags().StringP(string(RPC_PORT), "p", utils.DefaultRPCPort, "RPC server port")
 }
 
 func daemonFunc(cmd *cobra.Command, args []string) {
@@ -76,13 +80,18 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	outgoingMessagesc := make(chan utils.ClientMessage)
 
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
+	evmPrivateKey, err := cmd.Flags().GetString(string(EVM_PRIVATE_KEY))
+	rpcPort, err := cmd.Flags().GetString(string(RPC_PORT))
+
 	if err != nil || len(privateKey) == 0 {
-		if len(cfg.PrivateKey) == 0 {
-			panic("Private key is required. Use --private-key flag or environment var ICM_PRIVATE_KEY")
+		if len(evmPrivateKey) == 0 {
+			panic("Private key is required. Use --private-key flag or environment var ICM_EVM_PRIVATE_KEY")
+		} else {
+			privateKey = evmPrivateKey
 		}
 	}
 	if len(privateKey) > 0 {
-		cfg.PrivateKey = privateKey
+		cfg.EvmPrivateKey = privateKey
 	}
 	network, err := cmd.Flags().GetString(string(NETWORK))
 	if err != nil || len(network) == 0 {
@@ -93,9 +102,14 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	if len(network) > 0 {
 		cfg.Network = network
 	}
-	ctx = context.WithValue(ctx, "Config", cfg)
-	ctx = context.WithValue(ctx, "IncomingMessageC", incomingMessagesc)
-	ctx = context.WithValue(ctx, "OutgoingMessageC", outgoingMessagesc)
+
+	if rpcPort == utils.DefaultRPCPort && len(cfg.RPCPort) > 0 {
+		rpcPort = cfg.RPCPort
+	}
+
+	ctx = context.WithValue(ctx, utils.ConfigKey, &cfg)
+	ctx = context.WithValue(ctx, utils.IncomingMessageCh, &incomingMessagesc)
+	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
 	var wg sync.WaitGroup
 	errc := make(chan error)
 	// dbPath, err := ioutil.TempDir("", "badger-test")
@@ -122,17 +136,17 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
 
 				// attempt to push into outgoing message channel
-			// case outMessage, ok := <-outgoingMessagesc:
-			// 	if !ok {
-			// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
-			// 		wg.Done()
-			// 		return
-			// 	}
-			// 	// VALIDATE AND DISTRIBUTE
-			// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
+				// case outMessage, ok := <-outgoingMessagesc:
+				// 	if !ok {
+				// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+				// 		wg.Done()
+				// 		return
+				// 	}
+				// 	// VALIDATE AND DISTRIBUTE
+				// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
 
 			}
-			
+
 		}
 	}()
 
@@ -158,28 +172,25 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		db.Db()
 	}()
 
-	
-
 	go func() {
 
-		rpc.RegisterName("MessageService", rpcServer.NewMessageService(&ctx))
-		listener, err := net.Listen("tcp", ":9000")
+		rpc.RegisterName("MessageService", rpcServer.NewRpcService(&ctx))
+		listener, err := net.Listen("tcp", cfg.RPCHost+":"+rpcPort)
 		if err != nil {
-				log.Fatal("ListenTCP error: ", err)
+			logger.Fatal("ListenTCP error: ", err)
 		}
-		// wg.Add(1)
+		logger.Infof("RPC server runing on: %+s", cfg.RPCHost+":"+rpcPort)
 		for {
-				conn, err := listener.Accept()
-				if err != nil {
-					// wg.Done()
-						log.Fatal("Accept error: ", err)
-				}
-				log.Printf("New connection: %+v\n", conn.RemoteAddr())
-				
-				go jsonrpc.ServeConn(conn)
+			conn, err := listener.Accept()
+			if err != nil {
+				// wg.Done()
+				logger.Fatalf("Accept error: ", err)
+			}
+			logger.Infof("New connection: %+v\n", conn.RemoteAddr())
+
+			go jsonrpc.ServeConn(conn)
 		}
 	}()
-	
 
 	// // sample test endpoint
 	// http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
@@ -218,7 +229,6 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// r = originatorRoutes.Init(r)
 	// r.Run("localhost:8083")
 }
-
 
 // func checkError(err error) {
 //     if err != nil {
