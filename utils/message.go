@@ -3,7 +3,11 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -99,21 +103,77 @@ type ChatMessage struct {
 	Origin  string              `json:"origin"`
 }
 
+func (chatMessage *ChatMessage) ToString() string {
+	values := []string{}
+	// values = append(values, fmt.Sprintf("Header.Length:%d", chatMessage.Header.Length))
+	values = append(values, fmt.Sprintf("Header.Sender:%s", chatMessage.Header.Sender))
+	values = append(values, fmt.Sprintf("Header.Receiver:%s", chatMessage.Header.Receiver))
+	values = append(values, fmt.Sprintf("Header.ChainId:%s", chatMessage.Header.ChainId))
+	values = append(values, fmt.Sprintf("Header.Platform:%s", chatMessage.Header.Platform))
+	values = append(values, fmt.Sprintf("Header.Timestamp:%d", chatMessage.Header.Timestamp))
+
+	values = append(values, fmt.Sprintf("Body.Subject:%s", chatMessage.Body.Subject))
+	values = append(values, fmt.Sprintf("Body.Text:%s", chatMessage.Body.Text))
+	values = append(values, fmt.Sprintf("Body.Html:%s", chatMessage.Body.Html))
+	_action := []string{}
+	for i := 0; i < len(chatMessage.Actions); i++ {
+		_action = append(_action, fmt.Sprintf("Actions[%d].Contract:%s", i, chatMessage.Actions[i].Contract))
+		_action = append(_action, fmt.Sprintf("Actions[%d].Abi:%s", i, chatMessage.Actions[i].Abi))
+		_action = append(_action, fmt.Sprintf("Actions[%d].Action:%s", i, chatMessage.Actions[i].Action))
+
+		_parameter := []string{}
+		for j := 0; j < len(chatMessage.Actions[i].Parameters); j++ {
+			_parameter = append(_parameter, fmt.Sprintf("Actions[%d].Parameters[%d]:%s", i, j, chatMessage.Actions[i].Parameters[j]))
+		}
+
+		_action = append(_action, fmt.Sprintf("Actions[%d].Parameters:%s", i, _parameter))
+	}
+
+	values = append(values, fmt.Sprintf("Actions:%s", _action))
+	values = append(values, fmt.Sprintf("Origin:%s", chatMessage.Origin))
+
+	return strings.Join(values, ",")
+}
+
 /**
 NODE MESSAGE
 **/
-type NodeMessage struct {
-	Message   ChatMessage `json:"message"`
-	Signature string      `json:"signature"`
+type ClientMessage struct {
+	Message         ChatMessage `json:"message"`
+	SenderSignature string      `json:"senderSignature"`
+	NodeSignature   string      `json:"nodeSignature"`
 }
 
-func (msg *NodeMessage) ToJSON() ([]byte, error) {
+type SuccessResponse struct {
+	body ClientMessage
+	meta Meta
+}
+
+type ErrorResponse struct {
+	statusCode int
+	meta       Meta
+}
+
+type Meta struct {
+	statusCode int
+	success    bool
+}
+
+func ReturnError(msg string, code int) *ErrorResponse {
+	meta := Meta{statusCode: code}
+	meta.success = false
+	e := ErrorResponse{statusCode: code}
+	e.meta = meta
+	return &e
+}
+
+func (msg *ClientMessage) ToJSON() ([]byte, error) {
 	m, err := json.Marshal(msg)
 	return m, err
 }
 
-func NodeMessageFromBytes(b []byte) (NodeMessage, error) {
-	var message NodeMessage
+func ClientMessageFromBytes(b []byte) (ClientMessage, error) {
+	var message ClientMessage
 	// if err := json.Unmarshal(b, &message); err != nil {
 	// 	panic(err)
 	// }
@@ -121,8 +181,8 @@ func NodeMessageFromBytes(b []byte) (NodeMessage, error) {
 	return message, err
 }
 
-func NodeMessageFromString(msg string) (NodeMessage, error) {
-	return NodeMessageFromBytes([]byte(msg))
+func ClientMessageFromString(msg string) (ClientMessage, error) {
+	return ClientMessageFromBytes([]byte(msg))
 }
 
 func (msg *ChatMessage) ToJSON() string {
@@ -140,4 +200,64 @@ func ChatMessageFromBytes(b []byte) ChatMessage {
 
 func ChatMessageFromString(msg string) ChatMessage {
 	return ChatMessageFromBytes([]byte(msg))
+}
+
+type MessageJsonInput struct {
+	Timestamp int                 `json:"timestamp"`
+	From      string              `json:"from"`
+	Receiver  string              `json:"receiver"`
+	Platform  string              `json:"platform"`
+	ChainId   string              `json:"chainId"`
+	Type      string              `json:"type"`
+	Message   string              `json:"message"`
+	Subject   string              `json:"subject"`
+	Signature string              `json:"signature"`
+	Actions   []ChatMessageAction `json:"actions"`
+}
+
+func CreateMessageFromJson(msg MessageJsonInput) ChatMessage {
+
+	chatMessage := ChatMessageHeader{
+		Timestamp: uint(msg.Timestamp),
+		Sender:    msg.From,
+		Receiver:  msg.Receiver,
+		ChainId:   msg.ChainId,
+		Platform:  msg.Platform,
+		Length:    100,
+	}
+	var bodyMessage ChatMessageBody
+	if msg.Type == "html" {
+		bodyMessage = ChatMessageBody{
+			Subject: msg.Subject,
+			Html:    msg.Message,
+		}
+	} else {
+		bodyMessage = ChatMessageBody{
+			Subject: msg.Subject,
+			Text:    msg.Message,
+		}
+	}
+
+	Origin := ""
+	_chatMessage := ChatMessage{chatMessage, bodyMessage, msg.Actions, Origin}
+	return _chatMessage
+}
+
+func IsValidMessage(msg ChatMessage, signature string) bool {
+	chatMessage := msg.ToJSON()
+	signer := msg.Header.Sender
+	if math.Abs(float64(int(msg.Header.Timestamp)/1000-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
+		logger.WithFields(logrus.Fields{"data": chatMessage}).Warnf("ChatMessage Expired: %s", chatMessage)
+		return false
+	}
+	message := msg.ToString()
+	logger.Infof("message %s", message)
+	isValid := VerifySignature(signer, message, signature)
+	if !isValid {
+		logger.WithFields(logrus.Fields{"message": message, "signature": signature}).Warnf("Invalid signer %s", signer)
+		return false
+	} else {
+
+	}
+	return true
 }

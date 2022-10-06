@@ -69,11 +69,11 @@ func Run(mainCtx *context.Context) {
 	config = cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value("IncomingMessageC").(chan utils.NodeMessage)
+	incomingMessagesC, ok := ctx.Value("IncomingMessageC").(chan utils.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value("IncomingMessageC").(chan utils.NodeMessage)
+	outgoinMessageC, ok := ctx.Value("OutgoingMessageC").(chan utils.ClientMessage)
 	if !ok {
 
 	}
@@ -197,10 +197,15 @@ func Run(mainCtx *context.Context) {
 					cancel()
 					return
 				}
-				// msg, err := d.ToJSON()
-				// if err != nil {
-				// 	continue
-				// }
+				// !validating message
+				// !if not a valid message continue
+				_, err := inMessage.ToJSON()
+				if err != nil {
+					continue
+				}
+				//TODO:
+				// if not a valid message, continue
+
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
 				incomingMessagesC <- *inMessage
 			}

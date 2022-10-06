@@ -9,4 +9,5 @@ artifacts
 secrets.json
 .vscode
 .openzeppelin
+.vscode
 config
