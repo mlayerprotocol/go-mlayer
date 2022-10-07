@@ -28,12 +28,12 @@ type Configuration struct {
 	Ipfs                     IpfsConfig     `mapstructure:"ipfs"`
 	Bsc                      EthChainConfig `mapstructure:"bsc"`
 	LogLevel                 string         `mapstructure:"log_level"`
-	Bootstrap                bool           `mapstructure:"bootstrap"`
 	BootstrapPeers           []string       `mapstructure:"bootstrap_peers"`
 	Listeners                []string       `mapstructure:"listeners"`
 	RPCHost                  string         `mapstructure:"rpc_host"`
 	RPCPort                  string         `mapstructure:"rpc_port"`
 	Validator                bool           `mapstructure:"validator"`
+	BootstrapNode            bool           `mapstructure:"bootstrap_node"`
 }
 
 var (
