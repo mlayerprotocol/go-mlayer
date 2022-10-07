@@ -98,7 +98,7 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 				if h.Network().Connectedness(p.ID) != network.Connected {
 					_, err = h.Network().DialPeer(ctx, p.ID)
 					if err != nil {
-						logger.Errorf("Failed to connect to peer: %s \n%s", p.ID.Pretty(), err.Error())
+						// logger.Errorf("Failed to connect to peer: %s \n%s", p.ID.Pretty(), err.Error())
 
 						h.Peerstore().RemovePeer(p.ID)
 						kdht.ForceRefresh()
@@ -370,7 +370,7 @@ func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
 }
 func isValidStake(handshake utils.Handshake, p peer.ID) bool {
 	if handshake.Data.NodeType == utils.ValidatorNodeType && config.Validator {
-		stakeContract, err := evm.StakeContract(config.EVMRPCUrl, config.StakeContract)
+		stakeContract, _, err := evm.StakeContract(config.EVMRPCUrl, config.StakeContract)
 		if err != nil {
 			logger.Errorf("EVM RPC error. Could not connect to stake contract: %s", err)
 			return false

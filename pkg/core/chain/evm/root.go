@@ -20,19 +20,19 @@ import (
 func ToHexAddress(address string) common.Address {
 	return common.HexToAddress(address)
 }
-func StakeContract(rpc_url string, contractAddress string) (*stake.Stake, error) {
+func StakeContract(rpc_url string, contractAddress string) (*stake.Stake, *ethclient.Client, error) {
 	client, err := ethclient.Dial(rpc_url)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	address := common.HexToAddress(contractAddress)
 
 	instance, err := stake.NewStake(address, client)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return instance, err
+	return instance, client, err
 }
 
 func TokenContract(rpc_url string, contractAddress string) (*token.IcmToken, error) {

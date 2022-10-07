@@ -7,15 +7,20 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
 
+	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
 	"github.com/ByteGum/go-icms/pkg/core/db"
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
 	utils "github.com/ByteGum/go-icms/utils"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/cobra"
 
 	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
@@ -78,6 +83,8 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 	incomingMessagesc := make(chan utils.ClientMessage)
 	outgoingMessagesc := make(chan utils.ClientMessage)
+
+	incomingEventsC := make(chan types.Log)
 
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	evmPrivateKey, err := cmd.Flags().GetString(string(EVM_PRIVATE_KEY))
@@ -170,6 +177,34 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		}
 		defer wg.Done()
 		db.Db()
+	}()
+
+	wg.Add(1)
+	go func() {
+		_, client, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
+		if err != nil {
+			log.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
+		}
+		contractAddress := common.HexToAddress(cfg.StakeContract)
+		query := ethereum.FilterQuery{
+			Addresses: []common.Address{contractAddress},
+		}
+		// incomingEventsC
+
+		sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
+		if err != nil {
+			log.Fatal(err, "SubscribeFilterLogs")
+		}
+
+		for {
+			select {
+			case err := <-sub.Err():
+				log.Fatal(err)
+			case vLog := <-incomingEventsC:
+				fmt.Println(vLog) // pointer to event log
+			}
+		}
+
 	}()
 
 	go func() {

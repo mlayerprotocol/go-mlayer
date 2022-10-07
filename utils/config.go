@@ -23,6 +23,7 @@ type Configuration struct {
 	ChainId                  uint           `mapstructure:"chain_id"`
 	Token                    string         `mapstructure:"token_address"`
 	EVMRPCUrl                string         `mapstructure:"evm_rpc_url"`
+	EVMRPCWss                string         `mapstructure:"evm_rpc_wss"`
 	Network                  string         `mapstructure:"network"`
 	ChannelMessageBufferSize uint           `mapstructure:"channel_message_buffer_size"`
 	Ipfs                     IpfsConfig     `mapstructure:"ipfs"`
