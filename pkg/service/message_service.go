@@ -36,9 +36,9 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string)
 		privateKey := p.Cfg.EvmPrivateKey
 		utils.Logger.Infof("private key %s", privateKey)
 
-		// TODO:
+		// TODO:DONE
 		// get public key from private key
-		if chatMsg.Origin == utils.GetPublicKey(privateKey) {
+		if chatMsg.Origin != utils.GetPublicKey(privateKey) {
 			panic("Invalid origin")
 		}
 

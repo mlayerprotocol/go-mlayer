@@ -32,6 +32,20 @@ func NewRpcService(mainCtx *context.Context) *RpcService {
 }
 
 func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *utils.ClientMessage) error {
+	var message string
+	var clientHash string
+	if request.Type == "html" {
+		message = request.Message
+		clientHash = request.HtmlHash
+	} else {
+		message = request.Message
+		clientHash = request.TextHash
+	}
+	serverHash := utils.CreateHash256(message)
+
+	if clientHash != serverHash {
+		utils.Logger.Error("Invalid message Hash!")
+	}
 	chatMsg := utils.CreateMessageFromJson(request)
 	reply, err := (*p.MessageService).Send(chatMsg, request.Signature)
 	if err != nil {

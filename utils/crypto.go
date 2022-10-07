@@ -2,6 +2,7 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -32,6 +33,15 @@ func hashMessage(message string) []byte {
 	_bytes = append(_bytes, []byte("Ethereum Signed Message:\n32")...)
 	_bytes = append(_bytes, messageHash.Bytes()...)
 	return crypto.Keccak256Hash(_bytes).Bytes()
+}
+
+func CreateHash256(message string) string {
+	h := sha256.New()
+
+	h.Write([]byte(message))
+
+	bs := h.Sum(nil)
+	return string(bs)
 }
 
 func Sign(message string, privKey string) ([]byte, string) {

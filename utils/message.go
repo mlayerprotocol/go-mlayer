@@ -214,6 +214,8 @@ type MessageJsonInput struct {
 	Subject   string              `json:"subject"`
 	Signature string              `json:"signature"`
 	Actions   []ChatMessageAction `json:"actions"`
+	HtmlHash  string              `json:"htmlHash"`
+	TextHash  string              `json:"textHash"`
 }
 
 func CreateMessageFromJson(msg MessageJsonInput) ChatMessage {
