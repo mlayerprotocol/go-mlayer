@@ -22,7 +22,7 @@ func init() {
 		FullTimestamp: true,
 	})
 	if c.LogLevel == "" {
-
+		c.LogLevel = "info"
 	}
 	Logger.SetOutput(os.Stdout) // load from config file
 	level, _ := log.ParseLevel(c.LogLevel)

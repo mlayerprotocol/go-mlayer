@@ -88,7 +88,7 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 			if err != nil {
 				log.Fatal(err)
 			}
-			logger.Infof("Found peers: %d", len(peers)-1)
+			logger.Debugf("Found peers: %d", len(peers)-1)
 			for _, p := range peers {
 
 				if p.ID == h.ID() {
@@ -98,7 +98,7 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 				if h.Network().Connectedness(p.ID) != network.Connected {
 					_, err = h.Network().DialPeer(ctx, p.ID)
 					if err != nil {
-						logger.Errorf("Failed to connect to peer: %s \n%s", p.ID.Pretty(), err.Error())
+						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.Pretty(), err.Error())
 
 						h.Peerstore().RemovePeer(p.ID)
 						kdht.ForceRefresh()
@@ -229,11 +229,11 @@ func Run(mainCtx *context.Context) {
 		// performance issues.
 		libp2p.EnableNATService(),
 	)
-	h.Network().Notify(&connectionNotifee{})
 
 	if err != nil {
 		panic(err)
 	}
+	h.Network().Notify(&connectionNotifee{})
 
 	h.SetStreamHandler(protocol.ID(protocolId), handleStream)
 	// create a new PubSub service using the GossipSub router

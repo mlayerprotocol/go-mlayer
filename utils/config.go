@@ -34,6 +34,7 @@ type Configuration struct {
 	RPCPort                  string         `mapstructure:"rpc_port"`
 	Validator                bool           `mapstructure:"validator"`
 	BootstrapNode            bool           `mapstructure:"bootstrap_node"`
+	DataDir                  string         `mapstructure:"data_dir"`
 }
 
 var (
@@ -67,7 +68,7 @@ func LoadConfig() *Configuration {
 	v := Init()
 	var c Configuration
 	if err := v.Unmarshal(&c); err != nil {
-		fmt.Printf("Fatal: Couldn't read config: %w \n", err)
+		fmt.Printf("Fatal: Couldn't read config: %s \n", err.Error())
 	}
 	c.EvmPrivateKey = v.GetString("private_key") // needed to load from environment var
 	if len(c.EvmPrivateKey) == 0 {
