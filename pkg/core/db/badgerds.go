@@ -208,7 +208,6 @@ func (d *Datastore) periodicGC() {
 	}
 }
 
-
 // NewTransaction starts a new transaction. The resulting transaction object
 // can be mutated without incurring changes to the underlying Datastore until
 // the transaction is Committed.
@@ -237,6 +236,29 @@ func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
 
 	txn := d.newImplicitTransaction(false)
 	defer txn.discard()
+
+	if err := txn.put(key, value); err != nil {
+		return err
+	}
+
+	return txn.commit()
+}
+
+func (d *Datastore) Set(ctx context.Context, key ds.Key, value []byte, replace bool) error {
+	d.closeLk.RLock()
+	defer d.closeLk.RUnlock()
+	if d.closed {
+		return ErrClosed
+	}
+
+	txn := d.newImplicitTransaction(false)
+	defer txn.discard()
+	if !replace {
+		has, err := txn.has(key)
+		if has && err == nil {
+			return errors.New("Key already exists")
+		}
+	}
 
 	if err := txn.put(key, value); err != nil {
 		return err
@@ -514,6 +536,21 @@ var _ ds.Datastore = (*txn)(nil)
 var _ ds.TTLDatastore = (*txn)(nil)
 
 func (t *txn) Put(ctx context.Context, key ds.Key, value []byte) error {
+	t.ds.closeLk.RLock()
+	defer t.ds.closeLk.RUnlock()
+	if t.ds.closed {
+		return ErrClosed
+	}
+	return t.put(key, value)
+}
+
+func (t *txn) Set(ctx context.Context, key ds.Key, value []byte, replace bool) error {
+	if !replace {
+		has, err := t.has(key)
+		if has && err == nil {
+			return errors.New("Key already exists")
+		}
+	}
 	t.ds.closeLk.RLock()
 	defer t.ds.closeLk.RUnlock()
 	if t.ds.closed {

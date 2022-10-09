@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/sirupsen/logrus"
 )
 
@@ -171,6 +172,19 @@ func ReturnError(msg string, code int) *ErrorResponse {
 func (msg *ClientMessage) ToJSON() ([]byte, error) {
 	m, err := json.Marshal(msg)
 	return m, err
+}
+func (msg *ClientMessage) ToString() string {
+	return fmt.Sprintf("%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature)
+
+}
+
+func (msg *ClientMessage) Hash() []byte {
+	bs := crypto.Keccak256Hash([]byte(msg.Message.ToString())).Bytes()
+	return bs
+}
+
+func (msg *ClientMessage) Key() string {
+	return fmt.Sprintf("%s/%s/%s", msg.Message.Header.Sender, msg.Message.Origin, string(msg.Hash()))
 }
 
 func ClientMessageFromBytes(b []byte) (ClientMessage, error) {

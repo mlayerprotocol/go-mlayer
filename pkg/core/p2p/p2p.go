@@ -99,7 +99,6 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 					_, err = h.Network().DialPeer(ctx, p.ID)
 					if err != nil {
 						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.Pretty(), err.Error())
-
 						h.Peerstore().RemovePeer(p.ID)
 						kdht.ForceRefresh()
 						continue
@@ -125,11 +124,11 @@ func Run(mainCtx *context.Context) {
 	config = *cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(*chan utils.ClientMessage)
+	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(chan *utils.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageCh).(*chan utils.ClientMessage)
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageCh).(chan *utils.ClientMessage)
 	if !ok {
 
 	}
@@ -281,21 +280,21 @@ func Run(mainCtx *context.Context) {
 				// if not a valid message, continue
 
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
-				*incomingMessagesC <- *inMessage
+				incomingMessagesC <- inMessage
 			}
 		}
 	}()
 
 	for {
 		select {
-		case outMessage, ok := <-*outgoinMessageC:
+		case outMessage, ok := <-outgoinMessageC:
 			if cfg.Validator {
 				if !ok {
 					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
 					return
 				}
 
-				err := cr.Publish(outMessage)
+				err := cr.Publish(*outMessage)
 				if err != nil {
 					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
 
@@ -370,7 +369,7 @@ func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
 }
 func isValidStake(handshake utils.Handshake, p peer.ID) bool {
 	if handshake.Data.NodeType == utils.ValidatorNodeType && config.Validator {
-		stakeContract, err := evm.StakeContract(config.EVMRPCUrl, config.StakeContract)
+		stakeContract, _, _, err := evm.StakeContract(config.EVMRPCHttp, config.StakeContract)
 		if err != nil {
 			logger.Errorf("EVM RPC error. Could not connect to stake contract: %s", err)
 			return false
