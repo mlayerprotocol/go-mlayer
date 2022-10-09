@@ -155,6 +155,7 @@ func NewDatastore(path string, options *Options) (*Datastore, error) {
 	opt.Logger = &badgerLog{*log}
 
 	kv, err := badger.Open(opt)
+	
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "manifest has unsupported version:") {
 			err = fmt.Errorf("unsupported badger version, use github.com/ipfs/badgerds-upgrade to upgrade: %s", err.Error())
