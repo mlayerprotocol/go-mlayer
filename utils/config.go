@@ -22,18 +22,21 @@ type Configuration struct {
 	StakeContract            string         `mapstructure:"stake_contract"`
 	ChainId                  uint           `mapstructure:"chain_id"`
 	Token                    string         `mapstructure:"token_address"`
-	EVMRPCUrl                string         `mapstructure:"evm_rpc_url"`
+	EVMRPCUrl                string         `mapstructure:"evm_rpc_url"` // deprecated
+	EVMRPCHttp               string         `mapstructure:"evm_rpc_http"`
+	EVMRPCWss                string         `mapstructure:"evm_rpc_wss"`
 	Network                  string         `mapstructure:"network"`
 	ChannelMessageBufferSize uint           `mapstructure:"channel_message_buffer_size"`
 	Ipfs                     IpfsConfig     `mapstructure:"ipfs"`
 	Bsc                      EthChainConfig `mapstructure:"bsc"`
 	LogLevel                 string         `mapstructure:"log_level"`
-	Bootstrap                bool           `mapstructure:"bootstrap"`
 	BootstrapPeers           []string       `mapstructure:"bootstrap_peers"`
 	Listeners                []string       `mapstructure:"listeners"`
 	RPCHost                  string         `mapstructure:"rpc_host"`
 	RPCPort                  string         `mapstructure:"rpc_port"`
 	Validator                bool           `mapstructure:"validator"`
+	BootstrapNode            bool           `mapstructure:"bootstrap_node"`
+	DataDir                  string         `mapstructure:"data_dir"`
 }
 
 var (
@@ -67,7 +70,7 @@ func LoadConfig() *Configuration {
 	v := Init()
 	var c Configuration
 	if err := v.Unmarshal(&c); err != nil {
-		fmt.Printf("Fatal: Couldn't read config: %w \n", err)
+		fmt.Printf("Fatal: Couldn't read config: %s \n", err.Error())
 	}
 	c.EvmPrivateKey = v.GetString("private_key") // needed to load from environment var
 	if len(c.EvmPrivateKey) == 0 {

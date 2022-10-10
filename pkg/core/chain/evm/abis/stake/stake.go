@@ -30,7 +30,7 @@ var (
 
 // StakeMetaData contains all meta data concerning the Stake contract.
 var StakeMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"StakeEvent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"UnStakeEvent\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"name\":\"enableWithdrawal\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nodeAddresses\",\"type\":\"address\"}],\"name\":\"getNodeLevel\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"locked\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"nodeAddresses\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"registerNodeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"setMinStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"stake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"stakeAddresses\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"stakeBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawalEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"node\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"buyer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"token\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"messages\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"nonce\",\"type\":\"bytes32\"}],\"name\":\"MessagePurchase\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"node\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"MessageTokenRate\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"StakeEvent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"UnStakeEvent\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nodeAddresses\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokens\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"nonce\",\"type\":\"bytes32\"}],\"name\":\"buyMessages\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"name\":\"enableWithdrawal\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nodeAddresses\",\"type\":\"address\"}],\"name\":\"getNodeLevel\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"locked\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"nodeAddresses\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"nodeTokenPerMessage\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"orders\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"buyer\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"messageAmount\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"registerNodeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"setMinStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"setTokenPerMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"stake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"stakeAddresses\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"stakeBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"userMessages\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawalEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // StakeABI is the input ABI used to generate the binding from.
@@ -303,6 +303,92 @@ func (_Stake *StakeCallerSession) NodeAddresses(arg0 common.Address) (common.Add
 	return _Stake.Contract.NodeAddresses(&_Stake.CallOpts, arg0)
 }
 
+// NodeTokenPerMessage is a free data retrieval call binding the contract method 0x76be2d21.
+//
+// Solidity: function nodeTokenPerMessage(address ) view returns(uint256)
+func (_Stake *StakeCaller) NodeTokenPerMessage(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _Stake.contract.Call(opts, &out, "nodeTokenPerMessage", arg0)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// NodeTokenPerMessage is a free data retrieval call binding the contract method 0x76be2d21.
+//
+// Solidity: function nodeTokenPerMessage(address ) view returns(uint256)
+func (_Stake *StakeSession) NodeTokenPerMessage(arg0 common.Address) (*big.Int, error) {
+	return _Stake.Contract.NodeTokenPerMessage(&_Stake.CallOpts, arg0)
+}
+
+// NodeTokenPerMessage is a free data retrieval call binding the contract method 0x76be2d21.
+//
+// Solidity: function nodeTokenPerMessage(address ) view returns(uint256)
+func (_Stake *StakeCallerSession) NodeTokenPerMessage(arg0 common.Address) (*big.Int, error) {
+	return _Stake.Contract.NodeTokenPerMessage(&_Stake.CallOpts, arg0)
+}
+
+// Orders is a free data retrieval call binding the contract method 0x9c3f1e90.
+//
+// Solidity: function orders(bytes32 ) view returns(address nodeAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
+func (_Stake *StakeCaller) Orders(opts *bind.CallOpts, arg0 [32]byte) (struct {
+	NodeAddress   common.Address
+	Buyer         common.Address
+	TokenAmount   *big.Int
+	MessageAmount *big.Int
+}, error) {
+	var out []interface{}
+	err := _Stake.contract.Call(opts, &out, "orders", arg0)
+
+	outstruct := new(struct {
+		NodeAddress   common.Address
+		Buyer         common.Address
+		TokenAmount   *big.Int
+		MessageAmount *big.Int
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.NodeAddress = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.Buyer = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
+	outstruct.TokenAmount = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.MessageAmount = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+// Orders is a free data retrieval call binding the contract method 0x9c3f1e90.
+//
+// Solidity: function orders(bytes32 ) view returns(address nodeAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
+func (_Stake *StakeSession) Orders(arg0 [32]byte) (struct {
+	NodeAddress   common.Address
+	Buyer         common.Address
+	TokenAmount   *big.Int
+	MessageAmount *big.Int
+}, error) {
+	return _Stake.Contract.Orders(&_Stake.CallOpts, arg0)
+}
+
+// Orders is a free data retrieval call binding the contract method 0x9c3f1e90.
+//
+// Solidity: function orders(bytes32 ) view returns(address nodeAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
+func (_Stake *StakeCallerSession) Orders(arg0 [32]byte) (struct {
+	NodeAddress   common.Address
+	Buyer         common.Address
+	TokenAmount   *big.Int
+	MessageAmount *big.Int
+}, error) {
+	return _Stake.Contract.Orders(&_Stake.CallOpts, arg0)
+}
+
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
@@ -396,6 +482,37 @@ func (_Stake *StakeCallerSession) StakeBalance(arg0 common.Address) (*big.Int, e
 	return _Stake.Contract.StakeBalance(&_Stake.CallOpts, arg0)
 }
 
+// UserMessages is a free data retrieval call binding the contract method 0xa7ba2df2.
+//
+// Solidity: function userMessages(address , address ) view returns(uint256)
+func (_Stake *StakeCaller) UserMessages(opts *bind.CallOpts, arg0 common.Address, arg1 common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _Stake.contract.Call(opts, &out, "userMessages", arg0, arg1)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// UserMessages is a free data retrieval call binding the contract method 0xa7ba2df2.
+//
+// Solidity: function userMessages(address , address ) view returns(uint256)
+func (_Stake *StakeSession) UserMessages(arg0 common.Address, arg1 common.Address) (*big.Int, error) {
+	return _Stake.Contract.UserMessages(&_Stake.CallOpts, arg0, arg1)
+}
+
+// UserMessages is a free data retrieval call binding the contract method 0xa7ba2df2.
+//
+// Solidity: function userMessages(address , address ) view returns(uint256)
+func (_Stake *StakeCallerSession) UserMessages(arg0 common.Address, arg1 common.Address) (*big.Int, error) {
+	return _Stake.Contract.UserMessages(&_Stake.CallOpts, arg0, arg1)
+}
+
 // WithdrawalEnabled is a free data retrieval call binding the contract method 0xf8ea5daf.
 //
 // Solidity: function withdrawalEnabled() view returns(bool)
@@ -427,6 +544,27 @@ func (_Stake *StakeCallerSession) WithdrawalEnabled() (bool, error) {
 	return _Stake.Contract.WithdrawalEnabled(&_Stake.CallOpts)
 }
 
+// BuyMessages is a paid mutator transaction binding the contract method 0xe26074f7.
+//
+// Solidity: function buyMessages(address _nodeAddresses, uint256 tokens, bytes32 nonce) returns()
+func (_Stake *StakeTransactor) BuyMessages(opts *bind.TransactOpts, _nodeAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
+	return _Stake.contract.Transact(opts, "buyMessages", _nodeAddresses, tokens, nonce)
+}
+
+// BuyMessages is a paid mutator transaction binding the contract method 0xe26074f7.
+//
+// Solidity: function buyMessages(address _nodeAddresses, uint256 tokens, bytes32 nonce) returns()
+func (_Stake *StakeSession) BuyMessages(_nodeAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
+	return _Stake.Contract.BuyMessages(&_Stake.TransactOpts, _nodeAddresses, tokens, nonce)
+}
+
+// BuyMessages is a paid mutator transaction binding the contract method 0xe26074f7.
+//
+// Solidity: function buyMessages(address _nodeAddresses, uint256 tokens, bytes32 nonce) returns()
+func (_Stake *StakeTransactorSession) BuyMessages(_nodeAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
+	return _Stake.Contract.BuyMessages(&_Stake.TransactOpts, _nodeAddresses, tokens, nonce)
+}
+
 // EnableWithdrawal is a paid mutator transaction binding the contract method 0x5636548f.
 //
 // Solidity: function enableWithdrawal(bool _enabled) returns()
@@ -446,6 +584,27 @@ func (_Stake *StakeSession) EnableWithdrawal(_enabled bool) (*types.Transaction,
 // Solidity: function enableWithdrawal(bool _enabled) returns()
 func (_Stake *StakeTransactorSession) EnableWithdrawal(_enabled bool) (*types.Transaction, error) {
 	return _Stake.Contract.EnableWithdrawal(&_Stake.TransactOpts, _enabled)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
+//
+// Solidity: function initialize(address _address) returns()
+func (_Stake *StakeTransactor) Initialize(opts *bind.TransactOpts, _address common.Address) (*types.Transaction, error) {
+	return _Stake.contract.Transact(opts, "initialize", _address)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
+//
+// Solidity: function initialize(address _address) returns()
+func (_Stake *StakeSession) Initialize(_address common.Address) (*types.Transaction, error) {
+	return _Stake.Contract.Initialize(&_Stake.TransactOpts, _address)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
+//
+// Solidity: function initialize(address _address) returns()
+func (_Stake *StakeTransactorSession) Initialize(_address common.Address) (*types.Transaction, error) {
+	return _Stake.Contract.Initialize(&_Stake.TransactOpts, _address)
 }
 
 // RegisterNodeAccount is a paid mutator transaction binding the contract method 0x433eeb98.
@@ -511,6 +670,27 @@ func (_Stake *StakeTransactorSession) SetMinStake(_stake *big.Int) (*types.Trans
 	return _Stake.Contract.SetMinStake(&_Stake.TransactOpts, _stake)
 }
 
+// SetTokenPerMessage is a paid mutator transaction binding the contract method 0xaf14be57.
+//
+// Solidity: function setTokenPerMessage(uint256 rate) returns()
+func (_Stake *StakeTransactor) SetTokenPerMessage(opts *bind.TransactOpts, rate *big.Int) (*types.Transaction, error) {
+	return _Stake.contract.Transact(opts, "setTokenPerMessage", rate)
+}
+
+// SetTokenPerMessage is a paid mutator transaction binding the contract method 0xaf14be57.
+//
+// Solidity: function setTokenPerMessage(uint256 rate) returns()
+func (_Stake *StakeSession) SetTokenPerMessage(rate *big.Int) (*types.Transaction, error) {
+	return _Stake.Contract.SetTokenPerMessage(&_Stake.TransactOpts, rate)
+}
+
+// SetTokenPerMessage is a paid mutator transaction binding the contract method 0xaf14be57.
+//
+// Solidity: function setTokenPerMessage(uint256 rate) returns()
+func (_Stake *StakeTransactorSession) SetTokenPerMessage(rate *big.Int) (*types.Transaction, error) {
+	return _Stake.Contract.SetTokenPerMessage(&_Stake.TransactOpts, rate)
+}
+
 // Stake is a paid mutator transaction binding the contract method 0xa694fc3a.
 //
 // Solidity: function stake(uint256 amount) returns()
@@ -572,6 +752,451 @@ func (_Stake *StakeSession) UnStake() (*types.Transaction, error) {
 // Solidity: function unStake() returns()
 func (_Stake *StakeTransactorSession) UnStake() (*types.Transaction, error) {
 	return _Stake.Contract.UnStake(&_Stake.TransactOpts)
+}
+
+// StakeInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the Stake contract.
+type StakeInitializedIterator struct {
+	Event *StakeInitialized // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *StakeInitializedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(StakeInitialized)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(StakeInitialized)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *StakeInitializedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *StakeInitializedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// StakeInitialized represents a Initialized event raised by the Stake contract.
+type StakeInitialized struct {
+	Version uint8
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterInitialized is a free log retrieval operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
+//
+// Solidity: event Initialized(uint8 version)
+func (_Stake *StakeFilterer) FilterInitialized(opts *bind.FilterOpts) (*StakeInitializedIterator, error) {
+
+	logs, sub, err := _Stake.contract.FilterLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return &StakeInitializedIterator{contract: _Stake.contract, event: "Initialized", logs: logs, sub: sub}, nil
+}
+
+// WatchInitialized is a free log subscription operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
+//
+// Solidity: event Initialized(uint8 version)
+func (_Stake *StakeFilterer) WatchInitialized(opts *bind.WatchOpts, sink chan<- *StakeInitialized) (event.Subscription, error) {
+
+	logs, sub, err := _Stake.contract.WatchLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(StakeInitialized)
+				if err := _Stake.contract.UnpackLog(event, "Initialized", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseInitialized is a log parse operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
+//
+// Solidity: event Initialized(uint8 version)
+func (_Stake *StakeFilterer) ParseInitialized(log types.Log) (*StakeInitialized, error) {
+	event := new(StakeInitialized)
+	if err := _Stake.contract.UnpackLog(event, "Initialized", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// StakeMessagePurchaseIterator is returned from FilterMessagePurchase and is used to iterate over the raw logs and unpacked data for MessagePurchase events raised by the Stake contract.
+type StakeMessagePurchaseIterator struct {
+	Event *StakeMessagePurchase // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *StakeMessagePurchaseIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(StakeMessagePurchase)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(StakeMessagePurchase)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *StakeMessagePurchaseIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *StakeMessagePurchaseIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// StakeMessagePurchase represents a MessagePurchase event raised by the Stake contract.
+type StakeMessagePurchase struct {
+	Node     common.Address
+	Buyer    common.Address
+	Token    *big.Int
+	Messages *big.Int
+	Nonce    [32]byte
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterMessagePurchase is a free log retrieval operation binding the contract event 0x134f5d697fdb606afe1a229994a1339c4d3d0984e77e6c6ef90a4dd61f3bede1.
+//
+// Solidity: event MessagePurchase(address indexed node, address indexed buyer, uint256 token, uint256 messages, bytes32 indexed nonce)
+func (_Stake *StakeFilterer) FilterMessagePurchase(opts *bind.FilterOpts, node []common.Address, buyer []common.Address, nonce [][32]byte) (*StakeMessagePurchaseIterator, error) {
+
+	var nodeRule []interface{}
+	for _, nodeItem := range node {
+		nodeRule = append(nodeRule, nodeItem)
+	}
+	var buyerRule []interface{}
+	for _, buyerItem := range buyer {
+		buyerRule = append(buyerRule, buyerItem)
+	}
+
+	var nonceRule []interface{}
+	for _, nonceItem := range nonce {
+		nonceRule = append(nonceRule, nonceItem)
+	}
+
+	logs, sub, err := _Stake.contract.FilterLogs(opts, "MessagePurchase", nodeRule, buyerRule, nonceRule)
+	if err != nil {
+		return nil, err
+	}
+	return &StakeMessagePurchaseIterator{contract: _Stake.contract, event: "MessagePurchase", logs: logs, sub: sub}, nil
+}
+
+// WatchMessagePurchase is a free log subscription operation binding the contract event 0x134f5d697fdb606afe1a229994a1339c4d3d0984e77e6c6ef90a4dd61f3bede1.
+//
+// Solidity: event MessagePurchase(address indexed node, address indexed buyer, uint256 token, uint256 messages, bytes32 indexed nonce)
+func (_Stake *StakeFilterer) WatchMessagePurchase(opts *bind.WatchOpts, sink chan<- *StakeMessagePurchase, node []common.Address, buyer []common.Address, nonce [][32]byte) (event.Subscription, error) {
+
+	var nodeRule []interface{}
+	for _, nodeItem := range node {
+		nodeRule = append(nodeRule, nodeItem)
+	}
+	var buyerRule []interface{}
+	for _, buyerItem := range buyer {
+		buyerRule = append(buyerRule, buyerItem)
+	}
+
+	var nonceRule []interface{}
+	for _, nonceItem := range nonce {
+		nonceRule = append(nonceRule, nonceItem)
+	}
+
+	logs, sub, err := _Stake.contract.WatchLogs(opts, "MessagePurchase", nodeRule, buyerRule, nonceRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(StakeMessagePurchase)
+				if err := _Stake.contract.UnpackLog(event, "MessagePurchase", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseMessagePurchase is a log parse operation binding the contract event 0x134f5d697fdb606afe1a229994a1339c4d3d0984e77e6c6ef90a4dd61f3bede1.
+//
+// Solidity: event MessagePurchase(address indexed node, address indexed buyer, uint256 token, uint256 messages, bytes32 indexed nonce)
+func (_Stake *StakeFilterer) ParseMessagePurchase(log types.Log) (*StakeMessagePurchase, error) {
+	event := new(StakeMessagePurchase)
+	if err := _Stake.contract.UnpackLog(event, "MessagePurchase", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// StakeMessageTokenRateIterator is returned from FilterMessageTokenRate and is used to iterate over the raw logs and unpacked data for MessageTokenRate events raised by the Stake contract.
+type StakeMessageTokenRateIterator struct {
+	Event *StakeMessageTokenRate // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *StakeMessageTokenRateIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(StakeMessageTokenRate)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(StakeMessageTokenRate)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *StakeMessageTokenRateIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *StakeMessageTokenRateIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// StakeMessageTokenRate represents a MessageTokenRate event raised by the Stake contract.
+type StakeMessageTokenRate struct {
+	Node common.Address
+	Rate *big.Int
+	Raw  types.Log // Blockchain specific contextual infos
+}
+
+// FilterMessageTokenRate is a free log retrieval operation binding the contract event 0x4112b5f837ca529fae87c04e8f274182d1397401721765ea2e68e0dc804e2e47.
+//
+// Solidity: event MessageTokenRate(address indexed node, uint256 rate)
+func (_Stake *StakeFilterer) FilterMessageTokenRate(opts *bind.FilterOpts, node []common.Address) (*StakeMessageTokenRateIterator, error) {
+
+	var nodeRule []interface{}
+	for _, nodeItem := range node {
+		nodeRule = append(nodeRule, nodeItem)
+	}
+
+	logs, sub, err := _Stake.contract.FilterLogs(opts, "MessageTokenRate", nodeRule)
+	if err != nil {
+		return nil, err
+	}
+	return &StakeMessageTokenRateIterator{contract: _Stake.contract, event: "MessageTokenRate", logs: logs, sub: sub}, nil
+}
+
+// WatchMessageTokenRate is a free log subscription operation binding the contract event 0x4112b5f837ca529fae87c04e8f274182d1397401721765ea2e68e0dc804e2e47.
+//
+// Solidity: event MessageTokenRate(address indexed node, uint256 rate)
+func (_Stake *StakeFilterer) WatchMessageTokenRate(opts *bind.WatchOpts, sink chan<- *StakeMessageTokenRate, node []common.Address) (event.Subscription, error) {
+
+	var nodeRule []interface{}
+	for _, nodeItem := range node {
+		nodeRule = append(nodeRule, nodeItem)
+	}
+
+	logs, sub, err := _Stake.contract.WatchLogs(opts, "MessageTokenRate", nodeRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(StakeMessageTokenRate)
+				if err := _Stake.contract.UnpackLog(event, "MessageTokenRate", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseMessageTokenRate is a log parse operation binding the contract event 0x4112b5f837ca529fae87c04e8f274182d1397401721765ea2e68e0dc804e2e47.
+//
+// Solidity: event MessageTokenRate(address indexed node, uint256 rate)
+func (_Stake *StakeFilterer) ParseMessageTokenRate(log types.Log) (*StakeMessageTokenRate, error) {
+	event := new(StakeMessageTokenRate)
+	if err := _Stake.contract.UnpackLog(event, "MessageTokenRate", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // StakeOwnershipTransferredIterator is returned from FilterOwnershipTransferred and is used to iterate over the raw logs and unpacked data for OwnershipTransferred events raised by the Stake contract.

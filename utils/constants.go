@@ -13,6 +13,12 @@ const (
 	ValidatorNodeType      = 1
 )
 
+const (
+	ValidMessageStore  string = "valid-messages"
+	UnsentMessageStore        = "unsent-messages"
+	SentMessageStore          = "sent-messages"
+)
+
 // Values withing the main context
 const (
 	ConfigKey         string = "Config"

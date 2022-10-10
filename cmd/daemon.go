@@ -7,15 +7,20 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
 
+	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
 	"github.com/ByteGum/go-icms/pkg/core/db"
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
 	utils "github.com/ByteGum/go-icms/utils"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/cobra"
 
 	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
@@ -79,6 +84,8 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	incomingMessagesc := make(chan utils.ClientMessage)
 	outgoingMessagesc := make(chan utils.ClientMessage)
 
+	incomingEventsC := make(chan types.Log)
+
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	evmPrivateKey, err := cmd.Flags().GetString(string(EVM_PRIVATE_KEY))
 	rpcPort, err := cmd.Flags().GetString(string(RPC_PORT))
@@ -112,14 +119,11 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
 	var wg sync.WaitGroup
 	errc := make(chan error)
-	// dbPath, err := ioutil.TempDir("", "badger-test")
-	// if err != nil {
-	// 	errc <- fmt.Errorf("Could not read temp dir: %g", err)
-	// }
-	// ds, err := badgerds.NewDatastore(dbPath, nil)
-	// if err != nil {
-	// 	errc <- fmt.Errorf("Could not initialize ds: %g", err)
-	// }
+
+	// validMessagesStore := db.Db(&ctx, utils.ValidMessageStore)
+	unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
+	// sentMessageStore := db.Db(&ctx, utils.SentMessageStore)
+
 	defer wg.Wait()
 
 	wg.Add(1)
@@ -135,15 +139,16 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
 
-				// attempt to push into outgoing message channel
-				// case outMessage, ok := <-outgoingMessagesc:
-				// 	if !ok {
-				// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
-				// 		wg.Done()
-				// 		return
-				// 	}
-				// 	// VALIDATE AND DISTRIBUTE
-				// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
+			// attempt to push into outgoing message channel
+			case outMessage, ok := <-outgoingMessagesc:
+				if !ok {
+					logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
+				}
+				// VALIDATE AND DISTRIBUTE
+				logger.Info("Sending out message %s\n", outMessage.Message.Body.Text)
+				unsentMessageStore.Set(ctx, db.Key(outMessage.Key()), []byte(outMessage.Message.ToJSON()), false)
 
 			}
 
@@ -163,13 +168,32 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		p2p.Run(&ctx)
 	}()
 	wg.Add(1)
+
+	wg.Add(1)
 	go func() {
-		if err := recover(); err != nil {
-			wg.Done()
-			errc <- fmt.Errorf("db error: %g", err)
+		_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
+		if err != nil {
+			log.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
 		}
-		defer wg.Done()
-		db.Db()
+		query := ethereum.FilterQuery{
+			Addresses: []common.Address{contractAddress},
+		}
+		// incomingEventsC
+
+		sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
+		if err != nil {
+			log.Fatal(err, "SubscribeFilterLogs")
+		}
+
+		for {
+			select {
+			case err := <-sub.Err():
+				log.Fatal(err)
+			case vLog := <-incomingEventsC:
+				fmt.Println(vLog) // pointer to event log
+			}
+		}
+
 	}()
 
 	go func() {

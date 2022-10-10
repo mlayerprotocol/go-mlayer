@@ -36,22 +36,23 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string)
 		privateKey := p.Cfg.EvmPrivateKey
 		utils.Logger.Infof("private key %s", privateKey)
 
-		// TODO:DONE
-		// get public key from private key
-		if chatMsg.Origin != utils.GetPublicKey(privateKey) {
+		if chatMsg.Origin == utils.GetPublicKey(privateKey) {
 			panic("Invalid origin")
 		}
+
+		// TODO:
+		// check message timestamp. It must be within a 15 seconds difference from the current server time
 
 		signature, _ := utils.Sign(senderSignature, privateKey)
 		message.Message = chatMsg
 		message.SenderSignature = senderSignature
 		message.NodeSignature = hexutil.Encode(signature)
-		outgoingMessageC, ok := p.Ctx.Value(utils.OutgoingMessageCh).(chan utils.ClientMessage)
+		outgoingMessageC, ok := p.Ctx.Value(utils.OutgoingMessageCh).(chan *utils.ClientMessage)
 		if !ok {
 			utils.Logger.Error("Could not connect to outgoing channel")
 			panic("outgoing channel fail")
 		}
-		outgoingMessageC <- *message
+		outgoingMessageC <- message
 		fmt.Printf("Testing my function%s, %s", chatMsg.ToString(), chatMsg.Body.Subject)
 		return message, nil
 	}

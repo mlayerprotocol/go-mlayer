@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"math/big"
 	"os"
@@ -25,11 +26,13 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/libp2p/go-libp2p-core/routing"
+	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	noise "github.com/libp2p/go-libp2p-noise"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	libp2ptls "github.com/libp2p/go-libp2p-tls"
 	// rest "messagingprotocol/pkg/core/rest"
+	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
 
 var logger = utils.Logger
@@ -46,6 +49,13 @@ const (
 var peerStreams = make(map[string]peer.ID)
 var peerPubKeys = make(map[peer.ID][]byte)
 var node *host.Host
+var idht *dht.IpfsDHT
+
+type connectionNotifee struct {
+}
+type discoveryNotifee struct {
+	h host.Host
+}
 
 // defaultNick generates a nickname based on the $USER environment variable and
 // the last 8 chars of a peer ID.
@@ -60,10 +70,52 @@ func shortID(p peer.ID) string {
 	return pretty[len(pretty)-12:]
 }
 
+func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string) {
+
+	routingDiscovery := discovery.NewRoutingDiscovery(kdht)
+	discovery.Advertise(ctx, routingDiscovery, rendezvous)
+
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+
+			peers, err := discovery.FindPeers(ctx, routingDiscovery, rendezvous)
+			if err != nil {
+				log.Fatal(err)
+			}
+			logger.Debugf("Found peers: %d", len(peers)-1)
+			for _, p := range peers {
+
+				if p.ID == h.ID() {
+					continue
+				}
+
+				if h.Network().Connectedness(p.ID) != network.Connected {
+					_, err = h.Network().DialPeer(ctx, p.ID)
+					if err != nil {
+						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.Pretty(), err.Error())
+						h.Peerstore().RemovePeer(p.ID)
+						kdht.ForceRefresh()
+						continue
+					}
+					logger.Debugf("Connected to discovered peer: %s \n", p.ID.Pretty())
+					handleConnect(&h, &p)
+				}
+			}
+		}
+	}
+}
+
 func Run(mainCtx *context.Context) {
 	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
+
 	ctx, cancel := context.WithCancel(*mainCtx)
 	cfg, ok := ctx.Value(utils.ConfigKey).(*utils.Configuration)
 	if !ok {
@@ -72,33 +124,16 @@ func Run(mainCtx *context.Context) {
 	config = *cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(*chan utils.ClientMessage)
+	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(chan *utils.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageCh).(*chan utils.ClientMessage)
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageCh).(chan *utils.ClientMessage)
 	if !ok {
 
 	}
 
 	defer cancel()
-
-	// // To construct a simple host with all the default settings, just use `New`
-	// h, err := libp2p.New(ctx)
-	// if err != nil {
-	// 	panic(err) s
-	// }
-
-	// r := gin.Default()
-	// r = rest.SetupOriginatorRoutes(r)
-	// r.Run("localhost:8080")
-
-	// log.Printf("Hello World, my hosts ID is %s\n", h.ID())
-
-	// Now, normally you do not just want a simple host, you want
-	// that is fully configured to best support your p2p application.
-	// Let's create a second host setting some more options.
-	// Set your own keypaircsd
 
 	if len(cfg.NodePrivateKey) == 0 {
 		priv, _, err := crypto.GenerateKeyPair(
@@ -117,9 +152,11 @@ func Run(mainCtx *context.Context) {
 		privKey = priv
 	}
 
-	// pKey, _ := privKey.Raw()
-	// fmt.Printf("Private Key %s", hexutil.Encode(pKey))
-	var idht *dht.IpfsDHT
+	conMgr := connmgr.NewConnManager(
+		100,         // Lowwater
+		400,         // HighWater,
+		time.Minute, // GracePeriod
+	)
 
 	h, err := libp2p.New(
 		// Use the keypair we generated
@@ -135,18 +172,47 @@ func Run(mainCtx *context.Context) {
 		// libp2p.Transport(ws.New),
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
-		libp2p.ConnectionManager(connmgr.NewConnManager(
-			100,         // Lowwater
-			400,         // HighWater,
-			time.Minute, // GracePeriod
-		)),
+		libp2p.ConnectionManager(conMgr),
 		// Attempt to open ports using uPNP for NATed hosts.
 		libp2p.NATPortMap(),
 		// Let this host use the DHT to find other hosts
 
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			dht, err := dht.New(ctx, h)
-			idht = dht
+
+			var bootstrapPeers []peer.AddrInfo
+			for _, addr := range cfg.BootstrapPeers {
+				addr, _ := multiaddr.NewMultiaddr(addr)
+				pi, _ := peer.AddrInfoFromP2pAddr(addr)
+				bootstrapPeers = append(bootstrapPeers, *pi)
+			}
+			var dhtOptions []dht.Option
+			dhtOptions = append(dhtOptions, dht.BootstrapPeers(bootstrapPeers...))
+			if cfg.BootstrapNode {
+				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeServer))
+			}
+			kdht, err := dht.New(ctx, h, dhtOptions...)
+			idht = kdht
+			if err = kdht.Bootstrap(ctx); err != nil {
+				logger.Fatalf("Error starting bootstrap node %w", err)
+				return nil, err
+			}
+
+			for _, addr := range cfg.BootstrapPeers {
+				addr, _ := multiaddr.NewMultiaddr(addr)
+				pi, err := peer.AddrInfoFromP2pAddr(addr)
+				if err != nil {
+					logger.Warnf("Invalid boostrap peer address (%s): %s \n", addr, err)
+				} else {
+					error := h.Connect(ctx, *pi)
+					if error != nil {
+						logger.Debugf("Unable connect to boostrap peer (%s): %s \n", addr, err)
+						continue
+					}
+					logger.Debugf("Connected to boostrap peer (%s)", addr)
+					handleConnect(&h, pi)
+				}
+			}
+			go Discover(ctx, h, kdht, "icms")
 			return idht, err
 		}),
 
@@ -162,9 +228,11 @@ func Run(mainCtx *context.Context) {
 		// performance issues.
 		libp2p.EnableNATService(),
 	)
+
 	if err != nil {
 		panic(err)
 	}
+	h.Network().Notify(&connectionNotifee{})
 
 	h.SetStreamHandler(protocol.ID(protocolId), handleStream)
 	// create a new PubSub service using the GossipSub router
@@ -177,29 +245,13 @@ func Run(mainCtx *context.Context) {
 	if err != nil {
 		panic(err)
 	}
+
 	node = &h
 
 	// The last step to get fully up and running would be to connect to
 	// bootstrap peers (or any other peers). We leave this commented as
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
-
-	for _, addr := range cfg.BootstrapPeers {
-		fmt.Printf("Peeeeeeeer %s\n", addr)
-		addr, _ := multiaddr.NewMultiaddr(addr)
-		pi, err := peer.AddrInfoFromP2pAddr(addr)
-		if err != nil {
-			logger.Warnf("Invalid boostrap peer address (%s): %s \n", addr, err)
-		} else {
-			error := h.Connect(ctx, *pi)
-			if error != nil {
-				logger.Infof("Unable connect to boostrap peer (%s): %s \n", addr, err)
-				continue
-			}
-			logger.Infof("Connected to boostrap peer (%s)", addr)
-			handleConnect(&h, pi)
-		}
-	}
 
 	logger.Infof("Host started with ID is %s\n", h.ID())
 
@@ -228,21 +280,21 @@ func Run(mainCtx *context.Context) {
 				// if not a valid message, continue
 
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
-				*incomingMessagesC <- *inMessage
+				incomingMessagesC <- inMessage
 			}
 		}
 	}()
 
 	for {
 		select {
-		case outMessage, ok := <-*outgoinMessageC:
+		case outMessage, ok := <-outgoinMessageC:
 			if cfg.Validator {
 				if !ok {
 					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
 					return
 				}
 
-				err := cr.Publish(outMessage)
+				err := cr.Publish(*outMessage)
 				if err != nil {
 					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
 
@@ -252,16 +304,6 @@ func Run(mainCtx *context.Context) {
 		}
 	}
 
-}
-
-// printErr is like fmt.Printf, but writes to stderr.
-// func printErr(m string, args ...interface{}) {
-// 	fmt.Fprintf(os.Stderr, m, args...)
-// }
-
-// discoveryNotifee gets notified when we find a new peer via mDNS discovery
-type discoveryNotifee struct {
-	h host.Host
 }
 
 func handleStream(stream network.Stream) {
@@ -284,14 +326,16 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 		if hsString == "" {
 			break
 		}
+
 		logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Info("New Handshake data from peer")
 		handshake, err := utils.HandshakeFromJSON(hsString)
+
 		if err != nil {
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %w", err)
 			break
 		}
-		validHandshke := isValidHandshake(handshake, p)
-		if !validHandshke {
+		validHandshake := isValidHandshake(handshake, p)
+		if !validHandshake {
 			disconnect(*node, p)
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Disconnecting from peer (%s) with invalid handshake", p)
 			return
@@ -320,12 +364,12 @@ func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
 		logger.WithFields(logrus.Fields{"message": message, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
 		return false
 	}
-	logger.Infof("New Valid handshake from peer: %s", p)
+	logger.Debugf("New Valid handshake from peer: %s", p)
 	return true
 }
 func isValidStake(handshake utils.Handshake, p peer.ID) bool {
 	if handshake.Data.NodeType == utils.ValidatorNodeType && config.Validator {
-		stakeContract, err := evm.StakeContract(config.EVMRPCUrl, config.StakeContract)
+		stakeContract, _, _, err := evm.StakeContract(config.EVMRPCHttp, config.StakeContract)
 		if err != nil {
 			logger.Errorf("EVM RPC error. Could not connect to stake contract: %s", err)
 			return false
@@ -362,7 +406,7 @@ func sendData(p peer.ID, rw *bufio.ReadWriter, data []byte) {
 // the PubSub system will automatically start interacting with them if they also
 // support PubSub.
 func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	logger.Infof("Discovered new peer %s\n", pi.ID.Pretty())
+	logger.Debugf("Discovered new peer %s\n", pi.ID.Pretty())
 	err := n.h.Connect(context.Background(), pi)
 
 	if err != nil {
@@ -374,7 +418,7 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 
 func handleConnect(h *host.Host, pa *peer.AddrInfo) {
 	pi := *pa
-	logger.Infof("Successfully connected to peer: %s", pi.ID)
+	logger.Debugf("Successfully connected to peer: %s", pi.ID)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stream, err := (*h).NewStream(ctx, pi.ID, protocol.ID(protocolId))
@@ -408,9 +452,37 @@ func setupDiscovery(ctx context.Context, h host.Host) error {
 	// n.h = make(chan peer.AddrInfo)
 	// setup mDNS discovery to find local peers
 	disc := mdns.NewMdnsService(h, DiscoveryServiceTag, &n)
-	if err := disc.Start(); err != nil {
-		panic(err)
-	}
-	// disc.RegisterNotifee(&n)
-	return nil
+	// if err := disc.Start(); err != nil {
+	// 	panic(err)
+	// }
+	// // disc.RegisterNotifee(&n)
+	return disc.Start()
 }
+
+// Listen is called when network starts listening on an addr
+func (n *connectionNotifee) Listen(netw network.Network, ma multiaddr.Multiaddr) {}
+
+// ListenClose is called when network starts listening on an addr
+func (n *connectionNotifee) ListenClose(netw network.Network, ma multiaddr.Multiaddr) {}
+
+// Connected is called when a connection opened
+func (n *connectionNotifee) Connected(netw network.Network, conn network.Conn) {
+	//retain max 4 connections
+	// if (len(netw.Conns()) > 4){
+	// 	conn.Close()
+	// 	fmt.Printf("Connection refused for peer: %v!\n", conn.RemotePeer().Pretty())
+	// }
+}
+
+// Disconnected is called when a connection closed
+func (cn *connectionNotifee) Disconnected(netw network.Network, conn network.Conn) {
+	id := conn.RemotePeer()
+	logger.Infof("Peer disconnect: %s", id)
+	idht.Host().Peerstore().RemovePeer(id)
+}
+
+// OpenedStream is called when a stream opened
+func (cn *connectionNotifee) OpenedStream(netw network.Network, stream network.Stream) {}
+
+// ClosedStream is called when a stream was closed
+func (cn *connectionNotifee) ClosedStream(netw network.Network, stream network.Stream) {}
