@@ -37,6 +37,7 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string)
 		utils.Logger.Infof("private key %s", privateKey)
 
 		if chatMsg.Origin == utils.GetPublicKey(privateKey) {
+
 			panic("Invalid origin")
 		}
 
