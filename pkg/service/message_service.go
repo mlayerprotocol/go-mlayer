@@ -40,9 +40,6 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string)
 			panic("Invalid origin")
 		}
 
-		// TODO:
-		// check message timestamp. It must be within a 15 seconds difference from the current server time
-
 		signature, _ := utils.Sign(senderSignature, privateKey)
 		message.Message = chatMsg
 		message.SenderSignature = senderSignature
