@@ -34,6 +34,10 @@ func hashMessage(message string) []byte {
 	return crypto.Keccak256Hash(_bytes).Bytes()
 }
 
+func Hash(message string) []byte {
+	return crypto.Keccak256Hash([]byte(message)).Bytes()
+}
+
 func Sign(message string, privKey string) ([]byte, string) {
 
 	privateKey, err := crypto.HexToECDSA(privKey)
