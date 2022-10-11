@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"net"
@@ -15,10 +16,12 @@ import (
 	"net/rpc/jsonrpc"
 
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
+	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
 	"github.com/ByteGum/go-icms/pkg/core/db"
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
 	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/cobra"
@@ -182,13 +185,25 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	wg.Add(1)
 	go func() {
 		_, client, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
+
 		if err != nil {
 			log.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
 		}
 		contractAddress := common.HexToAddress(cfg.StakeContract)
 		query := ethereum.FilterQuery{
+			// FromBlock: big.NewInt(23506010),
+			// ToBlock:   big.NewInt(23506110),
+
 			Addresses: []common.Address{contractAddress},
 		}
+
+		// logs, err := client.FilterLogs(context.Background(), query)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		// parserEvent(logs[0], "StakeEvent")
+
+		// logger.Infof("Past Events", logs)
 		// incomingEventsC
 
 		sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
@@ -202,6 +217,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				log.Fatal(err)
 			case vLog := <-incomingEventsC:
 				fmt.Println(vLog) // pointer to event log
+				parserEvent(vLog, "StakeEvent")
 			}
 		}
 
@@ -263,6 +279,23 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// r := gin.Default()
 	// r = originatorRoutes.Init(r)
 	// r.Run("localhost:8083")
+}
+
+func parserEvent(vLog types.Log, eventName string) {
+	event := stake.StakeStakeEvent{}
+	contractAbi, err := abi.JSON(strings.NewReader(string(stake.StakeMetaData.ABI)))
+
+	if err != nil {
+		log.Fatal("contractAbi, err", err)
+	}
+	_err := contractAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
+	if _err != nil {
+		log.Fatal("_err :  ", _err)
+	}
+
+	fmt.Println(event.Account) // foo
+	fmt.Println(event.Amount)
+	fmt.Println(event.Timestamp)
 }
 
 // func checkError(err error) {

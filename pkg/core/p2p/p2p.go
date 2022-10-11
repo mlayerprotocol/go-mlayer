@@ -88,7 +88,7 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 			if err != nil {
 				log.Fatal(err)
 			}
-			logger.Infof("Found peers: %d", len(peers)-1)
+			logger.Debugf("Found peers: %d", len(peers)-1)
 			for _, p := range peers {
 
 				if p.ID == h.ID() {
