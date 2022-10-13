@@ -32,6 +32,7 @@ func NewRpcService(mainCtx *context.Context) *RpcService {
 }
 
 func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *utils.ClientMessage) error {
+	
 	chatMsg := utils.CreateMessageFromJson(request)
 	reply, err := (*p.MessageService).Send(chatMsg, request.Signature)
 	if err != nil {

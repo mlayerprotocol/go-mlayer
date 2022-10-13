@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/sirupsen/logrus"
 )
 
@@ -113,9 +114,9 @@ func (chatMessage *ChatMessage) ToString() string {
 	values = append(values, fmt.Sprintf("Header.Platform:%s", chatMessage.Header.Platform))
 	values = append(values, fmt.Sprintf("Header.Timestamp:%d", chatMessage.Header.Timestamp))
 
-	values = append(values, fmt.Sprintf("Body.Subject:%s", chatMessage.Body.Subject))
-	values = append(values, fmt.Sprintf("Body.Text:%s", chatMessage.Body.Text))
-	values = append(values, fmt.Sprintf("Body.Html:%s", chatMessage.Body.Html))
+	values = append(values, fmt.Sprintf("Body.Subject:%s", Hash(chatMessage.Body.Subject)))
+	values = append(values, fmt.Sprintf("Body.Text:%s", Hash(chatMessage.Body.Text)))
+	values = append(values, fmt.Sprintf("Body.Html:%s", Hash(chatMessage.Body.Html)))
 	_action := []string{}
 	for i := 0; i < len(chatMessage.Actions); i++ {
 		_action = append(_action, fmt.Sprintf("Actions[%d].Contract:%s", i, chatMessage.Actions[i].Contract))
@@ -172,6 +173,19 @@ func (msg *ClientMessage) ToJSON() ([]byte, error) {
 	m, err := json.Marshal(msg)
 	return m, err
 }
+func (msg *ClientMessage) ToString() string {
+	return fmt.Sprintf("%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature)
+
+}
+
+func (msg *ClientMessage) Hash() []byte {
+	bs := crypto.Keccak256Hash([]byte(msg.Message.ToString())).Bytes()
+	return bs
+}
+
+func (msg *ClientMessage) Key() string {
+	return fmt.Sprintf("%s/%s/%s", msg.Message.Header.Sender, msg.Message.Origin, string(msg.Hash()))
+}
 
 func ClientMessageFromBytes(b []byte) (ClientMessage, error) {
 	var message ClientMessage
@@ -214,6 +228,8 @@ type MessageJsonInput struct {
 	Subject   string              `json:"subject"`
 	Signature string              `json:"signature"`
 	Actions   []ChatMessageAction `json:"actions"`
+	HtmlHash  string              `json:"htmlHash"`
+	TextHash  string              `json:"textHash"`
 }
 
 func CreateMessageFromJson(msg MessageJsonInput) ChatMessage {

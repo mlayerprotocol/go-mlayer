@@ -10,8 +10,10 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"net"
+	"net/http"
 	"net/rpc"
 	"net/rpc/jsonrpc"
 
@@ -24,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 
 	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
@@ -44,6 +47,7 @@ const (
 	NODE_PRIVATE_KEY Flag = "node-private-key"
 	NETWORK               = "network"
 	RPC_PORT         Flag = "rpc-port"
+	WS_ADDRESS       Flag = "ws-address"
 )
 
 // daemonCmd represents the daemon command
@@ -79,7 +83,14 @@ func init() {
 	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
 	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
 	daemonCmd.Flags().StringP(string(RPC_PORT), "p", utils.DefaultRPCPort, "RPC server port")
+	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", utils.DefaultWebSocketAddress, "http service address")
 }
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+} // use default options
 
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
@@ -92,6 +103,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	evmPrivateKey, err := cmd.Flags().GetString(string(EVM_PRIVATE_KEY))
 	rpcPort, err := cmd.Flags().GetString(string(RPC_PORT))
+	wsAddress, err := cmd.Flags().GetString(string(WS_ADDRESS))
 
 	if err != nil || len(privateKey) == 0 {
 		if len(evmPrivateKey) == 0 {
@@ -122,14 +134,11 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
 	var wg sync.WaitGroup
 	errc := make(chan error)
-	// dbPath, err := ioutil.TempDir("", "badger-test")
-	// if err != nil {
-	// 	errc <- fmt.Errorf("Could not read temp dir: %g", err)
-	// }
-	// ds, err := badgerds.NewDatastore(dbPath, nil)
-	// if err != nil {
-	// 	errc <- fmt.Errorf("Could not initialize ds: %g", err)
-	// }
+
+	// validMessagesStore := db.Db(&ctx, utils.ValidMessageStore)
+	unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
+	// sentMessageStore := db.Db(&ctx, utils.SentMessageStore)
+
 	defer wg.Wait()
 
 	wg.Add(1)
@@ -145,15 +154,16 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
 
-				// attempt to push into outgoing message channel
-				// case outMessage, ok := <-outgoingMessagesc:
-				// 	if !ok {
-				// 		logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
-				// 		wg.Done()
-				// 		return
-				// 	}
-				// 	// VALIDATE AND DISTRIBUTE
-				// 	logger.Info("Received new message %s\n", outMessage.Message.Body.Text)
+			// attempt to push into outgoing message channel
+			case outMessage, ok := <-outgoingMessagesc:
+				if !ok {
+					logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
+				}
+				// VALIDATE AND DISTRIBUTE
+				logger.Info("Sending out message %s\n", outMessage.Message.Body.Text)
+				unsentMessageStore.Set(ctx, db.Key(outMessage.Key()), []byte(outMessage.Message.ToJSON()), false)
 
 			}
 
@@ -173,23 +183,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		p2p.Run(&ctx)
 	}()
 	wg.Add(1)
-	go func() {
-		if err := recover(); err != nil {
-			wg.Done()
-			errc <- fmt.Errorf("db error: %g", err)
-		}
-		defer wg.Done()
-		db.Db()
-	}()
 
 	wg.Add(1)
 	go func() {
-		_, client, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
-
+		_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
 		if err != nil {
 			log.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
 		}
-		contractAddress := common.HexToAddress(cfg.StakeContract)
 		query := ethereum.FilterQuery{
 			// FromBlock: big.NewInt(23506010),
 			// ToBlock:   big.NewInt(23506110),
@@ -223,6 +223,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	}()
 
+	wg.Add(1)
 	go func() {
 
 		rpc.RegisterName("MessageService", rpcServer.NewRpcService(&ctx))
@@ -279,6 +280,15 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// r := gin.Default()
 	// r = originatorRoutes.Init(r)
 	// r.Run("localhost:8083")
+
+	wg.Add(1)
+	go func() {
+
+		logger.Infof("wsAddress: %s\n", wsAddress)
+		http.HandleFunc("/echo", ServeWebSocket)
+
+		log.Fatal(http.ListenAndServe(wsAddress, nil))
+	}()
 }
 
 func parserEvent(vLog types.Log, eventName string) {
@@ -296,6 +306,50 @@ func parserEvent(vLog types.Log, eventName string) {
 	fmt.Println(event.Account) // foo
 	fmt.Println(event.Amount)
 	fmt.Println(event.Timestamp)
+}
+
+var lobbyConn = []*websocket.Conn{}
+var verifiedConn = []*websocket.Conn{}
+
+func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
+
+	c, err := upgrader.Upgrade(w, r, nil)
+	log.Print("New ServeWebSocket c : ", c.RemoteAddr())
+
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+	defer c.Close()
+	hasVerifed := false
+	time.AfterFunc(5000*time.Millisecond, func() {
+
+		if !hasVerifed {
+			c.Close()
+		}
+	})
+
+	mt, message, err := c.ReadMessage()
+	if err != nil {
+		log.Println("read:", err)
+
+	} else {
+		err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
+		if err != nil {
+			log.Println("Error:", err)
+		} else {
+			signature := string(message)
+
+			if signature == "verified" {
+				verifiedConn = append(verifiedConn, c)
+				hasVerifed = true
+			}
+			log.Println("message:", string(message))
+			log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+		}
+
+	}
+
 }
 
 // func checkError(err error) {
