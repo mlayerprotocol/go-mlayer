@@ -270,9 +270,13 @@ func Run(mainCtx *context.Context) {
 	if err != nil {
 		panic(err)
 	}
-	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", sb.ChannelName)
+	time.AfterFunc(5*time.Second, func() {
+		logger.Info("Sending subscription to channel")
+		sb.Publish((&utils.Subscription{Channel: "channel", Subscriber: "sds"}).ToJSON())
+	})
+
 	go func() {
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 		for {
 			select {
 			case inMessage, ok := <-cr.Messages:

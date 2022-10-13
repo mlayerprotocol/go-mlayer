@@ -9,30 +9,6 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
-// Channel represents a subscription to a single PubSub topic. Messages
-// can be published to the topic with Channel.Publish, and received
-// messages are pushed to the Messages channel.
-// type PubSubMessage struct {
-// 	Data interface{}
-// 	// ClientMessage    utils.ClientMessage
-// 	// Subscription     utils.Subscription
-// 	// SubscribersCount utils.SubscriberCount
-// }
-
-// func (msg PubSubMessage) ToJSON() []byte {
-// 	m, _ := json.Marshal(msg)
-// 	return m
-// }
-
-// func PubSubMessageFromBytes(b []byte) (, error) {
-// 	var message PubSubMessage
-// 	// if err := json.Unmarshal(b, &message); err != nil {
-// 	// 	panic(err)
-// 	// }
-// 	err := json.Unmarshal(b, &message)
-// 	return message, err
-// }
-
 type Channel struct {
 	// Messages is a channel of messages received from other peers in the chat channel
 	Messages chan []byte
@@ -47,19 +23,13 @@ type Channel struct {
 	Wallet      string
 }
 
-// ChannelMessage gets converted to/from JSON and sent in the body of pubsub messages.
-// type ChannelMessage struct {
-// 	Message utils.NodeMessage
-// }
-
-// JoinChannel tries to subscribe to the PubSub topic for the channel name, returning
-// a Channel on success.
 func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletAddress string, channelName string, channelBufferSize uint) (*Channel, error) {
 	// join the pubsub topic
 	topic, err := ps.Join(topicName(channelName))
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("Peer joined channel %s", channelName)
 
 	// and subscribe to it
 	sub, err := topic.Subscribe()
@@ -88,6 +58,7 @@ func (cr *Channel) Publish(m []byte) error {
 	// if err != nil {
 	// 	return err
 	// }
+	logger.Info("Publishing to channel", string(m))
 	return cr.Topic.Publish(cr.Ctx, m)
 }
 
@@ -103,6 +74,7 @@ func (cr *Channel) readLoop() {
 			close(cr.Messages)
 			panic(err)
 		}
+		logger.Infof("New message from channel %s", cr.ChannelName)
 		// only forward messages delivered by others
 		if msg.ReceivedFrom == cr.ID {
 			continue

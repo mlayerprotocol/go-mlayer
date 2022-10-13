@@ -24,7 +24,10 @@ func (sub *Subscription) Key() string {
 }
 
 func (sub *Subscription) ToJSON() []byte {
-	m, _ := json.Marshal(sub)
+	m, e := json.Marshal(sub)
+	if e != nil {
+		logger.Errorf("Unable to parse subscription to []byte")
+	}
 	return m
 }
 
