@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 
 	"net"
@@ -81,8 +82,12 @@ func init() {
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
 	ctx := context.Background()
-	incomingMessagesc := make(chan utils.ClientMessage)
-	outgoingMessagesc := make(chan utils.ClientMessage)
+	incomingMessagesc := make(chan *utils.ClientMessage)
+	outgoingMessagesc := make(chan *utils.ClientMessage)
+	subscribersc := make(chan *utils.Subscription)
+	subscriptiondp2pc := make(chan *utils.Subscription)
+
+	// subscribersChannel := make()
 
 	incomingEventsC := make(chan types.Log)
 
@@ -113,15 +118,19 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	if rpcPort == utils.DefaultRPCPort && len(cfg.RPCPort) > 0 {
 		rpcPort = cfg.RPCPort
 	}
-
 	ctx = context.WithValue(ctx, utils.ConfigKey, &cfg)
 	ctx = context.WithValue(ctx, utils.IncomingMessageCh, &incomingMessagesc)
 	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
+	ctx = context.WithValue(ctx, utils.SubscribeCh, &subscribersc)
+	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
+
 	var wg sync.WaitGroup
 	errc := make(chan error)
 
 	// validMessagesStore := db.Db(&ctx, utils.ValidMessageStore)
 	unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
+	channelSubscriberStore := db.New(&ctx, utils.ChannelSubscriberStore)
+	channelSubscribersCountStore := db.New(&ctx, utils.ChannelSubscribersCountStore)
 	// sentMessageStore := db.Db(&ctx, utils.SentMessageStore)
 
 	defer wg.Wait()
@@ -137,7 +146,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					return
 				}
 				// VALIDATE AND DISTRIBUTE
-				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
+				logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
 
 			// attempt to push into outgoing message channel
 			case outMessage, ok := <-outgoingMessagesc:
@@ -147,9 +156,37 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					return
 				}
 				// VALIDATE AND DISTRIBUTE
-				logger.Info("Sending out message %s\n", outMessage.Message.Body.Text)
-				unsentMessageStore.Set(ctx, db.Key(outMessage.Key()), []byte(outMessage.Message.ToJSON()), false)
+				logger.Info("Sending out message %s\n", outMessage.Message.Body.Message)
+				unsentMessageStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
 
+			case sub, ok := <-subscribersc:
+				if !ok {
+					logger.Errorf("Subscription channel closed!")
+					return
+				}
+				subscriptiondp2pc <- sub
+				trx, err := channelSubscribersCountStore.NewTransaction(ctx, false)
+				logger.Info("TRANSACTION INITIATED ******")
+				if err != nil {
+					logger.Infof("Transaction err::: %w", err)
+				}
+				cscstore, err := trx.Get(ctx, db.Key(sub.Key()))
+				increment := -1
+				if sub.Action == utils.Join {
+					increment = 1
+					channelSubscriberStore.Set(ctx, db.Key(sub.Key()), sub.ToJSON(), false)
+
+				} else {
+					channelSubscriberStore.Delete(ctx, db.Key(sub.Key()))
+				}
+				if len(cscstore) == 0 {
+					cscstore = []byte("0")
+				}
+				cscstoreint, err := strconv.Atoi(string(cscstore))
+				cscstoreint += increment
+				channelSubscribersCountStore.Set(ctx, db.Key(sub.Channel), []byte(strconv.Itoa(cscstoreint)), true)
+				logger.Info("TRANSACTION ENDED ******")
+				trx.Commit(ctx)
 			}
 
 		}
@@ -198,7 +235,8 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	go func() {
 
-		rpc.RegisterName("MessageService", rpcServer.NewRpcService(&ctx))
+		rpc.RegisterName("RpcService", rpcServer.NewRpcService(&ctx))
+		// rpc.RegisterName("ChannelService", rpcServer.NewRpcService(&ctx))
 		listener, err := net.Listen("tcp", cfg.RPCHost+":"+rpcPort)
 		if err != nil {
 			logger.Fatal("ListenTCP error: ", err)

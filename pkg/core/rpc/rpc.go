@@ -20,6 +20,12 @@ type RpcService struct {
 	Ctx            *context.Context
 	Cfg            *utils.Configuration
 	MessageService *services.MessageService
+	ChannelService *services.ChannelService
+}
+
+type RpcResponse struct {
+	Status string      `json:"status"`
+	Data   interface{} `json:"data"`
 }
 
 func NewRpcService(mainCtx *context.Context) *RpcService {
@@ -28,20 +34,35 @@ func NewRpcService(mainCtx *context.Context) *RpcService {
 		Ctx:            mainCtx,
 		Cfg:            cfg,
 		MessageService: services.NewMessageService(mainCtx),
+		ChannelService: services.NewChannelService(mainCtx),
 	}
 }
 
-func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *utils.ClientMessage) error {
-	
+func newResponse(status string, data interface{}) *RpcResponse {
+	d := RpcResponse{
+		Status: status,
+		Data:   data,
+	}
+	return &d
+}
+
+func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *RpcResponse) error {
+	utils.Logger.Info("request:::", request)
 	chatMsg := utils.CreateMessageFromJson(request)
-	reply, err := (*p.MessageService).Send(chatMsg, request.Signature)
+	c, err := (*p.MessageService).Send(chatMsg, request.Signature)
 	if err != nil {
 		return err
 	}
+	reply = newResponse("success", c)
 	return nil
 }
 
-//! create valid outgoing channel
-//! listen into incoming outgoing
-//! store in the db
-//! create a copy and broadcast to the network
+func (p *RpcService) Subscription(request utils.Subscription, reply *RpcResponse) error {
+	utils.Logger.Info("request:::", request)
+	err := (*p.ChannelService).ChannelSubscription(&request)
+	if err != nil {
+		return err
+	}
+	reply = newResponse("success", request)
+	return nil
+}

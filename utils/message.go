@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+
+	// "math"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/sirupsen/logrus"
 )
@@ -86,10 +89,14 @@ type ChatMessageHeader struct {
 	Platform  string `json:"platform"`
 	Timestamp uint   `json:"timestamp"`
 }
+
+// TODO! platform enum channel
+//! receiver field is name of channel u are sending to
+// ! look for all subscribers to the channel
+//! channel subscribers store
 type ChatMessageBody struct {
 	Subject string `json:"subject"`
-	Text    string `json:"text"`
-	Html    string `json:"html"`
+	Message string `json:"message"`
 }
 type ChatMessageAction struct {
 	Contract   string   `json:"contract"`
@@ -114,9 +121,10 @@ func (chatMessage *ChatMessage) ToString() string {
 	values = append(values, fmt.Sprintf("Header.Platform:%s", chatMessage.Header.Platform))
 	values = append(values, fmt.Sprintf("Header.Timestamp:%d", chatMessage.Header.Timestamp))
 
-	values = append(values, fmt.Sprintf("Body.Subject:%s", Hash(chatMessage.Body.Subject)))
-	values = append(values, fmt.Sprintf("Body.Text:%s", Hash(chatMessage.Body.Text)))
-	values = append(values, fmt.Sprintf("Body.Html:%s", Hash(chatMessage.Body.Html)))
+	logger.WithFields(logrus.Fields{"subject: ": strings.ToLower(hexutil.Encode(Hash(chatMessage.Body.Subject)))}).Infof("subject")
+	logger.WithFields(logrus.Fields{"message: ": strings.ToLower(hexutil.Encode(Hash(chatMessage.Body.Message)))}).Infof("message")
+	values = append(values, fmt.Sprintf("Body.Subject:%s", strings.ToLower(hexutil.Encode(Hash(chatMessage.Body.Subject)))))
+	values = append(values, fmt.Sprintf("Body.Message:%s", strings.ToLower(hexutil.Encode(Hash(chatMessage.Body.Message)))))
 	_action := []string{}
 	for i := 0; i < len(chatMessage.Actions); i++ {
 		_action = append(_action, fmt.Sprintf("Actions[%d].Contract:%s", i, chatMessage.Actions[i].Contract))
@@ -169,9 +177,9 @@ func ReturnError(msg string, code int) *ErrorResponse {
 	return &e
 }
 
-func (msg *ClientMessage) ToJSON() ([]byte, error) {
-	m, err := json.Marshal(msg)
-	return m, err
+func (msg *ClientMessage) ToJSON() []byte {
+	m, _ := json.Marshal(msg)
+	return m
 }
 func (msg *ClientMessage) ToString() string {
 	return fmt.Sprintf("%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature)
@@ -228,8 +236,7 @@ type MessageJsonInput struct {
 	Subject   string              `json:"subject"`
 	Signature string              `json:"signature"`
 	Actions   []ChatMessageAction `json:"actions"`
-	HtmlHash  string              `json:"htmlHash"`
-	TextHash  string              `json:"textHash"`
+	Origin    string              `json:"origin"`
 }
 
 func CreateMessageFromJson(msg MessageJsonInput) ChatMessage {
@@ -242,21 +249,13 @@ func CreateMessageFromJson(msg MessageJsonInput) ChatMessage {
 		Platform:  msg.Platform,
 		Length:    100,
 	}
-	var bodyMessage ChatMessageBody
-	if msg.Type == "html" {
-		bodyMessage = ChatMessageBody{
-			Subject: msg.Subject,
-			Html:    msg.Message,
-		}
-	} else {
-		bodyMessage = ChatMessageBody{
-			Subject: msg.Subject,
-			Text:    msg.Message,
-		}
-	}
 
-	Origin := ""
-	_chatMessage := ChatMessage{chatMessage, bodyMessage, msg.Actions, Origin}
+	bodyMessage := ChatMessageBody{
+		Subject: msg.Subject,
+		Message: msg.Message,
+	}
+	logger.Infof("origin %s", msg.Origin)
+	_chatMessage := ChatMessage{chatMessage, bodyMessage, msg.Actions, msg.Origin}
 	return _chatMessage
 }
 
