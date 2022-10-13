@@ -2,7 +2,8 @@ package utils
 
 import (
 	"crypto/ecdsa"
-	"crypto/sha256"
+	"math"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -35,13 +36,8 @@ func hashMessage(message string) []byte {
 	return crypto.Keccak256Hash(_bytes).Bytes()
 }
 
-func CreateHash256(message string) string {
-	h := sha256.New()
-
-	h.Write([]byte(message))
-
-	bs := h.Sum(nil)
-	return string(bs)
+func Hash(message string) []byte {
+	return crypto.Keccak256Hash([]byte(message)).Bytes()
 }
 
 func Sign(message string, privKey string) ([]byte, string) {
@@ -95,4 +91,19 @@ func VerifySignature(signer string, message string, signature string) bool {
 		return false
 	}
 	return decodedSigner == signer
+}
+
+func IsValidSubscription(
+	Channel string,
+	Subscriber string,
+	Timestamp int,
+	Signature string,
+	Action string,
+	MessageHash string,
+) bool {
+	if math.Abs(float64(int(Timestamp)/1000-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
+		logger.Info("Invalid Subscription, invalid handshake duration")
+		return false
+	}
+	return VerifySignature(Subscriber, MessageHash, Signature)
 }

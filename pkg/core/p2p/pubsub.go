@@ -3,7 +3,7 @@ package p2p
 import (
 	"context"
 
-	"github.com/ByteGum/go-icms/utils"
+	// "github.com/ByteGum/go-icms/utils"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -12,9 +12,30 @@ import (
 // Channel represents a subscription to a single PubSub topic. Messages
 // can be published to the topic with Channel.Publish, and received
 // messages are pushed to the Messages channel.
+// type PubSubMessage struct {
+// 	Data interface{}
+// 	// ClientMessage    utils.ClientMessage
+// 	// Subscription     utils.Subscription
+// 	// SubscribersCount utils.SubscriberCount
+// }
+
+// func (msg PubSubMessage) ToJSON() []byte {
+// 	m, _ := json.Marshal(msg)
+// 	return m
+// }
+
+// func PubSubMessageFromBytes(b []byte) (, error) {
+// 	var message PubSubMessage
+// 	// if err := json.Unmarshal(b, &message); err != nil {
+// 	// 	panic(err)
+// 	// }
+// 	err := json.Unmarshal(b, &message)
+// 	return message, err
+// }
+
 type Channel struct {
 	// Messages is a channel of messages received from other peers in the chat channel
-	Messages chan *utils.ClientMessage
+	Messages chan []byte
 
 	Ctx   context.Context
 	ps    *pubsub.PubSub
@@ -54,7 +75,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 		ID:          selfID,
 		Wallet:      walletAddress,
 		ChannelName: channelName,
-		Messages:    make(chan *utils.ClientMessage, channelBufferSize),
+		Messages:    make(chan []byte, channelBufferSize),
 	}
 
 	// start reading messages from the subscription in a loop
@@ -63,12 +84,11 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *Channel) Publish(m utils.ClientMessage) error {
-	msgBytes, err := m.ToJSON()
-	if err != nil {
-		return err
-	}
-	return cr.Topic.Publish(cr.Ctx, msgBytes)
+func (cr *Channel) Publish(m []byte) error {
+	// if err != nil {
+	// 	return err
+	// }
+	return cr.Topic.Publish(cr.Ctx, m)
 }
 
 func (cr *Channel) ListPeers() []peer.ID {
@@ -87,12 +107,12 @@ func (cr *Channel) readLoop() {
 		if msg.ReceivedFrom == cr.ID {
 			continue
 		}
-		cm, err := utils.ClientMessageFromBytes(msg.Data)
-		if err != nil {
-			continue
-		}
+		// cm,  := msg.Data
+		// if err != nil {
+		// 	continue
+		// }
 		// send valid messages onto the Messages channel
-		cr.Messages <- &cm
+		cr.Messages <- msg.Data
 	}
 }
 
