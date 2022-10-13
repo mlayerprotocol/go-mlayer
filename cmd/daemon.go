@@ -199,9 +199,6 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			wg.Done()
 			errc <- fmt.Errorf("P2P error: %g", err)
 		}
-		// logger.WithFields(logrus.Fields{
-		// 	"publicKey": "walrus",
-		// }).Infof("publicKey %s", priv)
 		p2p.Run(&ctx)
 	}()
 	wg.Add(1)
@@ -234,9 +231,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}()
 
 	go func() {
-
 		rpc.RegisterName("RpcService", rpcServer.NewRpcService(&ctx))
-		// rpc.RegisterName("ChannelService", rpcServer.NewRpcService(&ctx))
 		listener, err := net.Listen("tcp", cfg.RPCHost+":"+rpcPort)
 		if err != nil {
 			logger.Fatal("ListenTCP error: ", err)
@@ -253,48 +248,4 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			go jsonrpc.ServeConn(conn)
 		}
 	}()
-
-	// // sample test endpoint
-	// http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-	// 	io.WriteString(res, "RPC SERVER LIVE!")
-	// })
-
-	// // listen and serve default HTTP server
-	// http.ListenAndServe(":9000", nil)
-	// _chatInput := utils.MessageJsonInput{
-	// 	Timestamp: 1663909754116,
-	// 	From:      "111",
-	// 	Receiver:  "111",
-	// 	Platform:  "channel",
-	// 	Type:      "html",
-	// 	Message:   "hello world",
-	// 	ChainId:   "",
-	// 	Subject:   "Test Subject",
-	// 	Signature: "909090",
-	// 	Actions: []utils.ChatMessageAction{
-	// 		{
-	// 			Contract: "Contract",
-	// 			Abi:      "Abi",
-	// 			Action:   "Action",
-	// 			Parameters: []string{
-	// 				"good",
-	// 				"Jon",
-	// 				"Doe",
-	// 			},
-	// 		},
-	// 	},
-	// }
-	// _chatMsg := utils.CreateMessageFromJson(_chatInput)
-	// fmt.Printf("Testing my function%s, %t", "_chatMsg.ToString()", utils.IsValidMessage(_chatMsg, _chatInput.Signature))
-
-	// r := gin.Default()
-	// r = originatorRoutes.Init(r)
-	// r.Run("localhost:8083")
 }
-
-// func checkError(err error) {
-//     if err != nil {
-//         fmt.Println("Fatal error ", err.Error())
-//         os.Exit(1)
-//     }
-// }
