@@ -43,7 +43,8 @@ var privKey crypto.PrivKey
 
 const DiscoveryServiceTag = "icm-network"
 const (
-	MessageChannel string = "icm-message-channel"
+	MessageChannel      string = "icm-message-channel"
+	SubscriptionChannel        = "icm-subscription-channel"
 )
 
 var peerStreams = make(map[string]peer.ID)
@@ -124,11 +125,16 @@ func Run(mainCtx *context.Context) {
 	config = *cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(chan *utils.ClientMessage)
+	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(*chan *utils.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageCh).(chan *utils.ClientMessage)
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PCh).(*chan *utils.ClientMessage)
+	if !ok {
+
+	}
+
+	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PCh).(*chan *utils.Subscription)
 	if !ok {
 
 	}
@@ -260,8 +266,17 @@ func Run(mainCtx *context.Context) {
 		panic(err)
 	}
 	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", cr.ChannelName)
+	sb, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+	time.AfterFunc(5*time.Second, func() {
+		logger.Info("Sending subscription to channel")
+		sb.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{Channel: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
+	})
+
 	go func() {
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 		for {
 			select {
 			case inMessage, ok := <-cr.Messages:
@@ -272,32 +287,70 @@ func Run(mainCtx *context.Context) {
 				}
 				// !validating message
 				// !if not a valid message continue
-				_, err := inMessage.ToJSON()
-				if err != nil {
-					continue
-				}
+				// _, err := inMessage.ToJSON()
+				// if err != nil {
+				// 	continue
+				// }
 				//TODO:
 				// if not a valid message, continue
 
-				logger.Info("Received new message %s\n", inMessage.Message.Body.Text)
-				incomingMessagesC <- inMessage
+				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+				cm, err := utils.ClientMessageFromBytes(inMessage.Data)
+				if err != nil {
+
+				}
+				*incomingMessagesC <- &cm
+			case sub, ok := <-sb.Messages:
+				if !ok {
+					cancel()
+					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
+					return
+				}
+				// !validating message
+				// !if not a valid message continue
+				// _, err := inMessage.ToJSON()
+				// if err != nil {
+				// 	continue
+				// }
+				//TODO:
+				// if not a valid message, continue
+
+				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+				cm, err := utils.SubscriptionFromBytes(sub.Data)
+				if err != nil {
+
+				}
+				logger.Info("New subscription updates:::", string(cm.ToJSON()))
+				// *incomingMessagesC <- &cm
 			}
 		}
 	}()
 
 	for {
 		select {
-		case outMessage, ok := <-outgoinMessageC:
+		case outMessage, ok := <-*outgoinMessageC:
 			if cfg.Validator {
 				if !ok {
 					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
 					return
 				}
-
-				err := cr.Publish(*outMessage)
+				err := cr.Publish(utils.NewSignedPubSubMessage(outMessage.ToJSON(), cfg.EvmPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
+					return
+				}
+			}
+		case subscription, ok := <-*subscriptionC:
+			if cfg.Validator {
+				if !ok {
+					logger.Errorf("Subscription channel not found in the context")
+					return
+				}
+				logger.Info("subscription channel:::", subscription.Channel)
 
+				err := sb.Publish(utils.NewSignedPubSubMessage(subscription.ToJSON(), cfg.EvmPrivateKey))
+				if err != nil {
+					logger.Errorf("Failed to publish subscription.")
 					return
 				}
 			}

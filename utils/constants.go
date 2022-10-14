@@ -17,17 +17,29 @@ const (
 )
 
 const (
-	ValidMessageStore  string = "valid-messages"
-	UnsentMessageStore        = "unsent-messages"
-	SentMessageStore          = "sent-messages"
+	ValidMessageStore            string = "valid-messages"
+	UnsentMessageStore                  = "unsent-messages"
+	SentMessageStore                    = "sent-messages"
+	ChannelSubscriberStore              = "channels-subscribers"
+	ChannelSubscribersCountStore        = "channels-subscribers-count"
 )
 
 // Values withing the main context
 const (
-	ConfigKey         string = "Config"
-	OutgoingMessageCh        = "OutgoingMessageChannel"
-	IncomingMessageCh        = "IncomingMessageChannel"
-	PublishMessageCh         = "PublishMessageChannel"
+	ConfigKey             string = "Config"
+	OutgoingMessageCh            = "OutgoingMessageChannel"
+	OutgoingMessageDP2PCh        = "OutgoingMessageDP2PChannel"
+	IncomingMessageCh            = "IncomingMessageChannel"
+	PublishMessageCh             = "PublishMessageChannel"
+	SubscribeCh                  = "SubscribeChannel"
+	SubscriptionDP2PCh           = "SubscriptionDP2PChannel"
+)
+
+type SubAction string
+
+const (
+	Join  SubAction = "join"
+	Leave SubAction = "leave"
 )
 
 var HomeTemplate = template.Must(template.New("").Parse(`
