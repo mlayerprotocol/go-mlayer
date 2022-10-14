@@ -129,10 +129,10 @@ func Run(mainCtx *context.Context) {
 	if !ok {
 
 	}
-	// outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageCh).(*chan *utils.ClientMessage)
-	// if !ok {
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PCh).(*chan *utils.ClientMessage)
+	if !ok {
 
-	// }
+	}
 
 	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PCh).(*chan *utils.Subscription)
 	if !ok {
@@ -270,9 +270,13 @@ func Run(mainCtx *context.Context) {
 	if err != nil {
 		panic(err)
 	}
-	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", sb.ChannelName)
+	time.AfterFunc(5*time.Second, func() {
+		logger.Info("Sending subscription to channel")
+		sb.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{Channel: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
+	})
+
 	go func() {
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 		for {
 			select {
 			case inMessage, ok := <-cr.Messages:
@@ -291,7 +295,7 @@ func Run(mainCtx *context.Context) {
 				// if not a valid message, continue
 
 				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
-				cm, err := utils.ClientMessageFromBytes(inMessage)
+				cm, err := utils.ClientMessageFromBytes(inMessage.Data)
 				if err != nil {
 
 				}
@@ -312,11 +316,11 @@ func Run(mainCtx *context.Context) {
 				// if not a valid message, continue
 
 				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
-				cm, err := utils.SubscriptionFromBytes(sub)
+				cm, err := utils.SubscriptionFromBytes(sub.Data)
 				if err != nil {
 
 				}
-				logger.Info("New subscription updates:::", cm.ToString())
+				logger.Info("New subscription updates:::", string(cm.ToJSON()))
 				// *incomingMessagesC <- &cm
 			}
 		}
@@ -324,20 +328,18 @@ func Run(mainCtx *context.Context) {
 
 	for {
 		select {
-		// case outMessage, ok := <-outgoinMessageC:
-		// 	if cfg.Validator {
-		// 		if !ok {
-		// 			logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
-		// 			return
-		// 		}
-
-		// 		err := cr.Publish(*outMessage)
-		// 		if err != nil {
-		// 			logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
-
-		// 			return
-		// 		}
-		// 	}
+		case outMessage, ok := <-*outgoinMessageC:
+			if cfg.Validator {
+				if !ok {
+					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
+					return
+				}
+				err := cr.Publish(utils.NewSignedPubSubMessage(outMessage.ToJSON(), cfg.EvmPrivateKey))
+				if err != nil {
+					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
+					return
+				}
+			}
 		case subscription, ok := <-*subscriptionC:
 			if cfg.Validator {
 				if !ok {
@@ -346,7 +348,7 @@ func Run(mainCtx *context.Context) {
 				}
 				logger.Info("subscription channel:::", subscription.Channel)
 
-				err := sb.Publish(subscription.ToJSON())
+				err := sb.Publish(utils.NewSignedPubSubMessage(subscription.ToJSON(), cfg.EvmPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish subscription.")
 					return

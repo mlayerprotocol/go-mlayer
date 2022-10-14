@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 
 	// "math"
 	"strings"
@@ -183,7 +184,6 @@ func (msg *ClientMessage) ToJSON() []byte {
 }
 func (msg *ClientMessage) ToString() string {
 	return fmt.Sprintf("%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature)
-
 }
 
 func (msg *ClientMessage) Hash() []byte {
@@ -276,4 +276,36 @@ func IsValidMessage(msg ChatMessage, signature string) bool {
 
 	}
 	return true
+}
+
+type PubSubMessage struct {
+	Data      json.RawMessage `json:"data"`
+	Timestamp string          `json:"timestamp"`
+	Signature string          `json:"signature"`
+}
+
+func (msg *PubSubMessage) ToJSON() []byte {
+	m, _ := json.Marshal(msg)
+	return m
+}
+
+func (msg *PubSubMessage) ToString() string {
+	values := []string{}
+	values = append(values, fmt.Sprintf("Data:%s", string(msg.Data)))
+	values = append(values, fmt.Sprintf("Timestmap%s", msg.Timestamp))
+	return strings.Join(values, ",")
+}
+
+func NewSignedPubSubMessage(data []byte, privateKey string) PubSubMessage {
+	timestamp := int(time.Now().Unix())
+	message := PubSubMessage{Data: data, Timestamp: strconv.Itoa(timestamp)}
+	_, sig := Sign(message.ToString(), privateKey)
+	message.Signature = sig
+	return message
+}
+
+func PubSubMessageFromBytes(b []byte) (PubSubMessage, error) {
+	var message PubSubMessage
+	err := json.Unmarshal(b, &message)
+	return message, err
 }
