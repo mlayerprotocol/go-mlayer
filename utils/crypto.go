@@ -78,14 +78,6 @@ func GetSigner(message string, signature string) (string, error) {
 }
 
 func VerifySignature(signer string, message string, signature string) bool {
-	// hash := crypto.Keccak256Hash([]byte(message))
-	// signatureBytes := hexutil.MustDecode(signature)
-	// signatureNoRecoverID := signatureBytes[:len(signature)-1]
-	// publicKey, err := hexutil.Decode(signer)
-	// if err != nil {
-	// 	logger.Fatal(err)
-	// }
-	// return crypto.VerifySignature(publicKey, hash.Bytes(), signatureNoRecoverID)
 	decodedSigner, err := GetSigner(message, signature)
 	if err != nil {
 		return false
@@ -101,7 +93,7 @@ func IsValidSubscription(
 	Action string,
 	MessageHash string,
 ) bool {
-	if math.Abs(float64(int(Timestamp)/1000-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
+	if math.Abs(float64(int(Timestamp)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
 		logger.Info("Invalid Subscription, invalid handshake duration")
 		return false
 	}

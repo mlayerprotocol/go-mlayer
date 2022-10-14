@@ -74,6 +74,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 	incomingMessagesc := make(chan *utils.ClientMessage)
 	outgoingMessagesc := make(chan *utils.ClientMessage)
+	outgoingMessagesP2Pc := make(chan *utils.ClientMessage)
 	subscribersc := make(chan *utils.Subscription)
 	subscriptiondp2pc := make(chan *utils.Subscription)
 
@@ -111,6 +112,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, utils.ConfigKey, &cfg)
 	ctx = context.WithValue(ctx, utils.IncomingMessageCh, &incomingMessagesc)
 	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
+	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PCh, &outgoingMessagesP2Pc)
 	ctx = context.WithValue(ctx, utils.SubscribeCh, &subscribersc)
 	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
 
@@ -148,6 +150,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Sending out message %s\n", outMessage.Message.Body.Message)
 				unsentMessageStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
+				outgoingMessagesP2Pc <- outMessage
 
 			case sub, ok := <-subscribersc:
 				if !ok {

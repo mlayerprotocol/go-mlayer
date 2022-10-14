@@ -23,12 +23,13 @@ const (
 
 // Values withing the main context
 const (
-	ConfigKey          string = "Config"
-	OutgoingMessageCh         = "OutgoingMessageChannel"
-	IncomingMessageCh         = "IncomingMessageChannel"
-	PublishMessageCh          = "PublishMessageChannel"
-	SubscribeCh               = "SubscribeChannel"
-	SubscriptionDP2PCh        = "SubscriptionDP2PChannel"
+	ConfigKey             string = "Config"
+	OutgoingMessageCh            = "OutgoingMessageChannel"
+	OutgoingMessageDP2PCh        = "OutgoingMessageDP2PChannel"
+	IncomingMessageCh            = "IncomingMessageChannel"
+	PublishMessageCh             = "PublishMessageChannel"
+	SubscribeCh                  = "SubscribeChannel"
+	SubscriptionDP2PCh           = "SubscriptionDP2PChannel"
 )
 
 type SubAction string
