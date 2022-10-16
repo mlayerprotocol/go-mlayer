@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"net"
 	"net/http"
@@ -31,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
+	ws "github.com/ByteGum/go-icms/pkg/core/ws"
 )
 
 var logger = utils.Logger
@@ -274,7 +274,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	go func() {
 
 		logger.Infof("wsAddress: %s\n", wsAddress)
-		http.HandleFunc("/echo", ServeWebSocket)
+		http.HandleFunc("/echo", ws.ServeWebSocket)
 
 		log.Fatal(http.ListenAndServe(wsAddress, nil))
 	}()
@@ -300,43 +300,53 @@ func parserEvent(vLog types.Log, eventName string) {
 var lobbyConn = []*websocket.Conn{}
 var verifiedConn = []*websocket.Conn{}
 
-func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
+// func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 
-	c, err := upgrader.Upgrade(w, r, nil)
-	log.Print("New ServeWebSocket c : ", c.RemoteAddr())
+// 	c, err := upgrader.Upgrade(w, r, nil)
+// 	log.Print("New ServeWebSocket c : ", c.RemoteAddr())
 
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
-	}
-	defer c.Close()
-	hasVerifed := false
-	time.AfterFunc(5000*time.Millisecond, func() {
+// 	if err != nil {
+// 		log.Print("upgrade:", err)
+// 		return
+// 	}
+// 	defer c.Close()
+// 	hasVerifed := false
+// 	time.AfterFunc(5000*time.Millisecond, func() {
 
-		if !hasVerifed {
-			c.Close()
-		}
-	})
+// 		if !hasVerifed {
+// 			c.Close()
+// 		}
+// 	})
+// 	_close := func(code int, t string) error {
+// 		logger.Infof("code: %d, t: %s \n", code, t)
+// 		return errors.New("Closed ")
+// 	}
+// 	c.SetCloseHandler(_close)
+// 	for {
+// 		mt, message, err := c.ReadMessage()
+// 		if err != nil {
+// 			log.Println("read:", err)
+// 			break
 
-	mt, message, err := c.ReadMessage()
-	if err != nil {
-		log.Println("read:", err)
+// 		} else {
+// 			err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
+// 			if err != nil {
+// 				log.Println("Error:", err)
+// 			} else {
+// 				// signature := string(message)
+// 				verifiedRequest, _ := utils.VerificationRequestFromBytes(message)
+// 				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
 
-	} else {
-		err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
-		if err != nil {
-			log.Println("Error:", err)
-		} else {
-			signature := string(message)
+// 				if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
+// 					verifiedConn = append(verifiedConn, c)
+// 					hasVerifed = true
+// 					log.Println("Verification was successful: ", verifiedRequest)
+// 				}
+// 				log.Println("message:", string(message))
+// 				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+// 			}
 
-			if signature == "verified" {
-				verifiedConn = append(verifiedConn, c)
-				hasVerifed = true
-			}
-			log.Println("message:", string(message))
-			log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
-		}
+// 		}
+// 	}
 
-	}
-
-}
+// }

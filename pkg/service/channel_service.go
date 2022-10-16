@@ -29,6 +29,7 @@ func (p *ChannelService) ChannelSubscription(sub *utils.Subscription) error {
 			return errors.New("Subscription chanel not found")
 		}
 		*subscribersc <- sub
+		return nil
 	}
-	return nil
+	return errors.New("Subscription data is invalid")
 }
