@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-datastore/query"
 	"github.com/spf13/cobra"
 
 	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
@@ -91,8 +92,9 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	outgoingMessagesP2Pc := make(chan *utils.ClientMessage)
 	subscribersc := make(chan *utils.Subscription)
 	subscriptiondp2pc := make(chan *utils.Subscription)
+	verificationc := make(chan *utils.VerificationRequest)
 
-	// subscribersChannel := make()
+	connectedSubscribers := map[string]map[string][]*websocket.Conn{}
 
 	incomingEventsC := make(chan types.Log)
 
@@ -130,12 +132,14 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PCh, &outgoingMessagesP2Pc)
 	ctx = context.WithValue(ctx, utils.SubscribeCh, &subscribersc)
 	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
+	ctx = context.WithValue(ctx, utils.VerificationCh, &verificationc)
 
 	var wg sync.WaitGroup
 	errc := make(chan error)
 
-	// validMessagesStore := db.Db(&ctx, utils.ValidMessageStore)
-	unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
+	validMessagesStore := db.New(&ctx, utils.ValidMessageStore)
+	// unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
+	unsentMessageP2pStore := db.New(&ctx, utils.UnsentMessageStore)
 	channelSubscriberStore := db.New(&ctx, utils.ChannelSubscriberStore)
 	channelSubscribersCountStore := db.New(&ctx, utils.ChannelSubscribersCountStore)
 	// sentMessageStore := db.Db(&ctx, utils.SentMessageStore)
@@ -154,6 +158,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+				validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
+				_currentChannel := connectedSubscribers[inMessage.Message.Header.Receiver]
+				for _, signerConn := range _currentChannel {
+					for i := 0; i < len(signerConn); i++ {
+						signerConn[i].WriteMessage(1, inMessage.ToJSON())
+					}
+				}
 
 			// attempt to push into outgoing message channel
 			case outMessage, ok := <-outgoingMessagesc:
@@ -164,8 +175,9 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Sending out message %s\n", outMessage.Message.Body.Message)
-				unsentMessageStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
+				unsentMessageP2pStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
 				outgoingMessagesP2Pc <- outMessage
+				incomingMessagesc <- outMessage
 
 			case sub, ok := <-subscribersc:
 				if !ok {
@@ -195,6 +207,33 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				channelSubscribersCountStore.Set(ctx, db.Key(sub.Channel), []byte(strconv.Itoa(cscstoreint)), true)
 				logger.Info("TRANSACTION ENDED ******")
 				trx.Commit(ctx)
+
+			case verification, ok := <-verificationc:
+				if !ok {
+					logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
+				}
+				// VALIDATE AND DISTRIBUTE
+				logger.Infof("Signer:  %s\n", verification.Signer)
+				results, err := channelSubscriberStore.Query(ctx, query.Query{
+					Prefix: "/" + verification.Signer,
+				})
+				if err != nil {
+					logger.Errorf("Channel Subscriber Store Query Error %w", err)
+					return
+				}
+				entries, _err := results.Rest()
+				for i := 0; i < len(entries); i++ {
+					_sub, _ := utils.SubscriptionFromBytes(entries[i].Value)
+					if connectedSubscribers[_sub.Channel] == nil {
+						connectedSubscribers[_sub.Channel] = map[string][]*websocket.Conn{}
+					}
+					connectedSubscribers[_sub.Channel][_sub.Subscriber] = append(connectedSubscribers[_sub.Channel][_sub.Subscriber], verification.Socket)
+
+				}
+				logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err)
+
 			}
 
 		}
@@ -272,12 +311,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	wg.Add(1)
 	go func() {
-
+		wss := ws.NewWsService(&ctx)
 		logger.Infof("wsAddress: %s\n", wsAddress)
-		http.HandleFunc("/echo", ws.ServeWebSocket)
+		http.HandleFunc("/echo", wss.ServeWebSocket)
 
 		log.Fatal(http.ListenAndServe(wsAddress, nil))
 	}()
+
 }
 
 func parserEvent(vLog types.Log, eventName string) {

@@ -4,12 +4,15 @@ import (
 	// "errors"
 
 	"encoding/json"
+
+	"github.com/gorilla/websocket"
 )
 
 type VerificationRequest struct {
-	Signature string `json:"signature"`
-	Signer    string `json:"signer"`
-	Message   string `json:"message"`
+	Signature string          `json:"signature"`
+	Signer    string          `json:"signer"`
+	Message   string          `json:"message"`
+	Socket    *websocket.Conn `json:"socket"`
 }
 
 func (sub *VerificationRequest) ToJSON() []byte {

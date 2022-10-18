@@ -20,7 +20,7 @@ type Subscription struct {
 }
 
 func (sub *Subscription) Key() string {
-	return fmt.Sprintf("%s/%s/", sub.Channel, sub.Subscriber)
+	return fmt.Sprintf("/%s/%s", sub.Subscriber, sub.Channel)
 }
 
 func (sub *Subscription) ToJSON() []byte {
