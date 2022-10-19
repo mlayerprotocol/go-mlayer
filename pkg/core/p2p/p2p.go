@@ -524,7 +524,7 @@ func (n *connectionNotifee) Connected(netw network.Network, conn network.Conn) {
 	// if (len(netw.Conns()) > 4){
 	// 	conn.Close()
 	// 	fmt.Printf("Connection refused for peer: %v!\n", conn.RemotePeer().Pretty())
-	// }
+	// }a
 }
 
 // Disconnected is called when a connection closed

@@ -100,3 +100,4 @@ func (cr *Channel) readLoop() {
 func topicName(channelName string) string {
 	return "icm-channel:" + channelName
 }
+
