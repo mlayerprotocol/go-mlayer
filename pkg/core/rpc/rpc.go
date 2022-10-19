@@ -47,7 +47,7 @@ func newResponse(status string, data interface{}) *RpcResponse {
 }
 
 func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *RpcResponse) error {
-	utils.Logger.Info("request:::", request)
+	utils.Logger.Info("SendMessage request:::", request)
 	chatMsg := utils.CreateMessageFromJson(request)
 	c, err := (*p.MessageService).Send(chatMsg, request.Signature)
 	if err != nil {
@@ -58,7 +58,7 @@ func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *RpcRespo
 }
 
 func (p *RpcService) Subscription(request utils.Subscription, reply *RpcResponse) error {
-	utils.Logger.Info("request:::", request)
+	utils.Logger.Info("Subscription request:::", request)
 	err := (*p.ChannelService).ChannelSubscription(&request)
 	if err != nil {
 		return err
