@@ -139,6 +139,10 @@ func Run(mainCtx *context.Context) {
 
 	}
 
+	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeCh).(*chan *utils.Subscription)
+	if !ok {
+
+	}
 	defer cancel()
 
 	if len(cfg.NodePrivateKey) == 0 {
@@ -306,22 +310,14 @@ func Run(mainCtx *context.Context) {
 					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
 					return
 				}
-				// !validating message
-				// !if not a valid message continue
-				// _, err := inMessage.ToJSON()
-				// if err != nil {
-				// 	continue
-				// }
-				//TODO:
-				// if not a valid message, continue
-
 				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
 				cm, err := utils.SubscriptionFromBytes(sub.Data)
 				if err != nil {
 
 				}
 				logger.Info("New subscription updates:::", string(cm.ToJSON()))
-				// *incomingMessagesC <- &cm
+				cm.Broadcast = false
+				*publishedSubscriptionC <- &cm
 			}
 		}
 	}()

@@ -2,11 +2,10 @@ package utils
 
 import (
 	"crypto/ecdsa"
-	"math"
-	"time"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"math"
+	"time"
 )
 
 var logger = Logger
@@ -82,20 +81,16 @@ func VerifySignature(signer string, message string, signature string) bool {
 	if err != nil {
 		return false
 	}
+	logger.Infof("signer decoded signer %s %s", decodedSigner, signer)
 	return decodedSigner == signer
 }
 
 func IsValidSubscription(
-	Channel string,
-	Subscriber string,
-	Timestamp int,
-	Signature string,
-	Action string,
-	MessageHash string,
+	subscription Subscription,
 ) bool {
-	if math.Abs(float64(int(Timestamp)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
+	if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
 		logger.Info("Invalid Subscription, invalid handshake duration")
 		return false
 	}
-	return VerifySignature(Subscriber, MessageHash, Signature)
+	return VerifySignature(subscription.Subscriber, subscription.ToString(), subscription.Signature)
 }

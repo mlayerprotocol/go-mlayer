@@ -76,6 +76,9 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	outgoingMessagesc := make(chan *utils.ClientMessage)
 	outgoingMessagesP2Pc := make(chan *utils.ClientMessage)
 	subscribersc := make(chan *utils.Subscription)
+	// for receiving subscription from other nodes
+	publishedSubc := make(chan *utils.Subscription)
+	// broadcasting to other nodes
 	subscriptiondp2pc := make(chan *utils.Subscription)
 
 	// subscribersChannel := make()
@@ -113,8 +116,12 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, utils.IncomingMessageCh, &incomingMessagesc)
 	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
 	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PCh, &outgoingMessagesP2Pc)
+	// incoming from client apps to daemon channel
 	ctx = context.WithValue(ctx, utils.SubscribeCh, &subscribersc)
+	// daemon to p2p channel
 	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
+	// receiving subscription from other nodes channel
+	ctx = context.WithValue(ctx, utils.PublishedSubCh, &publishedSubc)
 
 	var wg sync.WaitGroup
 	errc := make(chan error)
@@ -157,7 +164,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					logger.Errorf("Subscription channel closed!")
 					return
 				}
-				subscriptiondp2pc <- sub
+				if !utils.IsValidSubscription(*sub) {
+					utils.Logger.Info("ITS NOT VALID!")
+					continue
+				}
+				if sub.Broadcast {
+					subscriptiondp2pc <- sub
+				}
 				trx, err := channelSubscribersCountStore.NewTransaction(ctx, false)
 				logger.Info("TRANSACTION INITIATED ******")
 				if err != nil {

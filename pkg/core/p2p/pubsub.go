@@ -75,7 +75,6 @@ func (cr *Channel) readLoop() {
 			close(cr.Messages)
 			panic(err)
 		}
-		logger.Info("NEW MSG FROM CHANNEL")
 		// only forward messages delivered by others
 		if msg.ReceivedFrom == cr.ID {
 			continue

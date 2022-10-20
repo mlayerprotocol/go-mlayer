@@ -30,6 +30,7 @@ const (
 	PublishMessageCh             = "PublishMessageChannel"
 	SubscribeCh                  = "SubscribeChannel"
 	SubscriptionDP2PCh           = "SubscriptionDP2PChannel"
+	PublishedSubCh               = "PublishedSubChannel"
 )
 
 type SubAction string
