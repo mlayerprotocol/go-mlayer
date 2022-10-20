@@ -77,6 +77,7 @@ func GetSigner(message string, signature string) (string, error) {
 }
 
 func VerifySignature(signer string, message string, signature string) bool {
+	logger.Info("message:::", message)
 	decodedSigner, err := GetSigner(message, signature)
 	if err != nil {
 		return false
