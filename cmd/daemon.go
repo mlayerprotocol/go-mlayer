@@ -9,22 +9,29 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 
 	"net"
+	"net/http"
 	"net/rpc"
 	"net/rpc/jsonrpc"
 
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
+	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
 	"github.com/ByteGum/go-icms/pkg/core/db"
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
 	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-datastore/query"
 	"github.com/spf13/cobra"
 
 	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
+	ws "github.com/ByteGum/go-icms/pkg/core/ws"
 )
 
 var logger = utils.Logger
@@ -42,6 +49,7 @@ const (
 	NODE_PRIVATE_KEY Flag = "node-private-key"
 	NETWORK               = "network"
 	RPC_PORT         Flag = "rpc-port"
+	WS_ADDRESS       Flag = "ws-address"
 )
 
 // daemonCmd represents the daemon command
@@ -67,7 +75,14 @@ func init() {
 	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
 	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
 	daemonCmd.Flags().StringP(string(RPC_PORT), "p", utils.DefaultRPCPort, "RPC server port")
+	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", utils.DefaultWebSocketAddress, "http service address")
 }
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+} // use default options
 
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
@@ -80,14 +95,16 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	publishedSubc := make(chan *utils.Subscription)
 	// broadcasting to other nodes
 	subscriptiondp2pc := make(chan *utils.Subscription)
+	verificationc := make(chan *utils.VerificationRequest)
 
-	// subscribersChannel := make()
+	connectedSubscribers := map[string]map[string][]*websocket.Conn{}
 
 	incomingEventsC := make(chan types.Log)
 
 	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	evmPrivateKey, err := cmd.Flags().GetString(string(EVM_PRIVATE_KEY))
 	rpcPort, err := cmd.Flags().GetString(string(RPC_PORT))
+	wsAddress, err := cmd.Flags().GetString(string(WS_ADDRESS))
 
 	if err != nil || len(privateKey) == 0 {
 		if len(evmPrivateKey) == 0 {
@@ -122,12 +139,14 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
 	// receiving subscription from other nodes channel
 	ctx = context.WithValue(ctx, utils.PublishedSubCh, &publishedSubc)
+	ctx = context.WithValue(ctx, utils.VerificationCh, &verificationc)
 
 	var wg sync.WaitGroup
 	errc := make(chan error)
 
-	// validMessagesStore := db.Db(&ctx, utils.ValidMessageStore)
-	unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
+	validMessagesStore := db.New(&ctx, utils.ValidMessageStore)
+	// unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
+	unsentMessageP2pStore := db.New(&ctx, utils.UnsentMessageStore)
 	channelSubscriberStore := db.New(&ctx, utils.ChannelSubscriberStore)
 	channelSubscribersCountStore := db.New(&ctx, utils.ChannelSubscribersCountStore)
 	// sentMessageStore := db.Db(&ctx, utils.SentMessageStore)
@@ -146,6 +165,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+				validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
+				_currentChannel := connectedSubscribers[inMessage.Message.Header.Receiver]
+				for _, signerConn := range _currentChannel {
+					for i := 0; i < len(signerConn); i++ {
+						signerConn[i].WriteMessage(1, inMessage.ToJSON())
+					}
+				}
 
 			// attempt to push into outgoing message channel
 			case outMessage, ok := <-outgoingMessagesc:
@@ -156,8 +182,9 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Sending out message %s\n", outMessage.Message.Body.Message)
-				unsentMessageStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
+				unsentMessageP2pStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
 				outgoingMessagesP2Pc <- outMessage
+				incomingMessagesc <- outMessage
 
 			case sub, ok := <-subscribersc:
 				if !ok {
@@ -193,6 +220,33 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				channelSubscribersCountStore.Set(ctx, db.Key(sub.Channel), []byte(strconv.Itoa(cscstoreint)), true)
 				logger.Info("TRANSACTION ENDED ******")
 				trx.Commit(ctx)
+
+			case verification, ok := <-verificationc:
+				if !ok {
+					logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
+				}
+				// VALIDATE AND DISTRIBUTE
+				logger.Infof("Signer:  %s\n", verification.Signer)
+				results, err := channelSubscriberStore.Query(ctx, query.Query{
+					Prefix: "/" + verification.Signer,
+				})
+				if err != nil {
+					logger.Errorf("Channel Subscriber Store Query Error %w", err)
+					return
+				}
+				entries, _err := results.Rest()
+				for i := 0; i < len(entries); i++ {
+					_sub, _ := utils.SubscriptionFromBytes(entries[i].Value)
+					if connectedSubscribers[_sub.Channel] == nil {
+						connectedSubscribers[_sub.Channel] = map[string][]*websocket.Conn{}
+					}
+					connectedSubscribers[_sub.Channel][_sub.Subscriber] = append(connectedSubscribers[_sub.Channel][_sub.Subscriber], verification.Socket)
+
+				}
+				logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err)
+
 			}
 
 		}
@@ -216,8 +270,19 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			log.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
 		}
 		query := ethereum.FilterQuery{
+			// FromBlock: big.NewInt(23506010),
+			// ToBlock:   big.NewInt(23506110),
+
 			Addresses: []common.Address{contractAddress},
 		}
+
+		// logs, err := client.FilterLogs(context.Background(), query)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		// parserEvent(logs[0], "StakeEvent")
+
+		// logger.Infof("Past Events", logs)
 		// incomingEventsC
 
 		sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
@@ -231,11 +296,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				log.Fatal(err)
 			case vLog := <-incomingEventsC:
 				fmt.Println(vLog) // pointer to event log
+				parserEvent(vLog, "StakeEvent")
 			}
 		}
 
 	}()
 
+	wg.Add(1)
 	go func() {
 		rpc.RegisterName("RpcService", rpcServer.NewRpcService(&ctx))
 		listener, err := net.Listen("tcp", cfg.RPCHost+":"+rpcPort)
@@ -254,4 +321,85 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			go jsonrpc.ServeConn(conn)
 		}
 	}()
+
+	wg.Add(1)
+	go func() {
+		wss := ws.NewWsService(&ctx)
+		logger.Infof("wsAddress: %s\n", wsAddress)
+		http.HandleFunc("/echo", wss.ServeWebSocket)
+
+		log.Fatal(http.ListenAndServe(wsAddress, nil))
+	}()
+
 }
+
+func parserEvent(vLog types.Log, eventName string) {
+	event := stake.StakeStakeEvent{}
+	contractAbi, err := abi.JSON(strings.NewReader(string(stake.StakeMetaData.ABI)))
+
+	if err != nil {
+		log.Fatal("contractAbi, err", err)
+	}
+	_err := contractAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
+	if _err != nil {
+		log.Fatal("_err :  ", _err)
+	}
+
+	fmt.Println(event.Account) // foo
+	fmt.Println(event.Amount)
+	fmt.Println(event.Timestamp)
+}
+
+var lobbyConn = []*websocket.Conn{}
+var verifiedConn = []*websocket.Conn{}
+
+// func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
+
+// 	c, err := upgrader.Upgrade(w, r, nil)
+// 	log.Print("New ServeWebSocket c : ", c.RemoteAddr())
+
+// 	if err != nil {
+// 		log.Print("upgrade:", err)
+// 		return
+// 	}
+// 	defer c.Close()
+// 	hasVerifed := false
+// 	time.AfterFunc(5000*time.Millisecond, func() {
+
+// 		if !hasVerifed {
+// 			c.Close()
+// 		}
+// 	})
+// 	_close := func(code int, t string) error {
+// 		logger.Infof("code: %d, t: %s \n", code, t)
+// 		return errors.New("Closed ")
+// 	}
+// 	c.SetCloseHandler(_close)
+// 	for {
+// 		mt, message, err := c.ReadMessage()
+// 		if err != nil {
+// 			log.Println("read:", err)
+// 			break
+
+// 		} else {
+// 			err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
+// 			if err != nil {
+// 				log.Println("Error:", err)
+// 			} else {
+// 				// signature := string(message)
+// 				verifiedRequest, _ := utils.VerificationRequestFromBytes(message)
+// 				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
+
+// 				if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
+// 					verifiedConn = append(verifiedConn, c)
+// 					hasVerifed = true
+// 					log.Println("Verification was successful: ", verifiedRequest)
+// 				}
+// 				log.Println("message:", string(message))
+// 				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+// 			}
+
+// 		}
+// 	}
+
+// }
