@@ -2,10 +2,12 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"math"
+	"strings"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"math"
-	"time"
 )
 
 var logger = Logger
@@ -77,13 +79,13 @@ func GetSigner(message string, signature string) (string, error) {
 }
 
 func VerifySignature(signer string, message string, signature string) bool {
-	logger.Info("message:::", message)
+	// logger.Info("message:::", message)
 	decodedSigner, err := GetSigner(message, signature)
 	if err != nil {
 		return false
 	}
-	logger.Infof("signer decoded signer %s %s", decodedSigner, signer)
-	return decodedSigner == signer
+	logger.Infof("signer decoded signer %s %s : %T", decodedSigner, signer, (decodedSigner == signer))
+	return strings.EqualFold(decodedSigner, signer)
 }
 
 func IsValidSubscription(

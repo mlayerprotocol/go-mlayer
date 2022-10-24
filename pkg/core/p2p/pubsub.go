@@ -59,7 +59,7 @@ func (cr *Channel) Publish(m utils.PubSubMessage) error {
 	// if err != nil {
 	// 	return err
 	// }
-	logger.Info("Publishing to channel", string(m.ToJSON()))
+	// logger.Info("Publishing to channel", string(m.ToJSON()))
 	return cr.Topic.Publish(cr.Ctx, m.ToJSON())
 }
 

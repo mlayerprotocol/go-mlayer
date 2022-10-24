@@ -166,12 +166,26 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				// VALIDATE AND DISTRIBUTE
 				logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
 				validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
-				_currentChannel := connectedSubscribers[inMessage.Message.Header.Receiver]
+				_reciever := inMessage.Message.Header.Receiver
+				_recievers := strings.Split(_reciever, ":")
+				_currentChannel := connectedSubscribers[_recievers[1]]
+				logger.Info("connectedSubscribers : ", connectedSubscribers, "---", _reciever)
+				logger.Info("_currentChannel : ", _currentChannel, "/n")
 				for _, signerConn := range _currentChannel {
 					for i := 0; i < len(signerConn); i++ {
 						signerConn[i].WriteMessage(1, inMessage.ToJSON())
 					}
 				}
+
+			}
+
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		for {
+			select {
 
 			// attempt to push into outgoing message channel
 			case outMessage, ok := <-outgoingMessagesc:
@@ -181,10 +195,11 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					return
 				}
 				// VALIDATE AND DISTRIBUTE
-				logger.Info("Sending out message %s\n", outMessage.Message.Body.Message)
+				logger.Infof("\nSending out message %s\n", outMessage.Message.Body.Message)
 				unsentMessageP2pStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
 				outgoingMessagesP2Pc <- outMessage
 				incomingMessagesc <- outMessage
+				logger.Infof("\nSending out complete\n")
 
 			case sub, ok := <-subscribersc:
 				if !ok {
@@ -245,7 +260,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					connectedSubscribers[_sub.Channel][_sub.Subscriber] = append(connectedSubscribers[_sub.Channel][_sub.Subscriber], verification.Socket)
 
 				}
-				logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err)
+				logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err, len(entries))
 
 			}
 

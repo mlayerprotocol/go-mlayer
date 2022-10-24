@@ -58,7 +58,7 @@ func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *RpcRespo
 }
 
 func (p *RpcService) Subscription(request utils.Subscription, reply *RpcResponse) error {
-	utils.Logger.Info("Subscription request:::", request)
+	utils.Logger.Debug("Subscription request:::", request)
 	err := (*p.ChannelService).ChannelSubscription(&request)
 	if err != nil {
 		return err

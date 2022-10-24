@@ -40,8 +40,9 @@ const (
 type SubAction string
 
 const (
-	Join  SubAction = "join"
-	Leave SubAction = "leave"
+	Broadcast SubAction = "broadcast"
+	Join      SubAction = "join"
+	Leave     SubAction = "leave"
 )
 
 var HomeTemplate = template.Must(template.New("").Parse(`
