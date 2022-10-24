@@ -2,20 +2,17 @@ package p2p
 
 import (
 	"context"
-	"encoding/json"
 
-	"github.com/ByteGum/go-icms/utils"
+	// "github.com/ByteGum/go-icms/utils"
+	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
-// Channel represents a subscription to a single PubSub topic. Messages
-// can be published to the topic with Channel.Publish, and received
-// messages are pushed to the Messages channel.
 type Channel struct {
 	// Messages is a channel of messages received from other peers in the chat channel
-	Messages chan *ChannelMessage
+	Messages chan utils.PubSubMessage
 
 	Ctx   context.Context
 	ps    *pubsub.PubSub
@@ -24,22 +21,16 @@ type Channel struct {
 
 	ChannelName string
 	ID          peer.ID
-	Nick        string
+	Wallet      string
 }
 
-// ChannelMessage gets converted to/from JSON and sent in the body of pubsub messages.
-type ChannelMessage struct {
-	Message utils.NodeMessage
-}
-
-// JoinChannel tries to subscribe to the PubSub topic for the channel name, returning
-// a Channel on success.
-func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickname string, channelName string, channelBufferSize uint) (*Channel, error) {
+func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletAddress string, channelName string, channelBufferSize uint) (*Channel, error) {
 	// join the pubsub topic
 	topic, err := ps.Join(topicName(channelName))
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("Peer joined channel %s", channelName)
 
 	// and subscribe to it
 	sub, err := topic.Subscribe()
@@ -53,9 +44,9 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nicknam
 		Topic:       topic,
 		sub:         sub,
 		ID:          selfID,
-		Nick:        nickname,
+		Wallet:      walletAddress,
 		ChannelName: channelName,
-		Messages:    make(chan *ChannelMessage, channelBufferSize),
+		Messages:    make(chan utils.PubSubMessage, channelBufferSize),
 	}
 
 	// start reading messages from the subscription in a loop
@@ -64,15 +55,12 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nicknam
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *Channel) Publish(message utils.NodeMessage) error {
-	m := ChannelMessage{
-		Message: message,
-	}
-	msgBytes, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-	return cr.Topic.Publish(cr.Ctx, msgBytes)
+func (cr *Channel) Publish(m utils.PubSubMessage) error {
+	// if err != nil {
+	// 	return err
+	// }
+	// logger.Info("Publishing to channel", string(m.ToJSON()))
+	return cr.Topic.Publish(cr.Ctx, m.ToJSON())
 }
 
 func (cr *Channel) ListPeers() []peer.ID {
@@ -85,22 +73,32 @@ func (cr *Channel) readLoop() {
 		msg, err := cr.sub.Next(cr.Ctx)
 		if err != nil {
 			close(cr.Messages)
-			return
+			panic(err)
 		}
 		// only forward messages delivered by others
 		if msg.ReceivedFrom == cr.ID {
 			continue
 		}
-		cm := new(ChannelMessage)
-		err = json.Unmarshal(msg.Data, cm)
+		pmsg, err := utils.PubSubMessageFromBytes(msg.Data)
 		if err != nil {
+			logger.Error("Invalid pubsub message received")
 			continue
 		}
-		// send valid messages onto the Messages channel
-		cr.Messages <- cm
+		signer, err := utils.GetSigner(pmsg.ToString(), pmsg.Signature)
+		if err != nil {
+			logger.Error("Unable to get signer")
+			continue
+		}
+		logger.Infof("Pubsub message signer %s", signer)
+		// TODO
+		// get the stake contract for this signer and ensure they have enough Validator stake
+		// if not, identify their IP and blacklist it. Ignore the message
+
+		cr.Messages <- pmsg
 	}
 }
 
 func topicName(channelName string) string {
-	return "msg-channel:" + channelName
+	return "icm-channel:" + channelName
 }
+
