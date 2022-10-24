@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/ecdsa"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -38,6 +39,12 @@ func hashMessage(message string) []byte {
 
 func Hash(message string) []byte {
 	return crypto.Keccak256Hash([]byte(message)).Bytes()
+}
+
+func StringToBigInt(message string) string {
+	// n := new(big.Int).SetBytes(Hash(message))
+	// return new(big.Int).Mod(n, big.NewInt(10))
+	return new(big.Int).SetBytes(Hash(message)).String()
 }
 
 func Sign(message string, privKey string) ([]byte, string) {
@@ -98,4 +105,8 @@ func IsValidSubscription(
 		return false
 	}
 	return VerifySignature(Subscriber, MessageHash, Signature)
+}
+
+func GetNodeHeight() int {
+	return 10
 }

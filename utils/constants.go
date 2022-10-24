@@ -17,23 +17,36 @@ const (
 )
 
 const (
-	ValidMessageStore            string = "valid-messages"
-	UnsentMessageStore                  = "unsent-messages"
-	SentMessageStore                    = "sent-messages"
-	ChannelSubscriberStore              = "channels-subscribers"
-	ChannelSubscribersCountStore        = "channels-subscribers-count"
+	ValidMessageStore             string = "valid-messages"
+	UnsentMessageStore                   = "unsent-messages"
+	SentMessageStore                     = "sent-messages"
+	ChannelSubscriberStore               = "channels-subscribers"
+	ChannelSubscribersCountStore         = "channels-subscribers-count"
+	DeliveryProofStore                   = "delivery-proof-store"
+	UnconfirmedDeliveryProofStore        = "unconfirmed-delivery-proof-store"
+	StateStore                           = "state-store"
+	BatchStore                           = "batch-store"
 )
 
 // Values withing the main context
 const (
-	ConfigKey             string = "Config"
-	OutgoingMessageCh            = "OutgoingMessageChannel"
-	OutgoingMessageDP2PCh        = "OutgoingMessageDP2PChannel"
-	IncomingMessageCh            = "IncomingMessageChannel"
-	PublishMessageCh             = "PublishMessageChannel"
-	SubscribeCh                  = "SubscribeChannel"
-	SubscriptionDP2PCh           = "SubscriptionDP2PChannel"
-	VerificationCh               = "VerificationChannel"
+	ConfigKey               string = "Config"
+	OutgoingMessageCh              = "OutgoingMessageChannel"
+	OutgoingMessageDP2PCh          = "OutgoingMessageDP2PChannel"
+	IncomingMessageCh              = "IncomingMessageChannel"
+	PublishMessageCh               = "PublishMessageChannel"
+	SubscribeCh                    = "SubscribeChannel"
+	SubscriptionDP2PCh             = "SubscriptionDP2PChannel"
+	VerificationCh                 = "VerificationChannel"
+	OutgoingBatchCh                = "OutgoingBatchChannel"
+	OutgoingDeliveryProofCh        = "OutgoinProofChannel"
+	PubsubBatchCh                  = "PubsubBatchChannel"
+	PubsubDeliverProofCh           = "PubsubProofChannel"
+)
+
+// State store key
+const (
+	CurrentBatchState string = "/batch/current-batch-state"
 )
 
 type SubAction string

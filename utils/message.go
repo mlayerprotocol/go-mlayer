@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/sirupsen/logrus"
 )
 
@@ -192,7 +193,7 @@ func (msg *ClientMessage) Hash() []byte {
 }
 
 func (msg *ClientMessage) Key() string {
-	return fmt.Sprintf("%s/%s/%s", msg.Message.Header.Sender, msg.Message.Origin, string(msg.Hash()))
+	return fmt.Sprintf("/%s/%s", msg.Message.Header.Sender, hexutil.Encode(msg.Hash()))
 }
 
 func ClientMessageFromBytes(b []byte) (ClientMessage, error) {
@@ -278,6 +279,7 @@ func IsValidMessage(msg ChatMessage, signature string) bool {
 	return true
 }
 
+// PubSubMessage
 type PubSubMessage struct {
 	Data      json.RawMessage `json:"data"`
 	Timestamp string          `json:"timestamp"`
@@ -306,6 +308,119 @@ func NewSignedPubSubMessage(data []byte, privateKey string) PubSubMessage {
 
 func PubSubMessageFromBytes(b []byte) (PubSubMessage, error) {
 	var message PubSubMessage
+	err := json.Unmarshal(b, &message)
+	return message, err
+}
+
+// Batch
+type Batch struct {
+	BatchId    string `json:"batchId"`
+	Size       int    `json:"size"`
+	Closed     bool   `json:"closed"`
+	NodeHeight int    `json:"nodeHeight"`
+	Hash       string `json:"hash"`
+	Timestamp  int    `json:"timestamp"`
+}
+
+func (msg *Batch) ToJSON() []byte {
+	m, _ := json.Marshal(msg)
+	return m
+}
+
+func (msg *Batch) ToString() string {
+	values := []string{}
+	values = append(values, fmt.Sprintf("BatchId:%s", string(msg.BatchId)))
+	values = append(values, fmt.Sprintf("Size:%s", strconv.Itoa(msg.Size)))
+	values = append(values, fmt.Sprintf("NodeHeight:%s", strconv.Itoa(msg.NodeHeight)))
+	values = append(values, fmt.Sprintf("Timestamp:%s", strconv.Itoa(msg.Timestamp)))
+	values = append(values, fmt.Sprintf("Hash:%s", msg.Hash))
+	return strings.Join(values, ",")
+}
+
+func (msg *Batch) Key() string {
+	return fmt.Sprintf("/%s", msg.BatchId)
+}
+
+// func (msg *Batch) Sign(privateKey string) Batch {
+
+// 	msg.Timestamp = int(time.Now().Unix())
+// 	_, sig := Sign(msg.ToString(), privateKey)
+// 	msg.Signature = sig
+// 	return *msg
+// }
+
+func NewBatch() Batch {
+	id, _ := gonanoid.New()
+	return Batch{BatchId: id,
+		Size:   0,
+		Closed: false}
+}
+
+func BatchFromBytes(b []byte) (Batch, error) {
+	var message Batch
+	err := json.Unmarshal(b, &message)
+	return message, err
+}
+
+// DeliveryProof
+type DeliveryProof struct {
+	MessageHash   string `json:"messageHash"`
+	MessageSender string `json:"messageSender"`
+	NodeAddress   string `json:"node"`
+	Timestamp     int    `json:"timestamp"`
+	Signature     string `json:"signature"`
+	Batch         string `json:"batch"`
+	Index         int    `json:"index"`
+}
+
+func (msg *DeliveryProof) ToJSON() []byte {
+	m, _ := json.Marshal(msg)
+	return m
+}
+
+func (msg *DeliveryProof) Key() string {
+	return fmt.Sprintf("/%s/%s", msg.MessageHash, msg.MessageSender)
+}
+func (msg *DeliveryProof) BatchKey() string {
+	return fmt.Sprintf("/%s", msg.Batch)
+}
+
+func (msg *DeliveryProof) ToString() string {
+	values := []string{}
+	values = append(values, fmt.Sprintf("Message:%s", string(msg.MessageHash)))
+	values = append(values, fmt.Sprintf("NodeAddress:%s", msg.NodeAddress))
+	values = append(values, fmt.Sprintf("Timestamp:%s", strconv.Itoa(msg.Timestamp)))
+	return strings.Join(values, ",")
+}
+
+// func NewSignedDeliveryProof(data []byte, privateKey string) DeliveryProof {
+// 	message, _ := DeliveryProofFromBytes(data)
+// 	_, sig := Sign(message.ToString(), privateKey)
+// 	message.Signature = sig
+// 	return message
+// }
+
+func DeliveryProofFromBytes(b []byte) (DeliveryProof, error) {
+	var message DeliveryProof
+	err := json.Unmarshal(b, &message)
+	return message, err
+}
+
+// DeliveryClaim
+type DeliveryClaim struct {
+	NodeHeight int      `json:"nodeHeight"`
+	Signature  string   `json:"signature"`
+	Amount     string   `json:"amount"`
+	Proofs     []string `json:"proofs"`
+}
+
+func (msg *DeliveryClaim) ToJSON() []byte {
+	m, _ := json.Marshal(msg)
+	return m
+}
+
+func DeliveryClaimFromBytes(b []byte) (DeliveryClaim, error) {
+	var message DeliveryClaim
 	err := json.Unmarshal(b, &message)
 	return message, err
 }

@@ -43,8 +43,10 @@ var privKey crypto.PrivKey
 
 const DiscoveryServiceTag = "icm-network"
 const (
-	MessageChannel      string = "icm-message-channel"
-	SubscriptionChannel        = "icm-subscription-channel"
+	MessageChannel       string = "icm-message-channel"
+	SubscriptionChannel         = "icm-subscription-channel"
+	BatchChannel                = "icm-batch-channel"
+	DeliveryProofChannel        = "icm-delivery-proof"
 )
 
 var peerStreams = make(map[string]peer.ID)
@@ -139,6 +141,8 @@ func Run(mainCtx *context.Context) {
 
 	}
 
+	outgoingBatchCh, ok := ctx.Value(utils.OutgoingBatchCh).(*chan *utils.Batch)
+	// outgoingProofCh, ok := ctx.Value(utils.OutgoingDeliveryProofCh).(*chan *utils.DeliveryProof)
 	defer cancel()
 
 	if len(cfg.NodePrivateKey) == 0 {
@@ -261,25 +265,34 @@ func Run(mainCtx *context.Context) {
 
 	logger.Infof("Host started with ID is %s\n", h.ID())
 
-	cr, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
+	messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", cr.ChannelName)
-	sb, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", messagePubSub.ChannelName)
+	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+
+	batchPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), BatchChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+	// delieveryProofPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), DeliveryProofChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
+	// }
 	time.AfterFunc(5*time.Second, func() {
 		logger.Info("Sending subscription to channel")
-		sb.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{Channel: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
+		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{Channel: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
 	})
 
 	go func() {
 		time.Sleep(5 * time.Second)
 		for {
 			select {
-			case inMessage, ok := <-cr.Messages:
+			case inMessage, ok := <-batchPubSub.Messages:
 				if !ok {
 					cancel()
 					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
@@ -300,7 +313,7 @@ func Run(mainCtx *context.Context) {
 
 				}
 				*incomingMessagesC <- &cm
-			case sub, ok := <-sb.Messages:
+			case sub, ok := <-subscriptionPubSub.Messages:
 				if !ok {
 					cancel()
 					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
@@ -322,6 +335,7 @@ func Run(mainCtx *context.Context) {
 				}
 				logger.Info("New subscription updates:::", string(cm.ToJSON()))
 				// *incomingMessagesC <- &cm
+
 			}
 		}
 	}()
@@ -334,7 +348,7 @@ func Run(mainCtx *context.Context) {
 					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
 					return
 				}
-				err := cr.Publish(utils.NewSignedPubSubMessage(outMessage.ToJSON(), cfg.EvmPrivateKey))
+				err := messagePubSub.Publish(utils.NewSignedPubSubMessage(outMessage.ToJSON(), cfg.EvmPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
 					return
@@ -348,7 +362,20 @@ func Run(mainCtx *context.Context) {
 				}
 				logger.Info("subscription channel:::", subscription.Channel)
 
-				err := sb.Publish(utils.NewSignedPubSubMessage(subscription.ToJSON(), cfg.EvmPrivateKey))
+				err := subscriptionPubSub.Publish(utils.NewSignedPubSubMessage(subscription.ToJSON(), cfg.EvmPrivateKey))
+				if err != nil {
+					logger.Errorf("Failed to publish subscription.")
+					return
+				}
+			}
+		case batch, ok := <-*outgoingBatchCh:
+			if cfg.Validator {
+				if !ok {
+					logger.Errorf("Subscription channel not found in the context")
+					return
+				}
+				logger.Info("subscription channel:::", batch.BatchId)
+				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(batch.ToJSON(), cfg.EvmPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish subscription.")
 					return

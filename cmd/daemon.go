@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-datastore/query"
@@ -51,6 +52,7 @@ const (
 	RPC_PORT         Flag = "rpc-port"
 	WS_ADDRESS       Flag = "ws-address"
 )
+const MaxBatchSize = 1000
 
 // daemonCmd represents the daemon command
 var daemonCmd = &cobra.Command{
@@ -87,12 +89,6 @@ var upgrader = websocket.Upgrader{
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
 	ctx := context.Background()
-	incomingMessagesc := make(chan *utils.ClientMessage)
-	outgoingMessagesc := make(chan *utils.ClientMessage)
-	outgoingMessagesP2Pc := make(chan *utils.ClientMessage)
-	subscribersc := make(chan *utils.Subscription)
-	subscriptiondp2pc := make(chan *utils.Subscription)
-	verificationc := make(chan *utils.VerificationRequest)
 
 	connectedSubscribers := map[string]map[string][]*websocket.Conn{}
 
@@ -126,23 +122,44 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	if rpcPort == utils.DefaultRPCPort && len(cfg.RPCPort) > 0 {
 		rpcPort = cfg.RPCPort
 	}
+
+	incomingMessagesc := make(chan *utils.ClientMessage)
+	outgoingMessagesc := make(chan *utils.ClientMessage)
+	outgoingMessagesP2Pc := make(chan *utils.ClientMessage)
+	subscribersc := make(chan *utils.Subscription)
+	subscriptiondp2pc := make(chan *utils.Subscription)
+	clientHandshakec := make(chan *utils.ClientHandshake)
+	incomingDeliveryProofsc := make(chan *utils.DeliveryProof)
+	outgoingBatchc := make(chan *utils.Batch)
+	outgoingProofc := make(chan *utils.DeliveryProof)
+	pubsubInputBatchc := make(chan *utils.Batch)
+	pubsubInputProofc := make(chan *utils.DeliveryProof)
+
 	ctx = context.WithValue(ctx, utils.ConfigKey, &cfg)
 	ctx = context.WithValue(ctx, utils.IncomingMessageCh, &incomingMessagesc)
 	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
 	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PCh, &outgoingMessagesP2Pc)
 	ctx = context.WithValue(ctx, utils.SubscribeCh, &subscribersc)
 	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
-	ctx = context.WithValue(ctx, utils.VerificationCh, &verificationc)
+	ctx = context.WithValue(ctx, utils.VerificationCh, &clientHandshakec)
+	ctx = context.WithValue(ctx, utils.OutgoingBatchCh, &outgoingBatchc)
+	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProofCh, &outgoingProofc)
+	ctx = context.WithValue(ctx, utils.PubsubDeliverProofCh, &pubsubInputBatchc)
+	ctx = context.WithValue(ctx, utils.PubsubBatchCh, &pubsubInputProofc)
 
 	var wg sync.WaitGroup
 	errc := make(chan error)
 
+	stateStore := db.New(&ctx, utils.StateStore)
 	validMessagesStore := db.New(&ctx, utils.ValidMessageStore)
 	// unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
 	unsentMessageP2pStore := db.New(&ctx, utils.UnsentMessageStore)
 	channelSubscriberStore := db.New(&ctx, utils.ChannelSubscriberStore)
 	channelSubscribersCountStore := db.New(&ctx, utils.ChannelSubscribersCountStore)
 	// sentMessageStore := db.Db(&ctx, utils.SentMessageStore)
+	deliveryProofStore := db.New(&ctx, utils.DeliveryProofStore)
+	localBatchStore := db.New(&ctx, utils.BatchStore)
+	unconfurmedBatchStore := db.New(&ctx, utils.UnconfirmedDeliveryProofStore)
 
 	defer wg.Wait()
 
@@ -156,15 +173,17 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					wg.Done()
 					return
 				}
-				// VALIDATE AND DISTRIBUTE
-				logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
-				validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
-				_currentChannel := connectedSubscribers[inMessage.Message.Header.Receiver]
-				for _, signerConn := range _currentChannel {
-					for i := 0; i < len(signerConn); i++ {
-						signerConn[i].WriteMessage(1, inMessage.ToJSON())
+				go func() {
+					// VALIDATE AND DISTRIBUTE
+					logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+					validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
+					_currentChannel := connectedSubscribers[inMessage.Message.Header.Receiver]
+					for _, signerConn := range _currentChannel {
+						for i := 0; i < len(signerConn); i++ {
+							signerConn[i].WriteMessage(1, inMessage.ToJSON())
+						}
 					}
-				}
+				}()
 
 			// attempt to push into outgoing message channel
 			case outMessage, ok := <-outgoingMessagesc:
@@ -174,66 +193,186 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					return
 				}
 				// VALIDATE AND DISTRIBUTE
-				logger.Info("Sending out message %s\n", outMessage.Message.Body.Message)
-				unsentMessageP2pStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
-				outgoingMessagesP2Pc <- outMessage
-				incomingMessagesc <- outMessage
+				go func() {
+					logger.Info("Sending out message %s\n", outMessage.Message.Body.Message)
+					unsentMessageP2pStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
+					outgoingMessagesP2Pc <- outMessage
+					incomingMessagesc <- outMessage
+				}()
 
 			case sub, ok := <-subscribersc:
 				if !ok {
 					logger.Errorf("Subscription channel closed!")
 					return
 				}
-				subscriptiondp2pc <- sub
-				trx, err := channelSubscribersCountStore.NewTransaction(ctx, false)
-				logger.Info("TRANSACTION INITIATED ******")
-				if err != nil {
-					logger.Infof("Transaction err::: %w", err)
-				}
-				cscstore, err := trx.Get(ctx, db.Key(sub.Key()))
-				increment := -1
-				if sub.Action == utils.Join {
-					increment = 1
-					channelSubscriberStore.Set(ctx, db.Key(sub.Key()), sub.ToJSON(), false)
+				go func() {
+					subscriptiondp2pc <- sub
+					trx, err := channelSubscribersCountStore.NewTransaction(ctx, false)
+					logger.Info("TRANSACTION INITIATED ******")
+					if err != nil {
+						logger.Infof("Transaction err::: %w", err)
+					}
+					cscstore, err := trx.Get(ctx, db.Key(sub.Key()))
+					increment := -1
+					if sub.Action == utils.Join {
+						increment = 1
+						channelSubscriberStore.Set(ctx, db.Key(sub.Key()), sub.ToJSON(), false)
 
-				} else {
-					channelSubscriberStore.Delete(ctx, db.Key(sub.Key()))
-				}
-				if len(cscstore) == 0 {
-					cscstore = []byte("0")
-				}
-				cscstoreint, err := strconv.Atoi(string(cscstore))
-				cscstoreint += increment
-				channelSubscribersCountStore.Set(ctx, db.Key(sub.Channel), []byte(strconv.Itoa(cscstoreint)), true)
-				logger.Info("TRANSACTION ENDED ******")
-				trx.Commit(ctx)
+					} else {
+						channelSubscriberStore.Delete(ctx, db.Key(sub.Key()))
+					}
+					if len(cscstore) == 0 {
+						cscstore = []byte("0")
+					}
+					cscstoreint, err := strconv.Atoi(string(cscstore))
+					cscstoreint += increment
+					channelSubscribersCountStore.Set(ctx, db.Key(sub.Channel), []byte(strconv.Itoa(cscstoreint)), true)
+					logger.Info("TRANSACTION ENDED ******")
+					trx.Commit(ctx)
+				}()
 
-			case verification, ok := <-verificationc:
+			case verification, ok := <-clientHandshakec:
 				if !ok {
 					logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
 					return
 				}
-				// VALIDATE AND DISTRIBUTE
-				logger.Infof("Signer:  %s\n", verification.Signer)
-				results, err := channelSubscriberStore.Query(ctx, query.Query{
-					Prefix: "/" + verification.Signer,
-				})
-				if err != nil {
-					logger.Errorf("Channel Subscriber Store Query Error %w", err)
+				go func() {
+					// VALIDATE AND DISTRIBUTE
+					logger.Infof("Signer:  %s\n", verification.Signer)
+					results, err := channelSubscriberStore.Query(ctx, query.Query{
+						Prefix: "/" + verification.Signer,
+					})
+					if err != nil {
+						logger.Errorf("Channel Subscriber Store Query Error %w", err)
+						return
+					}
+					entries, _err := results.Rest()
+					for i := 0; i < len(entries); i++ {
+						_sub, _ := utils.SubscriptionFromBytes(entries[i].Value)
+						if connectedSubscribers[_sub.Channel] == nil {
+							connectedSubscribers[_sub.Channel] = map[string][]*websocket.Conn{}
+						}
+						connectedSubscribers[_sub.Channel][_sub.Subscriber] = append(connectedSubscribers[_sub.Channel][_sub.Subscriber], verification.Socket)
+
+					}
+					logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err)
+				}()
+
+			case proof, ok := <-incomingDeliveryProofsc:
+				if !ok {
+					logger.Errorf("Incoming delivery proof channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
 					return
 				}
-				entries, _err := results.Rest()
-				for i := 0; i < len(entries); i++ {
-					_sub, _ := utils.SubscriptionFromBytes(entries[i].Value)
-					if connectedSubscribers[_sub.Channel] == nil {
-						connectedSubscribers[_sub.Channel] = map[string][]*websocket.Conn{}
+				go func() {
+					err := deliveryProofStore.Set(ctx, db.Key(proof.Key()), proof.ToJSON(), true)
+					if err == nil {
+						// msg, err := validMessagesStore.Get(ctx, db.Key(fmt.Sprintf("/%s/%s", proof.MessageSender, proof.MessageHash)))
+						// if err != nil {
+						// 	// invalid proof or proof has been tampered with
+						// 	return
+						// }
+						// get signer of proof
+						susbscriber, err := utils.GetSigner(proof.ToString(), proof.Signature)
+						if err != nil {
+							// invalid proof or proof has been tampered with
+							return
+						}
+						// check if the signer of the proof is a member of the channel
+						isSubscriber, err := channelSubscriberStore.Has(ctx, db.Key("/"+susbscriber+"/"+proof.MessageHash))
+						if isSubscriber {
+							// proof is valid, so we should add to a new or existing batch
+							var batch utils.Batch
+							var err error
+							txn, err := stateStore.NewTransaction(ctx, false)
+							if err != nil {
+								logger.Errorf("State query errror %w", err)
+								// invalid proof or proof has been tampered with
+								return
+							}
+							batchData, err := txn.Get(ctx, db.Key(utils.CurrentBatchState))
+							if err != nil {
+								logger.Errorf("State query errror %w", err)
+								// invalid proof or proof has been tampered with
+								txn.Discard(ctx)
+								return
+							}
+							if len(batchData) > 0 && batch.Size < MaxBatchSize {
+								batch, err = utils.BatchFromBytes(batchData)
+								if err != nil {
+									logger.Errorf("Invalid batch %w", err)
+									// invalid proof or proof has been tampered with
+									txn.Discard(ctx)
+									return
+								}
+							} else {
+								// generate a new batch
+								batch = utils.NewBatch()
+
+							}
+							batch.Size += 1
+							if batch.Size >= MaxBatchSize {
+								batch.Closed = true
+								batch.NodeHeight = utils.GetNodeHeight()
+							}
+							// save the proof and the batch
+							batch.Hash = hexutil.Encode(utils.Hash(proof.Signature + batch.Hash))
+							err = txn.Put(ctx, db.Key(utils.CurrentBatchState), batch.ToJSON())
+							if err != nil {
+								logger.Errorf("Unable to udate State store errror %w", err)
+								txn.Discard(ctx)
+								return
+							}
+							proof.Batch = batch.BatchId
+							proof.Index = batch.Size
+							err = deliveryProofStore.Put(ctx, db.Key(proof.Key()), proof.ToJSON())
+							if err != nil {
+								txn.Discard(ctx)
+								logger.Errorf("Unable to save proof to store error %w", err)
+								return
+							}
+							err = localBatchStore.Put(ctx, db.Key(utils.CurrentBatchState), batch.ToJSON())
+							if err != nil {
+								logger.Errorf("Unable to save batch error %w", err)
+								txn.Discard(ctx)
+								return
+							}
+							err = txn.Commit(ctx)
+							if err != nil {
+								logger.Errorf("Unable to commit state update transaction errror %w", err)
+								txn.Discard(ctx)
+								return
+							}
+							// dispatch the proof and the batch
+							if batch.Closed {
+								outgoingBatchc <- &batch
+							}
+							outgoingProofc <- proof
+
+						}
+
 					}
-					connectedSubscribers[_sub.Channel][_sub.Subscriber] = append(connectedSubscribers[_sub.Channel][_sub.Subscriber], verification.Socket)
 
+				}()
+			case batch, ok := <-pubsubInputBatchc:
+				if !ok {
+					logger.Errorf("PubsubInputBatch channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
 				}
-				logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err)
-
+				go func() {
+					unconfurmedBatchStore.Put(ctx, db.Key(batch.Key()), batch.ToJSON())
+				}()
+			case proof, ok := <-pubsubInputProofc:
+				if !ok {
+					logger.Errorf("PubsubInputBatch channel closed. Please restart server to try or adjust buffer size in config")
+					wg.Done()
+					return
+				}
+				go func() {
+					unconfurmedBatchStore.Put(ctx, db.Key(proof.BatchKey()), proof.ToJSON())
+				}()
 			}
 
 		}

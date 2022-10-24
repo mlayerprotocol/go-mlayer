@@ -20,9 +20,9 @@ type Flag string
 // }
 
 type WsService struct {
-	Ctx                 *context.Context
-	Cfg                 *utils.Configuration
-	VerificationChannel *chan *utils.VerificationRequest
+	Ctx                    *context.Context
+	Cfg                    *utils.Configuration
+	ClientHandshakeChannel *chan *utils.ClientHandshake
 }
 
 type RpcResponse struct {
@@ -32,11 +32,11 @@ type RpcResponse struct {
 
 func NewWsService(mainCtx *context.Context) *WsService {
 	cfg, _ := (*mainCtx).Value(utils.ConfigKey).(*utils.Configuration)
-	verificationc, _ := (*mainCtx).Value(utils.VerificationCh).(*chan *utils.VerificationRequest)
+	verificationc, _ := (*mainCtx).Value(utils.VerificationCh).(*chan *utils.ClientHandshake)
 	return &WsService{
-		Ctx:                 mainCtx,
-		Cfg:                 cfg,
-		VerificationChannel: verificationc,
+		Ctx:                    mainCtx,
+		Cfg:                    cfg,
+		ClientHandshakeChannel: verificationc,
 	}
 }
 
@@ -82,7 +82,7 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 				log.Println("Error:", err)
 			} else {
 				// signature := string(message)
-				verifiedRequest, _ := utils.VerificationRequestFromBytes(message)
+				verifiedRequest, _ := utils.ClientHandshakeFromBytes(message)
 				verifiedRequest.Socket = c
 				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
 
@@ -90,7 +90,7 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 					// verifiedConn = append(verifiedConn, c)
 					hasVerifed = true
 					log.Println("Verification was successful: ", verifiedRequest)
-					*p.VerificationChannel <- &verifiedRequest
+					*p.ClientHandshakeChannel <- &verifiedRequest
 				}
 				log.Println("message:", string(message))
 				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
