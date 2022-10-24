@@ -23,13 +23,11 @@ func NewChannelService(mainCtx *context.Context) *ChannelService {
 }
 
 func (p *ChannelService) ChannelSubscription(sub *utils.Subscription) error {
-	if utils.IsValidSubscription(sub.Channel, sub.Subscriber, sub.Timestamp, sub.Signature, string(sub.Action), sub.ToString()) {
-		subscribersc, ok := p.Ctx.Value(utils.SubscribeCh).(*chan *utils.Subscription)
-		if !ok {
-			return errors.New("Subscription chanel not found")
-		}
-		*subscribersc <- sub
-		return nil
+	subscribersc, ok := p.Ctx.Value(utils.SubscribeCh).(*chan *utils.Subscription)
+	if !ok {
+		return errors.New("Subscription chanel not found")
 	}
-	return errors.New("Subscription data is invalid")
+	sub.Broadcast = true
+	*subscribersc <- sub
+	return nil
 }

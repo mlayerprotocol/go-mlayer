@@ -11,12 +11,13 @@ import (
 )
 
 type Subscription struct {
-	Channel    string    `json:"channel"`
-	Subscriber string    `json:"subscriber"`
-	Sender     string    `json:"sender"`
-	Timestamp  int       `json:"timestamp"`
-	Signature  string    `json:"signature"`
-	Action     SubAction `json:"action"`
+	Channel     string    `json:"channel"`
+	ChannelName string    `json:"channelName"`
+	Subscriber  string    `json:"subscriber"`
+	Timestamp   int       `json:"timestamp"`
+	Signature   string    `json:"signature"`
+	Action      SubAction `json:"action"`
+	Broadcast   bool      `json:"broadcast"`
 }
 
 func (sub *Subscription) Key() string {
@@ -64,6 +65,7 @@ func (sub *Subscription) Hash() string {
 func (sub *Subscription) ToString() string {
 	values := []string{}
 	values = append(values, fmt.Sprintf("Channel:%s", sub.Channel))
+	values = append(values, fmt.Sprintf("ChannelName:%s", sub.ChannelName))
 	values = append(values, fmt.Sprintf("Timestamp:%d", sub.Timestamp))
 	values = append(values, fmt.Sprintf("Action:%s", sub.Action))
 	return strings.Join(values, ",")

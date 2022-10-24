@@ -37,11 +37,12 @@ const (
 	PublishMessageCh               = "PublishMessageChannel"
 	SubscribeCh                    = "SubscribeChannel"
 	SubscriptionDP2PCh             = "SubscriptionDP2PChannel"
-	VerificationCh                 = "VerificationChannel"
+	ClientHandShackCh                 = "ClientHandshakeChannel"
 	OutgoingBatchCh                = "OutgoingBatchChannel"
 	OutgoingDeliveryProofCh        = "OutgoinProofChannel"
 	PubsubBatchCh                  = "PubsubBatchChannel"
 	PubsubDeliverProofCh           = "PubsubProofChannel"
+	PublishedSubCh                 = "PublishedSubChannel"
 )
 
 // State store key
@@ -52,8 +53,9 @@ const (
 type SubAction string
 
 const (
-	Join  SubAction = "join"
-	Leave SubAction = "leave"
+	Broadcast SubAction = "broadcast"
+	Join      SubAction = "join"
+	Leave     SubAction = "leave"
 )
 
 var HomeTemplate = template.Must(template.New("").Parse(`

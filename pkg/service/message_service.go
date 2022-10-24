@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -38,17 +39,12 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 }
 
 func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string) (*utils.ClientMessage, error) {
-	utils.Logger.Infof("evm priv key %s %s", utils.GetPublicKey(p.Cfg.EvmPrivateKey), chatMsg.Origin)
-	if chatMsg.Origin != utils.GetPublicKey(p.Cfg.EvmPrivateKey) {
+	// utils.Logger.Infof("evm priv key %s %s", utils.GetPublicKey(p.Cfg.EvmPrivateKey), chatMsg.Origin)
+	if strings.ToLower(chatMsg.Origin) != strings.ToLower(utils.GetPublicKey(p.Cfg.EvmPrivateKey)) {
 		return nil, errors.New("Invalid Origin node address")
 	}
 	if utils.IsValidMessage(chatMsg, senderSignature) {
 		privateKey := p.Cfg.EvmPrivateKey
-		utils.Logger.Infof("private key %s", privateKey)
-
-		if chatMsg.Origin == utils.GetPublicKey(privateKey) {
-			panic("Invalid origin")
-		}
 
 		// TODO:
 		// check message timestamp. It must be within a 15 seconds difference from the current server time

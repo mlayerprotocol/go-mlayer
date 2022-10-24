@@ -134,18 +134,23 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	outgoingProofc := make(chan *utils.DeliveryProof)
 	pubsubInputBatchc := make(chan *utils.Batch)
 	pubsubInputProofc := make(chan *utils.DeliveryProof)
+	publishedSubc := make(chan *utils.Subscription)
 
 	ctx = context.WithValue(ctx, utils.ConfigKey, &cfg)
 	ctx = context.WithValue(ctx, utils.IncomingMessageCh, &incomingMessagesc)
 	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
 	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PCh, &outgoingMessagesP2Pc)
+	// incoming from client apps to daemon channel
 	ctx = context.WithValue(ctx, utils.SubscribeCh, &subscribersc)
+	// daemon to p2p channel
 	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
-	ctx = context.WithValue(ctx, utils.VerificationCh, &clientHandshakec)
+	ctx = context.WithValue(ctx, utils.ClientHandShackCh, &clientHandshakec)
 	ctx = context.WithValue(ctx, utils.OutgoingBatchCh, &outgoingBatchc)
 	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProofCh, &outgoingProofc)
 	ctx = context.WithValue(ctx, utils.PubsubDeliverProofCh, &pubsubInputBatchc)
 	ctx = context.WithValue(ctx, utils.PubsubBatchCh, &pubsubInputProofc)
+	// receiving subscription from other nodes channel
+	ctx = context.WithValue(ctx, utils.PublishedSubCh, &publishedSubc)
 
 	var wg sync.WaitGroup
 	errc := make(chan error)
@@ -173,17 +178,31 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					wg.Done()
 					return
 				}
+				// VALIDATE AND DISTRIBUTE
 				go func() {
-					// VALIDATE AND DISTRIBUTE
 					logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
 					validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
-					_currentChannel := connectedSubscribers[inMessage.Message.Header.Receiver]
+					_reciever := inMessage.Message.Header.Receiver
+					_recievers := strings.Split(_reciever, ":")
+					_currentChannel := connectedSubscribers[_recievers[1]]
+					logger.Info("connectedSubscribers : ", connectedSubscribers, "---", _reciever)
+					logger.Info("_currentChannel : ", _currentChannel, "/n")
 					for _, signerConn := range _currentChannel {
 						for i := 0; i < len(signerConn); i++ {
 							signerConn[i].WriteMessage(1, inMessage.ToJSON())
 						}
 					}
 				}()
+
+			}
+
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		for {
+			select {
 
 			// attempt to push into outgoing message channel
 			case outMessage, ok := <-outgoingMessagesc:
@@ -192,12 +211,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					wg.Done()
 					return
 				}
-				// VALIDATE AND DISTRIBUTE
 				go func() {
-					logger.Info("Sending out message %s\n", outMessage.Message.Body.Message)
+					// VALIDATE AND DISTRIBUTE
+					logger.Infof("\nSending out message %s\n", outMessage.Message.Body.Message)
 					unsentMessageP2pStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
 					outgoingMessagesP2Pc <- outMessage
 					incomingMessagesc <- outMessage
+					logger.Infof("\nSending out complete\n")
 				}()
 
 			case sub, ok := <-subscribersc:
@@ -205,8 +225,14 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					logger.Errorf("Subscription channel closed!")
 					return
 				}
+				if !utils.IsValidSubscription(*sub) {
+					utils.Logger.Info("ITS NOT VALID!")
+					continue
+				}
 				go func() {
-					subscriptiondp2pc <- sub
+					if sub.Broadcast {
+						subscriptiondp2pc <- sub
+					}
 					trx, err := channelSubscribersCountStore.NewTransaction(ctx, false)
 					logger.Info("TRANSACTION INITIATED ******")
 					if err != nil {
@@ -231,7 +257,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					trx.Commit(ctx)
 				}()
 
-			case verification, ok := <-clientHandshakec:
+			case clientHandshake, ok := <-clientHandshakec:
 				if !ok {
 					logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
@@ -239,9 +265,9 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				go func() {
 					// VALIDATE AND DISTRIBUTE
-					logger.Infof("Signer:  %s\n", verification.Signer)
+					logger.Infof("Signer:  %s\n", clientHandshake.Signer)
 					results, err := channelSubscriberStore.Query(ctx, query.Query{
-						Prefix: "/" + verification.Signer,
+						Prefix: "/" + clientHandshake.Signer,
 					})
 					if err != nil {
 						logger.Errorf("Channel Subscriber Store Query Error %w", err)
@@ -253,7 +279,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 						if connectedSubscribers[_sub.Channel] == nil {
 							connectedSubscribers[_sub.Channel] = map[string][]*websocket.Conn{}
 						}
-						connectedSubscribers[_sub.Channel][_sub.Subscriber] = append(connectedSubscribers[_sub.Channel][_sub.Subscriber], verification.Socket)
+						connectedSubscribers[_sub.Channel][_sub.Subscriber] = append(connectedSubscribers[_sub.Channel][_sub.Subscriber], clientHandshake.Socket)
 
 					}
 					logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err)
@@ -373,6 +399,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				go func() {
 					unconfurmedBatchStore.Put(ctx, db.Key(proof.BatchKey()), proof.ToJSON())
 				}()
+
 			}
 
 		}
