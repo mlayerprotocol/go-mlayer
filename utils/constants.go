@@ -30,19 +30,20 @@ const (
 
 // Values withing the main context
 const (
-	ConfigKey               string = "Config"
-	OutgoingMessageCh              = "OutgoingMessageChannel"
-	OutgoingMessageDP2PCh          = "OutgoingMessageDP2PChannel"
-	IncomingMessageCh              = "IncomingMessageChannel"
-	PublishMessageCh               = "PublishMessageChannel"
-	SubscribeCh                    = "SubscribeChannel"
-	SubscriptionDP2PCh             = "SubscriptionDP2PChannel"
-	ClientHandShackCh                 = "ClientHandshakeChannel"
-	OutgoingBatchCh                = "OutgoingBatchChannel"
-	OutgoingDeliveryProofCh        = "OutgoinProofChannel"
-	PubsubBatchCh                  = "PubsubBatchChannel"
-	PubsubDeliverProofCh           = "PubsubProofChannel"
-	PublishedSubCh                 = "PublishedSubChannel"
+	ConfigKey                string = "Config"
+	OutgoingMessageCh               = "OutgoingMessageChannel"
+	OutgoingMessageDP2PCh           = "OutgoingMessageDP2PChannel"
+	IncomingMessageCh               = "IncomingMessageChannel"
+	PublishMessageCh                = "PublishMessageChannel"
+	SubscribeCh                     = "SubscribeChannel"
+	SubscriptionDP2PCh              = "SubscriptionDP2PChannel"
+	ClientHandShackCh               = "ClientHandshakeChannel"
+	IncomingDeliveryProofsCh        = "IncomingDeliveryProofsChannel"
+	OutgoingBatchCh                 = "OutgoingBatchChannel"
+	OutgoingDeliveryProofCh         = "OutgoinProofChannel"
+	PubsubBatchCh                   = "PubsubBatchChannel"
+	PubsubDeliverProofCh            = "PubsubProofChannel"
+	PublishedSubCh                  = "PublishedSubChannel"
 )
 
 // State store key

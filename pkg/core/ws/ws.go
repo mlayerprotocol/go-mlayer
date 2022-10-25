@@ -23,6 +23,7 @@ type WsService struct {
 	Ctx                    *context.Context
 	Cfg                    *utils.Configuration
 	ClientHandshakeChannel *chan *utils.ClientHandshake
+	DeliveryProofChannel   *chan *utils.DeliveryProof
 }
 
 type RpcResponse struct {
@@ -33,10 +34,12 @@ type RpcResponse struct {
 func NewWsService(mainCtx *context.Context) *WsService {
 	cfg, _ := (*mainCtx).Value(utils.ConfigKey).(*utils.Configuration)
 	verificationc, _ := (*mainCtx).Value(utils.ClientHandShackCh).(*chan *utils.ClientHandshake)
+	deliveryproofc, _ := (*mainCtx).Value(utils.IncomingDeliveryProofsCh).(*chan *utils.DeliveryProof)
 	return &WsService{
 		Ctx:                    mainCtx,
 		Cfg:                    cfg,
 		ClientHandshakeChannel: verificationc,
+		DeliveryProofChannel:   deliveryproofc,
 	}
 }
 
@@ -77,12 +80,8 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 
 		} else {
-			err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
-			if err != nil {
-				log.Println("Error:", err)
-			} else {
-				// signature := string(message)
-				verifiedRequest, _ := utils.ClientHandshakeFromBytes(message)
+			verifiedRequest, verificationError := utils.ClientHandshakeFromBytes(message)
+			if verificationError == nil {
 				verifiedRequest.Socket = c
 				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
 
@@ -95,7 +94,15 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 				log.Println("message:", string(message))
 				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
 			}
-
+			deliveryProof, deliveryProofError := utils.DeliveryProofFromBytes(message)
+			if deliveryProofError == nil {
+				log.Println("deliveryProof.Message: ", string(deliveryProof.ToJSON()))
+				if utils.VerifySignature(deliveryProof.MessageSender, "deliveryProof Message", deliveryProof.Signature) {
+					// verifiedConn = append(verifiedConn, c)
+					log.Println("Delivery Proof Verification was successful: ", deliveryProof)
+					*p.DeliveryProofChannel <- &deliveryProof
+				}
+			}
 		}
 	}
 

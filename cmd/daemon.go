@@ -145,6 +145,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// daemon to p2p channel
 	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
 	ctx = context.WithValue(ctx, utils.ClientHandShackCh, &clientHandshakec)
+	ctx = context.WithValue(ctx, utils.IncomingDeliveryProofsCh, &incomingDeliveryProofsc)
 	ctx = context.WithValue(ctx, utils.OutgoingBatchCh, &outgoingBatchc)
 	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProofCh, &outgoingProofc)
 	ctx = context.WithValue(ctx, utils.PubsubDeliverProofCh, &pubsubInputBatchc)
