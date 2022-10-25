@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -116,8 +117,7 @@ type ChatMessage struct {
 
 func (chatMessage *ChatMessage) ToString() string {
 	values := []string{}
-	// values = append(values, fmt.Sprintf("Header.Length:%d", chatMessage.Header.Length))
-	// values = append(values, fmt.Sprintf("Header.Sender:%s", chatMessage.Header.Sender))
+
 	values = append(values, fmt.Sprintf("Header.Receiver:%s", chatMessage.Header.Receiver))
 	values = append(values, fmt.Sprintf("Header.ChainId:%s", chatMessage.Header.ChainId))
 	values = append(values, fmt.Sprintf("Header.Platform:%s", chatMessage.Header.Platform))
@@ -152,6 +152,7 @@ type ClientMessage struct {
 	Message         ChatMessage `json:"message"`
 	SenderSignature string      `json:"senderSignature"`
 	NodeSignature   string      `json:"nodeSignature"`
+	MessageCID      string      `json:"messageCID"`
 }
 
 type SuccessResponse struct {
@@ -182,7 +183,7 @@ func (msg *ClientMessage) ToJSON() []byte {
 	return m
 }
 func (msg *ClientMessage) ToString() string {
-	return fmt.Sprintf("%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature)
+	return fmt.Sprintf("%s:%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature, msg.MessageCID)
 }
 
 func (msg *ClientMessage) Hash() []byte {
@@ -227,19 +228,37 @@ func ChatMessageFromString(msg string) ChatMessage {
 type MessageJsonInput struct {
 	Timestamp int `json:"timestamp"`
 	// From      string              `json:"from"`
-	Receiver  string              `json:"receiver"`
-	Platform  string              `json:"platform"`
-	ChainId   string              `json:"chainId"`
-	Type      string              `json:"type"`
-	Message   string              `json:"message"`
-	Subject   string              `json:"subject"`
-	Signature string              `json:"signature"`
-	Actions   []ChatMessageAction `json:"actions"`
-	Origin    string              `json:"origin"`
+	Receiver    string              `json:"receiver"`
+	Platform    string              `json:"platform"`
+	ChainId     string              `json:"chainId"`
+	Type        string              `json:"type"`
+	Message     string              `json:"message"`
+	Subject     string              `json:"subject"`
+	Signature   string              `json:"signature"`
+	Actions     []ChatMessageAction `json:"actions"`
+	Origin      string              `json:"origin"`
+	MessageHash string              `json:"messageHash"`
+	SubjectHash string              `json:"subjectHash"`
 }
 
-func CreateMessageFromJson(msg MessageJsonInput) ChatMessage {
+func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
+	// if message and subject specified
+	//create a json object with subject and message fields
+	// push to ipfs
+	// add cid to client message
 
+	if len(msg.Message) > 0 {
+		msgHash := hexutil.Encode(Hash(msg.Message))
+		if msg.MessageHash != msgHash {
+			return ChatMessage{}, errors.New("Invalid Message")
+		}
+	}
+	if len(msg.Subject) > 0 {
+		subHash := hexutil.Encode(Hash(msg.Subject))
+		if msg.SubjectHash != subHash {
+			return ChatMessage{}, errors.New("Invalid Subject")
+		}
+	}
 	chatMessage := ChatMessageHeader{
 		Timestamp: uint(msg.Timestamp),
 		// Sender:    msg.From,
@@ -250,11 +269,11 @@ func CreateMessageFromJson(msg MessageJsonInput) ChatMessage {
 	}
 
 	bodyMessage := ChatMessageBody{
-		Subject: msg.Subject,
-		Message: msg.Message,
+		Subject: msg.SubjectHash,
+		Message: msg.MessageHash,
 	}
 	_chatMessage := ChatMessage{chatMessage, bodyMessage, msg.Actions, msg.Origin}
-	return _chatMessage
+	return _chatMessage, nil
 }
 
 func IsValidMessage(msg ChatMessage, signature string) bool {

@@ -48,7 +48,10 @@ func newResponse(status string, data interface{}) *RpcResponse {
 
 func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *RpcResponse) error {
 	utils.Logger.Info("SendMessage request:::", request)
-	chatMsg := utils.CreateMessageFromJson(request)
+	chatMsg, err := utils.CreateMessageFromJson(request)
+	if err != nil {
+		return err
+	}
 	c, err := (*p.MessageService).Send(chatMsg, request.Signature)
 	if err != nil {
 		return err

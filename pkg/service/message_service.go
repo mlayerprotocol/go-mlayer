@@ -39,7 +39,6 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 }
 
 func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string) (*utils.ClientMessage, error) {
-	// utils.Logger.Infof("evm priv key %s %s", utils.GetPublicKey(p.Cfg.EvmPrivateKey), chatMsg.Origin)
 	if strings.ToLower(chatMsg.Origin) != strings.ToLower(utils.GetPublicKey(p.Cfg.EvmPrivateKey)) {
 		return nil, errors.New("Invalid Origin node address")
 	}
