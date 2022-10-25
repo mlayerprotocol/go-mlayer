@@ -3,6 +3,7 @@ package ws
 import (
 	// "errors"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -96,8 +97,11 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			deliveryProof, deliveryProofError := utils.DeliveryProofFromBytes(message)
 			if deliveryProofError == nil {
-				log.Println("deliveryProof.Message: ", string(deliveryProof.ToJSON()))
-				if utils.VerifySignature(deliveryProof.MessageSender, "deliveryProof Message", deliveryProof.Signature) {
+
+				_proofSignature := fmt.Sprintf("%s/%s/%d", deliveryProof.MessageSender, deliveryProof.NodeAddress, deliveryProof.Timestamp)
+				log.Println("Delivery message: ", deliveryProof)
+				if len(deliveryProof.MessageSender) > 0 &&
+					utils.VerifySignature(deliveryProof.MessageSender, _proofSignature, deliveryProof.Signature) {
 					// verifiedConn = append(verifiedConn, c)
 					log.Println("Delivery Proof Verification was successful: ", deliveryProof)
 					*p.DeliveryProofChannel <- &deliveryProof

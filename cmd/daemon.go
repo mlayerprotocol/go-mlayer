@@ -186,8 +186,6 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					_reciever := inMessage.Message.Header.Receiver
 					_recievers := strings.Split(_reciever, ":")
 					_currentChannel := connectedSubscribers[_recievers[1]]
-					logger.Info("connectedSubscribers : ", connectedSubscribers, "---", _reciever)
-					logger.Info("_currentChannel : ", _currentChannel, "/n")
 					for _, signerConn := range _currentChannel {
 						for i := 0; i < len(signerConn); i++ {
 							signerConn[i].WriteMessage(1, inMessage.ToJSON())
