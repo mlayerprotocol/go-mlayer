@@ -38,7 +38,7 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 	}
 }
 
-func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string) (*utils.ClientMessage, error) {
+func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string, messageCID string) (*utils.ClientMessage, error) {
 	if strings.ToLower(chatMsg.Origin) != strings.ToLower(utils.GetPublicKey(p.Cfg.EvmPrivateKey)) {
 		return nil, errors.New("Invalid Origin node address")
 	}
@@ -52,6 +52,7 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string)
 		message := utils.ClientMessage{}
 		message.Message = chatMsg
 		message.SenderSignature = senderSignature
+		message.MessageCID = messageCID
 		message.NodeSignature = hexutil.Encode(signature)
 		outgoingMessageC, ok := p.Ctx.Value(utils.OutgoingMessageCh).(*chan *utils.ClientMessage)
 		if !ok {

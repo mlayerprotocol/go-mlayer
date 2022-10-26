@@ -7,7 +7,9 @@ import (
 )
 
 type IpfsConfig struct {
-	Host string `mapstructure:"ipfs_host"`
+	Host          string `mapstructure:"ipfs_url"`
+	ProjectId     string `mapstructure:"ipfs_username"`
+	ProjectSecret string `mapstructure:"ipfs_password"`
 }
 
 type EthChainConfig struct {

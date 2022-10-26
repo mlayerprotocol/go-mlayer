@@ -242,10 +242,6 @@ type MessageJsonInput struct {
 }
 
 func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
-	// if message and subject specified
-	//create a json object with subject and message fields
-	// push to ipfs
-	// add cid to client message
 
 	if len(msg.Message) > 0 {
 		msgHash := hexutil.Encode(Hash(msg.Message))
