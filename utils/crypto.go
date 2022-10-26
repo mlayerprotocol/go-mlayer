@@ -91,7 +91,7 @@ func VerifySignature(signer string, message string, signature string) bool {
 	if err != nil {
 		return false
 	}
-	logger.Infof("signer decoded signer %s %s : %T", decodedSigner, signer, (decodedSigner == signer))
+	logger.Infof("signer decoded signer %s %s : %t", decodedSigner, signer, (decodedSigner == signer))
 	return strings.EqualFold(decodedSigner, signer)
 }
 

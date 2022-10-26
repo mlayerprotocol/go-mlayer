@@ -188,7 +188,11 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					_currentChannel := connectedSubscribers[_recievers[1]]
 					for _, signerConn := range _currentChannel {
 						for i := 0; i < len(signerConn); i++ {
-							signerConn[i].WriteMessage(1, inMessage.ToJSON())
+							__msg := utils.SocketMessage{
+								Type: "new-message",
+								Data: inMessage.ToJSON(),
+							}
+							signerConn[i].WriteMessage(1, __msg.ToJSON())
 						}
 					}
 				}()
@@ -305,7 +309,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 							return
 						}
 						// check if the signer of the proof is a member of the channel
-						isSubscriber, err := channelSubscriberStore.Has(ctx, db.Key("/"+susbscriber+"/"+proof.MessageHash))
+						isSubscriber, err := channelSubscriberStore.Has(ctx, db.Key("/"+susbscriber+"/"+proof.MessageSignature))
 						if isSubscriber {
 							// proof is valid, so we should add to a new or existing batch
 							var batch utils.Batch

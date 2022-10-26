@@ -3,7 +3,6 @@ package ws
 import (
 	// "errors"
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -81,32 +80,44 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 
 		} else {
-			verifiedRequest, verificationError := utils.ClientHandshakeFromBytes(message)
-			if verificationError == nil {
-				verifiedRequest.Socket = c
-				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
+			socketMessage, socketMessageError := utils.SocketMessageFromBytes(message)
+			if socketMessageError != nil {
+				utils.Logger.Errorf("socketMessageError %w", socketMessageError)
+				continue
 
-				if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
-					// verifiedConn = append(verifiedConn, c)
-					hasVerifed = true
-					log.Println("Verification was successful: ", verifiedRequest)
-					*p.ClientHandshakeChannel <- &verifiedRequest
-				}
-				log.Println("message:", string(message))
-				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
 			}
-			deliveryProof, deliveryProofError := utils.DeliveryProofFromBytes(message)
-			if deliveryProofError == nil {
+			log.Print("socketMessage.Type: ", socketMessage.Type)
 
-				_proofSignature := fmt.Sprintf("%s/%s/%d", deliveryProof.MessageSender, deliveryProof.NodeAddress, deliveryProof.Timestamp)
-				log.Println("Delivery message: ", deliveryProof)
-				if len(deliveryProof.MessageSender) > 0 &&
-					utils.VerifySignature(deliveryProof.MessageSender, _proofSignature, deliveryProof.Signature) {
-					// verifiedConn = append(verifiedConn, c)
-					log.Println("Delivery Proof Verification was successful: ", deliveryProof)
-					*p.DeliveryProofChannel <- &deliveryProof
+			switch socketMessage.Type {
+			case "handshake":
+				verifiedRequest, verificationError := utils.ClientHandshakeFromBytes(socketMessage.Data)
+				if verificationError == nil {
+					verifiedRequest.Socket = c
+					log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
+
+					if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
+						// verifiedConn = append(verifiedConn, c)
+						hasVerifed = true
+						log.Println("Verification was successful: ", verifiedRequest)
+						*p.ClientHandshakeChannel <- &verifiedRequest
+					}
+					log.Println("message:", string(message))
+					log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
 				}
+			case "delivery-proof":
+				deliveryProof, deliveryProofError := utils.DeliveryProofFromBytes(socketMessage.Data)
+				if deliveryProofError == nil {
+					log.Println("Delivery message: ", deliveryProof.ToString())
+					if len(deliveryProof.MessageSender) > 0 &&
+						utils.VerifySignature(deliveryProof.MessageSender, deliveryProof.ToString(), deliveryProof.Signature) {
+						// verifiedConn = append(verifiedConn, c)
+						log.Println("Delivery Proof Verification was successful: ", deliveryProof)
+						*p.DeliveryProofChannel <- &deliveryProof
+					}
+				}
+
 			}
+
 		}
 	}
 

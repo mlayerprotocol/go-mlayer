@@ -365,13 +365,13 @@ func BatchFromBytes(b []byte) (Batch, error) {
 
 // DeliveryProof
 type DeliveryProof struct {
-	MessageHash   string `json:"messageHash"`
-	MessageSender string `json:"messageSender"`
-	NodeAddress   string `json:"node"`
-	Timestamp     int    `json:"timestamp"`
-	Signature     string `json:"signature"`
-	Batch         string `json:"batch"`
-	Index         int    `json:"index"`
+	MessageSignature string `json:"messageSignature"`
+	MessageSender    string `json:"messageSender"`
+	NodeAddress      string `json:"node"`
+	Timestamp        int    `json:"timestamp"`
+	Signature        string `json:"signature"`
+	Batch            string `json:"batch"`
+	Index            int    `json:"index"`
 }
 
 func (msg *DeliveryProof) ToJSON() []byte {
@@ -380,7 +380,7 @@ func (msg *DeliveryProof) ToJSON() []byte {
 }
 
 func (msg *DeliveryProof) Key() string {
-	return fmt.Sprintf("/%s/%s", msg.MessageHash, msg.MessageSender)
+	return fmt.Sprintf("/%s/%s", msg.MessageSignature, msg.MessageSender)
 }
 func (msg *DeliveryProof) BatchKey() string {
 	return fmt.Sprintf("/%s", msg.Batch)
@@ -388,7 +388,7 @@ func (msg *DeliveryProof) BatchKey() string {
 
 func (msg *DeliveryProof) ToString() string {
 	values := []string{}
-	values = append(values, fmt.Sprintf("Message:%s", string(msg.MessageHash)))
+	values = append(values, fmt.Sprintf("Message:%s", string(msg.MessageSignature)))
 	values = append(values, fmt.Sprintf("NodeAddress:%s", msg.NodeAddress))
 	values = append(values, fmt.Sprintf("Timestamp:%s", strconv.Itoa(msg.Timestamp)))
 	return strings.Join(values, ",")
@@ -422,6 +422,23 @@ func (msg *DeliveryClaim) ToJSON() []byte {
 
 func DeliveryClaimFromBytes(b []byte) (DeliveryClaim, error) {
 	var message DeliveryClaim
+	err := json.Unmarshal(b, &message)
+	return message, err
+}
+
+// SocketMessageClaim
+type SocketMessage struct {
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
+}
+
+func (msg *SocketMessage) ToJSON() []byte {
+	m, _ := json.Marshal(msg)
+	return m
+}
+
+func SocketMessageFromBytes(b []byte) (SocketMessage, error) {
+	var message SocketMessage
 	err := json.Unmarshal(b, &message)
 	return message, err
 }
