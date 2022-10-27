@@ -428,8 +428,9 @@ func DeliveryClaimFromBytes(b []byte) (DeliveryClaim, error) {
 
 // SocketMessageClaim
 type SocketMessage struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
+	Type      string          `json:"type"`
+	Data      json.RawMessage `json:"data"`
+	Signature string          `json:"signature"`
 }
 
 func (msg *SocketMessage) ToJSON() []byte {
@@ -441,4 +442,11 @@ func SocketMessageFromBytes(b []byte) (SocketMessage, error) {
 	var message SocketMessage
 	err := json.Unmarshal(b, &message)
 	return message, err
+}
+
+func (msg *SocketMessage) ToString() string {
+	values := []string{}
+	values = append(values, fmt.Sprintf("Type:%s", string(msg.Type)))
+	// values = append(values, fmt.Sprintf("Signature:%s", msg.Signature))
+	return strings.Join(values, ",")
 }

@@ -108,8 +108,7 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 				deliveryProof, deliveryProofError := utils.DeliveryProofFromBytes(socketMessage.Data)
 				if deliveryProofError == nil {
 					log.Println("Delivery message: ", deliveryProof.ToString())
-					if len(deliveryProof.MessageSender) > 0 &&
-						utils.VerifySignature(deliveryProof.MessageSender, deliveryProof.ToString(), deliveryProof.Signature) {
+					if utils.VerifySignature(deliveryProof.MessageSender, deliveryProof.ToString(), deliveryProof.Signature) {
 						// verifiedConn = append(verifiedConn, c)
 						log.Println("Delivery Proof Verification was successful: ", deliveryProof)
 						*p.DeliveryProofChannel <- &deliveryProof
