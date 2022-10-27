@@ -365,13 +365,13 @@ func BatchFromBytes(b []byte) (Batch, error) {
 
 // DeliveryProof
 type DeliveryProof struct {
-	MessageSignature string `json:"messageSignature"`
-	MessageSender    string `json:"messageSender"`
-	NodeAddress      string `json:"node"`
-	Timestamp        int    `json:"timestamp"`
-	Signature        string `json:"signature"`
-	Batch            string `json:"batch"`
-	Index            int    `json:"index"`
+	MessageSignature string          `json:"messageSignature"`
+	TmpAccount       ClientHandshake `json:"tmpAccount"`
+	NodeAddress      string          `json:"node"`
+	Timestamp        int             `json:"timestamp"`
+	Signature        string          `json:"signature"`
+	Batch            string          `json:"batch"`
+	Index            int             `json:"index"`
 }
 
 func (msg *DeliveryProof) ToJSON() []byte {
@@ -380,7 +380,7 @@ func (msg *DeliveryProof) ToJSON() []byte {
 }
 
 func (msg *DeliveryProof) Key() string {
-	return fmt.Sprintf("/%s/%s", msg.MessageSignature, msg.MessageSender)
+	return fmt.Sprintf("/%s/%s", msg.MessageSignature, msg.NodeAddress)
 }
 func (msg *DeliveryProof) BatchKey() string {
 	return fmt.Sprintf("/%s", msg.Batch)

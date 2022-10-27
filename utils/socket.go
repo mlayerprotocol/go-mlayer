@@ -12,6 +12,7 @@ type ClientHandshake struct {
 	Signature string          `json:"signature"`
 	Signer    string          `json:"signer"`
 	Message   string          `json:"message"`
+	Timestamp int             `json:"timestamp"`
 	Socket    *websocket.Conn `json:"socket"`
 }
 

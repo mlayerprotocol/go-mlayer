@@ -3,6 +3,7 @@ package ws
 import (
 	// "errors"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -91,11 +92,13 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 			switch socketMessage.Type {
 			case "handshake":
 				verifiedRequest, verificationError := utils.ClientHandshakeFromBytes(socketMessage.Data)
+				log.Println("verificationError: ", verificationError)
 				if verificationError == nil {
 					verifiedRequest.Socket = c
 					log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
 
-					if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
+					__msg := fmt.Sprintf("PubKey:%s,Timestamp:%d", verifiedRequest.Message, verifiedRequest.Timestamp)
+					if utils.VerifySignature(verifiedRequest.Signer, __msg, verifiedRequest.Signature) {
 						// verifiedConn = append(verifiedConn, c)
 						hasVerifed = true
 						log.Println("Verification was successful: ", verifiedRequest)
@@ -108,7 +111,10 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 				deliveryProof, deliveryProofError := utils.DeliveryProofFromBytes(socketMessage.Data)
 				if deliveryProofError == nil {
 					log.Println("Delivery message: ", deliveryProof.ToString())
-					if utils.VerifySignature(deliveryProof.MessageSender, deliveryProof.ToString(), deliveryProof.Signature) {
+					decodedSigner, _ := utils.GetSigner(deliveryProof.ToString(), deliveryProof.Signature)
+					__msg := fmt.Sprintf("PubKey:%s,Timestamp:%d", decodedSigner, deliveryProof.TmpAccount.Timestamp)
+
+					if utils.VerifySignature(deliveryProof.TmpAccount.Signer, __msg, deliveryProof.TmpAccount.Signature) {
 						// verifiedConn = append(verifiedConn, c)
 						log.Println("Delivery Proof Verification was successful: ", deliveryProof)
 						*p.DeliveryProofChannel <- &deliveryProof
