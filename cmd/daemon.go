@@ -482,7 +482,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	go func() {
 		wss := ws.NewWsService(&ctx)
 		logger.Infof("wsAddress: %s\n", wsAddress)
-		http.HandleFunc("/echo", wss.ServeWebSocket)
+		http.HandleFunc("/", wss.ServeWebSocket)
 
 		log.Fatal(http.ListenAndServe(wsAddress, nil))
 	}()
@@ -508,54 +508,3 @@ func parserEvent(vLog types.Log, eventName string) {
 
 var lobbyConn = []*websocket.Conn{}
 var verifiedConn = []*websocket.Conn{}
-
-// func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
-
-// 	c, err := upgrader.Upgrade(w, r, nil)
-// 	log.Print("New ServeWebSocket c : ", c.RemoteAddr())
-
-// 	if err != nil {
-// 		log.Print("upgrade:", err)
-// 		return
-// 	}
-// 	defer c.Close()
-// 	hasVerifed := false
-// 	time.AfterFunc(5000*time.Millisecond, func() {
-
-// 		if !hasVerifed {
-// 			c.Close()
-// 		}
-// 	})
-// 	_close := func(code int, t string) error {
-// 		logger.Infof("code: %d, t: %s \n", code, t)
-// 		return errors.New("Closed ")
-// 	}
-// 	c.SetCloseHandler(_close)
-// 	for {
-// 		mt, message, err := c.ReadMessage()
-// 		if err != nil {
-// 			log.Println("read:", err)
-// 			break
-
-// 		} else {
-// 			err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
-// 			if err != nil {
-// 				log.Println("Error:", err)
-// 			} else {
-// 				// signature := string(message)
-// 				verifiedRequest, _ := utils.VerificationRequestFromBytes(message)
-// 				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
-
-// 				if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
-// 					verifiedConn = append(verifiedConn, c)
-// 					hasVerifed = true
-// 					log.Println("Verification was successful: ", verifiedRequest)
-// 				}
-// 				log.Println("message:", string(message))
-// 				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
-// 			}
-
-// 		}
-// 	}
-
-// }
