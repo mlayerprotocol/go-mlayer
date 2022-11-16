@@ -79,6 +79,9 @@ func (t authTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *RpcResponse) error {
+
+	utils.Logger.Info("Sucessfully called Send message")
+	// request := payload.(utils.MessageJsonInput)
 	// Before creating message.. validate that the sender has access to channel
 	//-------------->
 	var messageCID string

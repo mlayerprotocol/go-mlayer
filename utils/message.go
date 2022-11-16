@@ -222,6 +222,15 @@ func ClientMessageFromBytes(b []byte) (ClientMessage, error) {
 	return message, err
 }
 
+func JsonMessageFromBytes(b []byte) (MessageJsonInput, error) {
+	var message MessageJsonInput
+	// if err := json.Unmarshal(b, &message); err != nil {
+	// 	panic(err)
+	// }
+	err := json.Unmarshal(b, &message)
+	return message, err
+}
+
 func ClientMessageFromString(msg string) (ClientMessage, error) {
 	return ClientMessageFromBytes([]byte(msg))
 }

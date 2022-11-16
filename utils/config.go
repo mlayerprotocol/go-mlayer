@@ -37,6 +37,7 @@ type Configuration struct {
 	RPCHost                  string         `mapstructure:"rpc_host"`
 	WSAddress                string         `mapstructure:"ws_address"`
 	RPCPort                  string         `mapstructure:"rpc_port"`
+	RPCHttpPort              string         `mapstructure:"rpc_http_port"`
 	Validator                bool           `mapstructure:"validator"`
 	BootstrapNode            bool           `mapstructure:"bootstrap_node"`
 	DataDir                  string         `mapstructure:"data_dir"`
