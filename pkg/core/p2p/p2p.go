@@ -205,6 +205,7 @@ func Run(mainCtx *context.Context) {
 				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeServer))
 			}
 			kdht, err := dht.New(ctx, h, dhtOptions...)
+
 			idht = kdht
 			if err = kdht.Bootstrap(ctx); err != nil {
 				logger.Fatalf("Error starting bootstrap node %w", err)
@@ -227,6 +228,19 @@ func Run(mainCtx *context.Context) {
 				}
 			}
 			go Discover(ctx, h, kdht, "icms")
+
+			routingOptions := routing.Options{
+				Expired: true,
+				Offline: true,
+			}
+			// var	routingOptionsSlice []routing.Option;
+			// routingOptionsSlice = append(routingOptionsSlice, routingOptions.ToOption())
+			key := "/$name/$first"
+			putErr := kdht.PutValue(ctx, key, []byte("femi"), routingOptions.ToOption())
+
+			if putErr != nil {
+				logger.Infof("Put the error %w", putErr)
+			}
 			return idht, err
 		}),
 
