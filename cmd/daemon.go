@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+
 	// "net/rpc/jsonrpc"
 
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
@@ -180,7 +181,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				// VALIDATE AND DISTRIBUTE
 				go func() {
-					logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+					logger.Info("Received new message %s\n", inMessage.Message.Body.MessageHash)
 					validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
 					_reciever := inMessage.Message.Header.Receiver
 					_recievers := strings.Split(_reciever, ":")
@@ -213,7 +214,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				go func() {
 					// VALIDATE AND DISTRIBUTE
-					logger.Infof("\nSending out message %s\n", outMessage.Message.Body.Message)
+					logger.Infof("\nSending out message %s\n", outMessage.Message.Body.MessageHash)
 					unsentMessageP2pStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
 					outgoingMessagesP2Pc <- outMessage
 					incomingMessagesc <- outMessage

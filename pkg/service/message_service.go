@@ -38,9 +38,9 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 	}
 }
 
-func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string, messageCID string) (*utils.ClientMessage, error) {
+func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string) (*utils.ClientMessage, error) {
 	if strings.ToLower(chatMsg.Origin) != strings.ToLower(utils.GetPublicKey(p.Cfg.EvmPrivateKey)) {
-		return nil, errors.New("Invalid Origin node address")
+		return nil, errors.New("Invalid Origin node address: " + chatMsg.Origin + " is not")
 	}
 	if utils.IsValidMessage(chatMsg, senderSignature) {
 		channel := strings.Split(chatMsg.Header.Receiver, ":")
@@ -57,7 +57,6 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string,
 			message := utils.ClientMessage{}
 			message.Message = chatMsg
 			message.SenderSignature = senderSignature
-			message.MessageCID = messageCID
 			message.NodeSignature = hexutil.Encode(signature)
 			outgoingMessageC, ok := p.Ctx.Value(utils.OutgoingMessageCh).(*chan *utils.ClientMessage)
 			if !ok {
@@ -65,7 +64,7 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string,
 				panic("outgoing channel fail")
 			}
 			*outgoingMessageC <- &message
-			fmt.Printf("Testing my function%s, %s", chatMsg.ToString(), chatMsg.Body.Subject)
+			fmt.Printf("Testing my function%s, %s", chatMsg.ToString(), chatMsg.Body.SubjectHash)
 			return &message, nil
 		}
 	}

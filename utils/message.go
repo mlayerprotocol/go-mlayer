@@ -104,8 +104,9 @@ type ChatMessageHeader struct {
 // ! look for all subscribers to the channel
 //! channel subscribers store
 type ChatMessageBody struct {
-	Subject string `json:"subject"`
-	Message string `json:"message"`
+	SubjectHash string `json:"subjectHash"`
+	MessageHash string `json:"messageHash"`
+	CID         string `json:"cid"`
 }
 type ChatMessageAction struct {
 	Contract   string   `json:"contract"`
@@ -125,13 +126,14 @@ func (chatMessage *ChatMessage) ToString() string {
 	values := []string{}
 
 	values = append(values, fmt.Sprintf("Header.Receiver:%s", chatMessage.Header.Receiver))
-	values = append(values, fmt.Sprintf("Header.Receiver:%s", chatMessage.Header.Approval))
+	values = append(values, fmt.Sprintf("Header.Approval:%s", chatMessage.Header.Approval))
 	values = append(values, fmt.Sprintf("Header.ChainId:%s", chatMessage.Header.ChainId))
 	values = append(values, fmt.Sprintf("Header.Platform:%s", chatMessage.Header.Platform))
 	values = append(values, fmt.Sprintf("Header.Timestamp:%d", chatMessage.Header.Timestamp))
 
-	values = append(values, fmt.Sprintf("Body.Subject:%s", strings.ToLower(hexutil.Encode(Hash(chatMessage.Body.Subject)))))
-	values = append(values, fmt.Sprintf("Body.Message:%s", strings.ToLower(hexutil.Encode(Hash(chatMessage.Body.Message)))))
+	values = append(values, fmt.Sprintf("Body.SubjectHash:%s", chatMessage.Body.SubjectHash))
+	values = append(values, fmt.Sprintf("Body.MessageHash:%s", chatMessage.Body.MessageHash))
+	values = append(values, fmt.Sprintf("Body.CID:%s", chatMessage.Body.CID))
 	_action := []string{}
 	for i := 0; i < len(chatMessage.Actions); i++ {
 		_action = append(_action, fmt.Sprintf("Actions[%d].Contract:%s", i, chatMessage.Actions[i].Contract))
@@ -170,7 +172,6 @@ type ClientMessage struct {
 	Message         ChatMessage `json:"message"`
 	SenderSignature string      `json:"senderSignature"`
 	NodeSignature   string      `json:"nodeSignature"`
-	MessageCID      string      `json:"messageCID"`
 }
 
 type SuccessResponse struct {
@@ -201,7 +202,7 @@ func (msg *ClientMessage) ToJSON() []byte {
 	return m
 }
 func (msg *ClientMessage) ToString() string {
-	return fmt.Sprintf("%s:%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature, msg.MessageCID)
+	return fmt.Sprintf("%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature)
 }
 
 func (msg *ClientMessage) Hash() []byte {
@@ -300,8 +301,8 @@ func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
 	}
 
 	bodyMessage := ChatMessageBody{
-		Subject: msg.SubjectHash,
-		Message: msg.MessageHash,
+		SubjectHash: msg.SubjectHash,
+		MessageHash: msg.MessageHash,
 	}
 	_chatMessage := ChatMessage{chatMessage, bodyMessage, msg.Actions, msg.Origin}
 	return _chatMessage, nil

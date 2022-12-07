@@ -14,7 +14,7 @@ import (
 
 type Flag string
 
-type Ipfs struct {
+type IpfsData struct {
 	Message string
 	Subject string
 }
@@ -78,37 +78,36 @@ func (t authTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	return t.RoundTripper.RoundTrip(r)
 }
 
-func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *RpcResponse) error {
+func (p *RpcService) SendMessage(param []byte, reply *RpcResponse) error {
+	request, err := utils.JsonMessageFromBytes(param)
+	if err != nil {
+		return err
+	}
 
-	utils.Logger.Info("Sucessfully called Send message")
-	// request := payload.(utils.MessageJsonInput)
-	// Before creating message.. validate that the sender has access to channel
-	//-------------->
-	var messageCID string
 	utils.Logger.Infof("ipfs address %s", p.Cfg.Ipfs.Host)
 	client := NewClient(p.Cfg.Ipfs.ProjectId, p.Cfg.Ipfs.ProjectSecret)
 	sh := shell.NewShellWithClient(p.Cfg.Ipfs.Host, client)
+	chatMsg, err := utils.CreateMessageFromJson(request)
+	if err != nil {
+		return err
+	}
 	if len(request.Subject) > 0 && len(request.Message) > 0 {
-		ipfs := &Ipfs{
+		ipfsData := &IpfsData{
 			Message: request.Message,
 			Subject: request.Subject,
 		}
-		tsdBin, _ := json.Marshal(ipfs)
+		tsdBin, _ := json.Marshal(ipfsData)
 		reader := bytes.NewReader(tsdBin)
 
 		cid, err := sh.Add(reader)
 		if err != nil {
 			utils.Logger.Errorf("ipfs error:: %w", err)
 		}
-		messageCID = cid
-		utils.Logger.Infof("IPFS messageCID::: %s", messageCID)
+		chatMsg.Body.CID = cid
+		utils.Logger.Infof("IPFS messageCID::: %s", cid)
 	}
-	chatMsg, err := utils.CreateMessageFromJson(request)
 
-	if err != nil {
-		return err
-	}
-	c, err := (*p.MessageService).Send(chatMsg, request.Signature, messageCID)
+	c, err := (*p.MessageService).Send(chatMsg, request.Signature)
 	if err != nil {
 		return err
 	}
@@ -117,7 +116,11 @@ func (p *RpcService) SendMessage(request utils.MessageJsonInput, reply *RpcRespo
 	return nil
 }
 
-func (p *RpcService) Subscription(request utils.Subscription, reply *RpcResponse) error {
+func (p *RpcService) Subscription(params []byte, reply *RpcResponse) error {
+	request, err1 := utils.SubscriptionFromBytes(params)
+	if err1 != nil {
+		return err1
+	}
 	utils.Logger.Debug("Subscription request:::", request)
 	err := (*p.ChannelService).ChannelSubscription(&request)
 	if err != nil {
