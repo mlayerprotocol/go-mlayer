@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/ByteGum/go-icms/pkg/core/db"
 	utils "github.com/ByteGum/go-icms/utils"
 )
 
@@ -22,12 +23,19 @@ func NewChannelService(mainCtx *context.Context) *ChannelService {
 	}
 }
 
-func (p *ChannelService) ChannelSubscription(sub *utils.Subscription) error {
-	subscribersc, ok := p.Ctx.Value(utils.SubscribeCh).(*chan *utils.Subscription)
-	if !ok {
-		return errors.New("Subscription chanel not found")
+func (p *ChannelService) NewChannelSubscription(sub *utils.Subscription) error {
+	// subscribersc, ok := p.Ctx.Value(utils.SubscribeChId).(*chan *utils.Subscription)
+
+	// validate before storing
+	if utils.IsValidSubscription(*sub, true) {
+		channelSubscriberStore, ok := p.Ctx.Value(utils.NewChannelSubscriptionStore).(*db.Datastore)
+		if !ok {
+			return errors.New("Could not connect to subscription datastore")
+		}
+		error := channelSubscriberStore.Set(p.Ctx, db.Key(sub.Key()), sub.ToJSON(), false)
+		if error != nil {
+			return error
+		}
 	}
-	sub.Broadcast = true
-	*subscribersc <- sub
 	return nil
 }

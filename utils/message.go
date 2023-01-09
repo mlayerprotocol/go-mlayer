@@ -2,9 +2,7 @@ package utils
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math"
 	"strconv"
 
 	// "math"
@@ -13,8 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	gonanoid "github.com/matoous/go-nanoid/v2"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -23,63 +19,6 @@ const (
 	PlatformSolana          = "solana"
 	PlatformCosmos          = "cosmos"
 )
-
-/**
-HANDSHAKE MESSAGE
-**/
-type HandshakeData struct {
-	Timestamp  int    `json:"timestamp"`
-	ProtocolId string `json:"protocolId"`
-	Name       string `json:"name"`
-	NodeType   uint   `json:"node_type"`
-}
-
-type Handshake struct {
-	Data      HandshakeData `json:"data"`
-	Signature string        `json:"signature"`
-	Signer    string        `json:"signer"`
-}
-
-func (hs *Handshake) ToJSON() []byte {
-	h, _ := json.Marshal(hs)
-	return h
-}
-func (hs *Handshake) Init(jsonString string) error {
-	er := json.Unmarshal([]byte(jsonString), &hs)
-	return er
-}
-func (hsd *HandshakeData) ToString() string {
-	return fmt.Sprintf("name:%s,timestamp:%d,protocolId:%s,nodeType:%d", hsd.Name, hsd.Timestamp, hsd.ProtocolId, hsd.NodeType)
-}
-
-func (hsd *HandshakeData) ToJSON() []byte {
-	h, _ := json.Marshal(hsd)
-	return h
-}
-func HandshakeFromJSON(json string) (Handshake, error) {
-	data := Handshake{}
-	er := data.Init(json)
-	return data, er
-}
-
-func HandshakeFromBytes(b []byte) Handshake {
-	var handshake Handshake
-	if err := json.Unmarshal(b, &handshake); err != nil {
-		panic(err)
-	}
-	return handshake
-}
-
-func HandshakeFromString(hs string) Handshake {
-	return HandshakeFromBytes([]byte(hs))
-}
-
-func CreateHandshake(name string, network string, privateKey string, nodeType uint) Handshake {
-	pubKey := GetPublicKey(privateKey)
-	data := HandshakeData{Name: name, ProtocolId: network, NodeType: nodeType, Timestamp: int(time.Now().Unix())}
-	_, signature := Sign((&data).ToString(), privateKey)
-	return Handshake{Data: data, Signature: signature, Signer: pubKey}
-}
 
 /**
 CHAT MESSAGE
@@ -125,31 +64,31 @@ type ChatMessage struct {
 func (chatMessage *ChatMessage) ToString() string {
 	values := []string{}
 
-	values = append(values, fmt.Sprintf("Header.Receiver:%s", chatMessage.Header.Receiver))
-	values = append(values, fmt.Sprintf("Header.Approval:%s", chatMessage.Header.Approval))
-	values = append(values, fmt.Sprintf("Header.ChainId:%s", chatMessage.Header.ChainId))
-	values = append(values, fmt.Sprintf("Header.Platform:%s", chatMessage.Header.Platform))
-	values = append(values, fmt.Sprintf("Header.Timestamp:%d", chatMessage.Header.Timestamp))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Header.Receiver))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Header.Approval))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Header.ChainId))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Header.Platform))
+	values = append(values, fmt.Sprintf("%d", chatMessage.Header.Timestamp))
 
-	values = append(values, fmt.Sprintf("Body.SubjectHash:%s", chatMessage.Body.SubjectHash))
-	values = append(values, fmt.Sprintf("Body.MessageHash:%s", chatMessage.Body.MessageHash))
-	values = append(values, fmt.Sprintf("Body.CID:%s", chatMessage.Body.CID))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Body.SubjectHash))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Body.MessageHash))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Body.CID))
 	_action := []string{}
 	for i := 0; i < len(chatMessage.Actions); i++ {
-		_action = append(_action, fmt.Sprintf("Actions[%d].Contract:%s", i, chatMessage.Actions[i].Contract))
-		_action = append(_action, fmt.Sprintf("Actions[%d].Abi:%s", i, chatMessage.Actions[i].Abi))
-		_action = append(_action, fmt.Sprintf("Actions[%d].Action:%s", i, chatMessage.Actions[i].Action))
+		_action = append(_action, fmt.Sprintf("[%d]:%s", i, chatMessage.Actions[i].Contract))
+		_action = append(_action, fmt.Sprintf("[%d]:%s", i, chatMessage.Actions[i].Abi))
+		_action = append(_action, fmt.Sprintf("[%d]:%s", i, chatMessage.Actions[i].Action))
 
 		_parameter := []string{}
 		for j := 0; j < len(chatMessage.Actions[i].Parameters); j++ {
-			_parameter = append(_parameter, fmt.Sprintf("Actions[%d].Parameters[%d]:%s", i, j, chatMessage.Actions[i].Parameters[j]))
+			_parameter = append(_parameter, fmt.Sprintf("[%d][%d]:%s", i, j, chatMessage.Actions[i].Parameters[j]))
 		}
 
-		_action = append(_action, fmt.Sprintf("Actions[%d].Parameters:%s", i, _parameter))
+		_action = append(_action, fmt.Sprintf("[%d]:%s", i, _parameter))
 	}
 
-	values = append(values, fmt.Sprintf("Actions:%s", _action))
-	values = append(values, fmt.Sprintf("Origin:%s", chatMessage.Origin))
+	values = append(values, fmt.Sprintf("%s", _action))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Origin))
 
 	return strings.Join(values, ",")
 }
@@ -273,98 +212,6 @@ type MessageJsonInput struct {
 	SubjectHash string              `json:"subjectHash"`
 }
 
-func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
-
-	if len(msg.Message) > 0 {
-		msgHash := hexutil.Encode(Hash(msg.Message))
-		if msg.MessageHash != msgHash {
-			return ChatMessage{}, errors.New("Invalid Message")
-		}
-	}
-	if len(msg.Subject) > 0 {
-		subHash := hexutil.Encode(Hash(msg.Subject))
-		if msg.SubjectHash != subHash {
-			return ChatMessage{}, errors.New("Invalid Subject")
-		}
-	}
-	chatMessage := ChatMessageHeader{
-		Timestamp:     uint(msg.Timestamp),
-		Approval:      msg.Approval,
-		Receiver:      msg.Receiver,
-		ChainId:       msg.ChainId,
-		Platform:      msg.Platform,
-		Length:        100,
-		ChannelExpiry: msg.ChannelExpiry,
-		Channels:      msg.Channels,
-		SenderAddress: msg.SenderAddress,
-		// OwnerAddress:  msg.OwnerAddress,
-	}
-
-	bodyMessage := ChatMessageBody{
-		SubjectHash: msg.SubjectHash,
-		MessageHash: msg.MessageHash,
-	}
-	_chatMessage := ChatMessage{chatMessage, bodyMessage, msg.Actions, msg.Origin}
-	return _chatMessage, nil
-}
-
-func IsValidMessage(msg ChatMessage, signature string) bool {
-	chatMessage := msg.ToJSON()
-	signer, _ := GetSigner(msg.ToString(), signature)
-	channel := strings.Split(msg.Header.Receiver, ":")
-	channelOwner, _ := GetSigner(strings.ToLower(channel[0]), channel[1])
-	if strings.ToLower(channelOwner) != strings.ToLower(signer) {
-		return false
-	}
-	if !IsValidChannel(msg.Header, channel[1], channelOwner) {
-		return false
-	}
-	if math.Abs(float64(int(msg.Header.Timestamp)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
-		logger.WithFields(logrus.Fields{"data": chatMessage}).Warnf("ChatMessage Expired: %s", chatMessage)
-		return false
-	}
-	message := msg.ToString()
-	isValid := VerifySignature(signer, message, signature)
-	if !isValid {
-		logger.WithFields(logrus.Fields{"message": message, "signature": signature}).Warnf("Invalid signer %s", signer)
-		return false
-	} else {
-
-	}
-	return true
-}
-
-func IsValidChannel(ch ChatMessageHeader, signature string, channelOwner string) bool {
-
-	signer, _ := GetSigner(ch.ToApprovalString(), signature)
-	if strings.ToLower(channelOwner) != strings.ToLower(signer) {
-		return false
-	}
-	if math.Abs(float64(int(ch.ChannelExpiry)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
-		logger.WithFields(logrus.Fields{"data": ch}).Warnf("Channel Expired: %s", ch.ChannelExpiry)
-		return false
-	}
-	channel := ch.ToApprovalString()
-	isValid := VerifySignature(signer, channel, signature)
-	if !isValid {
-		logger.WithFields(logrus.Fields{"message": channel, "signature": signature}).Warnf("Invalid signer %s", signer)
-		return false
-	} else {
-
-	}
-	return true
-}
-
-func Contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-
-	return false
-}
-
 // PubSubMessage
 type PubSubMessage struct {
 	Data      json.RawMessage `json:"data"`
@@ -394,119 +241,6 @@ func NewSignedPubSubMessage(data []byte, privateKey string) PubSubMessage {
 
 func PubSubMessageFromBytes(b []byte) (PubSubMessage, error) {
 	var message PubSubMessage
-	err := json.Unmarshal(b, &message)
-	return message, err
-}
-
-// Batch
-type Batch struct {
-	BatchId    string `json:"batchId"`
-	Size       int    `json:"size"`
-	Closed     bool   `json:"closed"`
-	NodeHeight int    `json:"nodeHeight"`
-	Hash       string `json:"hash"`
-	Timestamp  int    `json:"timestamp"`
-}
-
-func (msg *Batch) ToJSON() []byte {
-	m, _ := json.Marshal(msg)
-	return m
-}
-
-func (msg *Batch) ToString() string {
-	values := []string{}
-	values = append(values, fmt.Sprintf("BatchId:%s", string(msg.BatchId)))
-	values = append(values, fmt.Sprintf("Size:%s", strconv.Itoa(msg.Size)))
-	values = append(values, fmt.Sprintf("NodeHeight:%s", strconv.Itoa(msg.NodeHeight)))
-	values = append(values, fmt.Sprintf("Timestamp:%s", strconv.Itoa(msg.Timestamp)))
-	values = append(values, fmt.Sprintf("Hash:%s", msg.Hash))
-	return strings.Join(values, ",")
-}
-
-func (msg *Batch) Key() string {
-	return fmt.Sprintf("/%s", msg.BatchId)
-}
-
-// func (msg *Batch) Sign(privateKey string) Batch {
-
-// 	msg.Timestamp = int(time.Now().Unix())
-// 	_, sig := Sign(msg.ToString(), privateKey)
-// 	msg.Signature = sig
-// 	return *msg
-// }
-
-func NewBatch() Batch {
-	id, _ := gonanoid.New()
-	return Batch{BatchId: id,
-		Size:   0,
-		Closed: false}
-}
-
-func BatchFromBytes(b []byte) (Batch, error) {
-	var message Batch
-	err := json.Unmarshal(b, &message)
-	return message, err
-}
-
-// DeliveryProof
-type DeliveryProof struct {
-	MessageHash   string `json:"messageHash"`
-	MessageSender string `json:"messageSender"`
-	NodeAddress   string `json:"node"`
-	Timestamp     int    `json:"timestamp"`
-	Signature     string `json:"signature"`
-	Batch         string `json:"batch"`
-	Index         int    `json:"index"`
-}
-
-func (msg *DeliveryProof) ToJSON() []byte {
-	m, _ := json.Marshal(msg)
-	return m
-}
-
-func (msg *DeliveryProof) Key() string {
-	return fmt.Sprintf("/%s/%s", msg.MessageHash, msg.MessageSender)
-}
-func (msg *DeliveryProof) BatchKey() string {
-	return fmt.Sprintf("/%s", msg.Batch)
-}
-
-func (msg *DeliveryProof) ToString() string {
-	values := []string{}
-	values = append(values, fmt.Sprintf("Message:%s", string(msg.MessageHash)))
-	values = append(values, fmt.Sprintf("NodeAddress:%s", msg.NodeAddress))
-	values = append(values, fmt.Sprintf("Timestamp:%s", strconv.Itoa(msg.Timestamp)))
-	return strings.Join(values, ",")
-}
-
-// func NewSignedDeliveryProof(data []byte, privateKey string) DeliveryProof {
-// 	message, _ := DeliveryProofFromBytes(data)
-// 	_, sig := Sign(message.ToString(), privateKey)
-// 	message.Signature = sig
-// 	return message
-// }
-
-func DeliveryProofFromBytes(b []byte) (DeliveryProof, error) {
-	var message DeliveryProof
-	err := json.Unmarshal(b, &message)
-	return message, err
-}
-
-// DeliveryClaim
-type DeliveryClaim struct {
-	NodeHeight int      `json:"nodeHeight"`
-	Signature  string   `json:"signature"`
-	Amount     string   `json:"amount"`
-	Proofs     []string `json:"proofs"`
-}
-
-func (msg *DeliveryClaim) ToJSON() []byte {
-	m, _ := json.Marshal(msg)
-	return m
-}
-
-func DeliveryClaimFromBytes(b []byte) (DeliveryClaim, error) {
-	var message DeliveryClaim
 	err := json.Unmarshal(b, &message)
 	return message, err
 }

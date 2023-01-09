@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -22,18 +21,16 @@ import (
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
 	"github.com/ByteGum/go-icms/pkg/core/db"
 	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
+	processor "github.com/ByteGum/go-icms/pkg/core/processor"
+	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
+	ws "github.com/ByteGum/go-icms/pkg/core/ws"
 	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
-	"github.com/ipfs/go-datastore/query"
 	"github.com/spf13/cobra"
-
-	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
-	ws "github.com/ByteGum/go-icms/pkg/core/ws"
 )
 
 var logger = utils.Logger
@@ -53,7 +50,9 @@ const (
 	RPC_PORT         Flag = "rpc-port"
 	WS_ADDRESS       Flag = "ws-address"
 )
-const MaxBatchSize = 1000
+const MaxDeliveryProofBlockSize = 1000
+
+var deliveryProofBlockMutex sync.RWMutex
 
 // daemonCmd represents the daemon command
 var daemonCmd = &cobra.Command{
@@ -124,48 +123,41 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		rpcPort = cfg.RPCPort
 	}
 
-	incomingMessagesc := make(chan *utils.ClientMessage)
-	outgoingMessagesc := make(chan *utils.ClientMessage)
-	outgoingMessagesP2Pc := make(chan *utils.ClientMessage)
-	subscribersc := make(chan *utils.Subscription)
-	subscriptiondp2pc := make(chan *utils.Subscription)
-	clientHandshakec := make(chan *utils.ClientHandshake)
-	incomingDeliveryProofsc := make(chan *utils.DeliveryProof)
-	outgoingBatchc := make(chan *utils.Batch)
-	outgoingProofc := make(chan *utils.DeliveryProof)
-	pubsubInputBatchc := make(chan *utils.Batch)
-	pubsubInputProofc := make(chan *utils.DeliveryProof)
-	publishedSubc := make(chan *utils.Subscription)
-
 	ctx = context.WithValue(ctx, utils.ConfigKey, &cfg)
-	ctx = context.WithValue(ctx, utils.IncomingMessageCh, &incomingMessagesc)
-	ctx = context.WithValue(ctx, utils.OutgoingMessageCh, &outgoingMessagesc)
-	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PCh, &outgoingMessagesP2Pc)
+	ctx = context.WithValue(ctx, utils.IncomingMessageChId, &utils.IncomingMessagesP2P2_D_c)
+	ctx = context.WithValue(ctx, utils.OutgoingMessageChId, &utils.SentMessagesRPC_D_c)
+	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PChId, &utils.OutgoingMessagesD_P2P_c)
 	// incoming from client apps to daemon channel
-	ctx = context.WithValue(ctx, utils.SubscribeCh, &subscribersc)
+	ctx = context.WithValue(ctx, utils.SubscribeChId, &utils.SubscribersRPC_D_c)
 	// daemon to p2p channel
-	ctx = context.WithValue(ctx, utils.SubscriptionDP2PCh, &subscriptiondp2pc)
-	ctx = context.WithValue(ctx, utils.ClientHandShackCh, &clientHandshakec)
-	ctx = context.WithValue(ctx, utils.OutgoingBatchCh, &outgoingBatchc)
-	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProofCh, &outgoingProofc)
-	ctx = context.WithValue(ctx, utils.PubsubDeliverProofCh, &pubsubInputBatchc)
-	ctx = context.WithValue(ctx, utils.PubsubBatchCh, &pubsubInputProofc)
+	ctx = context.WithValue(ctx, utils.SubscriptionDP2PChId, &utils.SubscriptionD_P2P_C)
+	ctx = context.WithValue(ctx, utils.ClientHandShackChId, &utils.ClientHandshakeC)
+	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProof_BlockChId, &utils.OutgoingDeliveryProof_BlockC)
+	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProofChId, &utils.OutgoingDeliveryProofC)
+	ctx = context.WithValue(ctx, utils.PubsubDeliverProofChId, &utils.PubSubInputBlockC)
+	ctx = context.WithValue(ctx, utils.PubSubBlockChId, &utils.PubSubInputProofC)
 	// receiving subscription from other nodes channel
-	ctx = context.WithValue(ctx, utils.PublishedSubCh, &publishedSubc)
+	ctx = context.WithValue(ctx, utils.PublishedSubChId, &utils.PublishedSubC)
 
 	var wg sync.WaitGroup
 	errc := make(chan error)
 
-	stateStore := db.New(&ctx, utils.StateStore)
+	deliveryProofBlockStateStore := db.New(&ctx, utils.DeliveryProofBlockStateStore)
+	subscriptionBlockStateStore := db.New(&ctx, utils.SubscriptionBlockStateStore)
+
+	// stores messages that have been validated
 	validMessagesStore := db.New(&ctx, utils.ValidMessageStore)
 	// unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
 	unsentMessageP2pStore := db.New(&ctx, utils.UnsentMessageStore)
-	channelSubscriberStore := db.New(&ctx, utils.ChannelSubscriberStore)
-	channelSubscribersCountStore := db.New(&ctx, utils.ChannelSubscribersCountStore)
+	channelSubscriptionStore := db.New(&ctx, utils.ChannelSubscriptionStore)
+	newChannelSubscriptionStore := db.New(&ctx, utils.NewChannelSubscriptionStore)
+	channelsubscriptionCountStore := db.New(&ctx, utils.ChannelSubscriptionCountStore)
 	// sentMessageStore := db.Db(&ctx, utils.SentMessageStore)
 	deliveryProofStore := db.New(&ctx, utils.DeliveryProofStore)
-	localBatchStore := db.New(&ctx, utils.BatchStore)
-	unconfurmedBatchStore := db.New(&ctx, utils.UnconfirmedDeliveryProofStore)
+	localDPBlockStore := db.New(&ctx, utils.DeliveryProofBlockStore)
+	unconfurmedBlockStore := db.New(&ctx, utils.UnconfirmedDeliveryProofStore)
+
+	ctx = context.WithValue(ctx, utils.NewChannelSubscriptionStore, newChannelSubscriptionStore)
 
 	defer wg.Wait()
 
@@ -173,7 +165,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	go func() {
 		for {
 			select {
-			case inMessage, ok := <-incomingMessagesc:
+			case inMessage, ok := <-utils.IncomingMessagesP2P2_D_c:
 				if !ok {
 					logger.Errorf("Incoming Message channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
@@ -199,206 +191,82 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 		}
 	}()
+	wg.Add(1)
+	go processor.ProcessNewSubscription(
+		ctx,
+		subscriptionBlockStateStore,
+		channelsubscriptionCountStore,
+		newChannelSubscriptionStore,
+		channelSubscriptionStore,
+		&wg)
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			select {
 
 			// attempt to push into outgoing message channel
-			case outMessage, ok := <-outgoingMessagesc:
+			case outMessage, ok := <-utils.SentMessagesRPC_D_c:
 				if !ok {
 					logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
-					wg.Done()
+
 					return
 				}
-				go func() {
-					// VALIDATE AND DISTRIBUTE
-					logger.Infof("\nSending out message %s\n", outMessage.Message.Body.MessageHash)
-					unsentMessageP2pStore.Set(ctx, db.Key(outMessage.Key()), outMessage.ToJSON(), false)
-					outgoingMessagesP2Pc <- outMessage
-					incomingMessagesc <- outMessage
-					logger.Infof("\nSending out complete\n")
-				}()
+				go processor.ProcessSentMessage(ctx, unsentMessageP2pStore, outMessage)
 
-			case sub, ok := <-subscribersc:
+			case sub, ok := <-utils.SubscribersRPC_D_c:
 				if !ok {
 					logger.Errorf("Subscription channel closed!")
 					return
 				}
-				if !utils.IsValidSubscription(*sub) {
+				if !utils.IsValidSubscription(*sub, true) {
 					utils.Logger.Info("ITS NOT VALID!")
 					continue
 				}
-				go func() {
-					if sub.Broadcast {
-						subscriptiondp2pc <- sub
-					}
-					trx, err := channelSubscribersCountStore.NewTransaction(ctx, false)
-					logger.Info("TRANSACTION INITIATED ******")
-					if err != nil {
-						logger.Infof("Transaction err::: %w", err)
-					}
-					cscstore, err := trx.Get(ctx, db.Key(sub.Key()))
-					increment := -1
-					if sub.Action == utils.Join {
-						increment = 1
-						channelSubscriberStore.Set(ctx, db.Key(sub.Key()), sub.ToJSON(), false)
+				// go processor.ProcessNewSubscription(ctx, sub, channelsubscribersRPC_D_countStore, channelSubscriptionStore)
 
-					} else {
-						channelSubscriberStore.Delete(ctx, db.Key(sub.Key()))
-					}
-					if len(cscstore) == 0 {
-						cscstore = []byte("0")
-					}
-					cscstoreint, err := strconv.Atoi(string(cscstore))
-					cscstoreint += increment
-					channelSubscribersCountStore.Set(ctx, db.Key(sub.Channel), []byte(strconv.Itoa(cscstoreint)), true)
-					logger.Info("TRANSACTION ENDED ******")
-					trx.Commit(ctx)
-				}()
-
-			case clientHandshake, ok := <-clientHandshakec:
+			case clientHandshake, ok := <-utils.ClientHandshakeC:
 				if !ok {
 					logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
 					return
 				}
-				go func() {
-					// VALIDATE AND DISTRIBUTE
-					logger.Infof("Signer:  %s\n", clientHandshake.Signer)
-					results, err := channelSubscriberStore.Query(ctx, query.Query{
-						Prefix: "/" + clientHandshake.Signer,
-					})
-					if err != nil {
-						logger.Errorf("Channel Subscriber Store Query Error %w", err)
-						return
-					}
-					entries, _err := results.Rest()
-					for i := 0; i < len(entries); i++ {
-						_sub, _ := utils.SubscriptionFromBytes(entries[i].Value)
-						if connectedSubscribers[_sub.Channel] == nil {
-							connectedSubscribers[_sub.Channel] = map[string][]*websocket.Conn{}
-						}
-						connectedSubscribers[_sub.Channel][_sub.Subscriber] = append(connectedSubscribers[_sub.Channel][_sub.Subscriber], clientHandshake.Socket)
+				go processor.ValidateMessageClient(ctx, &connectedSubscribers, clientHandshake, channelSubscriptionStore)
 
-					}
-					logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err)
-				}()
-
-			case proof, ok := <-incomingDeliveryProofsc:
+			case proof, ok := <-utils.IncomingDeliveryProofsC:
 				if !ok {
 					logger.Errorf("Incoming delivery proof channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
 					return
 				}
-				go func() {
-					err := deliveryProofStore.Set(ctx, db.Key(proof.Key()), proof.ToJSON(), true)
-					if err == nil {
-						// msg, err := validMessagesStore.Get(ctx, db.Key(fmt.Sprintf("/%s/%s", proof.MessageSender, proof.MessageHash)))
-						// if err != nil {
-						// 	// invalid proof or proof has been tampered with
-						// 	return
-						// }
-						// get signer of proof
-						susbscriber, err := utils.GetSigner(proof.ToString(), proof.Signature)
-						if err != nil {
-							// invalid proof or proof has been tampered with
-							return
-						}
-						// check if the signer of the proof is a member of the channel
-						isSubscriber, err := channelSubscriberStore.Has(ctx, db.Key("/"+susbscriber+"/"+proof.MessageHash))
-						if isSubscriber {
-							// proof is valid, so we should add to a new or existing batch
-							var batch utils.Batch
-							var err error
-							txn, err := stateStore.NewTransaction(ctx, false)
-							if err != nil {
-								logger.Errorf("State query errror %w", err)
-								// invalid proof or proof has been tampered with
-								return
-							}
-							batchData, err := txn.Get(ctx, db.Key(utils.CurrentBatchState))
-							if err != nil {
-								logger.Errorf("State query errror %w", err)
-								// invalid proof or proof has been tampered with
-								txn.Discard(ctx)
-								return
-							}
-							if len(batchData) > 0 && batch.Size < MaxBatchSize {
-								batch, err = utils.BatchFromBytes(batchData)
-								if err != nil {
-									logger.Errorf("Invalid batch %w", err)
-									// invalid proof or proof has been tampered with
-									txn.Discard(ctx)
-									return
-								}
-							} else {
-								// generate a new batch
-								batch = utils.NewBatch()
+				go processor.ValidateAndAddToDeliveryProofToBlock(ctx,
+					proof,
+					deliveryProofStore,
+					channelSubscriptionStore,
+					deliveryProofBlockStateStore,
+					localDPBlockStore,
+					MaxDeliveryProofBlockSize,
+					&deliveryProofBlockMutex,
+				)
 
-							}
-							batch.Size += 1
-							if batch.Size >= MaxBatchSize {
-								batch.Closed = true
-								batch.NodeHeight = utils.GetNodeHeight()
-							}
-							// save the proof and the batch
-							batch.Hash = hexutil.Encode(utils.Hash(proof.Signature + batch.Hash))
-							err = txn.Put(ctx, db.Key(utils.CurrentBatchState), batch.ToJSON())
-							if err != nil {
-								logger.Errorf("Unable to udate State store errror %w", err)
-								txn.Discard(ctx)
-								return
-							}
-							proof.Batch = batch.BatchId
-							proof.Index = batch.Size
-							err = deliveryProofStore.Put(ctx, db.Key(proof.Key()), proof.ToJSON())
-							if err != nil {
-								txn.Discard(ctx)
-								logger.Errorf("Unable to save proof to store error %w", err)
-								return
-							}
-							err = localBatchStore.Put(ctx, db.Key(utils.CurrentBatchState), batch.ToJSON())
-							if err != nil {
-								logger.Errorf("Unable to save batch error %w", err)
-								txn.Discard(ctx)
-								return
-							}
-							err = txn.Commit(ctx)
-							if err != nil {
-								logger.Errorf("Unable to commit state update transaction errror %w", err)
-								txn.Discard(ctx)
-								return
-							}
-							// dispatch the proof and the batch
-							if batch.Closed {
-								outgoingBatchc <- &batch
-							}
-							outgoingProofc <- proof
-
-						}
-
-					}
-
-				}()
-			case batch, ok := <-pubsubInputBatchc:
+			case batch, ok := <-utils.PubSubInputBlockC:
 				if !ok {
-					logger.Errorf("PubsubInputBatch channel closed. Please restart server to try or adjust buffer size in config")
+					logger.Errorf("PubsubInputBlock channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
 					return
 				}
 				go func() {
-					unconfurmedBatchStore.Put(ctx, db.Key(batch.Key()), batch.ToJSON())
+					unconfurmedBlockStore.Put(ctx, db.Key(batch.Key()), batch.ToJSON())
 				}()
-			case proof, ok := <-pubsubInputProofc:
+			case proof, ok := <-utils.PubSubInputProofC:
 				if !ok {
-					logger.Errorf("PubsubInputBatch channel closed. Please restart server to try or adjust buffer size in config")
+					logger.Errorf("PubsubInputBlock channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
 					return
 				}
 				go func() {
-					unconfurmedBatchStore.Put(ctx, db.Key(proof.BatchKey()), proof.ToJSON())
+					unconfurmedBlockStore.Put(ctx, db.Key(proof.BlockKey()), proof.ToJSON())
 				}()
 
 			}

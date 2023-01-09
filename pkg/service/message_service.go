@@ -58,7 +58,7 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string)
 			message.Message = chatMsg
 			message.SenderSignature = senderSignature
 			message.NodeSignature = hexutil.Encode(signature)
-			outgoingMessageC, ok := p.Ctx.Value(utils.OutgoingMessageCh).(*chan *utils.ClientMessage)
+			outgoingMessageC, ok := p.Ctx.Value(utils.OutgoingMessageChId).(*chan *utils.ClientMessage)
 			if !ok {
 				utils.Logger.Error("Could not connect to outgoing channel")
 				panic("outgoing channel fail")

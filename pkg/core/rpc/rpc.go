@@ -122,7 +122,7 @@ func (p *RpcService) Subscription(params []byte, reply *RpcResponse) error {
 		return err1
 	}
 	utils.Logger.Debug("Subscription request:::", request)
-	err := (*p.ChannelService).ChannelSubscription(&request)
+	err := (*p.ChannelService).NewChannelSubscription(&request)
 	if err != nil {
 		return err
 	}

@@ -95,15 +95,6 @@ func VerifySignature(signer string, message string, signature string) bool {
 	return strings.EqualFold(decodedSigner, signer)
 }
 
-func IsValidSubscription(
-	subscription Subscription,
-) bool {
-	if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
-		logger.Info("Invalid Subscription, invalid handshake duration")
-		return false
-	}
-	return VerifySignature(subscription.Subscriber, subscription.ToString(), subscription.Signature)
-}
 
 func GetNodeHeight() int {
 	return 10

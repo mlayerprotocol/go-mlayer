@@ -127,23 +127,23 @@ func Run(mainCtx *context.Context) {
 	config = *cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(*chan *utils.ClientMessage)
+	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageChId).(*chan *utils.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PCh).(*chan *utils.ClientMessage)
-	if !ok {
-
-	}
-
-	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PCh).(*chan *utils.Subscription)
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PChId).(*chan *utils.ClientMessage)
 	if !ok {
 
 	}
 
-	outgoingBatchCh, ok := ctx.Value(utils.OutgoingBatchCh).(*chan *utils.Batch)
+	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PChId).(*chan *utils.Subscription)
+	if !ok {
+
+	}
+
+	outgoingDPBlockCh, ok := ctx.Value(utils.OutgoingDeliveryProof_BlockChId).(*chan *utils.Block)
 	// outgoingProofCh, ok := ctx.Value(utils.OutgoingDeliveryProofCh).(*chan *utils.DeliveryProof)
-	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeCh).(*chan *utils.Subscription)
+	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeChId).(*chan *utils.Subscription)
 	if !ok {
 
 	}
@@ -205,6 +205,18 @@ func Run(mainCtx *context.Context) {
 				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeServer))
 			}
 			kdht, err := dht.New(ctx, h, dhtOptions...)
+			// validator = {
+			// 	// Validate validates the given record, returning an error if it's
+			// 	// invalid (e.g., expired, signed by the wrong key, etc.).
+			// 	Validate(key string, value []byte) error
+
+			// 	// Select selects the best record from the set of records (e.g., the
+			// 	// newest).
+			// 	//
+			// 	// Decisions made by select should be stable.
+			// 	Select(key string, values [][]byte) (int, error)
+			// }
+			// dhtOptions = append(dhtOptions, dht.NamespacedValidator("subsc"))
 
 			idht = kdht
 			if err = kdht.Bootstrap(ctx); err != nil {
@@ -378,14 +390,14 @@ func Run(mainCtx *context.Context) {
 					return
 				}
 			}
-		case batch, ok := <-*outgoingBatchCh:
+		case block, ok := <-*outgoingDPBlockCh:
 			if cfg.Validator {
 				if !ok {
 					logger.Errorf("Subscription channel not found in the context")
 					return
 				}
-				logger.Info("subscription channel:::", batch.BatchId)
-				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(batch.ToJSON(), cfg.EvmPrivateKey))
+				logger.Info("subscription channel:::", block.BlockId)
+				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(block.ToJSON(), cfg.EvmPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish subscription.")
 					return

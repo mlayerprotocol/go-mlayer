@@ -11,7 +11,7 @@ import (
 )
 
 type Subscription struct {
-	Channel     string    `json:"channel"`
+	ChannelId   string    `json:"channelId"`
 	ChannelName string    `json:"channelName"`
 	Subscriber  string    `json:"subscriber"`
 	Timestamp   int       `json:"timestamp"`
@@ -21,7 +21,7 @@ type Subscription struct {
 }
 
 func (sub *Subscription) Key() string {
-	return fmt.Sprintf("/%s/%s", sub.Subscriber, sub.Channel)
+	return fmt.Sprintf("/%s/%s", sub.Subscriber, sub.ChannelId)
 }
 
 func (sub *Subscription) ToJSON() []byte {
@@ -64,9 +64,9 @@ func (sub *Subscription) Hash() string {
 
 func (sub *Subscription) ToString() string {
 	values := []string{}
-	values = append(values, fmt.Sprintf("Channel:%s", sub.Channel))
-	values = append(values, fmt.Sprintf("ChannelName:%s", sub.ChannelName))
-	values = append(values, fmt.Sprintf("Timestamp:%d", sub.Timestamp))
-	values = append(values, fmt.Sprintf("Action:%s", sub.Action))
+	values = append(values, fmt.Sprintf("%s", sub.ChannelId))
+	values = append(values, fmt.Sprintf("%s", sub.ChannelName))
+	values = append(values, fmt.Sprintf("%d", sub.Timestamp))
+	values = append(values, fmt.Sprintf("%s", sub.Action))
 	return strings.Join(values, ",")
 }
