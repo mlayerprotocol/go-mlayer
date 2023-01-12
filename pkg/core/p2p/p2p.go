@@ -9,22 +9,21 @@ import (
 	"time"
 
 	// "github.com/gin-gonic/gin"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
 	utils "github.com/ByteGum/go-icms/utils"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/libp2p/go-libp2p"
-	connmgr "github.com/libp2p/go-libp2p-connmgr"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
-	"github.com/libp2p/go-libp2p-core/routing"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
-	noise "github.com/libp2p/go-libp2p-noise"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	libp2ptls "github.com/libp2p/go-libp2p-tls"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	noise "github.com/libp2p/go-libp2p/p2p/security/noise"
+	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	"github.com/sirupsen/logrus"
 	// rest "messagingprotocol/pkg/core/rest"
 )
@@ -115,11 +114,12 @@ func Run(mainCtx *context.Context) {
 		// libp2p.Transport(ws.New),
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
-		libp2p.ConnectionManager(connmgr.NewConnManager(
-			100,         // Lowwater
-			400,         // HighWater,
-			time.Minute, // GracePeriod
-		)),
+		// libp2p.ConnectionManager(connmgr.NewConnManager(
+		// 	100,         // Lowwater
+		// 	400,         // HighWater,
+		// 	time.Minute, // GracePeriod
+		// )),
+
 		// Attempt to open ports using uPNP for NATed hosts.
 		libp2p.NATPortMap(),
 		// Let this host use the DHT to find other hosts
@@ -132,7 +132,8 @@ func Run(mainCtx *context.Context) {
 		// Let this host use relays and advertise itself on relays if
 		// it finds it is behind NAT. Use libp2p.Relay(options...) to
 		// enable active relays and more.
-		libp2p.EnableAutoRelay(),
+		// libp2p.DefaultEnableRelay(),
+		//libp2p.EnableAutoRelay(),
 		// If you want to help other peers to figure out if they are behind
 		// NATs, you can launch the server-side of AutoNAT too (AutoRelay
 		// already runs the client)
