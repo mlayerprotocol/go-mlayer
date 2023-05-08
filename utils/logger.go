@@ -10,22 +10,37 @@ const (
 	logSystem string = "icm"
 )
 
-type Fields struct {
-	New log.Fields
-}
+// type Fields struct {
+// 	New log.Fields
+// }
 
-func Logger() log.Logger {
+var Logger = *log.New()
+
+func init() {
 	c := LoadConfig()
-	l := *log.New()
-	l.SetFormatter(&log.TextFormatter{
+	Logger.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
 	})
 	if c.LogLevel == "" {
-
+		c.LogLevel = "info"
 	}
-	l.SetOutput(os.Stdout)
-	// l, _ := log.LevelFromString("info")
+	Logger.SetOutput(os.Stdout) // load from config file
 	level, _ := log.ParseLevel(c.LogLevel)
-	l.SetLevel(level)
-	return l
+	Logger.SetLevel(level)
 }
+
+// func Logger() log.Logger {
+// 	c := LoadConfig()
+// 	l := *log.New()
+// 	l.SetFormatter(&log.TextFormatter{
+// 		FullTimestamp: true,
+// 	})
+// 	if c.LogLevel == "" {
+
+// 	}
+// 	l.SetOutput(os.Stdout)
+// 	// l, _ := log.LevelFromString("info")
+// 	level, _ := log.ParseLevel(c.LogLevel)
+// 	l.SetLevel(level)
+// 	return l
+// }

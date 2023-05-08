@@ -2,13 +2,14 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/sirupsen/logrus"
 )
 
-var logger = Logger()
+var logger = Logger
 
 func GetPublicKey(privKey string) string {
 	privateKey, err := crypto.HexToECDSA(privKey)
@@ -18,7 +19,7 @@ func GetPublicKey(privKey string) string {
 	return crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
 }
 
-func PrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
+func EvmPrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
 		logger.Fatalf("Invalid private key %s %w", privKey, err)
@@ -27,16 +28,36 @@ func PrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
+func hashMessage(message string) []byte {
+	messageHash := crypto.Keccak256Hash([]byte(message))
+	_bytes := []byte{0x19}
+	_bytes = append(_bytes, []byte("Ethereum Signed Message:\n32")...)
+	_bytes = append(_bytes, messageHash.Bytes()...)
+	return crypto.Keccak256Hash(_bytes).Bytes()
+}
+
+func Hash(message string) []byte {
+	return crypto.Keccak256Hash([]byte(message)).Bytes()
+}
+
+func StringToBigInt(message string) string {
+	// n := new(big.Int).SetBytes(Hash(message))
+	// return new(big.Int).Mod(n, big.NewInt(10))
+	return new(big.Int).SetBytes(Hash(message)).String()
+}
+
 func Sign(message string, privKey string) ([]byte, string) {
+
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
 		logger.Fatalf("Invalid private key %s %w", privKey, err)
 	}
 
-	hash := crypto.Keccak256Hash([]byte(message))
-	logger.WithFields(logrus.Fields{"action": "crypto.Sign", "message": message}).Infof("Message hash: %s", hash.Hex())
+	hash := hashMessage(message)
 
-	signature, err := crypto.Sign(hash.Bytes(), privateKey)
+	// logger.WithFields(logrus.Fields{"action": "crypto.Sign", "message": message}).Infof("Message hash: %s", hash.Hex())
+
+	signature, err := crypto.Sign(hash, privateKey)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -51,8 +72,11 @@ func GetSigner(message string, signature string) (string, error) {
 		logger.Debug(err)
 		return "", err
 	}
-	hash := crypto.Keccak256Hash([]byte(message))
-	signer, err := crypto.SigToPub(hash.Bytes(), decoded)
+	hash := hashMessage(message)
+	if decoded[crypto.RecoveryIDOffset] == 27 || decoded[crypto.RecoveryIDOffset] == 28 {
+		decoded[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
+	}
+	signer, err := crypto.SigToPub(hash, decoded)
 	if err != nil {
 		return "", err
 	}
@@ -60,17 +84,15 @@ func GetSigner(message string, signature string) (string, error) {
 }
 
 func VerifySignature(signer string, message string, signature string) bool {
-	// hash := crypto.Keccak256Hash([]byte(message))
-	// signatureBytes := hexutil.MustDecode(signature)
-	// signatureNoRecoverID := signatureBytes[:len(signature)-1]
-	// publicKey, err := hexutil.Decode(signer)
-	// if err != nil {
-	// 	logger.Fatal(err)
-	// }
-	// return crypto.VerifySignature(publicKey, hash.Bytes(), signatureNoRecoverID)
+	// logger.Info("message:::", message)
 	decodedSigner, err := GetSigner(message, signature)
 	if err != nil {
 		return false
 	}
-	return decodedSigner == signer
+	logger.Infof("signer decoded signer %s %s : %T", decodedSigner, signer, (decodedSigner == signer))
+	return strings.EqualFold(decodedSigner, signer)
+}
+
+func GetNodeHeight() int {
+	return 10
 }

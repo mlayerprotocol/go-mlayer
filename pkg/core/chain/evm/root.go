@@ -8,9 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/registry"
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/token"
+	registry "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/registry"
+	stake "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
+	token "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/token"
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -20,22 +20,21 @@ import (
 func ToHexAddress(address string) common.Address {
 	return common.HexToAddress(address)
 }
-func StakeContract(rpc_url string, contractAddress string) (*stake.Stake, error) {
+func StakeContract(rpc_url string, contractAddress string) (*stake.Stake, *ethclient.Client, common.Address, error) {
+	address := common.HexToAddress(contractAddress)
 	client, err := ethclient.Dial(rpc_url)
 	if err != nil {
-		return nil, err
+		return nil, nil, address, err
 	}
-
-	address := common.HexToAddress(contractAddress)
 
 	instance, err := stake.NewStake(address, client)
 	if err != nil {
-		return nil, err
+		return nil, nil, address, err
 	}
-	return instance, err
+	return instance, client, address, err
 }
 
-func TokenContract(rpc_url string, contractAddress string) (*token.Abi, error) {
+func TokenContract(rpc_url string, contractAddress string) (*token.IcmToken, error) {
 	client, err := ethclient.Dial(rpc_url)
 	if err != nil {
 		return nil, err
@@ -43,7 +42,7 @@ func TokenContract(rpc_url string, contractAddress string) (*token.Abi, error) {
 
 	address := common.HexToAddress(contractAddress)
 
-	instance, err := token.NewAbi(address, client)
+	instance, err := token.NewIcmToken(address, client)
 	if err != nil {
 		return nil, err
 	}

@@ -4,15 +4,23 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"math"
+	"math/big"
 	"os"
 	"time"
 
 	// "github.com/gin-gonic/gin"
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
+
 	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/libp2p/go-libp2p"
+
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	"github.com/multiformats/go-multiaddr"
+
+	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -21,26 +29,37 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/core/routing"
-	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	noise "github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	"github.com/sirupsen/logrus"
 	// rest "messagingprotocol/pkg/core/rest"
+	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
 
-var logger = utils.Logger()
+var logger = utils.Logger
 var config utils.Configuration
 
 var protocolId string
+var privKey crypto.PrivKey
 
 const DiscoveryServiceTag = "icm-network"
 const (
-	MessageChannel string = "icm-message-channel"
+	MessageChannel       string = "icm-message-channel"
+	SubscriptionChannel         = "icm-subscription-channel"
+	BatchChannel                = "icm-batch-channel"
+	DeliveryProofChannel        = "icm-delivery-proof"
 )
 
 var peerStreams = make(map[string]peer.ID)
 var peerPubKeys = make(map[peer.ID][]byte)
 var node *host.Host
+var idht *dht.IpfsDHT
+
+type connectionNotifee struct {
+}
+type discoveryNotifee struct {
+	h host.Host
+}
 
 // defaultNick generates a nickname based on the $USER environment variable and
 // the last 8 chars of a peer ID.
@@ -55,56 +74,110 @@ func shortID(p peer.ID) string {
 	return pretty[len(pretty)-12:]
 }
 
+func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string) {
+
+	routingDiscovery := discovery.NewRoutingDiscovery(kdht)
+	discovery.Advertise(ctx, routingDiscovery, rendezvous)
+
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+
+			peers, err := discovery.FindPeers(ctx, routingDiscovery, rendezvous)
+			if err != nil {
+				log.Fatal(err)
+			}
+			logger.Debugf("Found peers: %d", len(peers)-1)
+			for _, p := range peers {
+
+				if p.ID == h.ID() {
+					continue
+				}
+
+				if h.Network().Connectedness(p.ID) != network.Connected {
+					_, err = h.Network().DialPeer(ctx, p.ID)
+					if err != nil {
+						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.Pretty(), err.Error())
+						h.Peerstore().RemovePeer(p.ID)
+						kdht.ForceRefresh()
+						continue
+					}
+					logger.Debugf("Connected to discovered peer: %s \n", p.ID.Pretty())
+					handleConnect(&h, &p)
+				}
+			}
+		}
+	}
+}
+
 func Run(mainCtx *context.Context) {
 	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
+
 	ctx, cancel := context.WithCancel(*mainCtx)
-	iConfig := ctx.Value("Config")
-	cfg, ok := iConfig.(utils.Configuration)
+	cfg, ok := ctx.Value(utils.ConfigKey).(*utils.Configuration)
 	if !ok {
 
 	}
-	config = cfg
+	config = *cfg
 	protocolId = config.Network
+
+	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageChId).(*chan *utils.ClientMessage)
+	if !ok {
+
+	}
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PChId).(*chan *utils.ClientMessage)
+	if !ok {
+
+	}
+
+	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PChId).(*chan *utils.Subscription)
+	if !ok {
+
+	}
+
+	outgoingDPBlockCh, ok := ctx.Value(utils.OutgoingDeliveryProof_BlockChId).(*chan *utils.Block)
+	// outgoingProofCh, ok := ctx.Value(utils.OutgoingDeliveryProofCh).(*chan *utils.DeliveryProof)
+	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeChId).(*chan *utils.Subscription)
+	if !ok {
+
+	}
 	defer cancel()
 
-	// // To construct a simple host with all the default settings, just use `New`
-	// h, err := libp2p.New(ctx)
-	// if err != nil {
-	// 	panic(err) s
-	// }
-
-	// r := gin.Default()
-	// r = rest.SetupOriginatorRoutes(r)
-	// r.Run("localhost:8080")
-
-	// log.Printf("Hello World, my hosts ID is %s\n", h.ID())
-
-	// Now, normally you do not just want a simple host, you want
-	// that is fully configured to best support your p2p application.
-	// Let's create a second host setting some more options.
-	// Set your own keypaircsd
-	priv, _, err := crypto.GenerateKeyPair(
-
-		crypto.ECDSA, // Select your key type. Ed25519 are nice short
-		-1,           // Select key length when possible (i.e. RSA).
-	)
-	// privK, _ := ethCrypto.HexToECDSA(privateKey)
-	// priv, _, err := crypto.ECDSAKeyPairFromKey(privK)
-	if err != nil {
-		panic(err)
+	if len(cfg.NodePrivateKey) == 0 {
+		priv, _, err := crypto.GenerateKeyPair(
+			crypto.ECDSA, // Select your key type. Ed25519 are nice short
+			-1,           // Select key length when possible (i.e. RSA).
+		)
+		if err != nil {
+			panic(err)
+		}
+		privKey = priv
+	} else {
+		priv, err := crypto.UnmarshalECDSAPrivateKey(hexutil.MustDecode(cfg.NodePrivateKey))
+		if err != nil {
+			panic(err)
+		}
+		privKey = priv
 	}
-	var idht *dht.IpfsDHT
+
+	// conMgr := connmgr.NewConnManager(
+	// 	100,         // Lowwater
+	// 	400,         // HighWater,
+	// 	time.Minute, // GracePeriod
+	// )
 
 	h, err := libp2p.New(
 		// Use the keypair we generated
-		libp2p.Identity(priv),
+		libp2p.Identity(privKey),
 		// Multiple listen addresses
-		libp2p.ListenAddrStrings(
-			"/ip4/0.0.0.0/tcp/9000/ws",
-			"/ip4/0.0.0.0/tcp/0",
-		),
+		libp2p.ListenAddrStrings(cfg.Listeners...),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
@@ -114,6 +187,7 @@ func Run(mainCtx *context.Context) {
 		// libp2p.Transport(ws.New),
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
+
 		// libp2p.ConnectionManager(connmgr.NewConnManager(
 		// 	100,         // Lowwater
 		// 	400,         // HighWater,
@@ -125,7 +199,67 @@ func Run(mainCtx *context.Context) {
 		// Let this host use the DHT to find other hosts
 
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			idht, err = dht.New(ctx, h)
+
+			var bootstrapPeers []peer.AddrInfo
+			for _, addr := range cfg.BootstrapPeers {
+				addr, _ := multiaddr.NewMultiaddr(addr)
+				pi, _ := peer.AddrInfoFromP2pAddr(addr)
+				bootstrapPeers = append(bootstrapPeers, *pi)
+			}
+			var dhtOptions []dht.Option
+			dhtOptions = append(dhtOptions, dht.BootstrapPeers(bootstrapPeers...))
+			if cfg.BootstrapNode {
+				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeServer))
+			}
+			kdht, err := dht.New(ctx, h, dhtOptions...)
+			// validator = {
+			// 	// Validate validates the given record, returning an error if it's
+			// 	// invalid (e.g., expired, signed by the wrong key, etc.).
+			// 	Validate(key string, value []byte) error
+
+			// 	// Select selects the best record from the set of records (e.g., the
+			// 	// newest).
+			// 	//
+			// 	// Decisions made by select should be stable.
+			// 	Select(key string, values [][]byte) (int, error)
+			// }
+			// dhtOptions = append(dhtOptions, dht.NamespacedValidator("subsc"))
+
+			idht = kdht
+			if err = kdht.Bootstrap(ctx); err != nil {
+				logger.Fatalf("Error starting bootstrap node %w", err)
+				return nil, err
+			}
+
+			for _, addr := range cfg.BootstrapPeers {
+				addr, _ := multiaddr.NewMultiaddr(addr)
+				pi, err := peer.AddrInfoFromP2pAddr(addr)
+				if err != nil {
+					logger.Warnf("Invalid boostrap peer address (%s): %s \n", addr, err)
+				} else {
+					error := h.Connect(ctx, *pi)
+					if error != nil {
+						logger.Debugf("Unable connect to boostrap peer (%s): %s \n", addr, err)
+						continue
+					}
+					logger.Debugf("Connected to boostrap peer (%s)", addr)
+					handleConnect(&h, pi)
+				}
+			}
+			go Discover(ctx, h, kdht, "icms")
+
+			// routingOptions := routing.Options{
+			// 	Expired: true,
+			// 	Offline: true,
+			// }
+			// var	routingOptionsSlice []routing.Option;
+			// routingOptionsSlice = append(routingOptionsSlice, routingOptions.ToOption())
+			// key := "/$name/$first"
+			// putErr := kdht.PutValue(ctx, key, []byte("femi"), routingOptions.ToOption())
+
+			// if putErr != nil {
+			// 	logger.Infof("Put the error %w", putErr)
+			// }
 			return idht, err
 		}),
 
@@ -142,9 +276,12 @@ func Run(mainCtx *context.Context) {
 		// performance issues.
 		libp2p.EnableNATService(),
 	)
+
 	if err != nil {
 		panic(err)
 	}
+	h.Network().Notify(&connectionNotifee{})
+
 	h.SetStreamHandler(protocol.ID(protocolId), handleStream)
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, h)
@@ -157,43 +294,126 @@ func Run(mainCtx *context.Context) {
 		panic(err)
 	}
 
+	node = &h
+
 	// The last step to get fully up and running would be to connect to
 	// bootstrap peers (or any other peers). We leave this commented as
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
 
-	// for _, addr := range dht.DefaultBootstrapPeers {
-	// 	pi, _ := peer.AddrInfoFromP2pAddr(addr)
-	// 	// We ignore errors as some bootstrap peers may be down
-	// 	// and that is fine.
-	// 	h.Connect(ctx, *pi)
-	// }
+	logger.Infof("Host started with ID is %s\n", h.ID())
 
-	logger.Info("Host started with ID is %s\n", h.ID())
-
-	cr, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
+	messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-	node = &h
-	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", cr.ChannelName)
+	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", messagePubSub.ChannelName)
+	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
 
-	// draw the UI
-	// ui := NewChatUI(cr)
-	// if err = ui.Run(); err != nil {
-	// 	logger.Error("error running text UI: %s", err)
+	batchPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), BatchChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+	// delieveryProofPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), DeliveryProofChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
 	// }
+	time.AfterFunc(5*time.Second, func() {
+		logger.Info("Sending subscription to channel")
+		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{ChannelId: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
+	})
 
-}
+	go func() {
+		time.Sleep(5 * time.Second)
+		for {
+			select {
+			case inMessage, ok := <-batchPubSub.Messages:
+				if !ok {
+					cancel()
+					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
+					return
+				}
+				// !validating message
+				// !if not a valid message continue
+				// _, err := inMessage.ToJSON()
+				// if err != nil {
+				// 	continue
+				// }
+				//TODO:
+				// if not a valid message, continue
 
-// printErr is like fmt.Printf, but writes to stderr.
-// func printErr(m string, args ...interface{}) {
-// 	fmt.Fprintf(os.Stderr, m, args...)
-// }
+				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+				cm, err := utils.ClientMessageFromBytes(inMessage.Data)
+				if err != nil {
 
-// discoveryNotifee gets notified when we find a new peer via mDNS discovery
-type discoveryNotifee struct {
-	h host.Host
+				}
+				*incomingMessagesC <- &cm
+			case sub, ok := <-subscriptionPubSub.Messages:
+				if !ok {
+					cancel()
+					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
+					return
+				}
+				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+				cm, err := utils.SubscriptionFromBytes(sub.Data)
+				if err != nil {
+
+				}
+				logger.Info("New subscription updates:::", string(cm.ToJSON()))
+				// *incomingMessagesC <- &cm
+				cm.Broadcast = false
+				*publishedSubscriptionC <- &cm
+			}
+		}
+	}()
+
+	for {
+		select {
+		case outMessage, ok := <-*outgoinMessageC:
+			if cfg.Validator {
+				if !ok {
+					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
+					return
+				}
+				err := messagePubSub.Publish(utils.NewSignedPubSubMessage(outMessage.ToJSON(), cfg.EvmPrivateKey))
+				if err != nil {
+					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
+					return
+				}
+			}
+		case subscription, ok := <-*subscriptionC:
+			if cfg.Validator {
+				if !ok {
+					logger.Errorf("Subscription channel not found in the context")
+					return
+				}
+				logger.Info("subscription channel:::", subscription.ChannelId)
+
+				err := subscriptionPubSub.Publish(utils.NewSignedPubSubMessage(subscription.ToJSON(), cfg.EvmPrivateKey))
+				if err != nil {
+					logger.Errorf("Failed to publish subscription.")
+					return
+				}
+			}
+		case block, ok := <-*outgoingDPBlockCh:
+			if cfg.Validator {
+				if !ok {
+					logger.Errorf("Subscription channel not found in the context")
+					return
+				}
+				logger.Info("subscription channel:::", block.BlockId)
+				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(block.ToJSON(), cfg.EvmPrivateKey))
+				if err != nil {
+					logger.Errorf("Failed to publish subscription.")
+					return
+				}
+			}
+		}
+	}
+
 }
 
 func handleStream(stream network.Stream) {
@@ -206,13 +426,6 @@ func handleStream(stream network.Stream) {
 
 }
 
-func createHandshake(name string, network string) utils.Handshake {
-	pubKey := utils.GetPublicKey(config.PrivateKey)
-	data := utils.HandshakeData{Name: name, ProtocolId: network, Timestamp: int(time.Now().Unix())}
-	_, signature := utils.Sign((&data).ToString(), config.PrivateKey)
-	return utils.Handshake{Data: data, Signature: signature, Signer: pubKey}
-}
-
 func readData(p peer.ID, rw *bufio.ReadWriter) {
 	for {
 		hsString, err := rw.ReadString('\n')
@@ -223,16 +436,25 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 		if hsString == "" {
 			break
 		}
+
 		logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Info("New Handshake data from peer")
 		handshake, err := utils.HandshakeFromJSON(hsString)
+
 		if err != nil {
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %w", err)
 			break
 		}
-		valid := isValidHandshake(handshake, p)
-		if !valid {
+		validHandshake := isValidHandshake(handshake, p)
+		if !validHandshake {
 			disconnect(*node, p)
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Disconnecting from peer (%s) with invalid handshake", p)
+			return
+		}
+		validStake := isValidStake(handshake, p)
+		if !validStake {
+			disconnect(*node, p)
+			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsString}).Warnf("Disconnecting from peer (%s) with inadequate stake in network", p)
+			return
 		}
 		b, _ := hexutil.Decode(handshake.Signer)
 		peerPubKeys[p] = b
@@ -252,16 +474,24 @@ func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
 		logger.WithFields(logrus.Fields{"message": message, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
 		return false
 	}
-	logger.Infof("New Valid handshake from peer: %s", p)
-	// check stake balance
-	stakeContract, err := evm.StakeContract(config.RPCUrl, config.StakeContract)
-	if err != nil {
-		logger.Errorf("RPC error %w", err)
-	}
-	level, err := stakeContract.GetAccountLevel(nil, evm.ToHexAddress(handshake.Signer))
-	if level == utils.StandardAccountType {
-		logger.WithFields(logrus.Fields{"peer": p, "accountType": level}).Warnf("Inadequate stake balance for peer with address %s", handshake.Signer)
-		return false
+	logger.Debugf("New Valid handshake from peer: %s", p)
+	return true
+}
+func isValidStake(handshake utils.Handshake, p peer.ID) bool {
+	if handshake.Data.NodeType == utils.ValidatorNodeType && config.Validator {
+		stakeContract, _, _, err := evm.StakeContract(config.EVMRPCHttp, config.StakeContract)
+		if err != nil {
+			logger.Errorf("EVM RPC error. Could not connect to stake contract: %s", err)
+			return false
+		}
+
+		level, err := stakeContract.GetNodeLevel(nil, evm.ToHexAddress(handshake.Signer))
+		i := new(big.Int).SetUint64(uint64(utils.ValidatorNodeType))
+		fmt.Printf("level i ---  %s: %s -- %s\n", level, i, err)
+		if level.Cmp(i) >= 0 {
+			logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Warnf("Inadequate stake balance for validator peer %s ---- %s", p, err)
+			return false
+		}
 	}
 	return true
 }
@@ -286,26 +516,36 @@ func sendData(p peer.ID, rw *bufio.ReadWriter, data []byte) {
 // the PubSub system will automatically start interacting with them if they also
 // support PubSub.
 func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	logger.Infof("Discovered new peer %s\n", pi.ID.Pretty())
+	logger.Debugf("Discovered new peer %s\n", pi.ID.Pretty())
 	err := n.h.Connect(context.Background(), pi)
 
 	if err != nil {
-		fmt.Printf("error connecting to peer %s: %s\n", pi.ID.Pretty(), err)
+		logger.Warningf("Unable to connect with peer: %s %w", pi.ID, err)
+		return
 	}
+	handleConnect(&n.h, &pi)
+}
+
+func handleConnect(h *host.Host, pa *peer.AddrInfo) {
+	pi := *pa
+	logger.Debugf("Successfully connected to peer: %s", pi.ID)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stream, err := n.h.NewStream(ctx, pi.ID, protocol.ID(protocolId))
+	stream, err := (*h).NewStream(ctx, pi.ID, protocol.ID(protocolId))
 
 	if err != nil {
-		logger.Warningf("Unable to establish stream with peer: %s %w", pi.ID, err)
+		logger.Warningf("Unable to establish stream with peer: %s %w", pi.ID, err.Error())
 	} else {
 		logger.Infof("Streaming to peer: %s", pi.ID)
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 		logger.Infof("New StreamID: %s", stream.ID())
 		peerStreams[stream.ID()] = pi.ID
-		hs := createHandshake(defaultNick(n.h.ID()), protocolId)
+		nodeType := utils.RelayNodeType
+		if config.Validator {
+			nodeType = utils.ValidatorNodeType
+		}
+		hs := utils.CreateHandshake(defaultNick((*h).ID()), protocolId, config.EvmPrivateKey, nodeType)
 		go sendData(pi.ID, rw, (&hs).ToJSON())
-		// go readData(rw)
 	}
 }
 
@@ -322,9 +562,37 @@ func setupDiscovery(ctx context.Context, h host.Host) error {
 	// n.h = make(chan peer.AddrInfo)
 	// setup mDNS discovery to find local peers
 	disc := mdns.NewMdnsService(h, DiscoveryServiceTag, &n)
-	if err := disc.Start(); err != nil {
-		panic(err)
-	}
-	// disc.RegisterNotifee(&n)
-	return nil
+	// if err := disc.Start(); err != nil {
+	// 	panic(err)
+	// }
+	// // disc.RegisterNotifee(&n)
+	return disc.Start()
 }
+
+// Listen is called when network starts listening on an addr
+func (n *connectionNotifee) Listen(netw network.Network, ma multiaddr.Multiaddr) {}
+
+// ListenClose is called when network starts listening on an addr
+func (n *connectionNotifee) ListenClose(netw network.Network, ma multiaddr.Multiaddr) {}
+
+// Connected is called when a connection opened
+func (n *connectionNotifee) Connected(netw network.Network, conn network.Conn) {
+	//retain max 4 connections
+	// if (len(netw.Conns()) > 4){
+	// 	conn.Close()
+	// 	fmt.Printf("Connection refused for peer: %v!\n", conn.RemotePeer().Pretty())
+	// }a
+}
+
+// Disconnected is called when a connection closed
+func (cn *connectionNotifee) Disconnected(netw network.Network, conn network.Conn) {
+	id := conn.RemotePeer()
+	logger.Infof("Peer disconnect: %s", id)
+	idht.Host().Peerstore().RemovePeer(id)
+}
+
+// OpenedStream is called when a stream opened
+func (cn *connectionNotifee) OpenedStream(netw network.Network, stream network.Stream) {}
+
+// ClosedStream is called when a stream was closed
+func (cn *connectionNotifee) ClosedStream(netw network.Network, stream network.Stream) {}
