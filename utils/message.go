@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -84,12 +85,18 @@ func CreateHandshake(name string, network string, privateKey string, nodeType ui
 CHAT MESSAGE
 **/
 type ChatMessageHeader struct {
-	Length    int    `json:"length"`
-	Sender    string `json:"from"`
-	Receiver  string `json:"reciever"`
-	ChainId   string `json:"chainId"`
-	Platform  string `json:"platform"`
-	Timestamp uint   `json:"timestamp"`
+	Length        int    `json:"length"`
+	Sender        string `json:"from"`
+	Approval      string `json:"approval"`
+	Receiver      string `json:"reciever"`
+	ChainId       string `json:"chainId"`
+	Platform      string `json:"platform"`
+	Timestamp     uint   `json:"timestamp"`
+	ChannelExpiry int    `json:"channelExpiry"`
+	// Wildcard      bool   `json:"wildcard"`
+	Channels      []string `json:"channels"`
+	SenderAddress string   `json:"senderAddress"`
+	// OwnerAddress  string `json:"OwnerAddress"`
 }
 
 // TODO! platform enum channel
@@ -116,9 +123,9 @@ type ChatMessage struct {
 
 func (chatMessage *ChatMessage) ToString() string {
 	values := []string{}
-	// values = append(values, fmt.Sprintf("Header.Length:%d", chatMessage.Header.Length))
-	// values = append(values, fmt.Sprintf("Header.Sender:%s", chatMessage.Header.Sender))
+
 	values = append(values, fmt.Sprintf("Header.Receiver:%s", chatMessage.Header.Receiver))
+	values = append(values, fmt.Sprintf("Header.Receiver:%s", chatMessage.Header.Approval))
 	values = append(values, fmt.Sprintf("Header.ChainId:%s", chatMessage.Header.ChainId))
 	values = append(values, fmt.Sprintf("Header.Platform:%s", chatMessage.Header.Platform))
 	values = append(values, fmt.Sprintf("Header.Timestamp:%d", chatMessage.Header.Timestamp))
@@ -145,6 +152,17 @@ func (chatMessage *ChatMessage) ToString() string {
 	return strings.Join(values, ",")
 }
 
+func (channel *ChatMessageHeader) ToApprovalString() string {
+	values := []string{}
+
+	values = append(values, fmt.Sprintf("ChannelExpiry:%d", channel.ChannelExpiry))
+	// values = append(values, fmt.Sprintf("Wildcard:%s", channel.Wildcard))
+	values = append(values, fmt.Sprintf("Channels:%s", channel.Channels))
+	values = append(values, fmt.Sprintf("SenderAddress:%s", channel.SenderAddress))
+	// values = append(values, fmt.Sprintf("OwnerAddress:%s", channel.OwnerAddress))
+	return strings.Join(values, ",")
+}
+
 /**
 NODE MESSAGE
 **/
@@ -152,6 +170,7 @@ type ClientMessage struct {
 	Message         ChatMessage `json:"message"`
 	SenderSignature string      `json:"senderSignature"`
 	NodeSignature   string      `json:"nodeSignature"`
+	MessageCID      string      `json:"messageCID"`
 }
 
 type SuccessResponse struct {
@@ -182,7 +201,7 @@ func (msg *ClientMessage) ToJSON() []byte {
 	return m
 }
 func (msg *ClientMessage) ToString() string {
-	return fmt.Sprintf("%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature)
+	return fmt.Sprintf("%s:%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature, msg.MessageCID)
 }
 
 func (msg *ClientMessage) Hash() []byte {
@@ -196,6 +215,15 @@ func (msg *ClientMessage) Key() string {
 
 func ClientMessageFromBytes(b []byte) (ClientMessage, error) {
 	var message ClientMessage
+	// if err := json.Unmarshal(b, &message); err != nil {
+	// 	panic(err)
+	// }
+	err := json.Unmarshal(b, &message)
+	return message, err
+}
+
+func JsonMessageFromBytes(b []byte) (MessageJsonInput, error) {
+	var message MessageJsonInput
 	// if err := json.Unmarshal(b, &message); err != nil {
 	// 	panic(err)
 	// }
@@ -225,36 +253,58 @@ func ChatMessageFromString(msg string) ChatMessage {
 }
 
 type MessageJsonInput struct {
-	Timestamp int `json:"timestamp"`
-	// From      string              `json:"from"`
-	Receiver  string              `json:"receiver"`
-	Platform  string              `json:"platform"`
-	ChainId   string              `json:"chainId"`
-	Type      string              `json:"type"`
-	Message   string              `json:"message"`
-	Subject   string              `json:"subject"`
-	Signature string              `json:"signature"`
-	Actions   []ChatMessageAction `json:"actions"`
-	Origin    string              `json:"origin"`
+	Timestamp     int      `json:"timestamp"`
+	Approval      string   `json:"approval"`
+	ChannelExpiry int      `json:"channelExpiry"`
+	Channels      []string `json:"channels"`
+	SenderAddress string   `json:"senderAddress"`
+	// OwnerAddress  string              `json:"OwnerAddress"`
+	Receiver    string              `json:"receiver"`
+	Platform    string              `json:"platform"`
+	ChainId     string              `json:"chainId"`
+	Type        string              `json:"type"`
+	Message     string              `json:"message"`
+	Subject     string              `json:"subject"`
+	Signature   string              `json:"signature"`
+	Actions     []ChatMessageAction `json:"actions"`
+	Origin      string              `json:"origin"`
+	MessageHash string              `json:"messageHash"`
+	SubjectHash string              `json:"subjectHash"`
 }
 
-func CreateMessageFromJson(msg MessageJsonInput) ChatMessage {
+func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
 
+	if len(msg.Message) > 0 {
+		msgHash := hexutil.Encode(Hash(msg.Message))
+		if msg.MessageHash != msgHash {
+			return ChatMessage{}, errors.New("Invalid Message")
+		}
+	}
+	if len(msg.Subject) > 0 {
+		subHash := hexutil.Encode(Hash(msg.Subject))
+		if msg.SubjectHash != subHash {
+			return ChatMessage{}, errors.New("Invalid Subject")
+		}
+	}
 	chatMessage := ChatMessageHeader{
-		Timestamp: uint(msg.Timestamp),
-		// Sender:    msg.From,
-		Receiver: msg.Receiver,
-		ChainId:  msg.ChainId,
-		Platform: msg.Platform,
-		Length:   100,
+		Timestamp:     uint(msg.Timestamp),
+		Approval:      msg.Approval,
+		Receiver:      msg.Receiver,
+		ChainId:       msg.ChainId,
+		Platform:      msg.Platform,
+		Length:        100,
+		ChannelExpiry: msg.ChannelExpiry,
+		Channels:      msg.Channels,
+		SenderAddress: msg.SenderAddress,
+		// OwnerAddress:  msg.OwnerAddress,
 	}
 
 	bodyMessage := ChatMessageBody{
-		Subject: msg.Subject,
-		Message: msg.Message,
+		Subject: msg.SubjectHash,
+		Message: msg.MessageHash,
 	}
 	_chatMessage := ChatMessage{chatMessage, bodyMessage, msg.Actions, msg.Origin}
-	return _chatMessage
+	return _chatMessage, nil
 }
 
 func IsValidMessage(msg ChatMessage, signature string) bool {
@@ -265,7 +315,10 @@ func IsValidMessage(msg ChatMessage, signature string) bool {
 	if strings.ToLower(channelOwner) != strings.ToLower(signer) {
 		return false
 	}
-	if math.Abs(float64(int(msg.Header.Timestamp)/1000-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
+	if !IsValidChannel(msg.Header, channel[1], channelOwner) {
+		return false
+	}
+	if math.Abs(float64(int(msg.Header.Timestamp)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
 		logger.WithFields(logrus.Fields{"data": chatMessage}).Warnf("ChatMessage Expired: %s", chatMessage)
 		return false
 	}
@@ -278,6 +331,37 @@ func IsValidMessage(msg ChatMessage, signature string) bool {
 
 	}
 	return true
+}
+
+func IsValidChannel(ch ChatMessageHeader, signature string, channelOwner string) bool {
+
+	signer, _ := GetSigner(ch.ToApprovalString(), signature)
+	if strings.ToLower(channelOwner) != strings.ToLower(signer) {
+		return false
+	}
+	if math.Abs(float64(int(ch.ChannelExpiry)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
+		logger.WithFields(logrus.Fields{"data": ch}).Warnf("Channel Expired: %s", ch.ChannelExpiry)
+		return false
+	}
+	channel := ch.ToApprovalString()
+	isValid := VerifySignature(signer, channel, signature)
+	if !isValid {
+		logger.WithFields(logrus.Fields{"message": channel, "signature": signature}).Warnf("Invalid signer %s", signer)
+		return false
+	} else {
+
+	}
+	return true
+}
+
+func Contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
 }
 
 // PubSubMessage

@@ -15,7 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
-	"net/rpc/jsonrpc"
+	// "net/rpc/jsonrpc"
 
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
@@ -457,22 +457,24 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	wg.Add(1)
 	go func() {
-		rpc.RegisterName("RpcService", rpcServer.NewRpcService(&ctx))
+		rpc.Register(rpcServer.NewRpcService(&ctx))
+		rpc.HandleHTTP()
 		listener, err := net.Listen("tcp", cfg.RPCHost+":"+rpcPort)
 		if err != nil {
 			logger.Fatal("ListenTCP error: ", err)
 		}
 		logger.Infof("RPC server runing on: %+s", cfg.RPCHost+":"+rpcPort)
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				// wg.Done()
-				logger.Fatalf("Accept error: ", err)
-			}
-			logger.Infof("New connection: %+v\n", conn.RemoteAddr())
+		go http.Serve(listener, nil)
+		// for {
+		// 	conn, err := listener.Accept()
+		// 	if err != nil {
+		// 		// wg.Done()
+		// 		logger.Fatalf("Accept error: ", err)
+		// 	}
+		// 	logger.Infof("New connection: %+v\n", conn.RemoteAddr())
 
-			go jsonrpc.ServeConn(conn)
-		}
+		// }
+
 	}()
 
 	wg.Add(1)
@@ -482,6 +484,16 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		http.HandleFunc("/echo", wss.ServeWebSocket)
 
 		log.Fatal(http.ListenAndServe(wsAddress, nil))
+	}()
+
+	wg.Add(1)
+	go func() {
+		sendHttp := rpcServer.NewHttpService(&ctx)
+		err := sendHttp.Start()
+		if err != nil {
+			logger.Fatalf("Http error: ", err)
+		}
+		logger.Infof("New http connection")
 	}()
 
 }
