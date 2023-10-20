@@ -315,7 +315,7 @@ func Run(mainCtx *context.Context) {
 	// }
 	time.AfterFunc(5*time.Second, func() {
 		logger.Info("Sending subscription to channel")
-		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{Channel: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
+		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{ChannelId: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
 	})
 
 	go func() {
