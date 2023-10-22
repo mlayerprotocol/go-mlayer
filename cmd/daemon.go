@@ -5,8 +5,10 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/ByteGum/go-icms/pkg/core/db"
@@ -61,6 +63,8 @@ func init() {
 	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
 }
 
+var Newmessagec = make(chan string)
+
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
 	ctx := context.Background()
@@ -86,6 +90,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, "Config", cfg)
 	var wg sync.WaitGroup
 	errc := make(chan error)
+
 	// dbPath, err := ioutil.TempDir("", "badger-test")
 	// if err != nil {
 	// 	errc <- fmt.Errorf("Could not read temp dir: %g", err)
@@ -106,7 +111,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		// logger.WithFields(logrus.Fields{
 		// 	"publicKey": "walrus",
 		// }).Infof("publicKey %s", priv)
-		p2p.Run(&ctx)
+		p2p.Run(&ctx, reducerFunc, Newmessagec)
 	}()
 	wg.Add(1)
 	go func() {
@@ -114,11 +119,44 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			wg.Done()
 			errc <- fmt.Errorf("Db error: %g", err)
 		}
-		defer wg.Done()
+		//defer wg.Done()
 		db.Db()
+	}()
+
+	wg.Add(1)
+	go func() {
+		if err := recover(); err != nil {
+			wg.Done()
+			errc <- fmt.Errorf("Db error: %g", err)
+		}
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			// fmt.Println("Enter a test :")
+			v := scanner.Text()
+			// ch <- v
+			// fmt.Println("scanner.Text() %V", v)
+			reducerFunc(utils.ReducerData{Action: v, Payload: "utils.ReducerData"})
+		}
 	}()
 
 	// r := gin.Default()
 	// r = originatorRoutes.Init(r)
 	// r.Run("localhost:8083")
+}
+func reducerFunc(reducer utils.ReducerData) {
+	// fmt.Println("reducer --- ", reducer)
+	switch reducer.Action {
+	case "darwin":
+		fmt.Println("OS X.")
+	case "/view":
+		Newmessagec <- "view functions"
+		fmt.Println("Linux.")
+	default:
+		// freebsd, openbsd,
+		// plan9, windows...
+		fmt.Printf("ReducerData : %s.\n", reducer)
+	}
 }

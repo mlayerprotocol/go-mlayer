@@ -39,9 +39,16 @@ const (
 	MessageChannel string = "icm-message-channel"
 )
 
-var peerStreams = make(map[string]peer.ID)
+type PeerData struct {
+	peerId             peer.ID
+	validatedHandshake bool
+}
+
+var peerStreams = make(map[string]PeerData)
 var peerPubKeys = make(map[peer.ID][]byte)
 var node *host.Host
+
+var reducerFunc func(utils.ReducerData)
 
 // defaultNick generates a nickname based on the $USER environment variable and
 // the last 8 chars of a peer ID.
@@ -56,7 +63,14 @@ func shortID(p peer.ID) string {
 	return pretty[len(pretty)-12:]
 }
 
-func Run(mainCtx *context.Context) {
+func Run(mainCtx *context.Context, rFunc func(utils.ReducerData), ch <-chan string) {
+
+	reducerFunc = rFunc
+	go func() {
+		for data := range ch {
+			fmt.Println("Run(mainCtx *context.Context", data)
+		}
+	}()
 	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
@@ -200,7 +214,7 @@ func handleStream(stream network.Stream) {
 	// stream.SetReadDeadline()
 	// Create a buffer stream for non blocking read and write.
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-	go readData(peerStreams[stream.ID()], rw)
+	go readData(stream.ID(), rw)
 	// go sendData(rw)
 
 }
@@ -212,7 +226,9 @@ func createHandshake(name string, network string) utils.Handshake {
 	return utils.Handshake{Data: data, Signature: signature, Signer: pubKey}
 }
 
-func readData(p peer.ID, rw *bufio.ReadWriter) {
+func readData(streamId string, rw *bufio.ReadWriter) {
+	peerData := peerStreams[streamId]
+	p := peerData.peerId
 	for {
 		hsString, err := rw.ReadString('\n')
 		if err != nil {
@@ -221,6 +237,10 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 		}
 		if hsString == "" {
 			break
+		}
+		if peerData.validatedHandshake {
+			//handle Message
+			continue
 		}
 		logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Info("New Handshake data from peer")
 		handshake, err := utils.HandshakeFromJSON(hsString)
@@ -232,6 +252,8 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 		if !valid {
 			disconnect(*node, p)
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Disconnecting from peer (%s) with invalid handshake", p)
+		} else {
+			peerData.validatedHandshake = valid
 		}
 		b, _ := hexutil.Decode(handshake.Signer)
 		peerPubKeys[p] = b
@@ -286,6 +308,7 @@ func sendData(p peer.ID, rw *bufio.ReadWriter, data []byte) {
 // support PubSub.
 func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	logger.Infof("Discovered new peer %s\n", pi.ID.Pretty())
+	reducerFunc(utils.ReducerData{Action: pi.ID.Pretty(), Payload: "utils.ReducerData"})
 	err := n.h.Connect(context.Background(), pi)
 
 	if err != nil {
@@ -301,7 +324,10 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 		logger.Infof("Streaming to peer: %s", pi.ID)
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 		logger.Infof("New StreamID: %s", stream.ID())
-		peerStreams[stream.ID()] = pi.ID
+		peerStreams[stream.ID()] = PeerData{
+			peerId:             pi.ID,
+			validatedHandshake: false,
+		}
 		hs := createHandshake(defaultNick(n.h.ID()), protocolId)
 		go sendData(pi.ID, rw, (&hs).ToJSON())
 		// go readData(rw)
