@@ -7,5 +7,5 @@
 ## Automated Build
 * Coming Soon
 ## Manual Build
-* Download and install Go. Go mLayer has been tested with Go 1.19
+* [Download and install Go](https://go.dev/dl/). Go mLayer has been tested with Go 1.19.*
 
