@@ -32,7 +32,7 @@ type RpcResponse struct {
 
 func NewWsService(mainCtx *context.Context) *WsService {
 	cfg, _ := (*mainCtx).Value(utils.ConfigKey).(*utils.Configuration)
-	verificationc, _ := (*mainCtx).Value(utils.ClientHandShackCh).(*chan *utils.ClientHandshake)
+	verificationc, _ := (*mainCtx).Value(utils.ClientHandShackChId).(*chan *utils.ClientHandshake)
 	return &WsService{
 		Ctx:                    mainCtx,
 		Cfg:                    cfg,

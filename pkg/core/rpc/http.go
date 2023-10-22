@@ -41,38 +41,7 @@ func (p *HttpService) sendHttp(w http.ResponseWriter, r *http.Request) {
 	// var params interface{}
 	var reply RpcResponse
 
-	switch jsonrpc.Method {
-	case "SendMessage":
-
-		params, err := utils.JsonMessageFromBytes(payload[0])
-		if err != nil {
-			utils.Logger.Errorf("call error::", err)
-		}
-		err = p.rpcClient.Call("RpcService."+jsonrpc.Method, &params, &reply)
-		if err != nil {
-			utils.Logger.Errorf("call error::", err)
-		}
-
-	case "Subscribe":
-		params := &jsonrpc.Params
-		if err != nil {
-			utils.Logger.Errorf("call error::", err)
-		}
-		err = p.rpcClient.Call("RpcService."+jsonrpc.Method, &params, &reply)
-		if err != nil {
-			utils.Logger.Errorf("call error::", err)
-		}
-
-	default:
-		params := &jsonrpc.Params
-		if err != nil {
-			utils.Logger.Errorf("call error::", err)
-		}
-		err = p.rpcClient.Call("RpcService."+jsonrpc.Method, &params, &reply)
-		if err != nil {
-			utils.Logger.Errorf("call error::", err)
-		}
-	}
+	err = p.rpcClient.Call("RpcService."+jsonrpc.Method, payload[0], &reply)
 
 	if err != nil {
 		reply = RpcResponse{
@@ -80,9 +49,6 @@ func (p *HttpService) sendHttp(w http.ResponseWriter, r *http.Request) {
 			Status: "failure",
 		}
 	}
-	// w.Header().Set("Content-Type", "application/json")
-
-	// json.NewEncoder(w).Encode(reply)
 
 	jData, err := json.Marshal(reply)
 	if err != nil {

@@ -59,7 +59,7 @@ func Init() *viper.Viper {
 
 	err := v.ReadInConfig() // Find and read the config file
 	if err != nil {         // Handle errors reading the config file
-		panic(fmt.Errorf("Fatal: config file: %w \n", err))
+		panic(fmt.Errorf("Config file: %w \n", err))
 	}
 	v.SetDefault("log_level", "info")
 	v.SetDefault("channel_message_buffer_size", 128)

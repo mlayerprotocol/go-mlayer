@@ -2,10 +2,8 @@ package utils
 
 import (
 	"crypto/ecdsa"
-	"math"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -93,16 +91,6 @@ func VerifySignature(signer string, message string, signature string) bool {
 	}
 	logger.Infof("signer decoded signer %s %s : %T", decodedSigner, signer, (decodedSigner == signer))
 	return strings.EqualFold(decodedSigner, signer)
-}
-
-func IsValidSubscription(
-	subscription Subscription,
-) bool {
-	if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().Unix()))) > VALID_HANDSHAKE_SECONDS {
-		logger.Info("Invalid Subscription, invalid handshake duration")
-		return false
-	}
-	return VerifySignature(subscription.Subscriber, subscription.ToString(), subscription.Signature)
 }
 
 func GetNodeHeight() int {

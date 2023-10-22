@@ -3,9 +3,8 @@ package p2p
 import (
 	"context"
 
-	// "github.com/ByteGum/go-icms/utils"
-	utils "github.com/ByteGum/go-icms/utils"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/ByteGum/go-icms/utils"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
@@ -101,4 +100,3 @@ func (cr *Channel) readLoop() {
 func topicName(channelName string) string {
 	return "icm-channel:" + channelName
 }
-

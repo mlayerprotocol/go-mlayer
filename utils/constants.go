@@ -16,38 +16,44 @@ const (
 	ValidatorNodeType      = 1
 )
 
+const MaxBlockSize = 1000
+
 const (
 	ValidMessageStore             string = "valid-messages"
 	UnsentMessageStore                   = "unsent-messages"
 	SentMessageStore                     = "sent-messages"
-	ChannelSubscriberStore               = "channels-subscribers"
-	ChannelSubscribersCountStore         = "channels-subscribers-count"
+	NewChannelSubscriptionStore          = "new-channel-subscription"
+	ChannelSubscriptionStore             = "channel-subscriptions"
+	ChannelSubscriptionCountStore        = "channel-subscription-count"
 	DeliveryProofStore                   = "delivery-proof-store"
 	UnconfirmedDeliveryProofStore        = "unconfirmed-delivery-proof-store"
-	StateStore                           = "state-store"
-	BatchStore                           = "batch-store"
+	DeliveryProofBlockStateStore         = "delivery-proof-block-state-store"
+	SubscriptionBlockStateStore          = "subscription-block-state-store"
+	DeliveryProofBlockStore              = "dp-block-store"
+	SubscriptionBlockStore               = "sub-block-store"
 )
 
-// Values withing the main context
+// Channel Ids within main context
 const (
-	ConfigKey               string = "Config"
-	OutgoingMessageCh              = "OutgoingMessageChannel"
-	OutgoingMessageDP2PCh          = "OutgoingMessageDP2PChannel"
-	IncomingMessageCh              = "IncomingMessageChannel"
-	PublishMessageCh               = "PublishMessageChannel"
-	SubscribeCh                    = "SubscribeChannel"
-	SubscriptionDP2PCh             = "SubscriptionDP2PChannel"
-	ClientHandShackCh                 = "ClientHandshakeChannel"
-	OutgoingBatchCh                = "OutgoingBatchChannel"
-	OutgoingDeliveryProofCh        = "OutgoinProofChannel"
-	PubsubBatchCh                  = "PubsubBatchChannel"
-	PubsubDeliverProofCh           = "PubsubProofChannel"
-	PublishedSubCh                 = "PublishedSubChannel"
+	ConfigKey                       string = "Config"
+	OutgoingMessageChId                    = "OutgoingMessageChannel"
+	OutgoingMessageDP2PChId                = "OutgoingMessageDP2PChannel"
+	IncomingMessageChId                    = "IncomingMessageChannel"
+	PublishMessageChId                     = "PublishMessageChannel"
+	SubscribeChId                          = "SubscribeChannel"
+	SubscriptionDP2PChId                   = "SubscriptionDP2PChannel"
+	ClientHandShackChId                    = "ClientHandshakeChannel"
+	OutgoingDeliveryProof_BlockChId        = "OutgoingDeliveryProofBlockChannel"
+	OutgoingDeliveryProofChId              = "OutgoinDeliveryProofChannel"
+	PubSubBlockChId                        = "PubSubBlockChannel"
+	PubsubDeliverProofChId                 = "PubsubProofChannel"
+	PublishedSubChId                       = "PublishedSubChannel"
 )
 
 // State store key
 const (
-	CurrentBatchState string = "/batch/current-batch-state"
+	CurrentDeliveryProofBlockStateKey string = "/df-block/current-state"
+	CurrentSubscriptionBlockStateKey  string = "/sub-block/current-state"
 )
 
 type SubAction string

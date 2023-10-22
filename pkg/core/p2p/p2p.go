@@ -12,25 +12,26 @@ import (
 
 	// "github.com/gin-gonic/gin"
 	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
-	"github.com/multiformats/go-multiaddr"
-	"github.com/sirupsen/logrus"
 
 	utils "github.com/ByteGum/go-icms/utils"
-	connmgr "github.com/libp2p/go-libp2p-connmgr"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
-	"github.com/libp2p/go-libp2p-core/routing"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/libp2p/go-libp2p"
+
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	"github.com/multiformats/go-multiaddr"
+
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
-	noise "github.com/libp2p/go-libp2p-noise"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	libp2ptls "github.com/libp2p/go-libp2p-tls"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/core/routing"
+	noise "github.com/libp2p/go-libp2p/p2p/security/noise"
+	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	"github.com/sirupsen/logrus"
 	// rest "messagingprotocol/pkg/core/rest"
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
@@ -127,23 +128,23 @@ func Run(mainCtx *context.Context) {
 	config = *cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageCh).(*chan *utils.ClientMessage)
+	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageChId).(*chan *utils.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PCh).(*chan *utils.ClientMessage)
-	if !ok {
-
-	}
-
-	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PCh).(*chan *utils.Subscription)
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PChId).(*chan *utils.ClientMessage)
 	if !ok {
 
 	}
 
-	outgoingBatchCh, ok := ctx.Value(utils.OutgoingBatchCh).(*chan *utils.Batch)
+	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PChId).(*chan *utils.Subscription)
+	if !ok {
+
+	}
+
+	outgoingDPBlockCh, ok := ctx.Value(utils.OutgoingDeliveryProof_BlockChId).(*chan *utils.Block)
 	// outgoingProofCh, ok := ctx.Value(utils.OutgoingDeliveryProofCh).(*chan *utils.DeliveryProof)
-	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeCh).(*chan *utils.Subscription)
+	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeChId).(*chan *utils.Subscription)
 	if !ok {
 
 	}
@@ -166,11 +167,11 @@ func Run(mainCtx *context.Context) {
 		privKey = priv
 	}
 
-	conMgr := connmgr.NewConnManager(
-		100,         // Lowwater
-		400,         // HighWater,
-		time.Minute, // GracePeriod
-	)
+	// conMgr := connmgr.NewConnManager(
+	// 	100,         // Lowwater
+	// 	400,         // HighWater,
+	// 	time.Minute, // GracePeriod
+	// )
 
 	h, err := libp2p.New(
 		// Use the keypair we generated
@@ -186,7 +187,13 @@ func Run(mainCtx *context.Context) {
 		// libp2p.Transport(ws.New),
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
-		libp2p.ConnectionManager(conMgr),
+
+		// libp2p.ConnectionManager(connmgr.NewConnManager(
+		// 	100,         // Lowwater
+		// 	400,         // HighWater,
+		// 	time.Minute, // GracePeriod
+		// )),
+
 		// Attempt to open ports using uPNP for NATed hosts.
 		libp2p.NATPortMap(),
 		// Let this host use the DHT to find other hosts
@@ -205,6 +212,19 @@ func Run(mainCtx *context.Context) {
 				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeServer))
 			}
 			kdht, err := dht.New(ctx, h, dhtOptions...)
+			// validator = {
+			// 	// Validate validates the given record, returning an error if it's
+			// 	// invalid (e.g., expired, signed by the wrong key, etc.).
+			// 	Validate(key string, value []byte) error
+
+			// 	// Select selects the best record from the set of records (e.g., the
+			// 	// newest).
+			// 	//
+			// 	// Decisions made by select should be stable.
+			// 	Select(key string, values [][]byte) (int, error)
+			// }
+			// dhtOptions = append(dhtOptions, dht.NamespacedValidator("subsc"))
+
 			idht = kdht
 			if err = kdht.Bootstrap(ctx); err != nil {
 				logger.Fatalf("Error starting bootstrap node %w", err)
@@ -227,13 +247,27 @@ func Run(mainCtx *context.Context) {
 				}
 			}
 			go Discover(ctx, h, kdht, "icms")
+
+			// routingOptions := routing.Options{
+			// 	Expired: true,
+			// 	Offline: true,
+			// }
+			// var	routingOptionsSlice []routing.Option;
+			// routingOptionsSlice = append(routingOptionsSlice, routingOptions.ToOption())
+			// key := "/$name/$first"
+			// putErr := kdht.PutValue(ctx, key, []byte("femi"), routingOptions.ToOption())
+
+			// if putErr != nil {
+			// 	logger.Infof("Put the error %w", putErr)
+			// }
 			return idht, err
 		}),
 
 		// Let this host use relays and advertise itself on relays if
 		// it finds it is behind NAT. Use libp2p.Relay(options...) to
 		// enable active relays and more.
-		libp2p.EnableAutoRelay(),
+		// libp2p.DefaultEnableRelay(),
+		//libp2p.EnableAutoRelay(),
 		// If you want to help other peers to figure out if they are behind
 		// NATs, you can launch the server-side of AutoNAT too (AutoRelay
 		// already runs the client)
@@ -289,7 +323,7 @@ func Run(mainCtx *context.Context) {
 	// }
 	time.AfterFunc(5*time.Second, func() {
 		logger.Info("Sending subscription to channel")
-		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{Channel: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
+		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{ChannelId: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
 	})
 
 	go func() {
@@ -356,7 +390,7 @@ func Run(mainCtx *context.Context) {
 					logger.Errorf("Subscription channel not found in the context")
 					return
 				}
-				logger.Info("subscription channel:::", subscription.Channel)
+				logger.Info("subscription channel:::", subscription.ChannelId)
 
 				err := subscriptionPubSub.Publish(utils.NewSignedPubSubMessage(subscription.ToJSON(), cfg.EvmPrivateKey))
 				if err != nil {
@@ -364,14 +398,14 @@ func Run(mainCtx *context.Context) {
 					return
 				}
 			}
-		case batch, ok := <-*outgoingBatchCh:
+		case block, ok := <-*outgoingDPBlockCh:
 			if cfg.Validator {
 				if !ok {
 					logger.Errorf("Subscription channel not found in the context")
 					return
 				}
-				logger.Info("subscription channel:::", batch.BatchId)
-				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(batch.ToJSON(), cfg.EvmPrivateKey))
+				logger.Info("subscription channel:::", block.BlockId)
+				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(block.ToJSON(), cfg.EvmPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish subscription.")
 					return
