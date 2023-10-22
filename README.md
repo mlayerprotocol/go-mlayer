@@ -1,3 +1,11 @@
-# go-icms
+# Go mLayer
 
-* A decentralized chain agnostic messaging protocol
+* The go implementation decentralized chain agnostic mLayer protocol
+
+# Building Go mLayer
+
+## Automated Build
+* Coming Soon
+## Manual Build
+* Download and install Go. Go mLayer has been tested with Go 1.19
+
