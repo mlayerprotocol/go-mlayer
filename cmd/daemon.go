@@ -1,6 +1,5 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
@@ -17,23 +16,23 @@ import (
 
 	// "net/rpc/jsonrpc"
 
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
-	"github.com/ByteGum/go-icms/pkg/core/db"
-	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
-	processor "github.com/ByteGum/go-icms/pkg/core/processor"
-	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
-	ws "github.com/ByteGum/go-icms/pkg/core/ws"
-	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
+	processor "github.com/mlayerprotocol/go-mlayer/pkg/core/processor"
+	rpcServer "github.com/mlayerprotocol/go-mlayer/pkg/core/rpc"
+	ws "github.com/mlayerprotocol/go-mlayer/pkg/core/ws"
+	utils "github.com/mlayerprotocol/go-mlayer/utils"
 	"github.com/spf13/cobra"
 )
 
-var logger = utils.Logger
+var logger = &utils.Logger
 
 const (
 	TESTNET string = "/icm/testing"
@@ -173,7 +172,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				// VALIDATE AND DISTRIBUTE
 				go func() {
-					logger.Info("Received new message %s\n", inMessage.Message.Body.MessageHash)
+					logger.Infof("Received new message %s\n", inMessage.Message.Body.MessageHash)
 					validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
 					_reciever := inMessage.Message.Header.Receiver
 					_recievers := strings.Split(_reciever, ":")

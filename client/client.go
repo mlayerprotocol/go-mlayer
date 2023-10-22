@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/rpc"
 
-	"github.com/ByteGum/go-icms/utils"
+	"github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 // rpc client
