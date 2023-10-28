@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
-	db "github.com/ByteGum/go-icms/pkg/core/db"
-	"github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-datastore/query"
+	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 var logger = utils.Logger

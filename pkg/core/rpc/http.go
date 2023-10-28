@@ -8,7 +8,7 @@ import (
 
 	// "net/rpc/jsonrpc"
 
-	"github.com/ByteGum/go-icms/utils"
+	"github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 type JsonRpc struct {

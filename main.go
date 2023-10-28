@@ -1,14 +1,13 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package main
 
 import (
 	"fmt"
 
-	"github.com/ByteGum/go-icms/cmd"
-	config "github.com/ByteGum/go-icms/utils"
+	"github.com/mlayerprotocol/go-mlayer/cmd"
+	config "github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 func main() {

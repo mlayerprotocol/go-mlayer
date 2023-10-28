@@ -1,4 +1,4 @@
-module github.com/ByteGum/go-icms
+module github.com/mlayerprotocol/go-mlayer
 
 go 1.19
 

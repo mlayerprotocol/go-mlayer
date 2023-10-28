@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	// db "github.com/ByteGum/go-icms/pkg/core/db"
-	// p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
-	// originatorRoutes "github.com/ByteGum/go-icms/pkg/core/rest/originator"
+	// db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	// p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
+	// originatorRoutes "github.com/mlayerprotocol/go-mlayer/pkg/core/rest/originator"
 	// // ds "github.com/ipfs/go-ds-badger"
 	// "github.com/gin-gonic/gin"
 	"io/ioutil"
@@ -24,7 +24,6 @@ func main() {
 	defer db.Close()
 	//if 1 == 2 {
 	// d := ds.Datastore{DB: db}
-	
 
 	// go p2p.Run()
 	// r := gin.Default()
