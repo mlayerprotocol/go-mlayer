@@ -11,7 +11,7 @@
 ## Manual Build
 * [Download and install Go](https://go.dev/dl/). Go mLayer has been tested with Go 1.19.*
 * Clone the go-mlayer repository
-* Rename the .cofig.sample file in the root direct of the go-mlayer repo.
+* Rename the config.sample file in the root direct of the go-mlayer repo.
 * Replace the configuration parameters.
 
 # Running Go mLayer
