@@ -3,8 +3,8 @@ package p2p
 import (
 	"context"
 
-	"github.com/ByteGum/go-icms/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mlayerprotocol/go-mlayer/utils"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )

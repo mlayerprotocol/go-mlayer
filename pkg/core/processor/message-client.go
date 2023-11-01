@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
-	db "github.com/ByteGum/go-icms/pkg/core/db"
-	"github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-datastore/query"
+	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 var logger = utils.Logger
@@ -24,7 +24,7 @@ func ValidateMessageClient(
 		Prefix: "/" + clientHandshake.Signer,
 	})
 	if err != nil {
-		utils.Logger.Errorf("Channel Subscriber Store Query Error %w", err)
+		utils.Logger.Errorf("Channel Subscriber Store Query Error %o", err)
 		return
 	}
 	entries, _err := results.Rest()
@@ -35,7 +35,7 @@ func ValidateMessageClient(
 		}
 		(*connectedSubscribers)[_sub.ChannelId][_sub.Subscriber] = append((*connectedSubscribers)[_sub.ChannelId][_sub.Subscriber], clientHandshake.Socket)
 	}
-	utils.Logger.Infof("results:  %s  -  %w\n", entries[0].Value, _err)
+	utils.Logger.Infof("results:  %s  -  %o\n", entries[0].Value, _err)
 }
 
 func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
@@ -68,13 +68,13 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 			var err error
 			txn, err := stateStore.NewTransaction(ctx, false)
 			if err != nil {
-				utils.Logger.Errorf("State query errror %w", err)
+				utils.Logger.Errorf("State query errror %o", err)
 				// invalid proof or proof has been tampered with
 				return
 			}
 			blockData, err := txn.Get(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey))
 			if err != nil {
-				logger.Errorf("State query errror %w", err)
+				logger.Errorf("State query errror %o", err)
 				// invalid proof or proof has been tampered with
 				txn.Discard(ctx)
 				return
@@ -82,7 +82,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 			if len(blockData) > 0 && block.Size < MaxBlockSize {
 				block, err = utils.BlockFromBytes(blockData)
 				if err != nil {
-					logger.Errorf("Invalid batch %w", err)
+					logger.Errorf("Invalid batch %o", err)
 					// invalid proof or proof has been tampered with
 					txn.Discard(ctx)
 					return
@@ -101,7 +101,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 			block.Hash = hexutil.Encode(utils.Hash(proof.Signature + block.Hash))
 			err = txn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.ToJSON())
 			if err != nil {
-				logger.Errorf("Unable to update State store errror %w", err)
+				logger.Errorf("Unable to update State store errror %o", err)
 				txn.Discard(ctx)
 				return
 			}
@@ -110,18 +110,18 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 			err = deliveryProofStore.Put(ctx, db.Key(proof.Key()), proof.ToJSON())
 			if err != nil {
 				txn.Discard(ctx)
-				logger.Errorf("Unable to save proof to store error %w", err)
+				logger.Errorf("Unable to save proof to store error %o", err)
 				return
 			}
 			err = localBlockStore.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.ToJSON())
 			if err != nil {
-				logger.Errorf("Unable to save batch error %w", err)
+				logger.Errorf("Unable to save batch error %o", err)
 				txn.Discard(ctx)
 				return
 			}
 			err = txn.Commit(ctx)
 			if err != nil {
-				logger.Errorf("Unable to commit state update transaction errror %w", err)
+				logger.Errorf("Unable to commit state update transaction errror %o", err)
 				txn.Discard(ctx)
 				return
 			}

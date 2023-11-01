@@ -11,11 +11,11 @@ import (
 	"time"
 
 	// "github.com/gin-gonic/gin"
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 
-	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/libp2p/go-libp2p"
+	utils "github.com/mlayerprotocol/go-mlayer/utils"
 
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/multiformats/go-multiaddr"
@@ -227,7 +227,7 @@ func Run(mainCtx *context.Context) {
 
 			idht = kdht
 			if err = kdht.Bootstrap(ctx); err != nil {
-				logger.Fatalf("Error starting bootstrap node %w", err)
+				logger.Fatalf("Error starting bootstrap node %o", err)
 				return nil, err
 			}
 
@@ -258,7 +258,7 @@ func Run(mainCtx *context.Context) {
 			// putErr := kdht.PutValue(ctx, key, []byte("femi"), routingOptions.ToOption())
 
 			// if putErr != nil {
-			// 	logger.Infof("Put the error %w", putErr)
+			// 	logger.Infof("Put the error %o", putErr)
 			// }
 			return idht, err
 		}),
@@ -323,7 +323,7 @@ func Run(mainCtx *context.Context) {
 	// }
 	time.AfterFunc(5*time.Second, func() {
 		logger.Info("Sending subscription to channel")
-		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{ChannelId: "channel", Subscriber: "sds"}).ToJSON(), cfg.EvmPrivateKey))
+		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{ChannelId: "channel", Subscriber: "sds"}).ToJSON(), cfg.NetworkPrivateKey))
 	})
 
 	go func() {
@@ -378,7 +378,7 @@ func Run(mainCtx *context.Context) {
 					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
 					return
 				}
-				err := messagePubSub.Publish(utils.NewSignedPubSubMessage(outMessage.ToJSON(), cfg.EvmPrivateKey))
+				err := messagePubSub.Publish(utils.NewSignedPubSubMessage(outMessage.ToJSON(), cfg.NetworkPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
 					return
@@ -392,7 +392,7 @@ func Run(mainCtx *context.Context) {
 				}
 				logger.Info("subscription channel:::", subscription.ChannelId)
 
-				err := subscriptionPubSub.Publish(utils.NewSignedPubSubMessage(subscription.ToJSON(), cfg.EvmPrivateKey))
+				err := subscriptionPubSub.Publish(utils.NewSignedPubSubMessage(subscription.ToJSON(), cfg.NetworkPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish subscription.")
 					return
@@ -405,7 +405,7 @@ func Run(mainCtx *context.Context) {
 					return
 				}
 				logger.Info("subscription channel:::", block.BlockId)
-				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(block.ToJSON(), cfg.EvmPrivateKey))
+				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(block.ToJSON(), cfg.NetworkPrivateKey))
 				if err != nil {
 					logger.Errorf("Failed to publish subscription.")
 					return
@@ -430,7 +430,7 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 	for {
 		hsString, err := rw.ReadString('\n')
 		if err != nil {
-			logger.Errorf("Error reading from buffer %w", err)
+			logger.Errorf("Error reading from buffer %o", err)
 			panic(err)
 		}
 		if hsString == "" {
@@ -441,7 +441,7 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 		handshake, err := utils.HandshakeFromJSON(hsString)
 
 		if err != nil {
-			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %w", err)
+			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %o", err)
 			break
 		}
 		validHandshake := isValidHandshake(handshake, p)
@@ -520,7 +520,7 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	err := n.h.Connect(context.Background(), pi)
 
 	if err != nil {
-		logger.Warningf("Unable to connect with peer: %s %w", pi.ID, err)
+		logger.Warningf("Unable to connect with peer: %s %o", pi.ID, err)
 		return
 	}
 	handleConnect(&n.h, &pi)
@@ -534,7 +534,7 @@ func handleConnect(h *host.Host, pa *peer.AddrInfo) {
 	stream, err := (*h).NewStream(ctx, pi.ID, protocol.ID(protocolId))
 
 	if err != nil {
-		logger.Warningf("Unable to establish stream with peer: %s %w", pi.ID, err.Error())
+		logger.Warningf("Unable to establish stream with peer: %s %o", pi.ID, err.Error())
 	} else {
 		logger.Infof("Streaming to peer: %s", pi.ID)
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
@@ -544,7 +544,7 @@ func handleConnect(h *host.Host, pa *peer.AddrInfo) {
 		if config.Validator {
 			nodeType = utils.ValidatorNodeType
 		}
-		hs := utils.CreateHandshake(defaultNick((*h).ID()), protocolId, config.EvmPrivateKey, nodeType)
+		hs := utils.CreateHandshake(defaultNick((*h).ID()), protocolId, config.NetworkPrivateKey, nodeType)
 		go sendData(pi.ID, rw, (&hs).ToJSON())
 	}
 }

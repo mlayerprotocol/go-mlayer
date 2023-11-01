@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	services "github.com/ByteGum/go-icms/pkg/service"
-	utils "github.com/ByteGum/go-icms/utils"
 	shell "github.com/ipfs/go-ipfs-api"
+	services "github.com/mlayerprotocol/go-mlayer/pkg/service"
+	utils "github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 type Flag string
@@ -101,7 +101,7 @@ func (p *RpcService) SendMessage(param []byte, reply *RpcResponse) error {
 
 		cid, err := sh.Add(reader)
 		if err != nil {
-			utils.Logger.Errorf("ipfs error:: %w", err)
+			utils.Logger.Errorf("ipfs error:: %o", err)
 		}
 		chatMsg.Body.CID = cid
 		utils.Logger.Infof("IPFS messageCID::: %s", cid)

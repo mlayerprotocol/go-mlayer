@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	utils "github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 type Flag string
@@ -39,7 +39,7 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 }
 
 func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string) (*utils.ClientMessage, error) {
-	if strings.ToLower(chatMsg.Origin) != strings.ToLower(utils.GetPublicKey(p.Cfg.EvmPrivateKey)) {
+	if strings.ToLower(chatMsg.Origin) != strings.ToLower(utils.GetPublicKey(p.Cfg.NetworkPrivateKey)) {
 		return nil, errors.New("Invalid Origin node address: " + chatMsg.Origin + " is not")
 	}
 	if utils.IsValidMessage(chatMsg, senderSignature) {
@@ -47,7 +47,7 @@ func (p *MessageService) Send(chatMsg utils.ChatMessage, senderSignature string)
 
 		if utils.Contains(chatMsg.Header.Channels, "*") || utils.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
 
-			privateKey := p.Cfg.EvmPrivateKey
+			privateKey := p.Cfg.NetworkPrivateKey
 
 			// TODO:
 			// if its an array check the channels .. if its * allow

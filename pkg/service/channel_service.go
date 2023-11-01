@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/ByteGum/go-icms/pkg/core/db"
-	utils "github.com/ByteGum/go-icms/utils"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	utils "github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 type ChannelService struct {

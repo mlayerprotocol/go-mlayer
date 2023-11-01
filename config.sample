@@ -1,0 +1,39 @@
+
+# All configuration vars can be loading as environment variables.
+# Example variable: ML_NODE_PRIVATE_KEY, ML_IPFS_URL, ML_IPFS_USERNAME
+node_private_key=""
+
+# log_level options: "panic", "fatal", "error", "warn", "warning", "info", "debug", "trace"
+# Default value: "info"
+log_level = "info"
+
+
+data_dir="./data"
+validator=true
+stake_contract="0xffa1cD6b443b5c3bC2e1B602B1f67B9480Ea10cF"
+evm_rpc_http="https://data-seed-prebsc-1-s1.binance.org:8545"
+evm_rpc_wss="wss://snowy-serene-liquid.bsc-testnet.quiknode.pro/d05b063355318ad79fc93249b3725f186951e78b/"
+token_address="0x1a35503467a5D35B7c00D0927B38AC50E99BEF57"
+chain_id=97
+listeners= [
+    "/ip4/127.0.0.1/tcp/5000/ws",
+	"/ip4/127.0.0.1/tcp/5001"
+    ]
+bootstrap_peers
+
+2.63.5/tcp/4001/p2p/Qmcnp7TikHX5dR3iN3AGsGx8yXUnXZk84eJkqzaT2DcQaA",
+]
+bootstrap_node = false
+
+[ipfs]
+ipfs_url="https://ipfs.infura.io:5001"
+ipfs_username=""
+ipfs_password=""
+
+[bsc]
+bsc_registry="0xB6ad15Ab08B6E5B37Ef7f80E025345EdB4875354"
+bsc_chain_id=97
+bsc_rpc_url="https://data-seed-prebsc-1-s1.binance.org:8545"
+
+
+

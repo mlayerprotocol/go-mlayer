@@ -3,8 +3,8 @@ package processor
 import (
 	"context"
 
-	db "github.com/ByteGum/go-icms/pkg/core/db"
-	"github.com/ByteGum/go-icms/utils"
+	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 func ProcessSentMessage(ctx context.Context, unsentMessageP2pStore *db.Datastore, outMessage *utils.ClientMessage) {

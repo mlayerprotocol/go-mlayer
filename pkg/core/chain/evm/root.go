@@ -8,9 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	registry "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/registry"
-	stake "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
-	token "github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/token"
+	registry "github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/registry"
+	stake "github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
+	token "github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/token"
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"

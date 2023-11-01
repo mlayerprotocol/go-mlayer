@@ -20,7 +20,7 @@ type EthChainConfig struct {
 
 type Configuration struct {
 	NodePrivateKey           string         `mapstructure:"node_private_key"`
-	EvmPrivateKey            string         `mapstructure:"evm_private_key"`
+	NetworkPrivateKey        string         `mapstructure:"network_private_key"`
 	StakeContract            string         `mapstructure:"stake_contract"`
 	ChainId                  uint           `mapstructure:"chain_id"`
 	Token                    string         `mapstructure:"token_address"`
@@ -50,7 +50,7 @@ var (
 func Init() *viper.Viper {
 	v := viper.New()
 	v.AutomaticEnv()
-	v.SetEnvPrefix("icm")
+	v.SetEnvPrefix("ml")
 	v.SetConfigName("config")     // name of config file (without extension)
 	v.SetConfigType("toml")       // REQUIRED if the config file does not have the extension in the name
 	v.AddConfigPath("/etc/icm/")  // path to look for the config file in
@@ -59,7 +59,7 @@ func Init() *viper.Viper {
 
 	err := v.ReadInConfig() // Find and read the config file
 	if err != nil {         // Handle errors reading the config file
-		panic(fmt.Errorf("Config file: %w \n", err))
+		panic(fmt.Errorf("Config file: %o \n", err))
 	}
 	v.SetDefault("log_level", "info")
 	v.SetDefault("channel_message_buffer_size", 128)
@@ -76,9 +76,9 @@ func LoadConfig() *Configuration {
 	if err := v.Unmarshal(&c); err != nil {
 		fmt.Printf("Fatal: Couldn't read config: %s \n", err.Error())
 	}
-	c.EvmPrivateKey = v.GetString("private_key") // needed to load from environment var
-	if len(c.EvmPrivateKey) == 0 {
-		c.EvmPrivateKey = v.GetString("evm_private_key") // needed to load from environment var
+	c.NetworkPrivateKey = v.GetString("network_private_key") // needed to load from environment var
+	if len(c.NetworkPrivateKey) == 0 {
+		c.NetworkPrivateKey = v.GetString("network_private_key") // needed to load from environment var
 	}
 
 	if len(c.NodePrivateKey) == 0 {

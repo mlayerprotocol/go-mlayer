@@ -1,6 +1,5 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
@@ -12,11 +11,14 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "go-icm",
-	Short: "Decentralized messaging platform",
-	Long: `This is a decentralized messaging platform:
-
-Use this at your own risk.`,
+	Use:   "goml",
+	Short: "goml is a Go implementation of the mLayer decentralized messaging protocol",
+	Long: `mLayer (message layer) is an open, decentralized communication network that enables the creation, 
+	transmission and termination of data of all sizes, leveraging modern protocols. mLayer is a comprehensive 
+	suite of communication protocols designed to evolve with the ever-advancing realm of cryptography. 
+	Given its protocol-centric nature, it is an adaptable and universally integrable tool conceived for the 
+	decentralized era. Visit the mLayer [documentation](https://mlayer.gitbook.io/introduction/what-is-mlayer) to learn more
+	.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

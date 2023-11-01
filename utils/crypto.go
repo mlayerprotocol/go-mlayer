@@ -14,15 +14,15 @@ var logger = Logger
 func GetPublicKey(privKey string) string {
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
-		logger.Fatalf("Invalid private key %s %w", privKey, err)
+		logger.Fatalf("Invalid private key %s %o", privKey, err)
 	}
 	return crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
 }
 
-func EvmPrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
+func NetworkPrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
-		logger.Fatalf("Invalid private key %s %w", privKey, err)
+		logger.Fatalf("Invalid private key %s %o", privKey, err)
 		return nil, err
 	}
 	return privateKey, nil
@@ -50,7 +50,7 @@ func Sign(message string, privKey string) ([]byte, string) {
 
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
-		logger.Fatalf("Invalid private key %s %w", privKey, err)
+		logger.Fatalf("Invalid private key %s %o", privKey, err)
 	}
 
 	hash := hashMessage(message)

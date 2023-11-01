@@ -1,6 +1,5 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
@@ -17,19 +16,19 @@ import (
 
 	// "net/rpc/jsonrpc"
 
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm"
-	"github.com/ByteGum/go-icms/pkg/core/chain/evm/abis/stake"
-	"github.com/ByteGum/go-icms/pkg/core/db"
-	p2p "github.com/ByteGum/go-icms/pkg/core/p2p"
-	processor "github.com/ByteGum/go-icms/pkg/core/processor"
-	rpcServer "github.com/ByteGum/go-icms/pkg/core/rpc"
-	ws "github.com/ByteGum/go-icms/pkg/core/ws"
-	utils "github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
+	processor "github.com/mlayerprotocol/go-mlayer/pkg/core/processor"
+	rpcServer "github.com/mlayerprotocol/go-mlayer/pkg/core/rpc"
+	ws "github.com/mlayerprotocol/go-mlayer/pkg/core/ws"
+	utils "github.com/mlayerprotocol/go-mlayer/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -43,12 +42,11 @@ const (
 type Flag string
 
 const (
-	PRIVATE_KEY      Flag = "private-key"
-	EVM_PRIVATE_KEY  Flag = "evm-private-key"
-	NODE_PRIVATE_KEY Flag = "node-private-key"
-	NETWORK               = "network"
-	RPC_PORT         Flag = "rpc-port"
-	WS_ADDRESS       Flag = "ws-address"
+	NETWORK_PRIVATE_KEY Flag = "network-private-key"
+	NODE_PRIVATE_KEY    Flag = "node-private-key"
+	NETWORK                  = "network"
+	RPC_PORT            Flag = "rpc-port"
+	WS_ADDRESS          Flag = "ws-address"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -57,13 +55,17 @@ var deliveryProofBlockMutex sync.RWMutex
 // daemonCmd represents the daemon command
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Runs goml as a daemon",
+	Long: `Use this command to run goml as a daemon:
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	mLayer (message layer) is an open, decentralized 
+	communication network that enables the creation, 
+	transmission and termination of data of all sizes, 
+	leveraging modern protocols. mLayer is a comprehensive 
+	suite of communication protocols designed to evolve with 
+	the ever-advancing realm of cryptography. 
+	Visit the mLayer [documentation](https://mlayer.gitbook.io/introduction/what-is-mlayer) to learn more
+	.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		daemonFunc(cmd, args)
 	},
@@ -71,9 +73,7 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(daemonCmd)
-
-	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "r", "", "(Deprecated) The evm private key. Please use --evm-private-key")
-	daemonCmd.Flags().StringP(string(EVM_PRIVATE_KEY), "e", "", "The evm private key. This is the key used to sign handshakes and messages")
+	daemonCmd.Flags().StringP(string(NETWORK_PRIVATE_KEY), "e", "", "The network private key. This is the key used to sign handshakes and messages")
 	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
 	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
 	daemonCmd.Flags().StringP(string(RPC_PORT), "p", utils.DefaultRPCPort, "RPC server port")
@@ -94,20 +94,15 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	incomingEventsC := make(chan types.Log)
 
-	privateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
-	evmPrivateKey, err := cmd.Flags().GetString(string(EVM_PRIVATE_KEY))
+	networkPrivateKey, err := cmd.Flags().GetString(string(NETWORK_PRIVATE_KEY))
 	rpcPort, err := cmd.Flags().GetString(string(RPC_PORT))
 	wsAddress, err := cmd.Flags().GetString(string(WS_ADDRESS))
 
-	if err != nil || len(privateKey) == 0 {
-		if len(evmPrivateKey) == 0 {
-			panic("Private key is required. Use --private-key flag or environment var ICM_EVM_PRIVATE_KEY")
-		} else {
-			privateKey = evmPrivateKey
-		}
+	if err != nil || len(networkPrivateKey) == 0 {
+		panic("network_private_key is required. Use --network-private-key flag or environment var ML_NETWORK_PRIVATE_KEY")
 	}
-	if len(privateKey) > 0 {
-		cfg.EvmPrivateKey = privateKey
+	if len(networkPrivateKey) > 0 {
+		cfg.NetworkPrivateKey = networkPrivateKey
 	}
 	network, err := cmd.Flags().GetString(string(NETWORK))
 	if err != nil || len(network) == 0 {

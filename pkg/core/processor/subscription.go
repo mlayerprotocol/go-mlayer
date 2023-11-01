@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	db "github.com/ByteGum/go-icms/pkg/core/db"
-	"github.com/ByteGum/go-icms/utils"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ipfs/go-datastore/query"
+	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 func ProcessNewSubscription(
@@ -29,7 +29,7 @@ func ProcessNewSubscription(
 		var block *utils.Block
 		blockStateTxn, err := subscriptionBlockStateStore.NewTransaction(ctx, false)
 		if err != nil {
-			utils.Logger.Errorf("Subscription Block state store error %w", err)
+			utils.Logger.Errorf("Subscription Block state store error %o", err)
 			// invalid proof or proof has been tampered with
 			panic(err)
 		}
@@ -41,7 +41,7 @@ func ProcessNewSubscription(
 
 			if string(err.Error()) == "datastore: key not found" {
 				block = utils.NewBlock()
-				logger.Infof("Erro: %s", block.ToJSON())
+				logger.Infof("Error: %s", block.ToJSON())
 				blockStateTxn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.ToJSON())
 				err = blockStateTxn.Commit(ctx)
 				if err != nil {
@@ -53,7 +53,7 @@ func ProcessNewSubscription(
 		if len(blockData) > 0 {
 			block, err = utils.BlockFromBytes(blockData)
 			if err != nil {
-				logger.Errorf("Invalid block data %w", err)
+				logger.Errorf("Invalid block data %o", err)
 				// invalid proof or proof has been tampered with
 				blockStateTxn.Discard(ctx)
 				continue
@@ -64,7 +64,7 @@ func ProcessNewSubscription(
 			Prefix: "/",
 		})
 		if err != nil {
-			utils.Logger.Errorf("New Channel Subscriber Store Query Error %w", err)
+			utils.Logger.Errorf("New Channel Subscriber Store Query Error %o", err)
 			return
 		}
 		for {
@@ -94,7 +94,7 @@ func ProcessNewSubscription(
 			if hasSub {
 				subCountInBlock, err := blockStateTxn.Get(ctx, subCountKey)
 				if err != nil {
-					logger.Info("Could not get sub form block store %s/%s: %w", block.BlockId, sub.Signature, err)
+					logger.Info("Could not get sub form block store %s/%s: %o", block.BlockId, sub.Signature, err)
 				}
 				subCount, convErr := strconv.Atoi(string(subCountInBlock))
 				if convErr != nil {
@@ -108,7 +108,7 @@ func ProcessNewSubscription(
 			// tag the subscription with the blockid???
 			subTotalCountData, err := channelSubscriptionCountStore.Get(ctx, db.Key("/"+sub.Signature))
 			if err != nil {
-				logger.Info("Could not get sub total count sub store %s: %w", sub.Signature, err)
+				logger.Info("Could not get sub total count sub store %s: %o", sub.Signature, err)
 			}
 			subTotalCount, convErr := strconv.Atoi(string(subTotalCountData))
 			if convErr != nil {
@@ -120,13 +120,13 @@ func ProcessNewSubscription(
 			block.Hash = hexutil.Encode(utils.Hash(sub.Signature + channelSubCount + block.Hash))
 			err = blockStateTxn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.ToJSON())
 			if err != nil {
-				logger.Errorf("Unable to update State store errror %w", err)
+				logger.Errorf("Unable to update State store errror %o", err)
 				blockStateTxn.Discard(ctx)
 				return
 			}
 			err = blockStateTxn.Commit(ctx)
 			if err != nil {
-				logger.Errorf("Unable to commit state update transaction errror %w", err)
+				logger.Errorf("Unable to commit state update transaction errror %o", err)
 				blockStateTxn.Discard(ctx)
 				return
 			}
@@ -149,7 +149,7 @@ func ProcessNewSubscription(
 // 	trx, err := channelsubscribersRPC_D_countStore.NewTransaction(ctx, false)
 // 	utils.Logger.Info("TRANSACTION INITIATED ******")
 // 	if err != nil {
-// 		utils.Logger.Infof("Transaction err::: %w", err)
+// 		utils.Logger.Infof("Transaction err::: %o", err)
 // 	}
 // 	cscstore, err := trx.Get(ctx, db.Key(sub.Key()))
 // 	increment := -1
