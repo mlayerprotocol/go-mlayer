@@ -32,7 +32,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var logger = utils.Logger
+var logger = &utils.Logger
 
 const (
 	TESTNET string = "/icm/testing"
@@ -168,7 +168,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				// VALIDATE AND DISTRIBUTE
 				go func() {
-					logger.Info("Received new message %s\n", inMessage.Message.Body.MessageHash)
+					logger.Infof("Received new message %s\n", inMessage.Message.Body.MessageHash)
 					validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
 					_reciever := inMessage.Message.Header.Receiver
 					_recievers := strings.Split(_reciever, ":")
