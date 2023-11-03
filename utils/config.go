@@ -51,11 +51,11 @@ func Init() *viper.Viper {
 	v := viper.New()
 	v.AutomaticEnv()
 	v.SetEnvPrefix("ml")
-	v.SetConfigName("config")     // name of config file (without extension)
-	v.SetConfigType("toml")       // REQUIRED if the config file does not have the extension in the name
-	v.AddConfigPath("/etc/icm/")  // path to look for the config file in
-	v.AddConfigPath("$HOME/.icm") // call multiple times to add many search paths
-	v.AddConfigPath(".")          // optionally look for config in the working directory
+	v.SetConfigName("config")        // name of config file (without extension)
+	v.SetConfigType("toml")          // REQUIRED if the config file does not have the extension in the name
+	v.AddConfigPath("/etc/mlayer/")  // path to look for the config file in
+	v.AddConfigPath("$HOME/.mlayer") // call multiple times to add many search paths
+	v.AddConfigPath(".")             // optionally look for config in the working directory
 
 	err := v.ReadInConfig() // Find and read the config file
 	if err != nil {         // Handle errors reading the config file
@@ -80,9 +80,13 @@ func LoadConfig() *Configuration {
 	if len(c.NetworkPrivateKey) == 0 {
 		c.NetworkPrivateKey = v.GetString("network_private_key") // needed to load from environment var
 	}
-
 	if len(c.NodePrivateKey) == 0 {
 		c.NodePrivateKey = v.GetString("node_private_key") // needed to load from environment var
+	}
+
+	c.DataDir = v.GetString("data_dir") // needed to load from environment var
+	if len(c.DataDir) == 0 {
+		c.DataDir = v.GetString("data_dir") // needed to load from environment var
 	}
 	return &c
 }

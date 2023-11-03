@@ -29,20 +29,20 @@ func ProcessNewSubscription(
 		var block *utils.Block
 		blockStateTxn, err := subscriptionBlockStateStore.NewTransaction(ctx, false)
 		if err != nil {
-			utils.Logger.Errorf("Subscription Block state store error %o", err)
+			utils.Logger.Errorf("Subscription Block state store connection error %o", err)
 			// invalid proof or proof has been tampered with
 			panic(err)
 		}
 
 		blockData, err := blockStateTxn.Get(ctx, db.Key(utils.CurrentSubscriptionBlockStateKey))
 		if err != nil {
-			logger.Infof("Block state store error - key: %s, %v", utils.CurrentSubscriptionBlockStateKey, err)
+			logger.Debugf("Block state store error - key: %s, %v", utils.CurrentSubscriptionBlockStateKey, err)
 			// invalid proof or proof has been tampered with
 
 			if string(err.Error()) == "datastore: key not found" {
 				block = utils.NewBlock()
-				logger.Infof("Error: %s", block.ToJSON())
-				blockStateTxn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.ToJSON())
+				// logger.Debugf("Error: %s", block.ToJSON())
+				blockStateTxn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.Pack())
 				err = blockStateTxn.Commit(ctx)
 				if err != nil {
 					panic(err)
@@ -51,7 +51,7 @@ func ProcessNewSubscription(
 			continue
 		}
 		if len(blockData) > 0 {
-			block, err = utils.BlockFromBytes(blockData)
+			block, err = utils.UnpackBlock(blockData)
 			if err != nil {
 				logger.Errorf("Invalid block data %o", err)
 				// invalid proof or proof has been tampered with
@@ -72,11 +72,11 @@ func ProcessNewSubscription(
 			if !ok {
 
 			}
-			sub, _err := utils.SubscriptionFromBytes(result.Value)
+			sub, _err := utils.UnpackSubscription(result.Value)
 			if _err != nil {
 				// delete the subscription
 				newChannelSubscriptionStore.Delete(ctx, db.Key(result.Key))
-				logger.Info("Invalid subscription %s", result.Value)
+				logger.Infof("Invalid subscription %s", result.Value)
 			}
 
 			block.Size += 1
@@ -108,17 +108,17 @@ func ProcessNewSubscription(
 			// tag the subscription with the blockid???
 			subTotalCountData, err := channelSubscriptionCountStore.Get(ctx, db.Key("/"+sub.Signature))
 			if err != nil {
-				logger.Info("Could not get sub total count sub store %s: %o", sub.Signature, err)
+				logger.Infof("Could not get sub total count sub store %s: %o", sub.Signature, err)
 			}
 			subTotalCount, convErr := strconv.Atoi(string(subTotalCountData))
 			if convErr != nil {
 				channelSubscriptionCountStore.Delete(ctx, db.Key("/"+sub.Signature))
-				logger.Error("Invalid sub count for %s", sub.Signature)
+				logger.Errorf("Invalid sub count for %s", sub.Signature)
 			}
 			channelSubCount := strconv.Itoa(subTotalCount + subCount)
 			// save the proof and the batch
 			block.Hash = hexutil.Encode(utils.Hash(sub.Signature + channelSubCount + block.Hash))
-			err = blockStateTxn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.ToJSON())
+			err = blockStateTxn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.Pack())
 			if err != nil {
 				logger.Errorf("Unable to update State store errror %o", err)
 				blockStateTxn.Discard(ctx)
@@ -155,7 +155,7 @@ func ProcessNewSubscription(
 // 	increment := -1
 // 	if sub.Action == utils.Join {
 // 		increment = 1
-// 		channelSubscriberStore.Set(ctx, db.Key(sub.Key()), sub.ToJSON(), false)
+// 		channelSubscriberStore.Set(ctx, db.Key(sub.Key()), sub.Pack(), false)
 
 // 	} else {
 // 		channelSubscriberStore.Delete(ctx, db.Key(sub.Key()))

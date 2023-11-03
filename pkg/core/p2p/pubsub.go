@@ -59,7 +59,7 @@ func (cr *Channel) Publish(m utils.PubSubMessage) error {
 	// 	return err
 	// }
 	// logger.Info("Publishing to channel", string(m.ToJSON()))
-	return cr.Topic.Publish(cr.Ctx, m.ToJSON())
+	return cr.Topic.Publish(cr.Ctx, m.Pack())
 }
 
 func (cr *Channel) ListPeers() []peer.ID {
@@ -78,7 +78,7 @@ func (cr *Channel) readLoop() {
 		if msg.ReceivedFrom == cr.ID {
 			continue
 		}
-		pmsg, err := utils.PubSubMessageFromBytes(msg.Data)
+		pmsg, err := utils.UnpackPubSubMessage(msg.Data)
 		if err != nil {
 			logger.Error("Invalid pubsub message received")
 			continue

@@ -32,7 +32,7 @@ func (p *ChannelService) NewChannelSubscription(sub *utils.Subscription) error {
 		if !ok {
 			return errors.New("Could not connect to subscription datastore")
 		}
-		error := channelSubscriberStore.Set(p.Ctx, db.Key(sub.Key()), sub.ToJSON(), false)
+		error := channelSubscriberStore.Set(p.Ctx, db.Key(sub.Key()), sub.Pack(), false)
 		if error != nil {
 			return error
 		}
