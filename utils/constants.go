@@ -7,10 +7,10 @@ const (
 )
 
 const (
-	DefaultRPCPort          string = "9521"           // time interval within which to accept a handshake
-	DefaultWebSocketAddress string = "localhost:8088" // time interval within which to accept a handshake
+	DefaultRPCPort          string = "9521"
+	DefaultWebSocketAddress string = "localhost:8088"
+	DefaultDataDir          string = "./data/store"
 )
-
 const (
 	RelayNodeType     uint = 0
 	ValidatorNodeType      = 1

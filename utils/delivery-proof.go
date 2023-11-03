@@ -7,21 +7,27 @@ import (
 
 	// "math"
 	"strings"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // DeliveryProof
 type DeliveryProof struct {
-	MessageHash   string `json:"mHash"`
-	MessageSender string `json:"sender"`
-	NodeAddress   string `json:"addr"`
+	MessageHash   string `json:"mH"`
+	MessageSender string `json:"mS"`
+	NodeAddress   string `json:"a"`
 	Timestamp     int    `json:"ts"`
-	Signature     string `json:"sign"`
-	Block         string `json:"block"`
-	Index         int    `json:"id"`
+	Signature     string `json:"s"`
+	Block         string `json:"b"`
+	Index         int    `json:"i"`
 }
 
 func (msg *DeliveryProof) ToJSON() []byte {
 	m, _ := json.Marshal(msg)
+	return m
+}
+func (msg *DeliveryProof) Pack() []byte {
+	m, _ := msgpack.Marshal(msg)
 	return m
 }
 
@@ -55,10 +61,10 @@ func DeliveryProofFromBytes(b []byte) (DeliveryProof, error) {
 
 // DeliveryClaim
 type DeliveryClaim struct {
-	NodeHeight int      `json:"nodeHeight"`
-	Signature  string   `json:"signature"`
-	Amount     string   `json:"amount"`
-	Proofs     []string `json:"proofs"`
+	NodeHeight int      `json:"nh"`
+	Signature  string   `json:"sig"`
+	Amount     string   `json:"a"`
+	Proofs     []string `json:"p"`
 }
 
 func (msg *DeliveryClaim) ToJSON() []byte {

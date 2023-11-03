@@ -11,7 +11,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/utils"
 )
 
-var logger = utils.Logger
+var logger = &utils.Logger
 
 func ValidateMessageClient(
 	ctx context.Context,
@@ -47,7 +47,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 	MaxBlockSize int,
 	mutex *sync.RWMutex,
 ) {
-	err := deliveryProofStore.Set(ctx, db.Key(proof.Key()), proof.ToJSON(), true)
+	err := deliveryProofStore.Set(ctx, db.Key(proof.Key()), proof.Pack(), true)
 	if err == nil {
 		// msg, err := validMessagesStore.Get(ctx, db.Key(fmt.Sprintf("/%s/%s", proof.MessageSender, proof.MessageHash)))
 		// if err != nil {
@@ -80,7 +80,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 				return
 			}
 			if len(blockData) > 0 && block.Size < MaxBlockSize {
-				block, err = utils.BlockFromBytes(blockData)
+				block, err = utils.UnpackBlock(blockData)
 				if err != nil {
 					logger.Errorf("Invalid batch %o", err)
 					// invalid proof or proof has been tampered with
@@ -99,21 +99,21 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 			}
 			// save the proof and the batch
 			block.Hash = hexutil.Encode(utils.Hash(proof.Signature + block.Hash))
-			err = txn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.ToJSON())
+			err = txn.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.Pack())
 			if err != nil {
-				logger.Errorf("Unable to update State store errror %o", err)
+				logger.Errorf("Unable to update State store error %o", err)
 				txn.Discard(ctx)
 				return
 			}
 			proof.Block = block.BlockId
 			proof.Index = block.Size
-			err = deliveryProofStore.Put(ctx, db.Key(proof.Key()), proof.ToJSON())
+			err = deliveryProofStore.Put(ctx, db.Key(proof.Key()), proof.Pack())
 			if err != nil {
 				txn.Discard(ctx)
 				logger.Errorf("Unable to save proof to store error %o", err)
 				return
 			}
-			err = localBlockStore.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.ToJSON())
+			err = localBlockStore.Put(ctx, db.Key(utils.CurrentDeliveryProofBlockStateKey), block.Pack())
 			if err != nil {
 				logger.Errorf("Unable to save batch error %o", err)
 				txn.Discard(ctx)

@@ -10,21 +10,27 @@ import (
 	"strings"
 
 	gonanoid "github.com/matoous/go-nanoid/v2"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Block
 type Block struct {
 	BlockId    string `json:"id"`
 	Size       int    `json:"s"`
-	Closed     bool   `json:"cls"`
-	NodeHeight int    `json:"height"`
-	Hash       string `json:"hash"`
+	Closed     bool   `json:"c"`
+	NodeHeight int    `json:"nh"`
+	Hash       string `json:"h"`
 	Timestamp  int    `json:"ts"`
 	sync.Mutex
 }
 
 func (msg *Block) ToJSON() []byte {
 	m, _ := json.Marshal(msg)
+	return m
+}
+
+func (msg *Block) Pack() []byte {
+	m, _ := msgpack.Marshal(msg)
 	return m
 }
 
@@ -60,5 +66,11 @@ func NewBlock() *Block {
 func BlockFromBytes(b []byte) (*Block, error) {
 	var message Block
 	err := json.Unmarshal(b, &message)
+	return &message, err
+}
+
+func UnpackBlock(b []byte) (*Block, error) {
+	var message Block
+	err := msgpack.Unmarshal(b, &message)
 	return &message, err
 }

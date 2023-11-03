@@ -9,10 +9,10 @@ import (
 )
 
 type ClientHandshake struct {
-	Signature string          `json:"signature"`
-	Signer    string          `json:"signer"`
-	Message   string          `json:"message"`
-	Socket    *websocket.Conn `json:"socket"`
+	Signature string          `json:"s"`
+	Signer    string          `json:"si"`
+	Message   string          `json:"m"`
+	Socket    *websocket.Conn `json:"s"`
 }
 
 func (sub *ClientHandshake) ToJSON() []byte {

@@ -47,6 +47,7 @@ const (
 	NETWORK                  = "network"
 	RPC_PORT            Flag = "rpc-port"
 	WS_ADDRESS          Flag = "ws-address"
+	DATA_DIR            Flag = "data-dir"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -78,6 +79,8 @@ func init() {
 	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
 	daemonCmd.Flags().StringP(string(RPC_PORT), "p", utils.DefaultRPCPort, "RPC server port")
 	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", utils.DefaultWebSocketAddress, "http service address")
+	daemonCmd.Flags().StringP(string(DATA_DIR), "d", utils.DefaultDataDir, "data directory")
+
 }
 
 var upgrader = websocket.Upgrader{
@@ -103,6 +106,11 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}
 	if len(networkPrivateKey) > 0 {
 		cfg.NetworkPrivateKey = networkPrivateKey
+	}
+
+	dataDir, err := cmd.Flags().GetString(string(DATA_DIR))
+	if len(dataDir) > 0 {
+		cfg.DataDir = dataDir
 	}
 	network, err := cmd.Flags().GetString(string(NETWORK))
 	if err != nil || len(network) == 0 {
@@ -169,7 +177,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				// VALIDATE AND DISTRIBUTE
 				go func() {
 					logger.Infof("Received new message %s\n", inMessage.Message.Body.MessageHash)
-					validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.ToJSON(), false)
+					validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.Pack(), false)
 					_reciever := inMessage.Message.Header.Receiver
 					_recievers := strings.Split(_reciever, ":")
 					_currentChannel := connectedSubscribers[_recievers[1]]
@@ -177,7 +185,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					logger.Info("_currentChannel : ", _currentChannel, "/n")
 					for _, signerConn := range _currentChannel {
 						for i := 0; i < len(signerConn); i++ {
-							signerConn[i].WriteMessage(1, inMessage.ToJSON())
+							signerConn[i].WriteMessage(1, inMessage.Pack())
 						}
 					}
 				}()
@@ -252,7 +260,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					return
 				}
 				go func() {
-					unconfurmedBlockStore.Put(ctx, db.Key(batch.Key()), batch.ToJSON())
+					unconfurmedBlockStore.Put(ctx, db.Key(batch.Key()), batch.Pack())
 				}()
 			case proof, ok := <-utils.PubSubInputProofC:
 				if !ok {
@@ -261,7 +269,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					return
 				}
 				go func() {
-					unconfurmedBlockStore.Put(ctx, db.Key(proof.BlockKey()), proof.ToJSON())
+					unconfurmedBlockStore.Put(ctx, db.Key(proof.BlockKey()), proof.Pack())
 				}()
 
 			}
@@ -325,7 +333,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		rpc.HandleHTTP()
 		listener, err := net.Listen("tcp", cfg.RPCHost+":"+rpcPort)
 		if err != nil {
-			logger.Fatal("ListenTCP error: ", err)
+			logger.Fatal("RPC failed to listen on TCP port: ", err)
 		}
 		logger.Infof("RPC server runing on: %+s", cfg.RPCHost+":"+rpcPort)
 		go http.Serve(listener, nil)
@@ -416,7 +424,7 @@ var verifiedConn = []*websocket.Conn{}
 // 				log.Println("Error:", err)
 // 			} else {
 // 				// signature := string(message)
-// 				verifiedRequest, _ := utils.VerificationRequestFromBytes(message)
+// 				verifiedRequest, _ := utils.UnpackVerificationRequest(message)
 // 				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
 
 // 				if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
