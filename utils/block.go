@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -15,7 +16,7 @@ import (
 
 // Block
 type Block struct {
-	BlockId    string `json:"id"`
+	BlockId    string `json:"blId"`
 	Size       int    `json:"s"`
 	Closed     bool   `json:"c"`
 	NodeHeight int    `json:"nh"`
@@ -25,13 +26,16 @@ type Block struct {
 }
 
 func (msg *Block) ToJSON() []byte {
-	m, _ := json.Marshal(msg)
-	return m
+	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf)
+	enc.SetCustomStructTag("json")
+	enc.Encode(msg)
+	return buf.Bytes()
 }
 
 func (msg *Block) Pack() []byte {
-	m, _ := msgpack.Marshal(msg)
-	return m
+	b, _ := MsgPackStruct(msg)
+	return b
 }
 
 func (msg *Block) ToString() string {
@@ -71,6 +75,6 @@ func BlockFromBytes(b []byte) (*Block, error) {
 
 func UnpackBlock(b []byte) (*Block, error) {
 	var message Block
-	err := msgpack.Unmarshal(b, &message)
+	err := MsgPackUnpackStruct(b, &message)
 	return &message, err
 }

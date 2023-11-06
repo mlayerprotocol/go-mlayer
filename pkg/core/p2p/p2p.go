@@ -438,7 +438,7 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 		}
 
 		logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Info("New Handshake data from peer")
-		handshake, err := utils.HandshakeFromJSON(hsString)
+		handshake, err := utils.UnpackHandshake([]byte(hsString))
 
 		if err != nil {
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %o", err)
@@ -447,13 +447,13 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 		validHandshake := isValidHandshake(handshake, p)
 		if !validHandshake {
 			disconnect(*node, p)
-			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Disconnecting from peer (%s) with invalid handshake", p)
+			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Infof("Disconnecting from peer (%s) with invalid handshake", p)
 			return
 		}
 		validStake := isValidStake(handshake, p)
 		if !validStake {
 			disconnect(*node, p)
-			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsString}).Warnf("Disconnecting from peer (%s) with inadequate stake in network", p)
+			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsString}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
 			return
 		}
 		b, _ := hexutil.Decode(handshake.Signer)
@@ -488,8 +488,8 @@ func isValidStake(handshake utils.Handshake, p peer.ID) bool {
 		level, err := stakeContract.GetNodeLevel(nil, evm.ToHexAddress(handshake.Signer))
 		i := new(big.Int).SetUint64(uint64(utils.ValidatorNodeType))
 		fmt.Printf("level i ---  %s: %s -- %s\n", level, i, err)
-		if level.Cmp(i) >= 0 {
-			logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Warnf("Inadequate stake balance for validator peer %s ---- %s", p, err)
+		if level == nil || level.Cmp(i) >= 0 {
+			logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Infof("Inadequate stake balance for validator peer %s ---- %s", p, err)
 			return false
 		}
 	}

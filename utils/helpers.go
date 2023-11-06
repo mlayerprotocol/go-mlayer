@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/sirupsen/logrus"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func Contains(s []string, str string) bool {
@@ -16,8 +18,23 @@ func Contains(s []string, str string) bool {
 			return true
 		}
 	}
-
 	return false
+}
+
+func MsgPackStruct(msg interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf)
+	enc.SetCustomStructTag("json")
+	err := enc.Encode(msg)
+	return buf.Bytes(), err
+}
+
+func MsgPackUnpackStruct(b []byte, message interface{}) error {
+	buf := bytes.NewBuffer(b)
+	dec := msgpack.NewDecoder(buf)
+	dec.SetCustomStructTag("json")
+	err := dec.Decode(&message)
+	return err
 }
 
 func IsValidChannel(ch ChatMessageHeader, signature string, channelOwner string) bool {

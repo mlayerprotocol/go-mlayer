@@ -64,6 +64,68 @@ const (
 	Leave     SubAction = "leave"
 )
 
+/* KEY MAPS
+Always enter map in sorted order
+
+Abi             = abi
+Action          = a
+Actions         = as
+Amount          = amt
+Approval        = ap
+Body            = b
+Block           = bl
+BlockId         = blId
+Broadcast       = br
+Chain           = c
+ChainId         = cId
+ChannelExpiry   = chEx
+ChannelId       = chId
+ChannelName     = chN
+Channels        = chs
+CID             = cid
+Closed          = cl
+Contract        = co
+Data            = d
+Hash            = hash
+Header          = h
+Index           = i
+Length          = l
+Message         = m
+MessageHash     = mH
+MessageSender   = mS
+Name            = nm
+Node            = n
+NodeAddress     = nA
+NodeHeight      = nH
+NodeSignature   = nS
+NodeType        = nT
+Origin          = o
+Parameters      = pa
+Platform        = p
+Proofs          = prs
+ProtocolId      = proId
+Receiver        = r
+Sender          = s
+SenderAddress   = sA
+SenderSignature = sSig
+Signature       = sig
+Signer          = sigr
+Size            = si
+Socket          = sock
+Subject         = su
+SubjectHash     = subH
+Subscriber      = subs
+Timestamp       = ts
+Type            = t
+
+
+
+
+
+
+
+*/
+
 var HomeTemplate = template.Must(template.New("").Parse(`
 <!DOCTYPE html>
 <html>

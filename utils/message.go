@@ -25,6 +25,10 @@ const (
 var buf bytes.Buffer
 var msgPackEncoder = msgpack.NewEncoder(&buf)
 
+func init() {
+	msgPackEncoder.SetCustomStructTag("json")
+}
+
 /*
 *
 CHAT MESSAGE
@@ -33,14 +37,14 @@ CHAT MESSAGE
 type ChatMessageHeader struct {
 	Length        int    `json:"l"`
 	Sender        string `json:"s"`
-	Approval      string `json:"a"`
+	Approval      string `json:"ap"`
 	Receiver      string `json:"r"`
-	ChainId       string `json:"cI"`
+	ChainId       string `json:"cId"`
 	Platform      string `json:"p"`
 	Timestamp     uint   `json:"ts"`
-	ChannelExpiry int    `json:"cE"`
+	ChannelExpiry int    `json:"chEx"`
 	// Wildcard      bool   `json:"wildcard"`
-	Channels      []string `json:"c"`
+	Channels      []string `json:"chs"`
 	SenderAddress string   `json:"sA"`
 	// OwnerAddress  string `json:"oA"`
 }
@@ -50,7 +54,7 @@ type ChatMessageHeader struct {
 // ! look for all subscribers to the channel
 // ! channel subscribers store
 type ChatMessageBody struct {
-	SubjectHash string `json:"sH"`
+	SubjectHash string `json:"subH"`
 	MessageHash string `json:"mH"`
 	CID         string `json:"cid"`
 }
@@ -58,13 +62,13 @@ type ChatMessageAction struct {
 	Contract   string   `json:"c"`
 	Abi        string   `json:"abi"`
 	Action     string   `json:"a"`
-	Parameters []string `json:"p"`
+	Parameters []string `json:"pa"`
 }
 
 type ChatMessage struct {
 	Header  ChatMessageHeader   `json:"h"`
 	Body    ChatMessageBody     `json:"b"`
-	Actions []ChatMessageAction `json:"a"`
+	Actions []ChatMessageAction `json:"as"`
 	Origin  string              `json:"o"`
 }
 
@@ -118,7 +122,7 @@ NODE MESSAGE
 */
 type ClientMessage struct {
 	Message         ChatMessage `json:"m"`
-	SenderSignature string      `json:"sS"`
+	SenderSignature string      `json:"sSig"`
 	NodeSignature   string      `json:"nS"`
 }
 
@@ -149,9 +153,12 @@ func (msg *ClientMessage) ToJSON() []byte {
 	m, _ := json.Marshal(msg)
 	return m
 }
+func (msg *ClientMessage) Encode(enc *msgpack.Encoder) error {
+	return msgPackEncoder.Encode(msg)
+}
 
-func (msg *ClientMessage) Pack() []byte {
-	b, _ := msgpack.Marshal(msg)
+func (s *ClientMessage) Pack() []byte {
+	b, _ := MsgPackStruct(s)
 	return b
 }
 
@@ -170,18 +177,12 @@ func (msg *ClientMessage) Key() string {
 
 func ClientMessageFromBytes(b []byte) (ClientMessage, error) {
 	var message ClientMessage
-	// if err := json.Unmarshal(b, &message); err != nil {
-	// 	panic(err)
-	// }
 	err := json.Unmarshal(b, &message)
 	return message, err
 }
 func UnpackClientMessage(b []byte) (ClientMessage, error) {
 	var message ClientMessage
-	// if err := json.Unmarshal(b, &message); err != nil {
-	// 	panic(err)
-	// }
-	err := msgpack.Unmarshal(b, &message)
+	err := MsgPackUnpackStruct(b, message)
 	return message, err
 }
 
@@ -196,7 +197,7 @@ func JsonMessageFromBytes(b []byte) (MessageJsonInput, error) {
 
 func UnpackJsonMessage(b []byte) (MessageJsonInput, error) {
 	var message MessageJsonInput
-	err := msgpack.Unmarshal(b, &message)
+	err := MsgPackUnpackStruct(b, message)
 	return message, err
 }
 
@@ -209,9 +210,9 @@ func (msg *ChatMessage) ToJSON() string {
 	return string(m)
 }
 
-func (msg *ChatMessage) Pack() string {
-	m, _ := msgpack.Marshal(msg)
-	return string(m)
+func (msg *ChatMessage) Pack() []byte {
+	b, _ := MsgPackStruct(msg)
+	return b
 }
 
 func ChatMessageFromBytes(b []byte) ChatMessage {
@@ -227,7 +228,7 @@ func ChatMessageFromString(msg string) ChatMessage {
 }
 
 type MessageJsonInput struct {
-	Timestamp     int      `json:"t"`
+	Timestamp     int      `json:"ts"`
 	Approval      string   `json:"ap"`
 	ChannelExpiry int      `json:"cE"`
 	Channels      []string `json:"c"`
@@ -236,21 +237,21 @@ type MessageJsonInput struct {
 	Receiver    string              `json:"r"`
 	Platform    string              `json:"p"`
 	ChainId     string              `json:"cI"`
-	Type        string              `json:"ty"`
+	Type        string              `json:"t"`
 	Message     string              `json:"m"`
 	Subject     string              `json:"s"`
 	Signature   string              `json:"sig"`
 	Actions     []ChatMessageAction `json:"a"`
 	Origin      string              `json:"o"`
 	MessageHash string              `json:"mH"`
-	SubjectHash string              `json:"sH"`
+	SubjectHash string              `json:"subH"`
 }
 
 // PubSubMessage
 type PubSubMessage struct {
 	Data      json.RawMessage `json:"d"`
-	Timestamp string          `json:"t"`
-	Signature string          `json:"s"`
+	Timestamp string          `json:"ts"`
+	Signature string          `json:"sig"`
 }
 
 func (msg *PubSubMessage) ToJSON() []byte {
@@ -259,8 +260,8 @@ func (msg *PubSubMessage) ToJSON() []byte {
 }
 
 func (msg *PubSubMessage) Pack() []byte {
-	m, _ := msgpack.Marshal(msg)
-	return m
+	b, _ := MsgPackStruct(msg)
+	return b
 }
 
 func (msg *PubSubMessage) ToString() string {
@@ -286,6 +287,6 @@ func PubSubMessageFromBytes(b []byte) (PubSubMessage, error) {
 
 func UnpackPubSubMessage(b []byte) (PubSubMessage, error) {
 	var message PubSubMessage
-	err := msgpack.Unmarshal(b, &message)
+	err := MsgPackUnpackStruct(b, message)
 	return message, err
 }

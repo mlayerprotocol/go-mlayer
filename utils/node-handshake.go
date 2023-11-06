@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 /*
@@ -15,7 +13,7 @@ NODE ANDSHAKE MESSAGE
 */
 type HandshakeData struct {
 	Timestamp  int    `json:"ts"`
-	ProtocolId string `json:"pI"`
+	ProtocolId string `json:"proId"`
 	Name       string `json:"n"`
 	NodeType   uint   `json:"nT"`
 }
@@ -23,7 +21,7 @@ type HandshakeData struct {
 type Handshake struct {
 	Data      HandshakeData `json:"data"`
 	Signature string        `json:"s"`
-	Signer    string        `json:"sig"`
+	Signer    string        `json:"sigr"`
 }
 
 func (hs *Handshake) ToJSON() []byte {
@@ -31,9 +29,16 @@ func (hs *Handshake) ToJSON() []byte {
 	return h
 }
 func (hs *Handshake) Pack() []byte {
-	h, _ := msgpack.Marshal(hs)
-	return h
+	b, _ := MsgPackStruct(hs)
+	return b
 }
+
+func UnpackHandshake(b []byte) (Handshake, error) {
+	var message Handshake
+	err := MsgPackUnpackStruct(b, &message)
+	return message, err
+}
+
 func (hs *Handshake) Init(jsonString string) error {
 	er := json.Unmarshal([]byte(jsonString), &hs)
 	return er
