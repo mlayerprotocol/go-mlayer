@@ -8,17 +8,16 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Subscription struct {
-	ChannelId   string    `json:"cI"`
-	ChannelName string    `json:"cN"`
+	ChannelId   string    `json:"chId"`
+	ChannelName string    `json:"chN"`
 	Subscriber  string    `json:"s"`
 	Timestamp   int       `json:"ts"`
 	Signature   string    `json:"sig"`
 	Action      SubAction `json:"a"`
-	Broadcast   bool      `json:"b"`
+	Broadcast   bool      `json:"br"`
 }
 
 func (sub *Subscription) Key() string {
@@ -34,11 +33,8 @@ func (sub *Subscription) ToJSON() []byte {
 }
 
 func (sub *Subscription) Pack() []byte {
-	m, e := msgpack.Marshal(sub)
-	if e != nil {
-		logger.Errorf("Unable to parse subscription to []byte")
-	}
-	return m
+	b, _ := MsgPackStruct(sub)
+	return b
 }
 
 type SubscriberCount struct {
@@ -64,10 +60,7 @@ func SubscriptionFromBytes(b []byte) (Subscription, error) {
 }
 func UnpackSubscription(b []byte) (Subscription, error) {
 	var sub Subscription
-	// if err := json.Unmarshal(b, &message); err != nil {
-	// 	panic(err)
-	// }
-	err := msgpack.Unmarshal(b, &sub)
+	err := MsgPackUnpackStruct(b, sub)
 	return sub, err
 }
 
@@ -87,3 +80,7 @@ func (sub *Subscription) ToString() string {
 	values = append(values, fmt.Sprintf("%s", sub.Action))
 	return strings.Join(values, ",")
 }
+
+// [130 163 70 111 111 163 102 111 111 163 66 111 111 34]
+// [130 163 102 111 111 163 102 111 111 163 98 111 111 34]
+// [130 163 102 111 111 163 102 111 111 163 98 111 111 34]

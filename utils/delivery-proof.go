@@ -7,18 +7,16 @@ import (
 
 	// "math"
 	"strings"
-
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 // DeliveryProof
 type DeliveryProof struct {
 	MessageHash   string `json:"mH"`
 	MessageSender string `json:"mS"`
-	NodeAddress   string `json:"a"`
+	NodeAddress   string `json:"nA"`
 	Timestamp     int    `json:"ts"`
-	Signature     string `json:"s"`
-	Block         string `json:"b"`
+	Signature     string `json:"sig"`
+	Block         string `json:"bl"`
 	Index         int    `json:"i"`
 }
 
@@ -27,8 +25,8 @@ func (msg *DeliveryProof) ToJSON() []byte {
 	return m
 }
 func (msg *DeliveryProof) Pack() []byte {
-	m, _ := msgpack.Marshal(msg)
-	return m
+	b, _ := MsgPackStruct(msg)
+	return b
 }
 
 func (msg *DeliveryProof) Key() string {
@@ -64,7 +62,7 @@ type DeliveryClaim struct {
 	NodeHeight int      `json:"nh"`
 	Signature  string   `json:"sig"`
 	Amount     string   `json:"a"`
-	Proofs     []string `json:"p"`
+	Proofs     []string `json:"prs"`
 }
 
 func (msg *DeliveryClaim) ToJSON() []byte {
@@ -75,5 +73,11 @@ func (msg *DeliveryClaim) ToJSON() []byte {
 func DeliveryClaimFromBytes(b []byte) (DeliveryClaim, error) {
 	var message DeliveryClaim
 	err := json.Unmarshal(b, &message)
+	return message, err
+}
+
+func UnpackDelvieryClaim(b []byte) (DeliveryClaim, error) {
+	var message DeliveryClaim
+	err := MsgPackUnpackStruct(b, &message)
 	return message, err
 }

@@ -9,8 +9,8 @@ import (
 )
 
 type ClientHandshake struct {
-	Signature string          `json:"s"`
-	Signer    string          `json:"si"`
+	Signature string          `json:"sig"`
+	Signer    string          `json:"sigr"`
 	Message   string          `json:"m"`
 	Socket    *websocket.Conn `json:"s"`
 }
