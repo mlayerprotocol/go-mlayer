@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-datastore/query"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/utils"
@@ -31,7 +30,7 @@ func ValidateMessageClient(
 	for i := 0; i < len(entries); i++ {
 		_sub, _ := utils.SubscriptionFromBytes(entries[i].Value)
 		if (*connectedSubscribers)[_sub.ChannelId] == nil {
-			(*connectedSubscribers)[_sub.ChannelId] = map[string][]*websocket.Conn{}
+			(*connectedSubscribers)[_sub.ChannelId] = make(map[string][]interface{})
 		}
 		(*connectedSubscribers)[_sub.ChannelId][_sub.Subscriber] = append((*connectedSubscribers)[_sub.ChannelId][_sub.Subscriber], clientHandshake.ClientSocket)
 	}

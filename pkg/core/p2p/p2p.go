@@ -14,19 +14,21 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/libp2p/go-libp2p"
+
 	utils "github.com/mlayerprotocol/go-mlayer/utils"
 
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/multiformats/go-multiaddr"
 
-	discovery "github.com/libp2p/go-libp2p-discovery"
+	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/core/routing"
 	noise "github.com/libp2p/go-libp2p/p2p/security/noise"
@@ -70,14 +72,14 @@ func defaultNick(p peer.ID) string {
 
 // shortID returns the last 8 chars of a base58-encoded peer id.
 func shortID(p peer.ID) string {
-	pretty := p.Pretty()
+	pretty := p.String()
 	return pretty[len(pretty)-12:]
 }
 
 func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string) {
 
-	routingDiscovery := discovery.NewRoutingDiscovery(kdht)
-	discovery.Advertise(ctx, routingDiscovery, rendezvous)
+	routingDiscovery := drouting.NewRoutingDiscovery(kdht)
+	dutil.Advertise(ctx, routingDiscovery, rendezvous)
 
 	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
@@ -88,12 +90,12 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 			return
 		case <-ticker.C:
 
-			peers, err := discovery.FindPeers(ctx, routingDiscovery, rendezvous)
+			peers, err := routingDiscovery.FindPeers(ctx, rendezvous)
 			if err != nil {
 				log.Fatal(err)
 			}
 			logger.Debugf("Found peers: %d", len(peers)-1)
-			for _, p := range peers {
+			for p := range peers {
 
 				if p.ID == h.ID() {
 					continue
@@ -102,12 +104,12 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 				if h.Network().Connectedness(p.ID) != network.Connected {
 					_, err = h.Network().DialPeer(ctx, p.ID)
 					if err != nil {
-						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.Pretty(), err.Error())
+						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.String(), err.Error())
 						h.Peerstore().RemovePeer(p.ID)
 						kdht.ForceRefresh()
 						continue
 					}
-					logger.Debugf("Connected to discovered peer: %s \n", p.ID.Pretty())
+					logger.Debugf("Connected to discovered peer: %s \n", p.ID.String())
 					handleConnect(&h, &p)
 				}
 			}
@@ -516,7 +518,7 @@ func sendData(p peer.ID, rw *bufio.ReadWriter, data []byte) {
 // the PubSub system will automatically start interacting with them if they also
 // support PubSub.
 func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	logger.Debugf("Discovered new peer %s\n", pi.ID.Pretty())
+	logger.Debugf("Discovered new peer %s\n", pi.ID.String())
 	err := n.h.Connect(context.Background(), pi)
 
 	if err != nil {

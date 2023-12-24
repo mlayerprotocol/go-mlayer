@@ -93,7 +93,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := utils.Config
 	ctx := context.Background()
 
-	connectedSubscribers := map[string]map[string][]*websocket.Conn{}
+	connectedSubscribers := make(map[string]map[string][]interface{})
 
 	incomingEventsC := make(chan types.Log)
 
@@ -185,7 +185,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 					logger.Info("_currentChannel : ", _currentChannel, "/n")
 					for _, signerConn := range _currentChannel {
 						for i := 0; i < len(signerConn); i++ {
-							signerConn[i].WriteMessage(1, inMessage.Pack())
+							signerConn[i].(*websocket.Conn).WriteMessage(1, inMessage.Pack())
 						}
 					}
 				}()
