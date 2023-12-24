@@ -15,7 +15,7 @@ var logger = &utils.Logger
 
 func ValidateMessageClient(
 	ctx context.Context,
-	connectedSubscribers *map[string]map[string][]*websocket.Conn,
+	connectedSubscribers *map[string]map[string][]interface{},
 	clientHandshake *utils.ClientHandshake,
 	channelSubscriberStore *db.Datastore) {
 	// VALIDATE AND DISTRIBUTE
@@ -33,7 +33,7 @@ func ValidateMessageClient(
 		if (*connectedSubscribers)[_sub.ChannelId] == nil {
 			(*connectedSubscribers)[_sub.ChannelId] = map[string][]*websocket.Conn{}
 		}
-		(*connectedSubscribers)[_sub.ChannelId][_sub.Subscriber] = append((*connectedSubscribers)[_sub.ChannelId][_sub.Subscriber], clientHandshake.Socket)
+		(*connectedSubscribers)[_sub.ChannelId][_sub.Subscriber] = append((*connectedSubscribers)[_sub.ChannelId][_sub.Subscriber], clientHandshake.ClientSocket)
 	}
 	utils.Logger.Infof("results:  %s  -  %o\n", entries[0].Value, _err)
 }

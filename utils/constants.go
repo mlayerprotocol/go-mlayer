@@ -64,6 +64,14 @@ const (
 	Leave     SubAction = "leave"
 )
 
+type Protocol string;
+
+const (
+    WS Protocol = "ws"
+    MQTT Protocol = "mqtt"
+    RPC Protocol = "rpc"
+)
+
 /* KEY MAPS
 Always enter map in sorted order
 

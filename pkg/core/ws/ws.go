@@ -32,11 +32,11 @@ type RpcResponse struct {
 
 func NewWsService(mainCtx *context.Context) *WsService {
 	cfg, _ := (*mainCtx).Value(utils.ConfigKey).(*utils.Configuration)
-	verificationc, _ := (*mainCtx).Value(utils.ClientHandShackChId).(*chan *utils.ClientHandshake)
+	clientVerificationc, _ := (*mainCtx).Value(utils.ClientHandShackChId).(*chan *utils.ClientHandshake)
 	return &WsService{
 		Ctx:                    mainCtx,
 		Cfg:                    cfg,
-		ClientHandshakeChannel: verificationc,
+		ClientHandshakeChannel: clientVerificationc,
 	}
 }
 
@@ -57,16 +57,16 @@ var upgrader = websocket.Upgrader{
 func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	c, err := upgrader.Upgrade(w, r, nil)
-	log.Print("New ServeWebSocket c : ", c.RemoteAddr())
+	utils.Logger.Info("New ServeWebSocket c : ", c.RemoteAddr())
 
 	if err != nil {
-		log.Print("upgrade:", err)
+		utils.Logger.Debug("WS connection error:", err)
 		return
 	}
 	defer c.Close()
-	hasVerifed := false
+	isVerifed := false
 	time.AfterFunc(5000*time.Millisecond, func() {
-		if !hasVerifed {
+		if !isVerifed {
 			c.Close()
 		}
 	})
@@ -81,19 +81,16 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Println("Error:", err)
 			} else {
-				// signature := string(message)
-				verifiedRequest, _ := utils.ClientHandshakeFromBytes(message)
-				verifiedRequest.Socket = c
-				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
-
-				if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
-					// verifiedConn = append(verifiedConn, c)
-					hasVerifed = true
-					log.Println("Verification was successful: ", verifiedRequest)
-					*p.ClientHandshakeChannel <- &verifiedRequest
+				if(!isVerifed) {
+					isVerifed = utils.ConnectClient(message, utils.WS, c, p.ClientHandshakeChannel)
+					if(!isVerifed) {
+						c.Close();
+					}
+					log.Println("message:", string(message))
+					log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+					continue
 				}
-				log.Println("message:", string(message))
-				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+				// process message
 			}
 
 		}

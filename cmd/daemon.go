@@ -363,7 +363,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		sendHttp := rpcServer.NewHttpService(&ctx)
 		err := sendHttp.Start()
 		if err != nil {
-			logger.Fatalf("Http error: ", err)
+			logger.Fatal("Http error: ", err)
 		}
 		logger.Infof("New http connection")
 	}()
