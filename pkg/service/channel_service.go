@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	utils "github.com/mlayerprotocol/go-mlayer/utils"
 )
@@ -23,11 +24,11 @@ func NewChannelService(mainCtx *context.Context) *ChannelService {
 	}
 }
 
-func (p *ChannelService) NewChannelSubscription(sub *utils.Subscription) error {
-	// subscribersc, ok := p.Ctx.Value(utils.SubscribeChId).(*chan *utils.Subscription)
+func (p *ChannelService) NewChannelSubscription(sub *entities.SubscriptionEvent) error {
+	// subscribersc, ok := p.Ctx.Value(utils.SubscribeChId).(*chan *entities.SubscriptionEvent)
 
 	// validate before storing
-	if utils.IsValidSubscription(*sub, true) {
+	if entities.IsValidSubscription(*sub, true) {
 		channelSubscriberStore, ok := p.Ctx.Value(utils.NewChannelSubscriptionStore).(*db.Datastore)
 		if !ok {
 			return errors.New("Could not connect to subscription datastore")

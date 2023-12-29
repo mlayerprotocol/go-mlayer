@@ -4,6 +4,7 @@ import (
 	// "errors"
 
 	"encoding/json"
+	"errors"
 	"log"
 )
 
@@ -14,6 +15,13 @@ type ClientHandshake struct {
 	Message   string          `json:"m"`
 	Protocol  Protocol `json:"proto"`
 	ClientSocket    *interface{} `json:"ws"`
+}
+
+type ServerIdentity struct {
+	Signature string          `json:"sig"`
+	Signer    string          `json:"sigr"`
+	Message   string          `json:"m"`
+	Address string			`json:"addr"`
 }
 
 func (sub *ClientHandshake) ToJSON() []byte {
@@ -33,6 +41,17 @@ func UnpackClientHandshake(b []byte) (ClientHandshake, error) {
 	err := MsgPackUnpackStruct(b, &message)
 	return message, err
 }
+
+func (hs *ServerIdentity) Pack() []byte {
+	b, _ := MsgPackStruct(hs)
+	return b
+}
+
+func UnpackServerIdentity(b []byte) (ServerIdentity, error) {
+	var id ServerIdentity
+	err := MsgPackUnpackStruct(b, &id)
+	return id, err
+}
 // func ClientHandshakeFromBytes(b []byte) (ClientHandshake, error) {
 // 	var verMsg ClientHandshake
 // 	// if err := json.Unmarshal(b, &message); err != nil {
@@ -42,18 +61,32 @@ func UnpackClientHandshake(b []byte) (ClientHandshake, error) {
 // 	return verMsg, err
 // }
 
-func ConnectClient(message []byte, protocol Protocol,  client interface{}, ch *chan *ClientHandshake) bool {
+func ConnectClient(message []byte, protocol Protocol,  client interface{}) (*ClientHandshake, error) {
 		verifiedRequest, _ := UnpackClientHandshake(message)
 		verifiedRequest.ClientSocket = &client
 		verifiedRequest.Protocol = protocol;
 		log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
-		hasVerified := false
 		if VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
 			// verifiedConn = append(verifiedConn, c)
-			hasVerified = true
 			log.Println("Verification was successful: ", verifiedRequest)
-			*ch <- &verifiedRequest
+			return &verifiedRequest, nil
 		}
+		return nil,  errors.New("Invaliad handshake")
 		
-		return hasVerified
 }
+
+// func SignIdentity(message []byte) bool {
+// 	verifiedRequest, _ := UnpackClientHandshake(message)
+// 	verifiedRequest.ClientSocket = &client
+// 	verifiedRequest.Protocol = protocol;
+// 	log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
+// 	hasVerified := false
+// 	if VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
+// 		// verifiedConn = append(verifiedConn, c)
+// 		hasVerified = true
+// 		log.Println("Verification was successful: ", verifiedRequest)
+// 		*ch <- &verifiedRequest
+// 	}
+	
+// 	return hasVerified
+// }

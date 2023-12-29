@@ -21,6 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
+	"github.com/mlayerprotocol/go-mlayer/channelpool"
+	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
@@ -127,20 +129,20 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}
 
 	ctx = context.WithValue(ctx, utils.ConfigKey, &cfg)
-	ctx = context.WithValue(ctx, utils.IncomingMessageChId, &utils.IncomingMessagesP2P2_D_c)
-	ctx = context.WithValue(ctx, utils.OutgoingMessageChId, &utils.SentMessagesRPC_D_c)
-	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PChId, &utils.OutgoingMessagesD_P2P_c)
+	ctx = context.WithValue(ctx, utils.IncomingMessageChId, &channelpool.IncomingMessagesP2P2_D_c)
+	ctx = context.WithValue(ctx, utils.OutgoingMessageChId, &channelpool.SentMessagesRPC_D_c)
+	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PChId, &channelpool.OutgoingMessagesD_P2P_c)
 	// incoming from client apps to daemon channel
-	ctx = context.WithValue(ctx, utils.SubscribeChId, &utils.SubscribersRPC_D_c)
+	ctx = context.WithValue(ctx, utils.SubscribeChId, &channelpool.SubscribersRPC_D_c)
 	// daemon to p2p channel
-	ctx = context.WithValue(ctx, utils.SubscriptionDP2PChId, &utils.SubscriptionD_P2P_C)
-	ctx = context.WithValue(ctx, utils.ClientHandShackChId, &utils.ClientHandshakeC)
-	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProof_BlockChId, &utils.OutgoingDeliveryProof_BlockC)
-	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProofChId, &utils.OutgoingDeliveryProofC)
-	ctx = context.WithValue(ctx, utils.PubsubDeliverProofChId, &utils.PubSubInputBlockC)
-	ctx = context.WithValue(ctx, utils.PubSubBlockChId, &utils.PubSubInputProofC)
+	ctx = context.WithValue(ctx, utils.SubscriptionDP2PChId, &channelpool.SubscriptionD_P2P_C)
+	ctx = context.WithValue(ctx, utils.ClientHandShackChId, &channelpool.ClientHandshakeC)
+	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProof_BlockChId, &channelpool.OutgoingDeliveryProof_BlockC)
+	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProofChId, &channelpool.OutgoingDeliveryProofC)
+	ctx = context.WithValue(ctx, utils.PubsubDeliverProofChId, &channelpool.PubSubInputBlockC)
+	ctx = context.WithValue(ctx, utils.PubSubBlockChId, &channelpool.PubSubInputProofC)
 	// receiving subscription from other nodes channel
-	ctx = context.WithValue(ctx, utils.PublishedSubChId, &utils.PublishedSubC)
+	ctx = context.WithValue(ctx, utils.PublishedSubChId, &channelpool.PublishedSubC)
 
 	var wg sync.WaitGroup
 	errc := make(chan error)
@@ -168,7 +170,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	go func() {
 		for {
 			select {
-			case inMessage, ok := <-utils.IncomingMessagesP2P2_D_c:
+			case inMessage, ok := <-channelpool.IncomingMessagesP2P2_D_c:
 				if !ok {
 					logger.Errorf("Incoming Message channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
@@ -210,7 +212,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 			select {
 
 			// attempt to push into outgoing message channel
-			case outMessage, ok := <-utils.SentMessagesRPC_D_c:
+			case outMessage, ok := <-channelpool.SentMessagesRPC_D_c:
 				if !ok {
 					logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
 
@@ -218,18 +220,18 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				go processor.ProcessSentMessage(ctx, unsentMessageP2pStore, outMessage)
 
-			case sub, ok := <-utils.SubscribersRPC_D_c:
+			case sub, ok := <-channelpool.SubscribersRPC_D_c:
 				if !ok {
 					logger.Errorf("Subscription channel closed!")
 					return
 				}
-				if !utils.IsValidSubscription(*sub, true) {
+				if !entities.IsValidSubscription(*sub, true) {
 					utils.Logger.Info("ITS NOT VALID!")
 					continue
 				}
 				// go processor.ProcessNewSubscription(ctx, sub, channelsubscribersRPC_D_countStore, channelSubscriptionStore)
 
-			case clientHandshake, ok := <-utils.ClientHandshakeC:
+			case clientHandshake, ok := <-channelpool.ClientHandshakeC:
 				if !ok {
 					logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
@@ -237,7 +239,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 				}
 				go processor.ValidateMessageClient(ctx, &connectedSubscribers, clientHandshake, channelSubscriptionStore)
 
-			case proof, ok := <-utils.IncomingDeliveryProofsC:
+			case proof, ok := <-channelpool.IncomingDeliveryProofsC:
 				if !ok {
 					logger.Errorf("Incoming delivery proof channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()

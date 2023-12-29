@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/utils"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -11,7 +12,7 @@ import (
 
 type Channel struct {
 	// Messages is a channel of messages received from other peers in the chat channel
-	Messages chan utils.PubSubMessage
+	Messages chan entities.PubSubMessage
 
 	Ctx   context.Context
 	ps    *pubsub.PubSub
@@ -45,7 +46,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 		ID:          selfID,
 		Wallet:      walletAddress,
 		ChannelName: channelName,
-		Messages:    make(chan utils.PubSubMessage, channelBufferSize),
+		Messages:    make(chan entities.PubSubMessage, channelBufferSize),
 	}
 
 	// start reading messages from the subscription in a loop
@@ -54,7 +55,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *Channel) Publish(m utils.PubSubMessage) error {
+func (cr *Channel) Publish(m entities.PubSubMessage) error {
 	// if err != nil {
 	// 	return err
 	// }
@@ -78,7 +79,7 @@ func (cr *Channel) readLoop() {
 		if msg.ReceivedFrom == cr.ID {
 			continue
 		}
-		pmsg, err := utils.UnpackPubSubMessage(msg.Data)
+		pmsg, err := entities.UnpackPubSubMessage(msg.Data)
 		if err != nil {
 			logger.Error("Invalid pubsub message received")
 			continue

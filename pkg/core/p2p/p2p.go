@@ -11,6 +11,7 @@ import (
 	"time"
 
 	// "github.com/gin-gonic/gin"
+	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -130,23 +131,23 @@ func Run(mainCtx *context.Context) {
 	config = *cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageChId).(*chan *utils.ClientMessage)
+	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageChId).(*chan *entities.ClientMessage)
 	if !ok {
 
 	}
-	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PChId).(*chan *utils.ClientMessage)
-	if !ok {
-
-	}
-
-	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PChId).(*chan *utils.Subscription)
+	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PChId).(*chan *entities.ClientMessage)
 	if !ok {
 
 	}
 
-	outgoingDPBlockCh, ok := ctx.Value(utils.OutgoingDeliveryProof_BlockChId).(*chan *utils.Block)
+	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PChId).(*chan *entities.SubscriptionEvent)
+	if !ok {
+
+	}
+
+	outgoingDPBlockCh, ok := ctx.Value(utils.OutgoingDeliveryProof_BlockChId).(*chan *entities.Block)
 	// outgoingProofCh, ok := ctx.Value(utils.OutgoingDeliveryProofCh).(*chan *utils.DeliveryProof)
-	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeChId).(*chan *utils.Subscription)
+	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeChId).(*chan *entities.SubscriptionEvent)
 	if !ok {
 
 	}
@@ -309,12 +310,10 @@ func Run(mainCtx *context.Context) {
 	if err != nil {
 		panic(err)
 	}
-	logger.WithFields(logrus.Fields{"event": "JoinChannel", "peer": h.ID()}).Infof("Peer joined channel %s", messagePubSub.ChannelName)
 	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-
 	batchPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), BatchChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
@@ -325,7 +324,7 @@ func Run(mainCtx *context.Context) {
 	// }
 	time.AfterFunc(5*time.Second, func() {
 		logger.Info("Sending subscription to channel")
-		subscriptionPubSub.Publish(utils.NewSignedPubSubMessage((&utils.Subscription{ChannelId: "channel", Subscriber: "sds"}).Pack(), cfg.NetworkPrivateKey))
+		subscriptionPubSub.Publish(entities.NewSignedPubSubMessage((&entities.SubscriptionEvent{Id: "channel", Subscriber: "sds"}).Pack(), cfg.NetworkPrivateKey))
 	})
 
 	go func() {
@@ -479,7 +478,7 @@ func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
 	logger.Debugf("New Valid handshake from peer: %s", p)
 	return true
 }
-func isValidStake(handshake utils.Handshake, p peer.ID) bool {
+func isValidStake(handshake entities.Handshake, p peer.ID) bool {
 	if handshake.Data.NodeType == utils.ValidatorNodeType && config.Validator {
 		stakeContract, _, _, err := evm.StakeContract(config.EVMRPCHttp, config.StakeContract)
 		if err != nil {

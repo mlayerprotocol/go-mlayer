@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-var logger = Logger
+var logger = &Logger
 
 func GetPublicKey(privKey string) string {
 	privateKey, err := crypto.HexToECDSA(privKey)

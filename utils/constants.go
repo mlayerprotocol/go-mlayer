@@ -18,6 +18,10 @@ const (
 
 const MaxBlockSize = 1000
 
+
+
+
+
 const (
 	ValidMessageStore             string = "valid-messages"
 	UnsentMessageStore                   = "unsent-messages"
@@ -56,14 +60,6 @@ const (
 	CurrentSubscriptionBlockStateKey  string = "/sub-block/current-state"
 )
 
-type SubAction string
-
-const (
-	Broadcast SubAction = "broadcast"
-	Join      SubAction = "join"
-	Leave     SubAction = "leave"
-)
-
 type Protocol string;
 
 const (
@@ -80,6 +76,7 @@ Action          = a
 Actions         = as
 Amount          = amt
 Approval        = ap
+ApprovalExpiry  = apExp
 Body            = b
 Block           = bl
 BlockId         = blId
@@ -89,6 +86,7 @@ ChainId         = cId
 ChannelExpiry   = chEx
 ChannelId       = chId
 ChannelName     = chN
+Channel         = ch
 Channels        = chs
 CID             = cid
 Closed          = cl
@@ -116,6 +114,7 @@ Receiver        = r
 Sender          = s
 SenderAddress   = sA
 SenderSignature = sSig
+SignatureExpiry = sigExp
 Signature       = sig
 Signer          = sigr
 Size            = si
@@ -125,6 +124,7 @@ SubjectHash     = subH
 Subscriber      = subs
 Timestamp       = ts
 Type            = t
+Validator       = v
 
 
 

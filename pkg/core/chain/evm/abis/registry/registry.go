@@ -54,7 +54,7 @@ type AbiTransactor struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// AbiFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+// AbiFilterer is an auto generated log filtering Go binding around an Ethereum contract entities.
 type AbiFilterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }

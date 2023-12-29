@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ipfs/go-datastore/query"
+	"github.com/mlayerprotocol/go-mlayer/channelpool"
+	"github.com/mlayerprotocol/go-mlayer/entities"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/utils"
 )
@@ -28,7 +30,7 @@ func ValidateMessageClient(
 	}
 	entries, _err := results.Rest()
 	for i := 0; i < len(entries); i++ {
-		_sub, _ := utils.SubscriptionFromBytes(entries[i].Value)
+		_sub, _ := entities.SubscriptionFromBytes(entries[i].Value)
 		if (*connectedSubscribers)[_sub.ChannelId] == nil {
 			(*connectedSubscribers)[_sub.ChannelId] = make(map[string][]interface{})
 		}
@@ -38,7 +40,7 @@ func ValidateMessageClient(
 }
 
 func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
-	proof *utils.DeliveryProof,
+	proof *entities.DeliveryProof,
 	deliveryProofStore *db.Datastore,
 	channelSubscriberStore *db.Datastore,
 	stateStore *db.Datastore,
@@ -63,7 +65,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 		isSubscriber, err := channelSubscriberStore.Has(ctx, db.Key("/"+susbscriber+"/"+proof.MessageHash))
 		if isSubscriber {
 			// proof is valid, so we should add to a new or existing batch
-			var block *utils.Block
+			var block *entities.Block
 			var err error
 			txn, err := stateStore.NewTransaction(ctx, false)
 			if err != nil {
@@ -79,7 +81,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 				return
 			}
 			if len(blockData) > 0 && block.Size < MaxBlockSize {
-				block, err = utils.UnpackBlock(blockData)
+				block, err = entities.UnpackBlock(blockData)
 				if err != nil {
 					logger.Errorf("Invalid batch %o", err)
 					// invalid proof or proof has been tampered with
@@ -88,7 +90,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 				}
 			} else {
 				// generate a new batch
-				block = utils.NewBlock()
+				block = entities.NewBlock()
 
 			}
 			block.Size += 1
@@ -126,9 +128,9 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 			}
 			// dispatch the proof and the batch
 			if block.Closed {
-				utils.OutgoingDeliveryProof_BlockC <- block
+				channelpool.OutgoingDeliveryProof_BlockC <- block
 			}
-			utils.OutgoingDeliveryProofC <- proof
+			channelpool.OutgoingDeliveryProofC <- proof
 
 		}
 

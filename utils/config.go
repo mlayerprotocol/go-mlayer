@@ -41,6 +41,18 @@ type Configuration struct {
 	Validator                bool           `mapstructure:"validator"`
 	BootstrapNode            bool           `mapstructure:"bootstrap_node"`
 	DataDir                  string         `mapstructure:"data_dir"`
+	DbDialect                  string         `mapstructure:"dialect"`
+	DbHost                 string         `mapstructure:"host"`
+	DbStoragePath                string         `mapstructure:"db_storage_path"`
+	DbPort					uint  `mapstructure:"port"`
+	DbDatabase				string  `mapstructure:"db_database"`
+	DbUser				string  `mapstructure:"db_user"`
+	DbPassword 				string `mapstructure:"db_password"`
+	DbSSLMode string `mapstructure:"db_sslmode"`
+	DbTimezone string `mapstructure:"db_timezone"`
+	DbMaxOpenConns uint `mapstructure:"db_max_open_conns"`
+	DbMaxIdleConns uint `mapstructure:"db_max_idle_conns"`
+	DbMaxConnLifetime uint `mapstructure:"db_max_conn_lifetime_seconds"`
 }
 
 var (
@@ -63,6 +75,9 @@ func Init() *viper.Viper {
 	}
 	v.SetDefault("log_level", "info")
 	v.SetDefault("channel_message_buffer_size", 128)
+	v.SetDefault("db_max_open_conns",10)
+	v.SetDefault("db_max_idle_conns",2)
+	v.SetDefault("db_max_conn_lifetime_seconds",120)
 	return v
 }
 func init() {

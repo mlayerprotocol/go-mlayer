@@ -54,7 +54,7 @@ type IcmTokenTransactor struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// IcmTokenFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+// IcmTokenFilterer is an auto generated log filtering Go binding around an Ethereum contract entities.
 type IcmTokenFilterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }

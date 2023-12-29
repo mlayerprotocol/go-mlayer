@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ipfs/go-datastore/query"
+	"github.com/mlayerprotocol/go-mlayer/entities"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/utils"
 )
@@ -26,7 +27,7 @@ func ProcessNewSubscription(
 
 	for {
 
-		var block *utils.Block
+		var block *entities.Block
 		blockStateTxn, err := subscriptionBlockStateStore.NewTransaction(ctx, false)
 		if err != nil {
 			utils.Logger.Errorf("Subscription Block state store connection error %o", err)
@@ -142,7 +143,7 @@ func ProcessNewSubscription(
 
 }
 
-// func ProcessNewSubscriptionV1(ctx context.Context, sub *utils.Subscription, channelsubscribersRPC_D_countStore *db.Datastore, channelSubscriberStore *db.Datastore) {
+// func ProcessNewSubscriptionV1(ctx context.Context, sub *entities.SubscriptionEvent, channelsubscribersRPC_D_countStore *db.Datastore, channelSubscriberStore *db.Datastore) {
 // 	if sub.Broadcast {
 // 		utils.SubscriptionD_P2P_C <- sub
 // 	}

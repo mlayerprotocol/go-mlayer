@@ -82,10 +82,13 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 				log.Println("Error:", err)
 			} else {
 				if(!isVerifed) {
-					isVerifed = utils.ConnectClient(message, utils.WS, c, p.ClientHandshakeChannel)
-					if(!isVerifed) {
-						c.Close();
+					verifiedRequest, err := utils.ConnectClient(message, utils.WS, c,)
+					if (err != nil) {
+						c.Close()
+						continue
 					}
+					*p.ClientHandshakeChannel <- verifiedRequest
+					
 					log.Println("message:", string(message))
 					log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
 					continue
