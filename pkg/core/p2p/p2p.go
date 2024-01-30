@@ -4,19 +4,21 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
 	"os"
 	"time"
 
 	// "github.com/gin-gonic/gin"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
+	cryptoMl "github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
+	"github.com/mlayerprotocol/go-mlayer/pkg/log"
+	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-
-	utils "github.com/mlayerprotocol/go-mlayer/utils"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
@@ -39,14 +41,15 @@ import (
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
 
-var logger = &utils.Logger
-var config utils.Configuration
+var logger = &log.Logger
+var config configs.MainConfiguration
 
 var protocolId string
 var privKey crypto.PrivKey
 
 const DiscoveryServiceTag = "ml-network"
 const (
+	AuthorizationChannel       string = "ml-auhtorization-channel"
 	MessageChannel       string = "ml-message-channel"
 	SubscriptionChannel         = "ml-subscription-channel"
 	BatchChannel                = "ml-batch-channel"
@@ -93,7 +96,7 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 
 			peers, err := routingDiscovery.FindPeers(ctx, rendezvous)
 			if err != nil {
-				log.Fatal(err)
+				logger.Fatal(err)
 			}
 			logger.Debugf("Found peers: %d", len(peers)-1)
 			for p := range peers {
@@ -122,36 +125,43 @@ func Run(mainCtx *context.Context) {
 	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
-
+	
 	ctx, cancel := context.WithCancel(*mainCtx)
-	cfg, ok := ctx.Value(utils.ConfigKey).(*utils.Configuration)
+	defer cancel()
+	defer forever()
+	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 
 	}
 	config = *cfg
 	protocolId = config.Network
 
-	incomingMessagesC, ok := ctx.Value(utils.IncomingMessageChId).(*chan *entities.ClientMessage)
+	incomingAuthorizationC, ok := ctx.Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
 	if !ok {
-
-	}
-	outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PChId).(*chan *entities.ClientMessage)
-	if !ok {
-
+		return
 	}
 
-	subscriptionC, ok := ctx.Value(utils.SubscriptionDP2PChId).(*chan *entities.SubscriptionEvent)
-	if !ok {
+	// incomingMessagesC, ok := ctx.Value(constants.IncomingMessageChId).(*chan *entities.ClientPayload)
+	// if !ok {
 
-	}
+	// }
+	// outgoinMessageC, ok := ctx.Value(utils.OutgoingMessageDP2PChId).(*chan *entities.ClientPayload)
+	// if !ok {
 
-	outgoingDPBlockCh, ok := ctx.Value(utils.OutgoingDeliveryProof_BlockChId).(*chan *entities.Block)
+	// }
+
+	// subscriptionC, ok := ctx.Value(constants.SubscriptionDP2PChId).(*chan *entities.Subscription)
+	// if !ok {
+
+	// }
+
+	// outgoingDPBlockCh, ok := ctx.Value(constants.OutgoingDeliveryProof_BlockChId).(*chan *entities.Block)
 	// outgoingProofCh, ok := ctx.Value(utils.OutgoingDeliveryProofCh).(*chan *utils.DeliveryProof)
-	publishedSubscriptionC, ok := ctx.Value(utils.SubscribeChId).(*chan *entities.SubscriptionEvent)
-	if !ok {
+	// publishedSubscriptionC, ok := ctx.Value(constants.SubscribeChId).(*chan *entities.Subscription)
+	// if !ok {
 
-	}
-	defer cancel()
+	// }
+	
 
 	if len(cfg.NodePrivateKey) == 0 {
 		priv, _, err := crypto.GenerateKeyPair(
@@ -306,115 +316,112 @@ func Run(mainCtx *context.Context) {
 
 	logger.Infof("Host started with ID is %s\n", h.ID())
 
-	messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
+	
+	authorizationPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+	// messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
+	// }
 	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-	batchPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), BatchChannel, config.ChannelMessageBufferSize)
-	if err != nil {
-		panic(err)
-	}
+	// batchPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), BatchChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
+	//}
 	// delieveryProofPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), DeliveryProofChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
+	
 	time.AfterFunc(5*time.Second, func() {
 		logger.Info("Sending subscription to channel")
-		subscriptionPubSub.Publish(entities.NewSignedPubSubMessage((&entities.SubscriptionEvent{Id: "channel", Subscriber: "sds"}).Pack(), cfg.NetworkPrivateKey))
+		subscriptionPubSub.Publish(entities.NewPubSubMessage((&entities.Subscription{Signature: "channel", Subscriber: "sds"}).MsgPack()))
 	})
 
-	go func() {
-		time.Sleep(5 * time.Second)
-		for {
-			select {
-			case inMessage, ok := <-batchPubSub.Messages:
-				if !ok {
-					cancel()
-					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
-					return
-				}
-				// !validating message
-				// !if not a valid message continue
-				// _, err := inMessage.Pack()
-				// if err != nil {
-				// 	continue
-				// }
-				//TODO:
-				// if not a valid message, continue
+	go ReceiveEvent(&entities.Authorization{}, *incomingAuthorizationC, authorizationPubSub, mainCtx)
 
-				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
-				cm, err := utils.UnpackClientMessage(inMessage.Data)
-				if err != nil {
+	// go func() {
+	// 	time.Sleep(5 * time.Second)
+	// 	for {
+	// 		select {
 
-				}
-				*incomingMessagesC <- &cm
-			case sub, ok := <-subscriptionPubSub.Messages:
-				if !ok {
-					cancel()
-					logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
-					return
-				}
-				// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
-				cm, err := utils.UnpackSubscription(sub.Data)
-				if err != nil {
+	// 		case authEvent, ok := <-authorizationPubSub.Messages:
+	// 			if !ok {
+	// 				cancel()
+	// 				logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
+	// 				return
+	// 			}
+	// 			// !validating message
+	// 			// !if not a valid message continue
+	// 			// _, err := inMessage.MsgPack()
+	// 			// if err != nil {
+	// 			// 	continue
+	// 			// }
+	// 			//TODO:
+	// 			// if not a valid message, continue
 
-				}
-				logger.Info("New subscription updates:::", string(cm.ToJSON()))
-				// *incomingMessagesC <- &cm
-				cm.Broadcast = false
-				*publishedSubscriptionC <- &cm
-			}
-		}
-	}()
+	// 			logger.Infof("Received new message %s\n", authEvent.ToString())
+	// 			cm := models.AuthorizationEvent{}
+	// 			err = encoder.MsgPackUnpackStruct(authEvent.Data, cm)
+	// 			if err != nil {
 
-	for {
-		select {
-		case outMessage, ok := <-*outgoinMessageC:
-			if cfg.Validator {
-				if !ok {
-					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
-					return
-				}
-				err := messagePubSub.Publish(utils.NewSignedPubSubMessage(outMessage.Pack(), cfg.NetworkPrivateKey))
-				if err != nil {
-					logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
-					return
-				}
-			}
-		case subscription, ok := <-*subscriptionC:
-			if cfg.Validator {
-				if !ok {
-					logger.Errorf("Subscription channel not found in the context")
-					return
-				}
-				logger.Info("subscription channel:::", subscription.ChannelId)
+	// 			}
+	// 			*incomingAuthorizationC <- &cm
+	// 		case inMessage, ok := <-batchPubSub.Messages:
+	// 			if !ok {
+	// 				cancel()
+	// 				logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
+	// 				return
+	// 			}
+	// 			// !validating message
+	// 			// !if not a valid message continue
+	// 			// _, err := inMessage.MsgPack()
+	// 			// if err != nil {
+	// 			// 	continue
+	// 			// }
+	// 			//TODO:
+	// 			// if not a valid message, continue
 
-				err := subscriptionPubSub.Publish(utils.NewSignedPubSubMessage(subscription.Pack(), cfg.NetworkPrivateKey))
-				if err != nil {
-					logger.Errorf("Failed to publish subscription.")
-					return
-				}
-			}
-		case block, ok := <-*outgoingDPBlockCh:
-			if cfg.Validator {
-				if !ok {
-					logger.Errorf("Subscription channel not found in the context")
-					return
-				}
-				logger.Info("subscription channel:::", block.BlockId)
-				err := batchPubSub.Publish(utils.NewSignedPubSubMessage(block.Pack(), cfg.NetworkPrivateKey))
-				if err != nil {
-					logger.Errorf("Failed to publish subscription.")
-					return
-				}
-			}
-		}
-	}
+	// 			logger.Infof("Received new message %s\n", inMessage.ToString())
+	// 			cm, err := entities.MsgUnpackClientPayload(inMessage.Data)
+	// 			if err != nil {
 
+	// 			}
+	// 			*incomingMessagesC <- &cm
+	// 		case sub, ok := <-subscriptionPubSub.Messages:
+	// 			if !ok {
+	// 				cancel()
+	// 				logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
+	// 				return
+	// 			}
+	// 			// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+	// 			cm, err := entities.UnpackSubscription(sub.Data)
+	// 			if err != nil {
+
+	// 			}
+	// 			logger.Info("New subscription updates:::", string(cm.ToJSON()))
+	// 			// *incomingMessagesC <- &cm
+	// 			cm.Broadcasted = false
+	// 			*publishedSubscriptionC <- &cm
+	// 		}
+	// 	}
+	// }()
+
+
+	go PublishEvent(channelpool.BroadcastAuthorizationEventInternal_PubSubC, authorizationPubSub, mainCtx  )
+	
+
+}
+
+func forever() {
+    for {
+        time.Sleep(time.Second)
+    }
 }
 
 func handleStream(stream network.Stream) {
@@ -439,7 +446,7 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 		}
 
 		logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Info("New Handshake data from peer")
-		handshake, err := utils.UnpackHandshake([]byte(hsString))
+		handshake, err := entities.UnpackHandshake([]byte(hsString))
 
 		if err != nil {
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %o", err)
@@ -463,14 +470,17 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 	}
 }
 
-func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
-	handshakeMessage := handshake.Pack()
-	if math.Abs(float64(handshake.Data.Timestamp-int(time.Now().Unix()))) > utils.VALID_HANDSHAKE_SECONDS {
+func isValidHandshake(handshake entities.Handshake, p peer.ID) bool {
+	handshakeMessage := handshake.MsgPack()
+	if math.Abs(float64(handshake.Data.Timestamp-int(time.Now().Unix()))) > constants.VALID_HANDSHAKE_SECONDS {
 		logger.WithFields(logrus.Fields{"peer": p, "data": handshakeMessage}).Warnf("Hanshake Expired: %s", handshakeMessage)
 		return false
 	}
-	message := handshake.Data.ToString()
-	isValid := utils.VerifySignature(handshake.Signer, message, handshake.Signature)
+	message, err := handshake.Data.EncodeBytes()
+	if(err != nil) {
+		return false
+	}
+	isValid := cryptoMl.VerifySignatureECC(&handshake.Signer, &message, &handshake.Signature)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": message, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
 		return false
@@ -479,7 +489,7 @@ func isValidHandshake(handshake utils.Handshake, p peer.ID) bool {
 	return true
 }
 func isValidStake(handshake entities.Handshake, p peer.ID) bool {
-	if handshake.Data.NodeType == utils.ValidatorNodeType && config.Validator {
+	if handshake.Data.NodeType == constants.ValidatorNodeType && config.Validator {
 		stakeContract, _, _, err := evm.StakeContract(config.EVMRPCHttp, config.StakeContract)
 		if err != nil {
 			logger.Errorf("EVM RPC error. Could not connect to stake contract: %s", err)
@@ -487,7 +497,7 @@ func isValidStake(handshake entities.Handshake, p peer.ID) bool {
 		}
 
 		level, err := stakeContract.GetNodeLevel(nil, evm.ToHexAddress(handshake.Signer))
-		i := new(big.Int).SetUint64(uint64(utils.ValidatorNodeType))
+		i := new(big.Int).SetUint64(uint64(constants.ValidatorNodeType))
 		fmt.Printf("level i ---  %s: %s -- %s\n", level, i, err)
 		if level == nil || level.Cmp(i) >= 0 {
 			logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Infof("Inadequate stake balance for validator peer %s ---- %s", p, err)
@@ -541,12 +551,12 @@ func handleConnect(h *host.Host, pa *peer.AddrInfo) {
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 		logger.Infof("New StreamID: %s", stream.ID())
 		peerStreams[stream.ID()] = pi.ID
-		nodeType := utils.RelayNodeType
+		nodeType := constants.RelayNodeType
 		if config.Validator {
-			nodeType = utils.ValidatorNodeType
+			nodeType = constants.ValidatorNodeType
 		}
-		hs := utils.CreateHandshake(defaultNick((*h).ID()), protocolId, config.NetworkPrivateKey, nodeType)
-		go sendData(pi.ID, rw, (&hs).Pack())
+		hs, _ := entities.CreateHandshake(defaultNick((*h).ID()), protocolId, config.NetworkPrivateKey, nodeType)
+		go sendData(pi.ID, rw, (&hs).MsgPack())
 	}
 }
 

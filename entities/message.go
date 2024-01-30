@@ -6,15 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 
 	// "math"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/mlayerprotocol/go-mlayer/utils"
+	cryptoEth "github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/utils/constants"
+	"github.com/mlayerprotocol/go-mlayer/utils/encoder"
 	"github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -45,8 +47,8 @@ type ChatMessageHeader struct {
 	Receiver      string `json:"r"`
 	// ChainId       string `json:"cId"`
 	// Platform      string `json:"p"`
-	Timestamp     uint   `json:"ts"`
-	ApprovalExpiry int    `json:"apExp"`
+	Timestamp     uint64  `json:"ts"`
+	ApprovalExpiry uint64    `json:"apExp"`
 	// Wildcard      bool   `json:"wildcard"`
 	Channels      []string `json:"chs"`
 	SenderAddress string   `json:"sA"`
@@ -76,7 +78,7 @@ type ChatMessage struct {
 	Validator  string              `json:"v"`
 }
 
-func (chatMessage *ChatMessage) ToString() string {
+func (chatMessage ChatMessage) ToString() string {
 	values := []string{}
 
 	values = append(values, fmt.Sprintf("%s", chatMessage.Header.Receiver))
@@ -106,33 +108,51 @@ func (chatMessage *ChatMessage) ToString() string {
 	values = append(values, fmt.Sprintf("%s", _action))
 	values = append(values, fmt.Sprintf("%s", chatMessage.Validator))
 
-	return strings.Join(values, ",")
+	return strings.Join(values, "")
 }
 
-func (channel *ChatMessageHeader) ToApprovalString() string {
+func (msg ChatMessage) GetHash() ([]byte, error) {
+	b, err := msg.EncodeBytes()
+	if err != nil {
+		return []byte(""), err
+	}
+	return cryptoEth.Keccak256Hash(b).Bytes(), nil
+}
+
+func (msg ChatMessage) EncodeBytes() ([]byte, error) {
+	return encoder.EncodeBytes(encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.Validator})
+}
+
+// func (channel *ChatMessageHeader) ToApprovalString() string {
+// 	values := []string{}
+// 	values = append(values, fmt.Sprintf("%d", channel.ApprovalExpiry))
+// 	// values = append(values, fmt.Sprintf("%s", channel.Wildcard))
+// 	values = append(values, fmt.Sprintf("%s", channel.Channels))
+// 	values = append(values, fmt.Sprintf("%s", channel.SenderAddress))
+// 	// values = append(values, fmt.Sprintf("%s", channel.OwnerAddress))
+// 	return strings.Join(values, ",")
+// }
+func (channel *ChatMessageHeader) ToApprovalBytes() ([]byte, error) {
 	values := []string{}
 	values = append(values, fmt.Sprintf("%d", channel.ApprovalExpiry))
 	// values = append(values, fmt.Sprintf("%s", channel.Wildcard))
 	values = append(values, fmt.Sprintf("%s", channel.Channels))
 	values = append(values, fmt.Sprintf("%s", channel.SenderAddress))
 	// values = append(values, fmt.Sprintf("%s", channel.OwnerAddress))
-	return strings.Join(values, ",")
-}
-
-/*
-*
-NODE MESSAGE
-*
-*/
-type ClientMessage struct {
-	Message         ChatMessage `json:"m"`
-	SenderSignature string      `json:"sSig"`
-	NodeSignature   string      `json:"nS"`
+	b, err := encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: channel.ApprovalExpiry},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: channel.Channels},
+		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: channel.SenderAddress},
+	)
+	if(err != nil) {
+		return []byte(""), err 
+	}
+	return b, nil
 }
 
 type SuccessResponse struct {
-	body ClientMessage
-	meta Meta
+	Body ClientPayload
+	Meta Meta
 }
 
 type ErrorResponse struct {
@@ -153,42 +173,6 @@ func ReturnError(msg string, code int) *ErrorResponse {
 	return &e
 }
 
-func (msg *ClientMessage) ToJSON() []byte {
-	m, _ := json.Marshal(msg)
-	return m
-}
-func (msg *ClientMessage) Encode(enc *msgpack.Encoder) error {
-	return msgPackEncoder.Encode(msg)
-}
-
-func (s *ClientMessage) Pack() []byte {
-	b, _ := utils.MsgPackStruct(s)
-	return b
-}
-
-func (msg *ClientMessage) ToString() string {
-	return fmt.Sprintf("%s:%s:%s", msg.Message.ToString(), msg.SenderSignature, msg.NodeSignature)
-}
-
-func (msg *ClientMessage) Hash() []byte {
-	bs := crypto.Keccak256Hash([]byte(msg.Message.ToString())).Bytes()
-	return bs
-}
-
-func (msg *ClientMessage) Key() string {
-	return fmt.Sprintf("/%s/%s", msg.Message.Header.Sender, hexutil.Encode(msg.Hash()))
-}
-
-func ClientMessageFromBytes(b []byte) (ClientMessage, error) {
-	var message ClientMessage
-	err := json.Unmarshal(b, &message)
-	return message, err
-}
-func UnpackClientMessage(b []byte) (ClientMessage, error) {
-	var message ClientMessage
-	err := utils.MsgPackUnpackStruct(b, message)
-	return message, err
-}
 
 func JsonMessageFromBytes(b []byte) (MessageJsonInput, error) {
 	var message MessageJsonInput
@@ -201,21 +185,19 @@ func JsonMessageFromBytes(b []byte) (MessageJsonInput, error) {
 
 func UnpackJsonMessage(b []byte) (MessageJsonInput, error) {
 	var message MessageJsonInput
-	err := utils.MsgPackUnpackStruct(b, message)
+	err := encoder.MsgPackUnpackStruct(b, message)
 	return message, err
 }
 
-func ClientMessageFromString(msg string) (ClientMessage, error) {
-	return ClientMessageFromBytes([]byte(msg))
-}
+
 
 func (msg *ChatMessage) ToJSON() string {
 	m, _ := json.Marshal(msg)
 	return string(m)
 }
 
-func (msg *ChatMessage) Pack() []byte {
-	b, _ := utils.MsgPackStruct(msg)
+func (msg *ChatMessage) MsgPack() []byte {
+	b, _ := encoder.MsgPackStruct(msg)
 	return b
 }
 
@@ -232,9 +214,9 @@ func ChatMessageFromString(msg string) ChatMessage {
 }
 
 type MessageJsonInput struct {
-	Timestamp     int      `json:"ts"`
+	Timestamp     uint64      `json:"ts"`
 	Approval      string   `json:"ap"`
-	ApprovalExpiry	int      `json:"apExp"`
+	ApprovalExpiry	uint64      `json:"apExp"`
 	Channels      []string `json:"c"`
 	SenderAddress string   `json:"sA"`
 	// OwnerAddress  string              `json:"oA"`
@@ -253,9 +235,9 @@ type MessageJsonInput struct {
 
 // PubSubMessage
 type PubSubMessage struct {
-	Data      json.RawMessage `json:"d"`
-	Timestamp string          `json:"ts"`
-	Signature string          `json:"sig"`
+	Data      msgpack.RawMessage `json:"d"`
+	// Timestamp uint64          `json:"ts"`
+	// Signature string          `json:"sig"`
 }
 
 func (msg *PubSubMessage) ToJSON() []byte {
@@ -263,26 +245,29 @@ func (msg *PubSubMessage) ToJSON() []byte {
 	return m
 }
 
-func (msg *PubSubMessage) Pack() []byte {
-	b, _ := utils.MsgPackStruct(msg)
+func (msg *PubSubMessage) MsgPack() []byte {
+	b, _ := encoder.MsgPackStruct(msg)
 	return b
 }
 
 func (msg *PubSubMessage) ToString() string {
 	values := []string{}
 	values = append(values, fmt.Sprintf("Data:%s", string(msg.Data)))
-	values = append(values, fmt.Sprintf("Timestmap%s", msg.Timestamp))
-	return strings.Join(values, ",")
+	//values = append(values, fmt.Sprintf("Timestmap%d", msg.Timestamp))
+	return strings.Join(values, "")
 }
 
-func NewSignedPubSubMessage(data []byte, privateKey string) PubSubMessage {
-	timestamp := int(time.Now().Unix())
-	message := PubSubMessage{Data: data, Timestamp: strconv.Itoa(timestamp)}
-	_, sig := utils.Sign(message.ToString(), privateKey)
-	message.Signature = sig
+func (msg *PubSubMessage) EncodeBytes()  ([]byte, error) {
+	return encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: []byte(msg.Data)},
+		//encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Timestamp},
+	)
+}
+
+func NewPubSubMessage(data []byte) PubSubMessage {
+	message := PubSubMessage{Data: data}
 	return message
 }
-
 func PubSubMessageFromBytes(b []byte) (PubSubMessage, error) {
 	var message PubSubMessage
 	err := json.Unmarshal(b, &message)
@@ -291,22 +276,24 @@ func PubSubMessageFromBytes(b []byte) (PubSubMessage, error) {
 
 func UnpackPubSubMessage(b []byte) (PubSubMessage, error) {
 	var message PubSubMessage
-	err := utils.MsgPackUnpackStruct(b, message)
+	err := encoder.MsgPackUnpackStruct(b, &message)
 	return message, err
 }
 
 func IsValidTopic(ch ChatMessageHeader, signature string, channelOwner string) bool {
-
-	signer, _ := utils.GetSigner(ch.ToApprovalString(), signature)
+	approval, err := ch.ToApprovalBytes()
+	if(err != nil) {
+		return false
+	}
+	signer, _ := crypto.GetSignerECC(&approval, &signature)
 	if strings.ToLower(channelOwner) != strings.ToLower(signer) {
 		return false
 	}
-	if math.Abs(float64(int(ch.ApprovalExpiry)-int(time.Now().Unix()))) > utils.VALID_HANDSHAKE_SECONDS {
-		logger.WithFields(logrus.Fields{"data": ch}).Warnf("Channel Expired: %s", ch.ApprovalExpiry)
+	if math.Abs(float64(int(ch.ApprovalExpiry)-int(time.Now().Unix()))) > constants.VALID_HANDSHAKE_SECONDS {
+		logger.WithFields(logrus.Fields{"data": ch}).Warnf("Channel Expired: %d", ch.ApprovalExpiry)
 		return false
 	}
-	approval := ch.ToApprovalString()
-	isValid := utils.VerifySignature(signer, approval, signature)
+	isValid := crypto.VerifySignatureECC(&signer, &approval, &signature)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": approval, "signature": signature}).Warnf("Invalid signer %s", signer)
 		return false
@@ -320,23 +307,25 @@ func IsValidTopic(ch ChatMessageHeader, signature string, channelOwner string) b
 
 func IsValidMessage(msg ChatMessage, signature string) bool {
 	chatMessage := msg.ToJSON()
-	signer, _ := utils.GetSigner(msg.ToString(), signature)
+	msgByte := []byte(msg.ToString())
+	signer, _ := crypto.GetSignerECC(&msgByte, &signature)
 	channel := strings.Split(msg.Header.Receiver, ":")
-	channelOwner, _ := utils.GetSigner(strings.ToLower(channel[0]), channel[1])
+	chaByte := []byte(strings.ToLower(channel[0]))
+	channelOwner, _ := crypto.GetSignerECC(&chaByte, &(channel[1]))
 	if strings.ToLower(channelOwner) != strings.ToLower(signer) {
 		return false
 	}
 	if !IsValidTopic(msg.Header, channel[1], channelOwner) {
 		return false
 	}
-	if math.Abs(float64(int(msg.Header.Timestamp)-int(time.Now().Unix()))) > utils.VALID_HANDSHAKE_SECONDS {
+	if math.Abs(float64(int(msg.Header.Timestamp)-int(time.Now().Unix()))) > constants.VALID_HANDSHAKE_SECONDS {
 		logger.WithFields(logrus.Fields{"data": chatMessage}).Warnf("ChatMessage Expired: %s", chatMessage)
 		return false
 	}
-	message := msg.ToString()
-	isValid := utils.VerifySignature(signer, message, signature)
+	message := []byte(msg.ToString())
+	isValid := crypto.VerifySignatureECC(&signer, &message, &signature)
 	if !isValid {
-		logger.WithFields(logrus.Fields{"message": message, "signature": signature}).Warnf("Invalid signer %s", signer)
+		logger.WithFields(logrus.Fields{"message": string(message), "signature": signature}).Warnf("Invalid signer %s", signer)
 		return false
 	} else {
 
@@ -345,34 +334,38 @@ func IsValidMessage(msg ChatMessage, signature string) bool {
 }
 
 func IsValidSubscription(
-	subscription SubscriptionEvent,
+	subscription Subscription,
 	verifyTimestamp bool,
 ) bool {
 	if verifyTimestamp {
-		if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().Unix()))) > utils.VALID_HANDSHAKE_SECONDS {
+		if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().Unix()))) > constants.VALID_HANDSHAKE_SECONDS {
 			logger.Info("Invalid Subscription, invalid handshake duration")
 			return false
 		}
 	}
-	return utils.VerifySignature(subscription.Subscriber, subscription.ToString(), subscription.Signature)
+	b, err := subscription.EncodeBytes();
+	if(err != nil) {
+		return false
+	}
+	return crypto.VerifySignatureECC(&subscription.Subscriber, &b, &subscription.Signature)
 }
 
 func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
 
 	if len(msg.Message) > 0 {
-		msgHash := hexutil.Encode(utils.Hash(msg.Message))
+		msgHash := hexutil.Encode(crypto.Keccak256Hash([]byte(msg.Message)))
 		if msg.MessageHash != msgHash {
 			return ChatMessage{}, errors.New("Invalid Message")
 		}
 	}
 	if len(msg.Subject) > 0 {
-		subHash := hexutil.Encode(utils.Hash(msg.Subject))
+		subHash := hexutil.Encode(crypto.Keccak256Hash([]byte(msg.Subject)))
 		if msg.SubjectHash != subHash {
 			return ChatMessage{}, errors.New("Invalid Subject")
 		}
 	}
 	chatMessage := ChatMessageHeader{
-		Timestamp:     uint(msg.Timestamp),
+		Timestamp:     uint64(msg.Timestamp),
 		Approval:      msg.Approval,
 		Receiver:      msg.Receiver,
 		// ChainId:       msg.ChainId,

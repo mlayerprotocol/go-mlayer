@@ -6,7 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
+
 	"strings"
 	"sync"
 
@@ -15,30 +15,38 @@ import (
 	"net/rpc"
 
 	// "net/rpc/jsonrpc"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
-	"github.com/mlayerprotocol/go-mlayer/channelpool"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
+
+	// "github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
+	"github.com/mlayerprotocol/go-mlayer/internal/client"
+	"github.com/mlayerprotocol/go-mlayer/internal/message"
+	"github.com/mlayerprotocol/go-mlayer/internal/subscription"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
-	processor "github.com/mlayerprotocol/go-mlayer/pkg/core/processor"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/rest"
 	rpcServer "github.com/mlayerprotocol/go-mlayer/pkg/core/rpc"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	ws "github.com/mlayerprotocol/go-mlayer/pkg/core/ws"
-	utils "github.com/mlayerprotocol/go-mlayer/utils"
+	"github.com/mlayerprotocol/go-mlayer/pkg/log"
+	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 	"github.com/spf13/cobra"
 )
 
-var logger = &utils.Logger
+var logger = &log.Logger
 
 const (
-	TESTNET string = "/icm/testing"
-	MAINNET        = "/icm/mainnet"
+	TESTNET string = "/mlayer/testing"
+	MAINNET        = "/mlayer/mainnet"
 )
 
 type Flag string
@@ -49,6 +57,7 @@ const (
 	NETWORK                  = "network"
 	RPC_PORT            Flag = "rpc-port"
 	WS_ADDRESS          Flag = "ws-address"
+	REST_ADDRESS          Flag = "rest-address"
 	DATA_DIR            Flag = "data-dir"
 )
 const MaxDeliveryProofBlockSize = 1000
@@ -79,9 +88,10 @@ func init() {
 	daemonCmd.Flags().StringP(string(NETWORK_PRIVATE_KEY), "e", "", "The network private key. This is the key used to sign handshakes and messages")
 	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
 	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
-	daemonCmd.Flags().StringP(string(RPC_PORT), "p", utils.DefaultRPCPort, "RPC server port")
-	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", utils.DefaultWebSocketAddress, "http service address")
-	daemonCmd.Flags().StringP(string(DATA_DIR), "d", utils.DefaultDataDir, "data directory")
+	daemonCmd.Flags().StringP(string(RPC_PORT), "p", constants.DefaultRPCPort, "RPC server port")
+	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", constants.DefaultWebSocketAddress, "ws service address")
+	daemonCmd.Flags().StringP(string(REST_ADDRESS), "r", constants.DefaultRestAddress, "rest api service address")
+	daemonCmd.Flags().StringP(string(DATA_DIR), "d", constants.DefaultDataDir, "data directory")
 
 }
 
@@ -92,8 +102,10 @@ var upgrader = websocket.Upgrader{
 } // use default options
 
 func daemonFunc(cmd *cobra.Command, args []string) {
-	cfg := utils.Config
+	cfg := configs.Config
 	ctx := context.Background()
+
+	sql.Init()
 
 	connectedSubscribers := make(map[string]map[string][]interface{})
 
@@ -102,6 +114,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	networkPrivateKey, err := cmd.Flags().GetString(string(NETWORK_PRIVATE_KEY))
 	rpcPort, err := cmd.Flags().GetString(string(RPC_PORT))
 	wsAddress, err := cmd.Flags().GetString(string(WS_ADDRESS))
+	restAddress, err := cmd.Flags().GetString(string(REST_ADDRESS))
 
 	if err != nil || len(networkPrivateKey) == 0 {
 		panic("network_private_key is required. Use --network-private-key flag or environment var ML_NETWORK_PRIVATE_KEY")
@@ -124,70 +137,86 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		cfg.Network = network
 	}
 
-	if rpcPort == utils.DefaultRPCPort && len(cfg.RPCPort) > 0 {
+	if rpcPort == constants.DefaultRPCPort && len(cfg.RPCPort) > 0 {
 		rpcPort = cfg.RPCPort
 	}
 
-	ctx = context.WithValue(ctx, utils.ConfigKey, &cfg)
-	ctx = context.WithValue(ctx, utils.IncomingMessageChId, &channelpool.IncomingMessagesP2P2_D_c)
-	ctx = context.WithValue(ctx, utils.OutgoingMessageChId, &channelpool.SentMessagesRPC_D_c)
-	ctx = context.WithValue(ctx, utils.OutgoingMessageDP2PChId, &channelpool.OutgoingMessagesD_P2P_c)
+	chain.InitializeMlChain(&cfg)
+
+	// ****** INITIALIZE CONTEXT ****** //
+
+	ctx = context.WithValue(ctx, constants.ConfigKey, &cfg)
+
+	ctx = context.WithValue(ctx, constants.BroadcastAuthorizationEventChId, &channelpool.BroadcastAuthorizationEventInternal_PubSubC)
+	ctx = context.WithValue(ctx, constants.IncomingAuthorizationEventChId, &channelpool.IncomingAuthorizationEventInternal_PubSubC)
+	
+	// CLEANUP
+	ctx = context.WithValue(ctx, constants.IncomingMessageChId, &channelpool.IncomingMessageEvent_P2P_D_C)
+	ctx = context.WithValue(ctx, constants.OutgoingMessageChId, &channelpool.NewPayload_Cli_D_C)
+	ctx = context.WithValue(ctx, constants.OutgoingMessageDP2PChId, &channelpool.OutgoingMessageEvents_D_P2P_C)
 	// incoming from client apps to daemon channel
-	ctx = context.WithValue(ctx, utils.SubscribeChId, &channelpool.SubscribersRPC_D_c)
+	ctx = context.WithValue(ctx, constants.SubscribeChId, &channelpool.Subscribers_RPC_D_C)
 	// daemon to p2p channel
-	ctx = context.WithValue(ctx, utils.SubscriptionDP2PChId, &channelpool.SubscriptionD_P2P_C)
-	ctx = context.WithValue(ctx, utils.ClientHandShackChId, &channelpool.ClientHandshakeC)
-	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProof_BlockChId, &channelpool.OutgoingDeliveryProof_BlockC)
-	ctx = context.WithValue(ctx, utils.OutgoingDeliveryProofChId, &channelpool.OutgoingDeliveryProofC)
-	ctx = context.WithValue(ctx, utils.PubsubDeliverProofChId, &channelpool.PubSubInputBlockC)
-	ctx = context.WithValue(ctx, utils.PubSubBlockChId, &channelpool.PubSubInputProofC)
+	ctx = context.WithValue(ctx, constants.SubscriptionDP2PChId, &channelpool.Subscription_D_P2P_C)
+	ctx = context.WithValue(ctx, constants.ClientHandShackChId, &channelpool.ClientHandshakeC)
+	ctx = context.WithValue(ctx, constants.OutgoingDeliveryProof_BlockChId, &channelpool.OutgoingDeliveryProof_BlockC)
+	ctx = context.WithValue(ctx, constants.OutgoingDeliveryProofChId, &channelpool.OutgoingDeliveryProofC)
+	ctx = context.WithValue(ctx, constants.PubsubDeliverProofChId, &channelpool.PubSubInputBlockC)
+	ctx = context.WithValue(ctx, constants.PubSubBlockChId, &channelpool.PubSubInputProofC)
 	// receiving subscription from other nodes channel
-	ctx = context.WithValue(ctx, utils.PublishedSubChId, &channelpool.PublishedSubC)
+	ctx = context.WithValue(ctx, constants.PublishedSubChId, &channelpool.PublishedSubC)
+
+	ctx = context.WithValue(ctx, constants.SQLDB, &sql.Db)
 
 	var wg sync.WaitGroup
 	errc := make(chan error)
 
-	deliveryProofBlockStateStore := db.New(&ctx, utils.DeliveryProofBlockStateStore)
-	subscriptionBlockStateStore := db.New(&ctx, utils.SubscriptionBlockStateStore)
+	// deliveryProofBlockStateStore := db.New(&ctx, constants.DeliveryProofBlockStateStore)
+	subscriptionBlockStateStore := db.New(&ctx, constants.SubscriptionBlockStateStore)
 
 	// stores messages that have been validated
-	validMessagesStore := db.New(&ctx, utils.ValidMessageStore)
-	// unsentMessageStore := db.New(&ctx, utils.UnsentMessageStore)
-	unsentMessageP2pStore := db.New(&ctx, utils.UnsentMessageStore)
-	channelSubscriptionStore := db.New(&ctx, utils.ChannelSubscriptionStore)
-	newChannelSubscriptionStore := db.New(&ctx, utils.NewChannelSubscriptionStore)
-	channelsubscriptionCountStore := db.New(&ctx, utils.ChannelSubscriptionCountStore)
-	// sentMessageStore := db.Db(&ctx, utils.SentMessageStore)
-	deliveryProofStore := db.New(&ctx, utils.DeliveryProofStore)
-	localDPBlockStore := db.New(&ctx, utils.DeliveryProofBlockStore)
-	unconfurmedBlockStore := db.New(&ctx, utils.UnconfirmedDeliveryProofStore)
+	// validMessagesStore := db.New(&ctx, constants.ValidMessageStore)
+	unProcessedClientPayloadStore := db.New(&ctx, constants.UnprocessedClientPayloadStore)
+	unsentMessageP2pStore := db.New(&ctx, constants.UnsentMessageStore)
+	topicSubscriptionStore := db.New(&ctx, constants.TopicSubscriptionStore)
+	newTopicSubscriptionStore := db.New(&ctx, constants.NewTopicSubscriptionStore)
+	topicSubscriptionCountStore := db.New(&ctx, constants.TopicSubscriptionCountStore)
+	// sentMessageStore := db.Db(&ctx, constants.SentMessageStore)
+	// deliveryProofStore := db.New(&ctx, constants.DeliveryProofStore)
+	// localDPBlockStore := db.New(&ctx, constants.DeliveryProofBlockStore)
+	// unconfirmedBlockStore := db.New(&ctx, constants.UnconfirmedDeliveryProofStore)
 
-	ctx = context.WithValue(ctx, utils.NewChannelSubscriptionStore, newChannelSubscriptionStore)
+	ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
+	ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
 
 	defer wg.Wait()
+
+	wg.Add(1)
+	go client.ProcessAuthorizationFromPubSub(&ctx)
 
 	wg.Add(1)
 	go func() {
 		for {
 			select {
-			case inMessage, ok := <-channelpool.IncomingMessagesP2P2_D_c:
+			case inEvent, ok := <-channelpool.IncomingMessageEvent_P2P_D_C:
 				if !ok {
 					logger.Errorf("Incoming Message channel closed. Please restart server to try or adjust buffer size in config")
 					wg.Done()
 					return
 				}
-				// VALIDATE AND DISTRIBUTE
+				// VALIDATE, STORE AND DISTRIBUTE
 				go func() {
-					logger.Infof("Received new message %s\n", inMessage.Message.Body.MessageHash)
-					validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.Pack(), false)
-					_reciever := inMessage.Message.Header.Receiver
+					inMessage := inEvent.Payload.Data.(entities.ChatMessage)
+					logger.Infof("Received new message %s\n", inMessage.Body.MessageHash)
+					// validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.MsgPack(), false)
+					_reciever := inMessage.Header.Receiver
 					_recievers := strings.Split(_reciever, ":")
-					_currentChannel := connectedSubscribers[_recievers[1]]
+					_currentTopic := connectedSubscribers[_recievers[1]]
 					logger.Info("connectedSubscribers : ", connectedSubscribers, "---", _reciever)
-					logger.Info("_currentChannel : ", _currentChannel, "/n")
-					for _, signerConn := range _currentChannel {
+					logger.Info("_currentTopic : ", _currentTopic, "/n")
+					for _, signerConn := range _currentTopic {
 						for i := 0; i < len(signerConn); i++ {
-							signerConn[i].(*websocket.Conn).WriteMessage(1, inMessage.Pack())
+							signerConn[i].(*websocket.Conn).WriteMessage(1, inMessage.MsgPack())
 						}
 					}
 				}()
@@ -196,88 +225,19 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 		}
 	}()
+
+
 	wg.Add(1)
-	go processor.ProcessNewSubscription(
+	go subscription.ProcessNewSubscription(
 		ctx,
 		subscriptionBlockStateStore,
-		channelsubscriptionCountStore,
-		newChannelSubscriptionStore,
-		channelSubscriptionStore,
+		topicSubscriptionCountStore,
+		newTopicSubscriptionStore,
+		topicSubscriptionStore,
 		&wg)
 
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-
-			// attempt to push into outgoing message channel
-			case outMessage, ok := <-channelpool.SentMessagesRPC_D_c:
-				if !ok {
-					logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
-
-					return
-				}
-				go processor.ProcessSentMessage(ctx, unsentMessageP2pStore, outMessage)
-
-			case sub, ok := <-channelpool.SubscribersRPC_D_c:
-				if !ok {
-					logger.Errorf("Subscription channel closed!")
-					return
-				}
-				if !entities.IsValidSubscription(*sub, true) {
-					utils.Logger.Info("ITS NOT VALID!")
-					continue
-				}
-				// go processor.ProcessNewSubscription(ctx, sub, channelsubscribersRPC_D_countStore, channelSubscriptionStore)
-
-			case clientHandshake, ok := <-channelpool.ClientHandshakeC:
-				if !ok {
-					logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
-					wg.Done()
-					return
-				}
-				go processor.ValidateMessageClient(ctx, &connectedSubscribers, clientHandshake, channelSubscriptionStore)
-
-			case proof, ok := <-channelpool.IncomingDeliveryProofsC:
-				if !ok {
-					logger.Errorf("Incoming delivery proof channel closed. Please restart server to try or adjust buffer size in config")
-					wg.Done()
-					return
-				}
-				go processor.ValidateAndAddToDeliveryProofToBlock(ctx,
-					proof,
-					deliveryProofStore,
-					channelSubscriptionStore,
-					deliveryProofBlockStateStore,
-					localDPBlockStore,
-					MaxDeliveryProofBlockSize,
-					&deliveryProofBlockMutex,
-				)
-
-			case batch, ok := <-utils.PubSubInputBlockC:
-				if !ok {
-					logger.Errorf("PubsubInputBlock channel closed. Please restart server to try or adjust buffer size in config")
-					wg.Done()
-					return
-				}
-				go func() {
-					unconfurmedBlockStore.Put(ctx, db.Key(batch.Key()), batch.Pack())
-				}()
-			case proof, ok := <-utils.PubSubInputProofC:
-				if !ok {
-					logger.Errorf("PubsubInputBlock channel closed. Please restart server to try or adjust buffer size in config")
-					wg.Done()
-					return
-				}
-				go func() {
-					unconfurmedBlockStore.Put(ctx, db.Key(proof.BlockKey()), proof.Pack())
-				}()
-
-			}
-
-		}
-	}()
+	go message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
 
 	wg.Add(1)
 	go func() {
@@ -294,7 +254,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	go func() {
 		_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
 		if err != nil {
-			log.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
+			logger.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
 		}
 		query := ethereum.FilterQuery{
 			// FromBlock: big.NewInt(23506010),
@@ -305,7 +265,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 		// logs, err := client.FilterLogs(context.Background(), query)
 		// if err != nil {
-		// 	log.Fatal(err)
+		// 	logger.Fatal(err)
 		// }
 		// parserEvent(logs[0], "StakeEvent")
 
@@ -314,13 +274,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 		sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
 		if err != nil {
-			log.Fatal(err, "SubscribeFilterLogs")
+			logger.Fatal(err, "SubscribeFilterLogs")
 		}
 
 		for {
 			select {
 			case err := <-sub.Err():
-				log.Fatal(err)
+				logger.Fatal(err)
 			case vLog := <-incomingEventsC:
 				fmt.Println(vLog) // pointer to event log
 				parserEvent(vLog, "StakeEvent")
@@ -357,7 +317,16 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		logger.Infof("wsAddress: %s\n", wsAddress)
 		http.HandleFunc("/echo", wss.ServeWebSocket)
 
-		log.Fatal(http.ListenAndServe(wsAddress, nil))
+		logger.Fatal(http.ListenAndServe(wsAddress, nil))
+	}()
+
+	wg.Add(1)
+	go func() {
+		rest := rest.NewRestService(&ctx)
+		
+		router := rest.Initialize()
+		logger.Infof("Starting REST api on: %s", restAddress)
+		logger.Fatal(router.Run(restAddress))
 	}()
 
 	wg.Add(1)
@@ -377,11 +346,11 @@ func parserEvent(vLog types.Log, eventName string) {
 	contractAbi, err := abi.JSON(strings.NewReader(string(stake.StakeMetaData.ABI)))
 
 	if err != nil {
-		log.Fatal("contractAbi, err", err)
+		logger.Fatal("contractAbi, err", err)
 	}
 	_err := contractAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
 	if _err != nil {
-		log.Fatal("_err :  ", _err)
+		logger.Fatal("_err :  ", _err)
 	}
 
 	fmt.Println(event.Account) // foo
@@ -395,10 +364,10 @@ var verifiedConn = []*websocket.Conn{}
 // func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 
 // 	c, err := upgrader.Upgrade(w, r, nil)
-// 	log.Print("New ServeWebSocket c : ", c.RemoteAddr())
+// 	logger.Print("New ServeWebSocket c : ", c.RemoteAddr())
 
 // 	if err != nil {
-// 		log.Print("upgrade:", err)
+// 		logger.Print("upgrade:", err)
 // 		return
 // 	}
 // 	defer c.Close()
@@ -417,25 +386,25 @@ var verifiedConn = []*websocket.Conn{}
 // 	for {
 // 		mt, message, err := c.ReadMessage()
 // 		if err != nil {
-// 			log.Println("read:", err)
+// 			logger.Println("read:", err)
 // 			break
 
 // 		} else {
 // 			err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
 // 			if err != nil {
-// 				log.Println("Error:", err)
+// 				logger.Println("Error:", err)
 // 			} else {
 // 				// signature := string(message)
-// 				verifiedRequest, _ := utils.UnpackVerificationRequest(message)
-// 				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
+// 				verifiedRequest, _ := entities.UnpackVerificationRequest(message)
+// 				logger.Println("verifiedRequest.Message: ", verifiedRequest.Message)
 
-// 				if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
+// 				if constants.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
 // 					verifiedConn = append(verifiedConn, c)
 // 					hasVerifed = true
-// 					log.Println("Verification was successful: ", verifiedRequest)
+// 					logger.Println("Verification was successful: ", verifiedRequest)
 // 				}
-// 				log.Println("message:", string(message))
-// 				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+// 				logger.Println("message:", string(message))
+// 				logger.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
 // 			}
 
 // 		}
