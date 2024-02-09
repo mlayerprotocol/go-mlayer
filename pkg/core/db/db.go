@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	ds "github.com/ipfs/go-datastore"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 )
 
 func Key(key string) ds.Key {

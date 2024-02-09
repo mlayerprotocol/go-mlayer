@@ -1,6 +1,7 @@
-package helpers
+package utils
 
 import (
+	"regexp"
 	"time"
 )
 
@@ -18,5 +19,9 @@ func TimestampMilli () uint64 {
 	return uint64(time.Now().UnixNano() / 1e6)
 }
 
-
+func IsAlphaNumericDot(str string) bool {
+    pattern := `^[a-zA-Z][a-zA-Z0-9._]*$`
+    matched, _ := regexp.MatchString(pattern, str)
+    return matched
+}
 

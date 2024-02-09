@@ -21,6 +21,12 @@ const (
 const MaxBlockSize = 1000
 
 const (
+    ErrorUnauthorized = "4001"
+    ErrorBadRequest = "4000"
+    ErrorForbidden = "4003"
+)
+
+const (
 	UnprocessedClientPayloadStore            string = "unprocessed-client-payload-store"
     ValidMessageStore             string = "valid-messages"
 	UnsentMessageStore                   = "unsent-messages"
@@ -41,6 +47,7 @@ const (
 	ConfigKey                       string = "Config"
     BroadcastAuthorizationEventChId         = "BroadcastAuthorizationEventChannel"
     IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
+    IncomingTopicEventChId         = "IncomingTopicEventChannel"
 
 
 	OutgoingMessageChId                    = "OutgoingMessageChannel"
@@ -77,7 +84,7 @@ const (
 Always enter map in sorted order
 
 Abi             = abi
-Account         =acct
+Account         = acct
 Action          = a
 Actions         = as
 Address         = addr
@@ -85,6 +92,7 @@ Agent           = agt
 Amount          = amt
 Approval        = ap
 ApprovalExpiry  = apExp
+Associations    = assoc
 Authority       = auth
 Body            = b
 Block           = blk
@@ -102,9 +110,10 @@ Contract        = co
 Data            = d
 Description     = desc
 Duration        = du
+EventHash       = eH
 Grantor         = gr
-Handle          = h
-Hash            = hash
+Handle          = hand
+Hash            = h
 Header          = head
 Index           = i
 IsValid         = isVal
@@ -120,13 +129,16 @@ NodeSignature   = nS
 NodeType        = nT
 Origin          = o
 Parameters      = pa
+ParentTopicHash = pTH
 Paylaod         = pld
 Platform        = p
-Priviledge      = privi
+Privilege       = privi
+Proof           = pr
 Proofs          = prs
 ProtocolId      = proId
 Receiver        = r
 Ref             = ref
+Secret          = sec
 Sender          = s
 SenderAddress   = sA
 SenderSignature = sSig

@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 )
 
 func SaveEvent(key string, payload *entities.AuthorizationPayload, ctx *context.Context) error {

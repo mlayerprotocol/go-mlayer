@@ -10,13 +10,13 @@ import (
 	"time"
 
 	// "github.com/gin-gonic/gin"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	cryptoMl "github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -480,7 +480,7 @@ func isValidHandshake(handshake entities.Handshake, p peer.ID) bool {
 	if(err != nil) {
 		return false
 	}
-	isValid := cryptoMl.VerifySignatureECC(&handshake.Signer, &message, &handshake.Signature)
+	isValid := cryptoMl.VerifySignatureECC(handshake.Signer, &message, handshake.Signature)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": message, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
 		return false

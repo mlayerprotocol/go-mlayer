@@ -10,13 +10,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	"github.com/mlayerprotocol/go-mlayer/utils/encoder"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 
+type PublicKeyString string
 type AddressString string
 
 type Address struct {

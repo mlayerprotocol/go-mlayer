@@ -8,13 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ipfs/go-datastore/query"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 )
 
 var logger = &log.Logger

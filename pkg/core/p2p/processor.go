@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 	// rest "messagingprotocol/pkg/core/rest"
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
@@ -56,12 +56,12 @@ func PublishEvent(channelPool chan *entities.Event, pubsubChannel *Channel, main
 				// }
 				
 		
-				event, errT := entities.UnpackEvent(pack, &entities.Authorization{})
-				if errT != nil {
-					logger.Errorf("Error receiving event  %v\n", errT)
-					continue;
-				}
-				logger.Infof("decodedEvent---> %v", event.Payload)
+				// event, errT := entities.UnpackEvent(pack, &entities.Authorization{})
+				// if errT != nil {
+				// 	logger.Errorf("Error receiving event  %v\n", errT)
+				// 	continue;
+				// }
+				
 				// eT := entities.Event{
 				// 	Payload: ,
 				// }
@@ -193,7 +193,7 @@ func ReceiveEvent[PayloadData any](payload *PayloadData, toGoChannel chan *entit
 		// logger.Infof("ADEDEEDDD %v", pv.Event.Payload.(entities.AuthorizationPayload).ClientPayload)
 		// b, err := pv.EncodeBytes()
 		// logger.Infof("ADEDEEDDD %v", b)
-		logger.Infof("Event Received ----===> %v", event.Node)
+		// logger.Infof("Event Received ----===> %v", event.GetValidator())
 		toGoChannel <- event
 	}
 	// for {

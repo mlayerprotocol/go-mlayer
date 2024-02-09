@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	gonanoid "github.com/matoous/go-nanoid/v2"
-	"github.com/mlayerprotocol/go-mlayer/utils/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 )
 
 // Block

@@ -11,12 +11,12 @@ type AuthorizationEvent struct {
 	// Event `msgpack:",noinline"`
 	entities.Event	 `msgpack:",noinline"`
 	//IsValid   bool `gorm:"default:false" json:"isVal"`
-	EventType int16 `json:"t"`
-	Payload entities.ClientPayload  `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
+	// EventType int16 `json:"t"`
+	// Payload entities.ClientPayload  `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
 }
 
 type AuthorizationState struct {
 	BaseModel `msgpack:",noinline"`
 	entities.Authorization `msgpack:",noinline"`
-	Privilege 		uint8  `json:"priv"`
+	// Privilege 	constants.AuthorizationPrivilege  `json:"priv" gorm:"type:int"`
 }

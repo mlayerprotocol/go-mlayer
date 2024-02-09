@@ -39,7 +39,7 @@ type MLChainAPI struct {
 
 type MainConfiguration struct {
 	NodePrivateKey           string         `mapstructure:"node_private_key"`
-	NetworkPrivateKey        string         `mapstructure:"network_private_key"`
+	NetworkPrivateKey        string         `mapstructure:"network_private_key"`      
 	StakeContract            string         `mapstructure:"stake_contract"`
 	ChainId                  uint           `mapstructure:"chain_id"`
 	Token                    string         `mapstructure:"token_address"`
@@ -63,6 +63,8 @@ type MainConfiguration struct {
 	DataDir                  string         `mapstructure:"data_dir"`
 	SQLDB                    SqlConfig     	`mapstructure:"sql"`
 	MLBlockchainAPIUrl		 string			`mapstructure:"mlayer_api_url"`
+	NetworkPublicKey      	 string  
+	NetworkKeyAddress		 string 
 }
 
 var (

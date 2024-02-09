@@ -13,7 +13,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 
 	// services "github.com/mlayerprotocol/go-mlayer/pkg/service"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 )
 
 var logger = &log.Logger

@@ -3,18 +3,19 @@ package subscription
 import (
 	"context"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ipfs/go-datastore/query"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 )
 
 var logger = &log.Logger
@@ -45,7 +46,7 @@ func ProcessNewSubscription(
 			logger.Debugf("Block state store error - key: %s, %v", constants.CurrentSubscriptionBlockStateKey, err)
 			// invalid proof or proof has been tampered with
 
-			if string(err.Error()) == "datastore: key not found" {
+			if strings.Contains(err.Error(), "key not found") {
 				block = entities.NewBlock()
 				// logger.Debugf("Error: %s", block.ToJSON())
 				blockStateTxn.Put(ctx, db.Key(constants.CurrentDeliveryProofBlockStateKey), block.MsgPack())
@@ -54,6 +55,8 @@ func ProcessNewSubscription(
 					panic(err)
 				}
 			}
+			time.Sleep(5 * time.Second)
+			//TODO use channel so that it blocks until there is data to process
 			continue
 		}
 		if len(blockData) > 0 {

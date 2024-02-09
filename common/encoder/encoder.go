@@ -54,6 +54,7 @@ const (
 	BigNumEncoderDataType EncoderDataType = "bignum"
 	IntEncoderDataType EncoderDataType = "int"
 	HexEncoderDataType EncoderDataType = "hex"
+	BoolEncoderDataType EncoderDataType = "bool"
 	AddressEncoderDataType EncoderDataType = "address"
 )
 type EncoderParam struct {
@@ -86,13 +87,24 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 			}
 			m[i] = []byte(NumberToByte(num))
 		}
+		if(arg.Type == BoolEncoderDataType) {
+			val := 0
+			if arg.Value == true {
+				val = 1
+			}
+			num, err := strconv.ParseUint(fmt.Sprintf("%v", val), 10, 64)
+			if(err != nil) {
+				return []byte(""), err
+			}
+			m[i] = []byte(NumberToByte(num))
+		}
 		if(arg.Type == BigNumEncoderDataType) {
 			bigNum := new(big.Int)
 			bigNum.SetString(fmt.Sprintf("%v", arg.Value), 10)
 			m[i] = bigNum.Bytes()
 		}
 		if(arg.Type == HexEncoderDataType) {
-			b, err := hex.DecodeString(arg.Value.(string))
+			b, err := hex.DecodeString(fmt.Sprintf("%v", arg.Value))
 			if err != nil {
 				return []byte(""), err
 			}

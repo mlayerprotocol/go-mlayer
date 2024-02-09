@@ -23,12 +23,14 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 
 	// "github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
-	"github.com/mlayerprotocol/go-mlayer/internal/client"
 	"github.com/mlayerprotocol/go-mlayer/internal/message"
 	"github.com/mlayerprotocol/go-mlayer/internal/subscription"
+	"github.com/mlayerprotocol/go-mlayer/pkg/client"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
@@ -38,7 +40,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	ws "github.com/mlayerprotocol/go-mlayer/pkg/core/ws"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 	"github.com/spf13/cobra"
 )
 
@@ -121,6 +122,8 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}
 	if len(networkPrivateKey) > 0 {
 		cfg.NetworkPrivateKey = networkPrivateKey
+		cfg.NetworkPublicKey = crypto.GetPublicKeyEDD(networkPrivateKey)
+		cfg.NetworkKeyAddress = crypto.ToBech32Address(cfg.NetworkPublicKey)
 	}
 
 	dataDir, err := cmd.Flags().GetString(string(DATA_DIR))
@@ -192,7 +195,10 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	defer wg.Wait()
 
 	wg.Add(1)
-	go client.ProcessAuthorizationFromPubSub(&ctx)
+	go client.ListenForNewAuthEventFromPubSub(&ctx)
+
+	wg.Add(1)
+	go client.ListenForNewTopicEventFromPubSub(&ctx)
 
 	wg.Add(1)
 	go func() {

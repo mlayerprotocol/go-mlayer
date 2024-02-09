@@ -6,6 +6,7 @@ import (
 
 // broadcasts new authorization event to other nodes
 var BroadcastAuthorizationEventInternal_PubSubC = make(chan *entities.Event)
+var BroadcastTopicEventInternal_PubSubC = make(chan *entities.Event)
 var IncomingAuthorizationEventInternal_PubSubC = make(chan *entities.Event)
 
 

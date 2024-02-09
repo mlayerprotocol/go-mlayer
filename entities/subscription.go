@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
-	"github.com/mlayerprotocol/go-mlayer/utils/encoder"
 )
 
 var logger = &log.Logger

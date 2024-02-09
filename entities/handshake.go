@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
-	"github.com/mlayerprotocol/go-mlayer/utils/encoder"
 )
 
 

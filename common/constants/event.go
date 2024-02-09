@@ -19,6 +19,13 @@ package constants
 // m.room.third_party_invite: Represents an invitation to the room via a third-party service.
 // m.room.pinned_events: Indicates messages that are pinned in the room.
 
+type AuthorizationPrivilege uint8
+const (
+    Readriviledge AuthorizationPrivilege = 0
+    Writeriviledge AuthorizationPrivilege = 1
+    AdminPriviledge AuthorizationPrivilege = 2
+)
+
 
 type EventType uint16
 
@@ -30,23 +37,16 @@ const (
 
 // Administrative Topic Actions
 const (
-    DeleteTopic            EventType = 1000 
-	CreateTopic         EventType = 1001     // m.room.create
-	PrivacySet          EventType = 1002
-    BanMember           EventType = 1003
-    UnbanMember         EventType = 1004
-    ContractSet         EventType = 1005
-    UpdateName          EventType = 1006     //  m.room.name
-    UpdateDescription   EventType = 1007     //  m.room.topic
-    UpdateAvatar        EventType = 1008     //  m.room.avatar
-    PinMessage          EventType = 1008     //  m.room.avatar
-)
-
-type Priviledge uint8
-const (
-    Readriviledge Priviledge = 0
-    Writeriviledge Priviledge = 1
-    AdminPriviledge Priviledge = 2
+    DeleteTopicEvent         EventType = 1000 
+	CreateTopicEvent         EventType = 1001     // m.room.create
+	PrivacySetEvent          EventType = 1002
+    BanMemberEvent           EventType = 1003
+    UnbanMemberEvent         EventType = 1004
+    ContractSetEvent         EventType = 1005
+    UpdateNameEvent          EventType = 1006     //  m.room.name
+    UpdateDescriptionEvent   EventType = 1007     //  m.room.topic
+    UpdateAvatarEvent        EventType = 1008     //  m.room.avatar
+    PinMessageEvent          EventType = 1008     //  m.room.avatar
 )
 
 
@@ -63,9 +63,9 @@ const (
 
 // Message Actions
 const (
-    DeleteMessage              EventType = 1200      //m.room.encrypted
-	CreateMessage              EventType = 1201      // m.room.message
-	CreateReaction          EventType = 1202 // m.reaction
-    IsTyping                EventType = 1203
+    DeleteMessageEvent              EventType = 1200      //m.room.encrypted
+	CreateMessageEvent              EventType = 1201      // m.room.message
+	CreateReactionEvent          EventType = 1202 // m.reaction
+    IsTypingEvent                EventType = 1203
 )
 

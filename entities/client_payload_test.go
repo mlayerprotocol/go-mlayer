@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 )
 
 // TestHelloName calls greetings.Hello with a name, checking

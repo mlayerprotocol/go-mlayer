@@ -1,4 +1,4 @@
-package services
+package client
 
 import (
 	// "errors"
@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
-	"github.com/mlayerprotocol/go-mlayer/utils/helpers"
 )
 
 var logger = &log.Logger
@@ -52,17 +52,17 @@ func (p *MessageService) Send(chatMsg entities.ChatMessage, senderSignature stri
 	if entities.IsValidMessage(chatMsg, senderSignature) {
 		channel := strings.Split(chatMsg.Header.Receiver, ":")
 
-		if helpers.Contains(chatMsg.Header.Channels, "*") || helpers.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
+		if utils.Contains(chatMsg.Header.Channels, "*") || utils.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
 
 			privateKey := p.Cfg.NetworkPrivateKey
 
 			// TODO:
 			// if its an array check the channels .. if its * allow
 			// message server::: store messages, require receiver to request message through an endpoint
-
-			signature, _ := crypto.SignECC(chatMsg.GetHash(), privateKey)
+			hash, _ := chatMsg.GetHash()
+			signature, _ := crypto.SignECC(hash, privateKey)
 			message := entities.Event{}
-			message.Data = &chatMsg
+			message.Payload.Data = &chatMsg
 			message.Signature = hexutil.Encode(signature)
 			outgoingMessageC, ok := p.Ctx.Value(constants.OutgoingMessageChId).(*chan *entities.Event)
 			if !ok {

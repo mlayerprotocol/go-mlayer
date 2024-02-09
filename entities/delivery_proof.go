@@ -8,7 +8,7 @@ import (
 	// "math"
 	"strings"
 
-	"github.com/mlayerprotocol/go-mlayer/utils/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 )
 
 // DeliveryProof

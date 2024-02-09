@@ -8,32 +8,40 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 
-	"github.com/mlayerprotocol/go-mlayer/utils/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 )
 
 
 
 type Topic struct {
-	Id   string    `json:"id"`
+	ID   string    `json:"id" gorm:"type:uuid;primaryKey"`
 	Ref string `json:"ref,omitempty"`
 	Name string    `json:"n,omitempty" binding:"required"`
-	Handle string    `json:"h,omitempty" binding:"required"`
+	Handle string    `json:"hand,omitempty" binding:"required" gorm:"unique;type:char(64);"`
 	Description string    `json:"desc,omitempty"`
+	ParentTopicHash string    `json:"pTH,omitempty" gorm:"type:char(64)"`
 	SubscriberCount  uint64    `json:"sC,omitempty"`
-	Owner  AddressString    `json:"own,omitempty" binding:"required"`
-	Timestamp   int       `json:"ts,omitempty" binding:"required"`
-	Public bool `json:"pub,omitempty"`
-	Signature   string    `json:"sig,omitempty" binding:"required"`
-	Broadcast   bool      `json:"br,omitempty"`
-	Hash string `json:"hash,omitempty"`
+	Account  PublicKeyString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	
+	// Agent  AddressString    `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	//
+	Public bool `json:"pub,omitempty" gorm:"default:false"`
+	
+	
+	// Derived
+	EventHash string `json:"eH,omitempty" gorm:"index;char(64);"`
+	Hash string `json:"h,omitempty" gorm:"type:char(64)"`
+	Balance    float64 `json:"bal" gorm:"default:0"`
+	// Signature   string    `json:"sig,omitempty" binding:"required"  gorm:"non null;"`
+	// Broadcasted   bool      `json:"br,omitempty"  gorm:"default:false;"`
+	Timestamp   uint64       `json:"ts,omitempty" binding:"required"`
+	
 }
 
 func (topic *Topic) Key() string {
-	return fmt.Sprintf("/%s/%s", topic.Owner, topic.Id)
+	return fmt.Sprintf("/%s/%s", topic.Account, topic.Hash)
 }
 
 func (topic *Topic) ToJSON() []byte {
@@ -84,21 +92,21 @@ func (p *Topic) IsMember(channel string, sender AddressString) bool {
 }
 
 
-func (topic Topic) GetHash() string {
+func (topic Topic) GetHash() ([]byte, error) {
 	b, err := topic.EncodeBytes()
 	if err !=nil {
-
+ 		return []byte(""), err
 	}
-	return hexutil.Encode(crypto.Keccak256Hash(b))
+	return crypto.Keccak256Hash(b), nil
 }
 
 func (topic Topic) ToString() string {
 	values := []string{}
-	values = append(values, fmt.Sprintf("%s", topic.Id))
+	values = append(values, fmt.Sprintf("%s", topic.Hash))
 	values = append(values, fmt.Sprintf("%s", topic.Name))
-	values = append(values, fmt.Sprintf("%d", topic.Timestamp))
+	// values = append(values, fmt.Sprintf("%d", topic.Timestamp))
 	values = append(values, fmt.Sprintf("%d", topic.SubscriberCount))
-	values = append(values, fmt.Sprintf("%s", topic.Owner))
+	values = append(values, fmt.Sprintf("%s", topic.Account))
 	values = append(values, fmt.Sprintf("%t", topic.Public))
 	// values = append(values, fmt.Sprintf("%s", topic.Signature))
 	return strings.Join(values, ",")
@@ -106,16 +114,16 @@ func (topic Topic) ToString() string {
 
 func (topic Topic) EncodeBytes()  ([]byte, error) {
 	return encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Name},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Handle},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Description},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.ParentTopicHash},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: topic.SubscriberCount},
-		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: topic.Owner},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: topic.Timestamp},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Account},
+		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.Public},
+		//  encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: topic.Timestamp},
 	)
-}
-
-type TopicClientPayload  struct {
-	ClientPayload
-	Data Topic `json:"d"`
 }
 
 

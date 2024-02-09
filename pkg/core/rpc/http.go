@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/rpc"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 	// "net/rpc/jsonrpc"
 )
 

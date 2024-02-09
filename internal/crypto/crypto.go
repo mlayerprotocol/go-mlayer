@@ -5,16 +5,15 @@ import (
 	"crypto/ed25519"
 	cryptoSha256 "crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"strings"
 
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcutil"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ripemd160"
 )
 
 var logger = &log.Logger
@@ -132,13 +131,13 @@ func GetSignerECC(message *[]byte, signature *string) (string, error) {
 	return crypto.PubkeyToAddress(*signer).Hex(), nil
 }
 
-func VerifySignatureECC(signer *string, message *[]byte, signature *string) bool {
-	decodedSigner, err := GetSignerECC(message, signature)
+func VerifySignatureECC(signer string, message *[]byte, signature string) bool {
+	decodedSigner, err := GetSignerECC(message, &signature)
 	if err != nil {
 		return false
 	}
-	println("signer decoded signer %s %s : %T", decodedSigner, signer, (decodedSigner == *signer))
-	return strings.EqualFold(decodedSigner, *signer)
+	println("signer decoded signer %s %s : %T", decodedSigner, signer, (decodedSigner == signer))
+	return strings.EqualFold(decodedSigner, signer)
 }
 
 func VerifySignatureEDD(signer string, message *[]byte, signature string) (bool, error) {
@@ -182,17 +181,21 @@ func VerifySignatureSECP(signer string, message *[]byte, signature string) (bool
 	return parsedSign.Verify(msg[:], publicKey), nil
 }
 
+func Bech32AddressFromPrivateKeyEDD(privateKey string) string {
+	return ToBech32Address(GetPublicKeyEDD(privateKey))
+}
+
+
 func ToBech32Address(publicKey string) string {
-	parts := strings.Split(publicKey, ":")
-	if len(parts) > 1 {
-		publicKey = parts[1]
-	}
 	b, err := hex.DecodeString(publicKey)
 	if err != nil {
 		logger.Fatal("Failed decoding public key", err)
 	}
     shaHash := Sha256(b)
-    publicHash := btcutil.Hash160(shaHash)
+	ripemd160Hasher := ripemd160.New()
+    ripemd160Hasher.Write(shaHash)
+    publicHash := ripemd160Hasher.Sum(nil)
+
 
     // Convert to Bech32
     bech32Address, err := bech32.ConvertAndEncode("ml:", publicHash)
@@ -200,6 +203,6 @@ func ToBech32Address(publicKey string) string {
         logger.Fatal("Error converting to Bech32:", err)
     }
 
-    return fmt.Sprintf("%s", bech32Address)
+    return bech32Address
 }
 

@@ -14,9 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	cryptoEth "github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
-	"github.com/mlayerprotocol/go-mlayer/utils/encoder"
 	"github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -293,7 +293,7 @@ func IsValidTopic(ch ChatMessageHeader, signature string, channelOwner string) b
 		logger.WithFields(logrus.Fields{"data": ch}).Warnf("Channel Expired: %d", ch.ApprovalExpiry)
 		return false
 	}
-	isValid := crypto.VerifySignatureECC(&signer, &approval, &signature)
+	isValid := crypto.VerifySignatureECC(signer, &approval, signature)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": approval, "signature": signature}).Warnf("Invalid signer %s", signer)
 		return false
@@ -323,7 +323,7 @@ func IsValidMessage(msg ChatMessage, signature string) bool {
 		return false
 	}
 	message := []byte(msg.ToString())
-	isValid := crypto.VerifySignatureECC(&signer, &message, &signature)
+	isValid := crypto.VerifySignatureECC(signer, &message, signature)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": string(message), "signature": signature}).Warnf("Invalid signer %s", signer)
 		return false
@@ -347,7 +347,7 @@ func IsValidSubscription(
 	if(err != nil) {
 		return false
 	}
-	return crypto.VerifySignatureECC(&subscription.Subscriber, &b, &subscription.Signature)
+	return crypto.VerifySignatureECC(subscription.Subscriber, &b, subscription.Signature)
 }
 
 func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {

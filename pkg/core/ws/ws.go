@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/client"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-	"github.com/mlayerprotocol/go-mlayer/utils/constants"
 )
 
 var logger = &log.Logger;
@@ -88,7 +88,7 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Println("Error:", err)
 			} else {
 				if(!isVerifed) {
-					verifiedRequest, err := client.ConnectClient(message, constants.WS, c,)
+					verifiedRequest, err := service.ConnectClient(message, constants.WS, c,)
 					if (err != nil) {
 						c.Close()
 						continue
