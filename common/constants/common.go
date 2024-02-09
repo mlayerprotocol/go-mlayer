@@ -46,6 +46,7 @@ const (
 const (
 	ConfigKey                       string = "Config"
     BroadcastAuthorizationEventChId         = "BroadcastAuthorizationEventChannel"
+    BroadcastTopicEventChId         = "BroadcastTopicEventChannel"
     IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
     IncomingTopicEventChId         = "IncomingTopicEventChannel"
 

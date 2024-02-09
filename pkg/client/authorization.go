@@ -113,9 +113,9 @@ func AuthorizeAgent(
 		return nil, err
 	}
 	
-	channelpool.BroadcastAuthorizationEventInternal_PubSubC <- &(eModel.Event)
+	channelpool.AuthorizationEventPublishC <- &(eModel.Event)
 	if created {
-		channelpool.BroadcastAuthorizationEventInternal_PubSubC <- &(eModel.Event)
+		channelpool.AuthorizationEventPublishC <- &(eModel.Event)
 	}
 	return eModel, nil
 }
@@ -123,7 +123,10 @@ func AuthorizeAgent(
 func ListenForNewAuthEventFromPubSub (mainCtx *context.Context) {
 	ctx, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
-	
+	time.AfterFunc(5*time.Second, func() {
+		logger.Info("Sending subscription to channel")
+		//subscriptionPubSub.Publish(entities.NewPubSubMessage((&entities.Subscription{Signature: "channel", Subscriber: "sds"}).MsgPack()))
+	})
 	incomingAuthorizationC, ok := (*mainCtx).Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
 	if !ok {
 		logger.Errorf("incomingAuthorizationC closed")

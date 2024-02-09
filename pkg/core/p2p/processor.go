@@ -33,6 +33,7 @@ Publish Events to a specified p2p broadcast channel
 func PublishEvent(channelPool chan *entities.Event, pubsubChannel *Channel, mainCtx *context.Context) {
 	_, cancel := context.WithCancel(*mainCtx)
 	cfg, ok := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	
 	defer cancel()
 	if !ok {
 		logger.Fatalf("Unable to read config")
@@ -44,6 +45,7 @@ func PublishEvent(channelPool chan *entities.Event, pubsubChannel *Channel, main
 				logger.Fatalf("Channel pool closed. %v", &channelPool)
 				return
 			}
+			logger.Infof("New Topic Event %v", event)
 			if cfg.Validator {
 				if !ok {
 					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
@@ -94,7 +96,7 @@ func PublishEvent(channelPool chan *entities.Event, pubsubChannel *Channel, main
 	}
 	// for {
 	// 	select {
-	// 	case outAuthorization, ok := <-channelpool.IncomingAuthorizationEventInternal_PubSubC:
+	// 	case outAuthorization, ok := <-channelpool.AuthorizationEvent_SubscriptionC:
 	// 		if cfg.Validator {
 	// 			if !ok {
 	// 				logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
@@ -165,6 +167,8 @@ func ReceiveEvent[PayloadData any](payload *PayloadData, toGoChannel chan *entit
 			logger.Errorf("Error receiving event  %v\n", errT)
 			continue;
 		}
+
+		// TODO validate the event
 		// pv := models.AuthorizationEvent{
 		// 	Event: event,
 		// }

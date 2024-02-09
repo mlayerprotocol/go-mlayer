@@ -49,9 +49,10 @@ var privKey crypto.PrivKey
 
 const DiscoveryServiceTag = "ml-network"
 const (
-	AuthorizationChannel       string = "ml-auhtorization-channel"
+	AuthorizationChannel       string = "ml-authorization-channel"
+	TopicChannel       string = "ml-topic-channel"
 	MessageChannel       string = "ml-message-channel"
-	SubscriptionChannel         = "ml-subscription-channel"
+	// SubscriptionChannel         = "ml-subscription-channel"
 	BatchChannel                = "ml-batch-channel"
 	DeliveryProofChannel        = "ml-delivery-proof"
 )
@@ -129,14 +130,20 @@ func Run(mainCtx *context.Context) {
 	ctx, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
 	defer forever()
+	
 	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 
 	}
-	config = *cfg
+	logger.Infof("Subscrbe---> %v", "femi")
 	protocolId = config.Network
 
 	incomingAuthorizationC, ok := ctx.Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
+	if !ok {
+		return
+	}
+
+	incomingTopicEventC, ok := ctx.Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
 	if !ok {
 		return
 	}
@@ -316,19 +323,39 @@ func Run(mainCtx *context.Context) {
 
 	logger.Infof("Host started with ID is %s\n", h.ID())
 
-	
+
+	// Subscrbers
 	authorizationPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+	topicPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
+	logger.Infof("Subscrbe---> %v", channelpool.TopicEventIPublishC)
+	if err != nil {
+		panic(err)
+	}
+	// subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	time.AfterFunc(5*time.Second, func() {
+		logger.Info("Sending subscription to channel")
+		//subscriptionPubSub.Publish(entities.NewPubSubMessage((&entities.Subscription{Signature: "channel", Subscriber: "sds"}).MsgPack()))
+	})
+	go ReceiveEvent(&entities.Authorization{}, *incomingAuthorizationC, authorizationPubSub, mainCtx)
+	go ReceiveEvent(&entities.Topic{}, *incomingTopicEventC, authorizationPubSub, mainCtx)
+
+	// Publishers
+	go PublishEvent(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
+	
+	go PublishEvent(channelpool.TopicEventIPublishC, topicPubSub, mainCtx)
+	
+
 	// messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
-	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
-	if err != nil {
-		panic(err)
-	}
+	
 	// batchPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), BatchChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
@@ -338,12 +365,7 @@ func Run(mainCtx *context.Context) {
 	// 	panic(err)
 	// }
 	
-	time.AfterFunc(5*time.Second, func() {
-		logger.Info("Sending subscription to channel")
-		subscriptionPubSub.Publish(entities.NewPubSubMessage((&entities.Subscription{Signature: "channel", Subscriber: "sds"}).MsgPack()))
-	})
-
-	go ReceiveEvent(&entities.Authorization{}, *incomingAuthorizationC, authorizationPubSub, mainCtx)
+	
 
 	// go func() {
 	// 	time.Sleep(5 * time.Second)
@@ -413,7 +435,6 @@ func Run(mainCtx *context.Context) {
 	// }()
 
 
-	go PublishEvent(channelpool.BroadcastAuthorizationEventInternal_PubSubC, authorizationPubSub, mainCtx  )
 	
 
 }

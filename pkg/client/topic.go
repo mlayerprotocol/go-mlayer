@@ -141,9 +141,9 @@ func CreateTopic(
 		return nil, err
 	}
 	
-	channelpool.BroadcastTopicEventInternal_PubSubC <- &(eModel.Event)
+	channelpool.TopicEventIPublishC <- &(eModel.Event)
 	if created {
-		channelpool.BroadcastTopicEventInternal_PubSubC <- &(eModel.Event)
+		channelpool.TopicEventIPublishC <- &(eModel.Event)
 	}
 	return eModel, nil
 }
@@ -154,13 +154,13 @@ func ListenForNewTopicEventFromPubSub (mainCtx *context.Context) {
 	
 	incomingTopicC, ok := (*mainCtx).Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
 	if !ok {
-		logger.Errorf("incomingAuthorizationC closed")
+		logger.Errorf("incomingTopicC closed")
 		return
 	}
 	for {
 		event, ok :=  <-*incomingTopicC
 		if !ok {
-			logger.Fatal("incomingAuthorizationC closed")
+			logger.Fatal("incomingTopicC closed for read")
 			return
 		}
 		go service.HandleNewPubSubTopicEvent(event, ctx)

@@ -150,8 +150,14 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	ctx = context.WithValue(ctx, constants.ConfigKey, &cfg)
 
-	ctx = context.WithValue(ctx, constants.BroadcastAuthorizationEventChId, &channelpool.BroadcastAuthorizationEventInternal_PubSubC)
-	ctx = context.WithValue(ctx, constants.IncomingAuthorizationEventChId, &channelpool.IncomingAuthorizationEventInternal_PubSubC)
+	// ADD EVENT  SUBSCRIPTION CHANNELS TO THE CONTEXT
+	ctx = context.WithValue(ctx, constants.IncomingAuthorizationEventChId, &channelpool.AuthorizationEvent_SubscriptionC)
+	ctx = context.WithValue(ctx, constants.IncomingTopicEventChId, &channelpool.IncomingTopicEventSubscriptionC)
+
+	// ADD EVENT BROADCAST CHANNELS TO THE CONTEXT
+	ctx = context.WithValue(ctx, constants.BroadcastAuthorizationEventChId, &channelpool.AuthorizationEventPublishC)
+	ctx = context.WithValue(ctx, constants.BroadcastTopicEventChId, &channelpool.TopicEventIPublishC)
+	
 	
 	// CLEANUP
 	ctx = context.WithValue(ctx, constants.IncomingMessageChId, &channelpool.IncomingMessageEvent_P2P_D_C)
