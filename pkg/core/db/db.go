@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 
 	ds "github.com/ipfs/go-datastore"
-	utils "github.com/mlayerprotocol/go-mlayer/utils"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 )
 
 func Key(key string) ds.Key {
@@ -16,7 +17,7 @@ func Key(key string) ds.Key {
 func New(mainCtx *context.Context, keyStore string) *Datastore {
 	ctx, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
-	cfg, ok := ctx.Value(utils.ConfigKey).(*utils.Configuration)
+	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 
 	}

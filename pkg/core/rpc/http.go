@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"net/rpc"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	// "net/rpc/jsonrpc"
-
-	"github.com/mlayerprotocol/go-mlayer/utils"
 )
 
 type JsonRpc struct {
@@ -20,12 +20,12 @@ type JsonRpc struct {
 
 type HttpService struct {
 	Ctx       *context.Context
-	Cfg       *utils.Configuration
+	Cfg       *configs.MainConfiguration
 	rpcClient *rpc.Client
 }
 
 func NewHttpService(mainCtx *context.Context) *HttpService {
-	cfg, _ := (*mainCtx).Value(utils.ConfigKey).(*utils.Configuration)
+	cfg, _ := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	return &HttpService{
 		Ctx: mainCtx,
 		Cfg: cfg,
@@ -52,7 +52,7 @@ func (p *HttpService) sendHttp(w http.ResponseWriter, r *http.Request) {
 
 	jData, err := json.Marshal(reply)
 	if err != nil {
-		utils.Logger.Errorf("marshal json error::", err)
+		logger.Errorf("marshal json error::", err)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jData)
@@ -81,10 +81,10 @@ func (p *HttpService) Start() error {
 	client, err := rpc.DialHTTP("tcp", hostname+port)
 
 	if err != nil {
-		utils.Logger.Errorf("Rpc Error::", err)
+		logger.Errorf("Rpc Error::", err)
 		return err
 	}
-	utils.Logger.Info("Dial to rpc successful!")
+	logger.Info("Dial to rpc successful!")
 	p.rpcClient = client
 	http.HandleFunc("/", p.sendHttp)
 	// http.HandleFunc("/rpcendpoint", p.serveJSONRPC)

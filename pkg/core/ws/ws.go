@@ -3,17 +3,23 @@ package ws
 import (
 	// "errors"
 	"context"
-	"log"
+
 	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
-	utils "github.com/mlayerprotocol/go-mlayer/utils"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/configs"
+	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
+	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
+var logger = &log.Logger;
 type Flag string
 
-// !sign web3 m
+// Main websocket service that receives messages and directs them to the neccessry processing channel
+
 // type msgError struct {
 // 	code int
 // 	message string
@@ -21,8 +27,8 @@ type Flag string
 
 type WsService struct {
 	Ctx                    *context.Context
-	Cfg                    *utils.Configuration
-	ClientHandshakeChannel *chan *utils.ClientHandshake
+	Cfg                    *configs.MainConfiguration
+	ClientHandshakeChannel *chan *entities.ClientHandshake
 }
 
 type RpcResponse struct {
@@ -31,12 +37,12 @@ type RpcResponse struct {
 }
 
 func NewWsService(mainCtx *context.Context) *WsService {
-	cfg, _ := (*mainCtx).Value(utils.ConfigKey).(*utils.Configuration)
-	verificationc, _ := (*mainCtx).Value(utils.ClientHandShackChId).(*chan *utils.ClientHandshake)
+	cfg, _ := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	clientVerificationc, _ := (*mainCtx).Value(constants.ClientHandShackChId).(*chan *entities.ClientHandshake)
 	return &WsService{
 		Ctx:                    mainCtx,
 		Cfg:                    cfg,
-		ClientHandshakeChannel: verificationc,
+		ClientHandshakeChannel: clientVerificationc,
 	}
 }
 
@@ -57,43 +63,43 @@ var upgrader = websocket.Upgrader{
 func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	c, err := upgrader.Upgrade(w, r, nil)
-	log.Print("New ServeWebSocket c : ", c.RemoteAddr())
+	logger.Info("New ServeWebSocket c : ", c.RemoteAddr())
 
 	if err != nil {
-		log.Print("upgrade:", err)
+		logger.Debug("WS connection error:", err)
 		return
 	}
 	defer c.Close()
-	hasVerifed := false
+	isVerifed := false
 	time.AfterFunc(5000*time.Millisecond, func() {
-		if !hasVerifed {
+		if !isVerifed {
 			c.Close()
 		}
 	})
 	for {
 		mt, message, err := c.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
+			logger.Println("read:", err)
 			break
 
 		} else {
 			err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
 			if err != nil {
-				log.Println("Error:", err)
+				logger.Println("Error:", err)
 			} else {
-				// signature := string(message)
-				verifiedRequest, _ := utils.ClientHandshakeFromBytes(message)
-				verifiedRequest.Socket = c
-				log.Println("verifiedRequest.Message: ", verifiedRequest.Message)
-
-				if utils.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
-					// verifiedConn = append(verifiedConn, c)
-					hasVerifed = true
-					log.Println("Verification was successful: ", verifiedRequest)
-					*p.ClientHandshakeChannel <- &verifiedRequest
+				if(!isVerifed) {
+					verifiedRequest, err := service.ConnectClient(message, constants.WS, c,)
+					if (err != nil) {
+						c.Close()
+						continue
+					}
+					*p.ClientHandshakeChannel <- verifiedRequest
+					
+					logger.Infof("message:", string(message))
+					logger.Infof("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+					continue
 				}
-				log.Println("message:", string(message))
-				log.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+				// process message
 			}
 
 		}

@@ -4,14 +4,14 @@ import (
 	"context"
 
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/mlayerprotocol/go-mlayer/utils"
+	"github.com/mlayerprotocol/go-mlayer/entities"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
 type Channel struct {
 	// Messages is a channel of messages received from other peers in the chat channel
-	Messages chan utils.PubSubMessage
+	Messages chan entities.PubSubMessage
 
 	Ctx   context.Context
 	ps    *pubsub.PubSub
@@ -45,7 +45,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 		ID:          selfID,
 		Wallet:      walletAddress,
 		ChannelName: channelName,
-		Messages:    make(chan utils.PubSubMessage, channelBufferSize),
+		Messages:    make(chan entities.PubSubMessage, channelBufferSize),
 	}
 
 	// start reading messages from the subscription in a loop
@@ -54,12 +54,8 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *Channel) Publish(m utils.PubSubMessage) error {
-	// if err != nil {
-	// 	return err
-	// }
-	// logger.Info("Publishing to channel", string(m.ToJSON()))
-	return cr.Topic.Publish(cr.Ctx, m.Pack())
+func (cr *Channel) Publish(m entities.PubSubMessage) error {
+	return cr.Topic.Publish(cr.Ctx, m.MsgPack())
 }
 
 func (cr *Channel) ListPeers() []peer.ID {
@@ -75,20 +71,27 @@ func (cr *Channel) readLoop() {
 			panic(err)
 		}
 		// only forward messages delivered by others
-		if msg.ReceivedFrom == cr.ID {
-			continue
-		}
-		pmsg, err := utils.UnpackPubSubMessage(msg.Data)
+		// if msg.ReceivedFrom == cr.ID {
+		// 	continue
+		// }
+		pmsg, err := entities.UnpackPubSubMessage(msg.Data)
+		
 		if err != nil {
-			logger.Error("Invalid pubsub message received")
+			logger.Errorf("Invalid pubsub message received: %v", err)
 			continue
 		}
-		signer, err := utils.GetSigner(pmsg.ToString(), pmsg.Signature)
-		if err != nil {
-			logger.Error("Unable to get signer")
-			continue
-		}
-		logger.Infof("Pubsub message signer %s", signer)
+		// logger.Infof("New Mesage %v \n\n %v", pmsg)
+		// b, err := pmsg.EncodeBytes()
+		// if(err != nil) {
+		// 	logger.Error("Unable to encode msg %v", msg)
+		// 	continue
+		// }
+		// signer, err := crypto.GetSignerECC(&b, &pmsg.Data.)
+		// if err != nil {
+		// 	logger.Error("Unable to get signer")
+		// 	continue
+		// }
+		// logger.Infof("Pubsub message signer %s", signer)
 		// TODO
 		// get the stake contract for this signer and ensure they have enough Validator stake
 		// if not, identify their IP and blacklist it. Ignore the message

@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/mlayerprotocol/go-mlayer/cmd"
-	config "github.com/mlayerprotocol/go-mlayer/utils"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 )
 
 func main() {
-	c := config.LoadConfig()
+	c := configs.LoadMainConfig()
 
 	fmt.Printf("ChainId %s \n", c.StakeContract)
 	cmd.Execute()

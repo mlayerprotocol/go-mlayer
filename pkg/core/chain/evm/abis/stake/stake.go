@@ -54,7 +54,7 @@ type StakeTransactor struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// StakeFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+// StakeFilterer is an auto generated log filtering Go binding around an Ethereum contract entities.
 type StakeFilterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
