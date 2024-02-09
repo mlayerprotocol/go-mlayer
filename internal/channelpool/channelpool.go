@@ -4,15 +4,21 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 )
 
-// broadcasts new authorization event to other nodes
-var BroadcastAuthorizationEventInternal_PubSubC = make(chan *entities.Event)
-var BroadcastTopicEventInternal_PubSubC = make(chan *entities.Event)
-var IncomingAuthorizationEventInternal_PubSubC = make(chan *entities.Event)
+// channels for moving events received from other nodes through the pubsub channels
+var AuthorizationEvent_SubscriptionC = make(chan *entities.Event)
+var IncomingTopicEventSubscriptionC = make(chan *entities.Event)
+
+// channels for broadcasting new events to other nodes
+var AuthorizationEventPublishC = make(chan *entities.Event)
+var TopicEventIPublishC = make(chan *entities.Event)
 
 
 
 
-// CLEANUP
+
+
+// CLEANUP 
+// most of these will be deleted
 // transmits events received from other nodes in p2p to daemon
 var IncomingMessageEvent_P2P_D_C = make(chan *entities.Event)
 

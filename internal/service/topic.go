@@ -203,7 +203,7 @@ func HandleNewPubSubTopicEvent (event *entities.Event, ctx context.Context) {
 				logger.Info("Unable to get dependent events", err)
 			}
 			for _, dep := range *dependent {
-				channelpool.BroadcastAuthorizationEventInternal_PubSubC <- &dep.Event
+				channelpool.AuthorizationEventPublishC <- &dep.Event
 			}
 		}
 
