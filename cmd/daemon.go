@@ -30,7 +30,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/message"
 	"github.com/mlayerprotocol/go-mlayer/internal/subscription"
-	"github.com/mlayerprotocol/go-mlayer/pkg/client"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
@@ -151,12 +150,12 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, constants.ConfigKey, &cfg)
 
 	// ADD EVENT  SUBSCRIPTION CHANNELS TO THE CONTEXT
-	ctx = context.WithValue(ctx, constants.IncomingAuthorizationEventChId, &channelpool.AuthorizationEvent_SubscriptionC)
-	ctx = context.WithValue(ctx, constants.IncomingTopicEventChId, &channelpool.IncomingTopicEventSubscriptionC)
+	// ctx = context.WithValue(ctx, constants.IncomingAuthorizationEventChId, &channelpool.AuthorizationEvent_SubscriptionC)
+	// ctx = context.WithValue(ctx, constants.IncomingTopicEventChId, &channelpool.IncomingTopicEventSubscriptionC)
 
 	// ADD EVENT BROADCAST CHANNELS TO THE CONTEXT
 	ctx = context.WithValue(ctx, constants.BroadcastAuthorizationEventChId, &channelpool.AuthorizationEventPublishC)
-	ctx = context.WithValue(ctx, constants.BroadcastTopicEventChId, &channelpool.TopicEventIPublishC)
+	ctx = context.WithValue(ctx, constants.BroadcastTopicEventChId, &channelpool.TopicEventPublishC)
 	
 	
 	// CLEANUP
@@ -178,7 +177,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	ctx = context.WithValue(ctx, constants.SQLDB, &sql.Db)
 
 	var wg sync.WaitGroup
-	errc := make(chan error)
+	// errc := make(chan error)
 
 	// deliveryProofBlockStateStore := db.New(&ctx, constants.DeliveryProofBlockStateStore)
 	subscriptionBlockStateStore := db.New(&ctx, constants.SubscriptionBlockStateStore)
@@ -200,14 +199,20 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	defer wg.Wait()
 
-	wg.Add(1)
-	go client.ListenForNewAuthEventFromPubSub(&ctx)
-
-	wg.Add(1)
-	go client.ListenForNewTopicEventFromPubSub(&ctx)
+	//  wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+	// 	client.ListenForNewAuthEventFromPubSub(&ctx)
+	// }()
+	//  wg.Add(1)
+	//  go func() {
+	// 	defer wg.Done()
+	// 	// go client.ListenForNewTopicEventFromPubSub(&ctx)
+	//  }()
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			select {
 			case inEvent, ok := <-channelpool.IncomingMessageEvent_P2P_D_C:
@@ -239,31 +244,45 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}()
 
 
-	wg.Add(1)
-	go subscription.ProcessNewSubscription(
+	 wg.Add(1)
+	go func() {
+		defer wg.Done()
+		subscription.ProcessNewSubscription(
 		ctx,
 		subscriptionBlockStateStore,
 		topicSubscriptionCountStore,
 		newTopicSubscriptionStore,
 		topicSubscriptionStore,
 		&wg)
-
-	wg.Add(1)
-	go message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
-
-	wg.Add(1)
-	go func() {
-
-		if err := recover(); err != nil {
-			wg.Done()
-			errc <- fmt.Errorf("P2P error: %g", err)
-		}
-		p2p.Run(&ctx)
 	}()
-	wg.Add(1)
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
+		message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// defer func() {
+		// if err := recover(); err != nil {
+		// 	wg.Done()
+		// 	errc <- fmt.Errorf("P2P error: %g", err)
+		// }
+		// }()
+		
+		p2p.Run(&ctx)
+		if err != nil {
+			wg.Done()
+			panic(err)
+		}
+	}()
+	
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
 		if err != nil {
 			logger.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
@@ -303,6 +322,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		rpc.Register(rpcServer.NewRpcService(&ctx))
 		rpc.HandleHTTP()
 		listener, err := net.Listen("tcp", cfg.RPCHost+":"+rpcPort)
@@ -325,6 +345,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		wss := ws.NewWsService(&ctx)
 		logger.Infof("wsAddress: %s\n", wsAddress)
 		http.HandleFunc("/echo", wss.ServeWebSocket)
@@ -334,6 +355,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		rest := rest.NewRestService(&ctx)
 		
 		router := rest.Initialize()
@@ -343,6 +365,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		sendHttp := rpcServer.NewHttpService(&ctx)
 		err := sendHttp.Start()
 		if err != nil {

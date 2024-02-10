@@ -45,7 +45,7 @@ func ValidateEvent(event interface{}) error {
 	if e.GetValidator() != e.Payload.Validator {
 		return apperror.Forbidden("Payload validator does not match event validator")
 	}
-	logger.Infof("EVENT %v %s %s", event, string(e.GetValidator()), e.GetSignature())
+	logger.Infof("EVENT%s %s", string(e.GetValidator()), e.GetSignature())
 	valid, err  := crypto.VerifySignatureEDD(string(e.GetValidator()), &b, e.GetSignature())
 	if err != nil {
 		return err

@@ -25,7 +25,7 @@ type Topic struct {
 	SubscriberCount  uint64    `json:"sC,omitempty"`
 	Account  PublicKeyString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	
-	// Agent  AddressString    `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Agent  AddressString    `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	//
 	Public bool `json:"pub,omitempty" gorm:"default:false"`
 	

@@ -41,7 +41,7 @@ func GetMany [T any, U any] (item T, data U) (error) {
 // }
 
 
-func SaveEvent [Model any] (where Model, data Model, update bool, DB *gorm.DB) (model *Model, created bool, err error) {
+func SaveRecord [Model any] (where Model, data Model, update bool, DB *gorm.DB) (model *Model, created bool, err error) {
 	tx := DB
 	if DB == nil {
 		tx = db.Db.Begin()
