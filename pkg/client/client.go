@@ -12,7 +12,7 @@ import (
 func ValidateClientPayload(
 	payload *entities.ClientPayload,
 	) (*models.AuthorizationState, error) {
-		d, err := payload.EncodeBytes()
+	d, err := payload.EncodeBytes()
 	agent, err := crypto.GetSignerECC(&d, &payload.Signature)
 	logger.Infof("device %s", agent)
 	if err != nil {

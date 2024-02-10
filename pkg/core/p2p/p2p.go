@@ -10,11 +10,13 @@ import (
 	"time"
 
 	// "github.com/gin-gonic/gin"
+
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	cryptoMl "github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 
@@ -129,24 +131,24 @@ func Run(mainCtx *context.Context) {
 	
 	ctx, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
-	defer forever()
+	
 	
 	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 
 	}
-	logger.Infof("Subscrbe---> %v", "femi")
+	
 	protocolId = config.Network
 
-	incomingAuthorizationC, ok := ctx.Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
-	if !ok {
-		return
-	}
+	// incomingAuthorizationC, ok := ctx.Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
+	// if !ok {
+	// 	panic(apperror.Internal("incomingAuthorizationC channel closed"))
+	// }
 
-	incomingTopicEventC, ok := ctx.Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
-	if !ok {
-		return
-	}
+	// incomingTopicEventC, ok := ctx.Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
+	// if !ok {
+	// 	panic(apperror.Internal("incomingTopicEventC channel closed"))
+	// }
 
 	// incomingMessagesC, ok := ctx.Value(constants.IncomingMessageChId).(*chan *entities.ClientPayload)
 	// if !ok {
@@ -172,7 +174,7 @@ func Run(mainCtx *context.Context) {
 
 	if len(cfg.NodePrivateKey) == 0 {
 		priv, _, err := crypto.GenerateKeyPair(
-			crypto.ECDSA, // Select your key type. Ed25519 are nice short
+			crypto.Ed25519, // Select your key type. Ed25519 are nice short
 			-1,           // Select key length when possible (i.e. RSA).
 		)
 		if err != nil {
@@ -323,32 +325,28 @@ func Run(mainCtx *context.Context) {
 
 	logger.Infof("Host started with ID is %s\n", h.ID())
 
-
+	
 	// Subscrbers
 	authorizationPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-	topicPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
-	logger.Infof("Subscrbe---> %v", channelpool.TopicEventIPublishC)
+	
+	topicPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), TopicChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-	// subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	time.AfterFunc(5*time.Second, func() {
-		logger.Info("Sending subscription to channel")
-		//subscriptionPubSub.Publish(entities.NewPubSubMessage((&entities.Subscription{Signature: "channel", Subscriber: "sds"}).MsgPack()))
-	})
-	go ReceiveEvent(&entities.Authorization{}, *incomingAuthorizationC, authorizationPubSub, mainCtx)
-	go ReceiveEvent(&entities.Topic{}, *incomingTopicEventC, authorizationPubSub, mainCtx)
-
-	// Publishers
-	go PublishEvent(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
 	
-	go PublishEvent(channelpool.TopicEventIPublishC, topicPubSub, mainCtx)
+	
+	
+	// Publishers
+	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
+	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
+
+	// Subscribers
+	
+	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{},  authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
+	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx,  service.HandleNewPubSubTopicEvent)
 	
 
 	// messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
@@ -434,14 +432,13 @@ func Run(mainCtx *context.Context) {
 	// 	}
 	// }()
 
-
-	
+	defer forever()
 
 }
 
 func forever() {
     for {
-        time.Sleep(time.Second)
+        time.Sleep(time.Hour)
     }
 }
 

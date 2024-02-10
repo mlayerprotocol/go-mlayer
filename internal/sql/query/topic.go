@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Save authorization only when it doesnt exist
+// Save topic state only when it doesnt exist
 func UpdateTopicState(topic *entities.Topic, DB *gorm.DB) (*models.TopicState, error) {
 	data := models.TopicState{
 		// Privilege 	: auth.Priviledge,

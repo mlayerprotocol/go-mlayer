@@ -130,7 +130,7 @@ func CreateTopic(
 	_, event.Signature  = crypto.SignEDD(b, cfg.NetworkPrivateKey)
 	
 	
-	eModel, created, err := query.SaveEvent(
+	eModel, created, err := query.SaveRecord(
 		models.TopicEvent{
 			Event: entities.Event{Hash: event.Hash},
 		},
@@ -141,28 +141,29 @@ func CreateTopic(
 		return nil, err
 	}
 	
-	channelpool.TopicEventIPublishC <- &(eModel.Event)
+	// channelpool.TopicEventPublishC <- &(eModel.Event)
+	
 	if created {
-		channelpool.TopicEventIPublishC <- &(eModel.Event)
+		channelpool.TopicEventPublishC <- &(eModel.Event)
 	}
 	return eModel, nil
 }
 
-func ListenForNewTopicEventFromPubSub (mainCtx *context.Context) {
-	ctx, cancel := context.WithCancel(*mainCtx)
-	defer cancel()
+// func ListenForNewTopicEventFromPubSub (mainCtx *context.Context) {
+// 	ctx, cancel := context.WithCancel(*mainCtx)
+// 	defer cancel()
 	
-	incomingTopicC, ok := (*mainCtx).Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
-	if !ok {
-		logger.Errorf("incomingTopicC closed")
-		return
-	}
-	for {
-		event, ok :=  <-*incomingTopicC
-		if !ok {
-			logger.Fatal("incomingTopicC closed for read")
-			return
-		}
-		go service.HandleNewPubSubTopicEvent(event, ctx)
-	}
-}
+// 	incomingTopicC, ok := (*mainCtx).Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
+// 	if !ok {
+// 		logger.Errorf("incomingTopicC closed")
+// 		return
+// 	}
+// 	for {
+// 		event, ok :=  <-*incomingTopicC
+// 		if !ok {
+// 			logger.Fatal("incomingTopicC closed for read")
+// 			return
+// 		}
+// 		go service.HandleNewPubSubTopicEvent(event, ctx)
+// 	}
+// }

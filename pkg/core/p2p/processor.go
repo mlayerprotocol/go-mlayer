@@ -5,7 +5,6 @@ import (
 	// "github.com/gin-gonic/gin"
 	"context"
 	"reflect"
-	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
@@ -30,7 +29,7 @@ func isChannelClosed(ch interface{}) bool {
 /***
 Publish Events to a specified p2p broadcast channel
 *****/
-func PublishEvent(channelPool chan *entities.Event, pubsubChannel *Channel, mainCtx *context.Context) {
+func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChannel *Channel, mainCtx *context.Context) {
 	_, cancel := context.WithCancel(*mainCtx)
 	cfg, ok := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	
@@ -41,11 +40,11 @@ func PublishEvent(channelPool chan *entities.Event, pubsubChannel *Channel, main
 	}
 	for {
 			event, ok := <-channelPool
+			
 			if !ok {
 				logger.Fatalf("Channel pool closed. %v", &channelPool)
-				return
+				panic("Channel pool closed")
 			}
-			logger.Infof("New Topic Event %v", event)
 			if cfg.Validator {
 				if !ok {
 					logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
@@ -92,6 +91,7 @@ func PublishEvent(channelPool chan *entities.Event, pubsubChannel *Channel, main
 					logger.Errorf("Unable to publish message. Please restart server to try again or adjust buffer size in config. Failed with error %v", err)
 					return
 				}
+				
 			}
 	}
 	// for {
@@ -151,8 +151,9 @@ func PublishEvent(channelPool chan *entities.Event, pubsubChannel *Channel, main
 	// }
 }
 
-func ReceiveEvent[PayloadData any](payload *PayloadData, toGoChannel chan *entities.Event, fromPubSubChannel *Channel, mainCtx *context.Context) {
-	time.Sleep(5 * time.Second)
+func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, fromPubSubChannel *Channel, mainCtx *context.Context, process func(event *entities.Event, ctx *context.Context)) {
+	// time.Sleep(5 * time.Second)
+	
 	_, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
 	for {
@@ -162,7 +163,7 @@ func ReceiveEvent[PayloadData any](payload *PayloadData, toGoChannel chan *entit
 			return
 		}
 		
-		event, errT := entities.UnpackEvent(message.Data,  &entities.Authorization{})
+		event, errT := entities.UnpackEvent(message.Data,  payload)
 		if errT != nil {
 			logger.Errorf("Error receiving event  %v\n", errT)
 			continue;
@@ -198,7 +199,8 @@ func ReceiveEvent[PayloadData any](payload *PayloadData, toGoChannel chan *entit
 		// b, err := pv.EncodeBytes()
 		// logger.Infof("ADEDEEDDD %v", b)
 		// logger.Infof("Event Received ----===> %v", event.GetValidator())
-		toGoChannel <- event
+		// toGoChannel <- event
+		go process(event, mainCtx)
 	}
 	// for {
 	// 	select {

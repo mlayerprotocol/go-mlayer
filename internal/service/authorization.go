@@ -60,7 +60,7 @@ func ValidateAuthData(auth *entities.Authorization) (prevAuthState *models.Autho
 
 
 
-func HandleNewPubSubAuthEvent (event *entities.Event, ctx context.Context) {
+func HandleNewPubSubAuthEvent (event *entities.Event, ctx *context.Context) {
 		logger.WithFields(logrus.Fields{"event": event}).Debug("New auth event from pubsub channel")
 		markAsSynced := false
 		updateState := false
@@ -74,13 +74,13 @@ func HandleNewPubSubAuthEvent (event *entities.Event, ctx context.Context) {
 		}
 
 		logger.Infof("Event is a valid event %s",  event.PayloadHash)
-		cfg, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
+		cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 		// Extract and validate the Data of the paylaod which is an Events Payload Data,
 		authRequest := event.Payload.Data.(*entities.Authorization)
 		hash, _ := authRequest.GetHash()
 		authRequest.Hash = hex.EncodeToString(hash)
-		currentState, authState, authError := ValidateAuthData(authRequest)
+		currentState, authState, stateError := ValidateAuthData(authRequest)
 
 		
 	
@@ -126,24 +126,24 @@ func HandleNewPubSubAuthEvent (event *entities.Event, ctx context.Context) {
 				}		
 			}	
 		}	
-		if authError != nil {
+		if stateError != nil {
 			// check if we are upto date. If we are, then the error is an actual one
 			// the error should be attached when saving the event	
 			// But if we are not upto date, then we might need to wait for more info from the network
 			
 			if prevEventUpToDate && authEventUpToDate {
 				// we are upto date. This is an actual error. No need to expect an update from the network
-				eventError = authError.Error()
+				eventError = stateError.Error()
 				markAsSynced = true
 			} else {
 				if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
-					if strings.HasPrefix(authError.Error() , constants.ErrorForbidden) || strings.HasPrefix(authError.Error() , constants.ErrorUnauthorized) {
+					if strings.HasPrefix(stateError.Error() , constants.ErrorForbidden) || strings.HasPrefix(stateError.Error() , constants.ErrorUnauthorized) {
 						markAsSynced = false
 					}  else {
 						// entire event can be considered bad since the payload data is bad
 						// this should have been sorted out before broadcasting to the network
 						// TODO penalize the node that broadcasted this
-						eventError = authError.Error()
+						eventError = stateError.Error()
 						markAsSynced = true
 					}
 					
@@ -151,7 +151,7 @@ func HandleNewPubSubAuthEvent (event *entities.Event, ctx context.Context) {
 					// we are upto date. We just need to store this event as well.
 					// No need to update state
 					markAsSynced = true
-					eventError = authError.Error()
+					eventError = stateError.Error()
 				}
 			}
 				

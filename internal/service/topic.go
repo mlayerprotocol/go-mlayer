@@ -11,7 +11,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
@@ -22,7 +22,7 @@ import (
 /*
 	Validate an agent authorization
 */
-func ValidateTopicData(topic *entities.Topic) (prevTopicState *models.TopicState, grantorAuthState *models.AuthorizationState, err error) {
+func ValidateTopicData(topic *entities.Topic) (currentTopicState *models.TopicState, grantorAuthState *models.AuthorizationState, err error) {
 	// check fields of topic
 	if len(topic.Handle) > 40 {
 		return nil, nil, apperror.BadRequest("Topic handle cannont be more than 40 characters")
@@ -36,8 +36,8 @@ func ValidateTopicData(topic *entities.Topic) (prevTopicState *models.TopicState
 
 
 
-func HandleNewPubSubTopicEvent (event *entities.Event, ctx context.Context) {
-		logger.WithFields(logrus.Fields{"event": event}).Debug("New auth event from pubsub channel")
+func HandleNewPubSubTopicEvent (event *entities.Event, ctx *context.Context) {
+		logger.WithFields(logrus.Fields{"event": event}).Debug("New topic event from pubsub channel")
 		markAsSynced := false
 		updateState := false
 		var eventError string
@@ -50,13 +50,13 @@ func HandleNewPubSubTopicEvent (event *entities.Event, ctx context.Context) {
 		}
 
 		logger.Infof("Event is a valid event %s",  event.PayloadHash)
-		cfg, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
+		cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 		// Extract and validate the Data of the paylaod which is an Events Payload Data,
-		authRequest := event.Payload.Data.(*entities.Authorization)
-		hash, _ := authRequest.GetHash()
-		authRequest.Hash = hex.EncodeToString(hash)
-		currentState, authState, authError := ValidateAuthData(authRequest)
+		data := event.Payload.Data.(*entities.Topic)
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
+		currentState, authState, authError := ValidateTopicData(data)
 
 		
 	
@@ -67,18 +67,19 @@ func HandleNewPubSubTopicEvent (event *entities.Event, ctx context.Context) {
 		// Confirm if this is an older event coming after a newer event.
 		// If it is, then we only have to update our event history, else we need to also update our current state
 		isMoreRecent := false
-		if (currentState != nil && currentState.Hash != authRequest.Hash) {
-			if currentState.Timestamp < authRequest.Timestamp {
+		if (currentState != nil && currentState.Hash != data.Hash) {
+			currentStateEvent, err := query.GetOneAuthorizationEvent( entities.Event{Hash: currentState.EventHash})
+			if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
 				isMoreRecent = true
 			}
-			if currentState.Timestamp > authRequest.Timestamp {
+			if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
 				isMoreRecent = false
 			}
 			// if the authorization was created at exactly the same time but their hash is different
 			// use the last 4 digits of their event hash
-			if currentState.Timestamp == authRequest.Timestamp {
+			if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
 				// get the event payload of the current state
-				 currentStateEvent, err := query.GetOneAuthorizationEvent( entities.Event{Hash: currentState.EventHash})
+				 
 				if err != nil && err != gorm.ErrRecordNotFound {
 					logger.Fatal("DB error", err)
 				}
@@ -163,7 +164,13 @@ func HandleNewPubSubTopicEvent (event *entities.Event, ctx context.Context) {
 			event.IsValid =  markAsSynced && len(eventError) == 0.
 			event.Synced = markAsSynced
 			event.Broadcasted = true
-			_, _, err := query.SaveAuthorizationEvent(event, true, tx)
+			_, _, err := query.SaveRecord(models.TopicEvent{
+				Event: entities.Event{
+					PayloadHash: event.PayloadHash,
+				},
+			}, models.TopicEvent{
+				Event: *event,
+			}, false, tx)
 			if err != nil {
 				tx.Rollback()
 				logger.Fatal("5000: Db Error", err)
@@ -171,24 +178,44 @@ func HandleNewPubSubTopicEvent (event *entities.Event, ctx context.Context) {
 			}	
 		} else {
 			if markAsSynced {
-				_, err := query.UpdateAuthorizationEvent(entities.Event{PayloadHash: event.PayloadHash},
-					entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0}, tx)
-
+				_, _, err := query.SaveRecord(models.TopicEvent{
+						Event: entities.Event{PayloadHash: event.PayloadHash},
+					}, models.TopicEvent{
+						Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
+					}, true, tx)
 					if err != nil {
 						logger.Fatal("DB error", err)
 					}
 			} else {
 				// mark as broadcasted
-				_, err := query.UpdateAuthorizationEvent(entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
-					entities.Event{Broadcasted: true}, tx)
+				_, _, err := query.SaveRecord(models.TopicEvent{
+					Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
+					},
+					models.TopicEvent{
+						Event: entities.Event{Broadcasted: true},
+					}, true, tx)
 					if err != nil {
 					logger.Fatal("DB error", err)
 				}
 			}
 		}
-		authRequest.EventHash = event.Hash
+		
+		d, err := event.Payload.EncodeBytes()
+		if err != nil {
+			logger.Errorf("Invalid event payload")
+		}
+		agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
+		if err != nil {
+			logger.Errorf("Invalid event payload")
+		}
+		data.EventHash = event.Hash
+		data.Agent = entities.AddressString(agent)
 		if updateState {
-			_, err := query.SaveAuthorizationState(authRequest, tx)
+			_, _, err := query.SaveRecord(models.TopicState{
+				ID: data.ID,
+			}, models.TopicState{
+				Topic: *data,
+			}, true, tx)
 			if err != nil {
 				tx.Rollback()
 				logger.Fatal("5000: Db Error", err)
@@ -203,7 +230,7 @@ func HandleNewPubSubTopicEvent (event *entities.Event, ctx context.Context) {
 				logger.Info("Unable to get dependent events", err)
 			}
 			for _, dep := range *dependent {
-				channelpool.AuthorizationEventPublishC <- &dep.Event
+				go HandleNewPubSubTopicEvent(&dep.Event, ctx)
 			}
 		}
 

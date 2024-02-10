@@ -120,25 +120,25 @@ func AuthorizeAgent(
 	return eModel, nil
 }
 
-func ListenForNewAuthEventFromPubSub (mainCtx *context.Context) {
-	ctx, cancel := context.WithCancel(*mainCtx)
-	defer cancel()
-	time.AfterFunc(5*time.Second, func() {
-		logger.Info("Sending subscription to channel")
-		//subscriptionPubSub.Publish(entities.NewPubSubMessage((&entities.Subscription{Signature: "channel", Subscriber: "sds"}).MsgPack()))
-	})
-	incomingAuthorizationC, ok := (*mainCtx).Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
-	if !ok {
-		logger.Errorf("incomingAuthorizationC closed")
-		return
-	}
-	for {
-		event, ok :=  <-*incomingAuthorizationC
-		if !ok {
-			logger.Fatal("incomingAuthorizationC closed")
-			return
-		}
-		go service.HandleNewPubSubAuthEvent(event, ctx)
-	}
-}
+// func ListenForNewAuthEventFromPubSub (mainCtx *context.Context) {
+// 	ctx, cancel := context.WithCancel(*mainCtx)
+// 	defer cancel()
+// 	time.AfterFunc(5*time.Second, func() {
+// 		logger.Info("Sending subscription to channel")
+// 		//subscriptionPubSub.Publish(entities.NewPubSubMessage((&entities.Subscription{Signature: "channel", Subscriber: "sds"}).MsgPack()))
+// 	})
+// 	incomingAuthorizationC, ok := (*mainCtx).Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
+// 	if !ok {
+// 		logger.Errorf("incomingAuthorizationC closed")
+// 		return
+// 	}
+// 	for {
+// 		event, ok :=  <-*incomingAuthorizationC
+// 		if !ok {
+// 			logger.Fatal("incomingAuthorizationC closed")
+// 			return
+// 		}
+// 		go service.HandleNewPubSubAuthEvent(event, ctx)
+// 	}
+// }
 
