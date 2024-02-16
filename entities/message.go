@@ -41,14 +41,14 @@ CHAT MESSAGE
 *
 */
 type ChatMessageHeader struct {
-	Length        int    `json:"l"`
-	Sender        string `json:"s"`
-	Approval      string `json:"ap"`
-	Receiver      string `json:"r"`
+	Length   int    `json:"l"`
+	Sender   string `json:"s"`
+	Approval string `json:"ap"`
+	Receiver string `json:"r"`
 	// ChainId       string `json:"cId"`
 	// Platform      string `json:"p"`
-	Timestamp     uint64  `json:"ts"`
-	ApprovalExpiry uint64    `json:"apExp"`
+	Timestamp      uint64 `json:"ts"`
+	ApprovalExpiry uint64 `json:"apExp"`
 	// Wildcard      bool   `json:"wildcard"`
 	Channels      []string `json:"chs"`
 	SenderAddress string   `json:"sA"`
@@ -72,10 +72,10 @@ type ChatMessageAction struct {
 }
 
 type ChatMessage struct {
-	Header  ChatMessageHeader   `json:"h"`
-	Body    ChatMessageBody     `json:"b"`
-	Actions []ChatMessageAction `json:"as"`
-	Validator  string              `json:"v"`
+	Header    ChatMessageHeader   `json:"h"`
+	Body      ChatMessageBody     `json:"b"`
+	Actions   []ChatMessageAction `json:"as"`
+	Validator string              `json:"v"`
 }
 
 func (chatMessage ChatMessage) ToString() string {
@@ -123,15 +123,15 @@ func (msg ChatMessage) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.Validator})
 }
 
-// func (channel *ChatMessageHeader) ToApprovalString() string {
-// 	values := []string{}
-// 	values = append(values, fmt.Sprintf("%d", channel.ApprovalExpiry))
-// 	// values = append(values, fmt.Sprintf("%s", channel.Wildcard))
-// 	values = append(values, fmt.Sprintf("%s", channel.Channels))
-// 	values = append(values, fmt.Sprintf("%s", channel.SenderAddress))
-// 	// values = append(values, fmt.Sprintf("%s", channel.OwnerAddress))
-// 	return strings.Join(values, ",")
-// }
+//	func (channel *ChatMessageHeader) ToApprovalString() string {
+//		values := []string{}
+//		values = append(values, fmt.Sprintf("%d", channel.ApprovalExpiry))
+//		// values = append(values, fmt.Sprintf("%s", channel.Wildcard))
+//		values = append(values, fmt.Sprintf("%s", channel.Channels))
+//		values = append(values, fmt.Sprintf("%s", channel.SenderAddress))
+//		// values = append(values, fmt.Sprintf("%s", channel.OwnerAddress))
+//		return strings.Join(values, ",")
+//	}
 func (channel *ChatMessageHeader) ToApprovalBytes() ([]byte, error) {
 	values := []string{}
 	values = append(values, fmt.Sprintf("%d", channel.ApprovalExpiry))
@@ -144,8 +144,8 @@ func (channel *ChatMessageHeader) ToApprovalBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: channel.Channels},
 		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: channel.SenderAddress},
 	)
-	if(err != nil) {
-		return []byte(""), err 
+	if err != nil {
+		return []byte(""), err
 	}
 	return b, nil
 }
@@ -173,7 +173,6 @@ func ReturnError(msg string, code int) *ErrorResponse {
 	return &e
 }
 
-
 func JsonMessageFromBytes(b []byte) (MessageJsonInput, error) {
 	var message MessageJsonInput
 	// if err := json.Unmarshal(b, &message); err != nil {
@@ -188,8 +187,6 @@ func UnpackJsonMessage(b []byte) (MessageJsonInput, error) {
 	err := encoder.MsgPackUnpackStruct(b, message)
 	return message, err
 }
-
-
 
 func (msg *ChatMessage) ToJSON() string {
 	m, _ := json.Marshal(msg)
@@ -214,11 +211,11 @@ func ChatMessageFromString(msg string) ChatMessage {
 }
 
 type MessageJsonInput struct {
-	Timestamp     uint64      `json:"ts"`
-	Approval      string   `json:"ap"`
-	ApprovalExpiry	uint64      `json:"apExp"`
-	Channels      []string `json:"c"`
-	SenderAddress string   `json:"sA"`
+	Timestamp      uint64   `json:"ts"`
+	Approval       string   `json:"ap"`
+	ApprovalExpiry uint64   `json:"apExp"`
+	Channels       []string `json:"c"`
+	SenderAddress  string   `json:"sA"`
 	// OwnerAddress  string              `json:"oA"`
 	Receiver    string              `json:"r"`
 	Platform    string              `json:"p"`
@@ -235,7 +232,7 @@ type MessageJsonInput struct {
 
 // PubSubMessage
 type PubSubMessage struct {
-	Data      msgpack.RawMessage `json:"d"`
+	Data msgpack.RawMessage `json:"d"`
 	// Timestamp uint64          `json:"ts"`
 	// Signature string          `json:"sig"`
 }
@@ -257,7 +254,7 @@ func (msg *PubSubMessage) ToString() string {
 	return strings.Join(values, "")
 }
 
-func (msg *PubSubMessage) EncodeBytes()  ([]byte, error) {
+func (msg *PubSubMessage) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: []byte(msg.Data)},
 		//encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Timestamp},
@@ -282,7 +279,7 @@ func UnpackPubSubMessage(b []byte) (PubSubMessage, error) {
 
 func IsValidTopic(ch ChatMessageHeader, signature string, channelOwner string) bool {
 	approval, err := ch.ToApprovalBytes()
-	if(err != nil) {
+	if err != nil {
 		return false
 	}
 	signer, _ := crypto.GetSignerECC(&approval, &signature)
@@ -302,8 +299,6 @@ func IsValidTopic(ch ChatMessageHeader, signature string, channelOwner string) b
 	}
 	return true
 }
-
-
 
 func IsValidMessage(msg ChatMessage, signature string) bool {
 	chatMessage := msg.ToJSON()
@@ -338,16 +333,16 @@ func IsValidSubscription(
 	verifyTimestamp bool,
 ) bool {
 	if verifyTimestamp {
-		if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().Unix()))) > constants.VALID_HANDSHAKE_SECONDS {
+		if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().UnixMilli()))) > constants.VALID_HANDSHAKE_SECONDS {
 			logger.Info("Invalid Subscription, invalid handshake duration")
 			return false
 		}
 	}
-	b, err := subscription.EncodeBytes();
-	if(err != nil) {
+	b, err := subscription.EncodeBytes()
+	if err != nil {
 		return false
 	}
-	return crypto.VerifySignatureECC(subscription.Subscriber, &b, subscription.Signature)
+	return crypto.VerifySignatureECC(string(subscription.Subscriber), &b, subscription.Signature)
 }
 
 func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
@@ -365,15 +360,15 @@ func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
 		}
 	}
 	chatMessage := ChatMessageHeader{
-		Timestamp:     uint64(msg.Timestamp),
-		Approval:      msg.Approval,
-		Receiver:      msg.Receiver,
+		Timestamp: uint64(msg.Timestamp),
+		Approval:  msg.Approval,
+		Receiver:  msg.Receiver,
 		// ChainId:       msg.ChainId,
 		// Platform:      msg.Platform,
-		Length:        100,
+		Length:         100,
 		ApprovalExpiry: msg.ApprovalExpiry,
-		Channels:      msg.Channels,
-		SenderAddress: msg.SenderAddress,
+		Channels:       msg.Channels,
+		SenderAddress:  msg.SenderAddress,
 		// OwnerAddress:  msg.OwnerAddress,
 	}
 

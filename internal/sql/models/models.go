@@ -7,19 +7,18 @@ import (
 
 type BaseModel struct {
 	ID string `gorm:"primaryKey" json:"id,omitempty"`
-	
-  }
-  
-  // Note: Gorm will fail if the function signature
-  //  does not include `*gorm.DB` and `error`
-  
-  func (bm *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
+}
+
+// Note: Gorm will fail if the function signature
+//  does not include `*gorm.DB` and `error`
+
+func (bm *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
 	// UUID version 4
-	if bm.ID == ""  {
+	if bm.ID == "" {
 		bm.ID = uuid.NewString()
 	}
 	return
-  }
+}
 
 var Models = []interface{}{
 	Config{},
@@ -29,4 +28,6 @@ var Models = []interface{}{
 	MessageEvent{},
 	AuthorizationState{},
 	AuthorizationEvent{},
+	SubscriptionState{},
+	SubscriptionEvent{},
 }

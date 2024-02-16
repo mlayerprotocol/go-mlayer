@@ -6,23 +6,23 @@ import (
 	"gorm.io/gorm"
 )
 
-var logger = &log.Logger;
+var logger = &log.Logger
 
-func GetOne [T any, U any] (filter T, data U) (error) {
-	err := db.Db.Where(&filter).First(&data).Error
+func GetOne[T any, U any](filter T, data *U) error {
+	err := db.Db.Where(&filter).First(data).Error
 	if err != nil {
-		
-		return  err
+
+		return err
 	}
 	return nil
 }
 
-
-func GetMany [T any, U any] (item T, data U) (error) {
-	err := db.Db.Where(&item).Find(&data).Error
+func GetMany[T any, U any](item T, data *U) error {
+	err := db.Db.Where(&item).Find(data).Error
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -40,8 +40,7 @@ func GetMany [T any, U any] (item T, data U) (error) {
 // 	return &data, nil
 // }
 
-
-func SaveRecord [Model any] (where Model, data Model, update bool, DB *gorm.DB) (model *Model, created bool, err error) {
+func SaveRecord[Model any](where Model, data Model, update bool, DB *gorm.DB) (model *Model, created bool, err error) {
 	tx := DB
 	if DB == nil {
 		tx = db.Db.Begin()
@@ -63,13 +62,13 @@ func SaveRecord [Model any] (where Model, data Model, update bool, DB *gorm.DB) 
 	} else {
 		result = tx.Where(where).FirstOrCreate(&data)
 	}
-	if result.Error != nil {  
+	if result.Error != nil {
 		tx.Rollback()
-		
+
 		return nil, false, result.Error
 	}
 	if DB == nil {
 		tx.Commit()
 	}
-	return &data, result.RowsAffected > 0,  nil
+	return &data, result.RowsAffected > 0, nil
 }

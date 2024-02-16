@@ -15,7 +15,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var logger = &log.Logger;
+var logger = &log.Logger
+
 type Flag string
 
 type RestService struct {
@@ -28,7 +29,6 @@ type RestResponse struct {
 	Status string      `json:"status"`
 	Data   interface{} `json:"data"`
 }
-
 
 func NewRestService(mainCtx *context.Context) *RestService {
 	cfg, _ := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
@@ -43,21 +43,21 @@ func NewRestService(mainCtx *context.Context) *RestService {
 func (p *RestService) Initialize() *gin.Engine {
 	router := gin.Default()
 	router.GET("/api/ping", func(c *gin.Context) {
-       
-        // Send a response back
-        c.JSON(http.StatusOK, gin.H{
-            "name": "mLayer node",
-			"apiVersion": "1.0.0",
+
+		// Send a response back
+		c.JSON(http.StatusOK, gin.H{
+			"name":        "mLayer node",
+			"apiVersion":  "1.0.0",
 			"nodeVersion": "1.0.0",
 		})
-    })
+	})
 
 	router.PUT("/api/authorize", func(c *gin.Context) {
 		var payload entities.ClientPayload
-        if err := c.BindJSON(&payload); err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-            return
-        }
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		// logger.Infof("PUT %s %v", "/api/authorize", payload.ToJSON())
 		// copier.Copy(&payload.ClientPayload, &payload)
 
@@ -66,31 +66,31 @@ func (p *RestService) Initialize() *gin.Engine {
 		if err != nil {
 			logger.Error(err)
 			c.JSON(http.StatusOK, gin.H{
-				"error": err.Error(),
-				"apiVersion": "1.0.0",
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
 				"nodeVersion": "1.0.0",
 			})
 			return
 		}
-		
-        // Send a response back
-        c.JSON(http.StatusOK, gin.H{
-            //"state": authState,
+
+		// Send a response back
+		c.JSON(http.StatusOK, gin.H{
+			//"state": authState,
 			"event": authEvent,
 		})
-    })
+	})
 
 	router.POST("/api/topics", func(c *gin.Context) {
 		var payload entities.ClientPayload
-        if err := c.BindJSON(&payload); err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-            return
-        }
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		logger.Infof("Payload %v", payload.Data)
-		topic := entities.Topic{} 
+		topic := entities.Topic{}
 		d, _ := json.Marshal(payload.Data)
 		e := json.Unmarshal(d, &topic)
-		if e!=nil {
+		if e != nil {
 			logger.Errorf("UnmarshalError %v", e)
 		}
 		payload.Data = topic
@@ -99,16 +99,199 @@ func (p *RestService) Initialize() *gin.Engine {
 		if err != nil {
 			logger.Error(err)
 			c.JSON(http.StatusOK, gin.H{
-				"error": err.Error(),
-				"apiVersion": "1.0.0",
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
 				"nodeVersion": "1.0.0",
 			})
 			return
 		}
-        c.JSON(http.StatusOK, gin.H{
-            "status": "mLayer node",
-			"data": event,
-        })
-    })
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   event,
+		})
+	})
+
+	router.GET("/api/topics", func(c *gin.Context) {
+		topics, err := client.GetTopics()
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   topics,
+		})
+	})
+
+	router.GET("/api/topics/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		topic, err := client.GetTopic(id)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   topic,
+		})
+	})
+
+	router.PATCH("/api/topics/:id", func(c *gin.Context) {
+		id := c.Param("id")
+
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		logger.Infof("Payload %v", payload.Data)
+		topic := entities.Topic{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &topic)
+		if e != nil {
+			logger.Errorf("UnmarshalError %v", e)
+		}
+		topic.Hash = id
+		payload.Data = topic
+		event, err := client.CreateUpdateTopicEvent(payload, p.Ctx)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   event,
+		})
+	})
+
+	router.POST("/api/topic/subscribe", func(c *gin.Context) {
+		// id := c.Param("id")
+
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		logger.Infof("Payload %v", payload.Data)
+		subscription := entities.Subscription{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &subscription)
+		if e != nil {
+			logger.Errorf("UnmarshalError %v", e)
+		}
+		// subscription.Hash = id
+		payload.Data = subscription
+		event, err := client.CreateSubscribeTopicEvent(payload, p.Ctx)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   event,
+		})
+
+	})
+
+	router.PATCH("/api/topic/unsubscribe", func(c *gin.Context) {
+		// id := c.Param("id")
+
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		logger.Infof("Payload %v", payload.Data)
+		subscription := entities.Subscription{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &subscription)
+		if e != nil {
+			logger.Errorf("UnmarshalError %v", e)
+		}
+		// subscription.ID = id
+		payload.Data = subscription
+		event, err := client.CreateUnSubscribeTopicEvent(payload, p.Ctx)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   event,
+		})
+
+	})
+
+	router.GET("/api/subscription/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		topic, err := client.GetSubscription(id)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   topic,
+		})
+	})
+
+	router.GET("/api/subscriptions", func(c *gin.Context) {
+		topics, err := client.GetSubscriptions()
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   topics,
+		})
+	})
+
 	return router
 }

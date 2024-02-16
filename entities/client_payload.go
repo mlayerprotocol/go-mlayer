@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -10,37 +11,32 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 )
 
-
 type Payload interface {
 	GetHash() ([]byte, error)
-	ToString()  string
-	EncodeBytes()  ([]byte, error)
+	ToString() string
+	EncodeBytes() ([]byte, error)
 }
 
 type ClientPayload struct {
 	// Primary
-	Data  interface{}    `json:"d"`
-	Timestamp   int       `json:"ts"`
-	EventType      uint16 `json:"ty"`
-	Nonce      uint64 `json:"nonce"`
-	Account  PublicKeyString    `json:"acct,omitempty"` // optional public key of sender
+	Data      interface{}     `json:"d"`
+	Timestamp int             `json:"ts"`
+	EventType uint16          `json:"ty"`
+	Nonce     uint64          `json:"nonce"`
+	Account   PublicKeyString `json:"acct,omitempty"` // optional public key of sender
 	// Authorization *Authorization `json:"auth"`
-	// AuthHash string `json:"auth"` // optional hash of 
+	// AuthHash string `json:"auth"` // optional hash of
 	Validator PublicKeyString `json:"val,omitempty"`
 
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
-	Signature   string    `json:"sig"`
-	Hash   string    `json:"h,omitempty"`
-	
-	
+	Signature string `json:"sig"`
+	Hash      string `json:"h,omitempty"`
 }
 
 func (msg ClientPayload) ToJSON() []byte {
 	m, _ := json.Marshal(&msg)
 	return m
 }
-
-
 
 // func (s *ClientPayload) Encode() []byte {
 // 	b, _ := s.Data.ToString()
@@ -80,8 +76,7 @@ func (msg ClientPayload) GetHash() ([]byte, error) {
 // 	if err != nil {
 // 		return err
 // 	}
-	
-	
+
 // 	return nil
 // }
 
@@ -91,10 +86,12 @@ func (msg ClientPayload) GetHash() ([]byte, error) {
 // }
 
 func (msg ClientPayload) EncodeBytes() ([]byte, error) {
-	
-	
-	b, _ := msg.Data.(Payload).EncodeBytes()
-	
+
+	b, err := msg.Data.(Payload).EncodeBytes()
+	if err != nil {
+		return []byte(""), err
+	}
+	logger.Info("ENCODED= ", hex.EncodeToString(b), msg.Data.(Payload))
 	var params []encoder.EncoderParam
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: b})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
@@ -104,21 +101,14 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	params = append(params, encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.Validator})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Nonce})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Timestamp})
-	
+
 	return encoder.EncodeBytes(
-		params...
+		params...,
 	)
 }
-
 
 func ClientPayloadFromBytes(b []byte) (ClientPayload, error) {
 	var message ClientPayload
 	err := json.Unmarshal(b, &message)
 	return message, err
 }
-
-
-
-
-
-
