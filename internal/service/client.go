@@ -19,10 +19,10 @@ import (
 
 var logger = &log.Logger
 
-func ConnectClient(message []byte, protocol constants.Protocol,  client interface{}) (*entities.ClientHandshake, error) {
+func ConnectClient(message []byte, protocol constants.Protocol, client interface{}) (*entities.ClientHandshake, error) {
 	verifiedRequest, _ := entities.UnpackClientHandshake(message)
 	verifiedRequest.ClientSocket = &client
-	verifiedRequest.Protocol = protocol;
+	verifiedRequest.Protocol = protocol
 	logger.Debug("VerifiedRequest.Message: ", verifiedRequest.Message)
 	vByte := []byte(verifiedRequest.Message)
 	if crypto.VerifySignatureECC(verifiedRequest.Signer, &vByte, verifiedRequest.Signature) {
@@ -30,8 +30,8 @@ func ConnectClient(message []byte, protocol constants.Protocol,  client interfac
 		logger.Debug("Verification was successful: ", verifiedRequest)
 		return &verifiedRequest, nil
 	}
-	return nil,  errors.New("Invaliad handshake")
-	
+	return nil, errors.New("Invaliad handshake")
+
 }
 
 func ValidateEvent(event interface{}) error {
@@ -46,18 +46,16 @@ func ValidateEvent(event interface{}) error {
 		return apperror.Forbidden("Payload validator does not match event validator")
 	}
 	logger.Infof("EVENT%s %s", string(e.GetValidator()), e.GetSignature())
-	valid, err  := crypto.VerifySignatureEDD(string(e.GetValidator()), &b, e.GetSignature())
+	valid, err := crypto.VerifySignatureEDD(string(e.GetValidator()), &b, e.GetSignature())
 	if err != nil {
 		return err
 	}
 	if !valid {
-		return errors.New("4003: Invalid node signature")
+		return apperror.Forbidden("Invalid node signature")
 	}
 	// TODO check to ensure that signer is an active validator, if not drop the event
 	return nil
 }
-
-
 
 // func ValidateMessageClient(
 // 	ctx context.Context,
@@ -93,7 +91,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 	MaxBlockSize int,
 	mutex *sync.RWMutex,
 ) {
-	 
+
 	err := deliveryProofStore.Set(ctx, db.Key(proof.Key()), proof.MsgPack(), true)
 	if err == nil {
 		// msg, err := validMessagesStore.Get(ctx, db.Key(fmt.Sprintf("/%s/%s", proof.MessageSender, proof.MessageHash)))
@@ -107,7 +105,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 			return
 		}
 		susbscriber, err := crypto.GetSignerECC(&b, &proof.Signature)
-		if (err != nil) {
+		if err != nil {
 			// invalid proof or proof has been tampered with
 			return
 		}

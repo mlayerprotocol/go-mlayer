@@ -52,11 +52,13 @@ var privKey crypto.PrivKey
 const DiscoveryServiceTag = "ml-network"
 const (
 	AuthorizationChannel       string = "ml-authorization-channel"
-	TopicChannel       string = "ml-topic-channel"
-	MessageChannel       string = "ml-message-channel"
-	// SubscriptionChannel         = "ml-subscription-channel"
-	BatchChannel                = "ml-batch-channel"
-	DeliveryProofChannel        = "ml-delivery-proof"
+	TopicChannel               string = "ml-topic-channel"
+	MessageChannel             string = "ml-message-channel"
+	SubscriptionChannel               = "ml-subscription-channel"
+	UnSubscribeChannel                = "ml-unsubscribe-channel"
+	ApproveSubscriptionChannel        = "ml-approve-subscription-channel"
+	BatchChannel                      = "ml-batch-channel"
+	DeliveryProofChannel              = "ml-delivery-proof"
 )
 
 var peerStreams = make(map[string]peer.ID)
@@ -128,16 +130,15 @@ func Run(mainCtx *context.Context) {
 	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
-	
+
 	ctx, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
-	
-	
+
 	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 
 	}
-	
+
 	protocolId = config.Network
 
 	// incomingAuthorizationC, ok := ctx.Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
@@ -170,12 +171,11 @@ func Run(mainCtx *context.Context) {
 	// if !ok {
 
 	// }
-	
 
 	if len(cfg.NodePrivateKey) == 0 {
 		priv, _, err := crypto.GenerateKeyPair(
 			crypto.Ed25519, // Select your key type. Ed25519 are nice short
-			-1,           // Select key length when possible (i.e. RSA).
+			-1,             // Select key length when possible (i.e. RSA).
 		)
 		if err != nil {
 			panic(err)
@@ -325,35 +325,52 @@ func Run(mainCtx *context.Context) {
 
 	logger.Infof("Host started with ID is %s\n", h.ID())
 
-	
 	// Subscrbers
 	authorizationPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-	
+
 	topicPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), TopicChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
-	
-	
-	
+
+	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+
+	unsubscribePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+
+	approveSubscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), ApproveSubscriptionChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+
 	// Publishers
 	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
+	go PublishChannelEventToNetwork(channelpool.SubscriptionEventPublishC, subscriptionPubSub, mainCtx)
+	go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
+	go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
 	// Subscribers
-	
-	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{},  authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx,  service.HandleNewPubSubTopicEvent)
-	
+
+	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
+	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx, service.HandleNewPubSubTopicEvent)
+	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, subscriptionPubSub, mainCtx, service.HandleNewPubSubSubscriptionEvent)
+	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
+	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
 
 	// messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
-	
+
 	// batchPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), BatchChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
@@ -362,8 +379,6 @@ func Run(mainCtx *context.Context) {
 	// if err != nil {
 	// 	panic(err)
 	// }
-	
-	
 
 	// go func() {
 	// 	time.Sleep(5 * time.Second)
@@ -437,9 +452,9 @@ func Run(mainCtx *context.Context) {
 }
 
 func forever() {
-    for {
-        time.Sleep(time.Hour)
-    }
+	for {
+		time.Sleep(time.Hour)
+	}
 }
 
 func handleStream(stream network.Stream) {
@@ -495,7 +510,7 @@ func isValidHandshake(handshake entities.Handshake, p peer.ID) bool {
 		return false
 	}
 	message, err := handshake.Data.EncodeBytes()
-	if(err != nil) {
+	if err != nil {
 		return false
 	}
 	isValid := cryptoMl.VerifySignatureECC(handshake.Signer, &message, handshake.Signature)

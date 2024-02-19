@@ -8,6 +8,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -17,6 +18,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"gorm.io/gorm"
 )
 
 // type TopicService struct {
@@ -51,16 +53,16 @@ import (
 // }
 
 /*
-	Validate and Process the topic request
+Validate and Process the topic request
 */
 func CreateTopic(
 	payload entities.ClientPayload, ctx *context.Context,
-	) (*models.TopicEvent, error) {
-	
-	cfg, _ :=(*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+) (*models.TopicEvent, error) {
+
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// check if client payload is valid
-	
+
 	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
 	// 	return nil, err
 	// }
@@ -69,32 +71,31 @@ func CreateTopic(
 		// agent not authorized
 	}
 
-	
-	payloadData := entities.Topic{} 
+	payloadData := entities.Topic{}
 	d, _ := json.Marshal(payload.Data)
 	e := json.Unmarshal(d, &payloadData)
-	if e!=nil {
+	if e != nil {
 		logger.Errorf("UnmarshalError %v", e)
 	}
 	payload.Data = payloadData
 	// data := payload
-	var assocPrevEvent string 
+	var assocPrevEvent string
 	var assocAuthEvent string
 	if payload.EventType == uint16(constants.CreateTopicEvent) {
 		// dont worry validating the AuthHash for Authorization requests
-		if (uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli()) + 15000)  {
-			return nil,  errors.New("Authorization timestamp exceeded")
+		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+			return nil, errors.New("Authorization timestamp exceeded")
 		}
-	
+
 		currentState, grantorAuthState, err := service.ValidateTopicData(&payloadData)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// generate associations
 		if currentState != nil {
-			assocPrevEvent= currentState.EventHash
-		
+			assocPrevEvent = currentState.EventHash
+
 		}
 		if grantorAuthState != nil {
 			assocAuthEvent = grantorAuthState.EventHash
@@ -107,29 +108,28 @@ func CreateTopic(
 
 	}
 	payloadHash, _ := payload.GetHash()
-	
+
 	// create event struct
-	event :=  entities.Event{
-			Payload: payload,
-			Timestamp: uint64(time.Now().UnixMilli()),
-			EventType: uint16(payload.EventType),
-			Associations : []string{},
-			PreviousEventHash: assocPrevEvent,
-			AuthEventHash: assocAuthEvent,
-			Synced: false,
-			PayloadHash: hex.EncodeToString(payloadHash),
-			Broadcasted : false,
-			BlockNumber: chain.MLChainApi.GetCurrentBlockNumber(),
-			Validator: entities.PublicKeyString(cfg.NetworkPublicKey),
-		}
-	
+	event := entities.Event{
+		Payload:           payload,
+		Timestamp:         uint64(time.Now().UnixMilli()),
+		EventType:         uint16(payload.EventType),
+		Associations:      []string{},
+		PreviousEventHash: assocPrevEvent,
+		AuthEventHash:     assocAuthEvent,
+		Synced:            false,
+		PayloadHash:       hex.EncodeToString(payloadHash),
+		Broadcasted:       false,
+		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
+		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
+	}
+
 	logger.Infof("Validator: %s", event.Validator)
 	b, err := event.EncodeBytes()
-	
-	event.Hash =  hex.EncodeToString(crypto.Sha256(b))
-	_, event.Signature  = crypto.SignEDD(b, cfg.NetworkPrivateKey)
-	
-	
+
+	event.Hash = hex.EncodeToString(crypto.Sha256(b))
+	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
+
 	eModel, created, err := query.SaveRecord(
 		models.TopicEvent{
 			Event: entities.Event{Hash: event.Hash},
@@ -140,9 +140,142 @@ func CreateTopic(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// channelpool.TopicEventPublishC <- &(eModel.Event)
-	
+
+	if created {
+		channelpool.TopicEventPublishC <- &(eModel.Event)
+	}
+	return eModel, nil
+}
+
+func GetTopic(id string) (*models.TopicState, error) {
+	topicState := models.TopicState{}
+
+	err := query.GetOne(models.TopicState{
+		Topic: entities.Topic{Hash: id},
+	}, &topicState)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &topicState, nil
+
+}
+
+func GetTopics() (*[]models.TopicState, error) {
+	var topicStates []models.TopicState
+
+	err := query.GetMany(models.TopicState{}, &topicStates)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &topicStates, nil
+}
+
+func CreateUpdateTopicEvent(payload entities.ClientPayload, ctx *context.Context) (*models.TopicEvent, error) {
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+
+	// check if client payload is valid
+
+	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
+	// 	return nil, err
+	// }
+	authState, err := ValidateClientPayload(&payload)
+	if authState == nil {
+		// agent not authorized
+		return nil, apperror.Unauthorized("Agent not authorized to update this topic")
+	}
+
+	payloadData := entities.Topic{}
+	d, _ := json.Marshal(payload.Data)
+	e := json.Unmarshal(d, &payloadData)
+	if e != nil {
+		logger.Errorf("UnmarshalError %v", e)
+	}
+	payload.Data = payloadData
+	// data := payload
+
+	topicData, err := GetTopic(payload.Hash)
+
+	if err != nil {
+		return nil, err
+
+	}
+
+	if topicData == nil {
+		return nil, apperror.BadRequest("Invalid topic id")
+	}
+
+	var assocPrevEvent string
+	var assocAuthEvent string
+	if payload.EventType == uint16(constants.UpdateNameEvent) {
+		// dont worry validating the AuthHash for Authorization requests
+		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+		// 	return nil, errors.New("Authorization timestamp exceeded")
+		// }
+
+		currentState, grantorAuthState, err := service.ValidateTopicData(&payloadData)
+		if err != nil {
+			return nil, err
+		}
+
+		// generate associations
+		if currentState != nil {
+			assocPrevEvent = currentState.EventHash
+
+		}
+		if grantorAuthState != nil {
+			assocAuthEvent = grantorAuthState.EventHash
+			// assocAuthEvent =  entities.EventPath{
+			// 	Relationship: entities.AuthorizationEventAssoc,
+			// 	Hash: grantorAuthState.EventHash,
+			// 	Model: entities.AuthorizationEventModel,
+			// }
+		}
+
+	}
+	payloadHash, _ := payload.GetHash()
+
+	// create event struct
+	event := entities.Event{
+		Payload:           payload,
+		Timestamp:         uint64(time.Now().UnixMilli()),
+		EventType:         uint16(payload.EventType),
+		Associations:      []string{},
+		PreviousEventHash: assocPrevEvent,
+		AuthEventHash:     assocAuthEvent,
+		Synced:            false,
+		PayloadHash:       hex.EncodeToString(payloadHash),
+		Broadcasted:       false,
+		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
+		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
+	}
+
+	logger.Infof("Validator: %s", event.Validator)
+	b, err := event.EncodeBytes()
+
+	event.Hash = hex.EncodeToString(crypto.Sha256(b))
+	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
+
+	eModel, created, err := query.SaveRecord(
+		models.TopicEvent{
+			Event: entities.Event{Hash: event.Hash},
+		},
+		models.TopicEvent{
+			Event: event,
+		}, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// channelpool.TopicEventPublishC <- &(eModel.Event)
+
 	if created {
 		channelpool.TopicEventPublishC <- &(eModel.Event)
 	}
@@ -152,7 +285,7 @@ func CreateTopic(
 // func ListenForNewTopicEventFromPubSub (mainCtx *context.Context) {
 // 	ctx, cancel := context.WithCancel(*mainCtx)
 // 	defer cancel()
-	
+
 // 	incomingTopicC, ok := (*mainCtx).Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
 // 	if !ok {
 // 		logger.Errorf("incomingTopicC closed")
