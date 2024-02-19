@@ -7,6 +7,7 @@ import (
 
 	// "math"
 
+	"github.com/google/uuid"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 )
@@ -16,6 +17,18 @@ type Payload interface {
 	ToString() string
 	EncodeBytes() ([]byte, error)
 }
+
+func GetId (d Payload) (string, error) {
+	hash, err := d.GetHash()
+	if err != nil {
+		return "", err
+	 }
+	 u, err := uuid.FromBytes(hash[:16])
+	 if err != nil {
+	   return "", err
+	 }
+	 return u.String(), nil
+  }
 
 type ClientPayload struct {
 	// Primary
@@ -27,7 +40,6 @@ type ClientPayload struct {
 	// Authorization *Authorization `json:"auth"`
 	// AuthHash string `json:"auth"` // optional hash of
 	Validator PublicKeyString `json:"val,omitempty"`
-
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
 	Signature string `json:"sig"`
 	Hash      string `json:"h,omitempty"`

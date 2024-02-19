@@ -207,7 +207,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	data.Agent = entities.AddressString(agent)
 	if updateState {
 		_, _, err := query.SaveRecord(models.TopicState{
-			ID: data.ID,
+			Topic: entities.Topic{ID: data.ID},
 		}, models.TopicState{
 			Topic: *data,
 		}, true, tx)

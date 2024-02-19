@@ -180,7 +180,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 	if updateState {
 		_, _, err := query.SaveRecord(models.SubscriptionState{
-			ID: data.ID,
+			Subscription: entities.Subscription{ID:data.ID},
 		}, models.SubscriptionState{
 			Subscription: *data,
 		}, true, tx)
@@ -399,7 +399,7 @@ func HandleNewPubSubUnSubscribeEvent(event *entities.Event, ctx *context.Context
 
 	if updateState {
 		_, _, err := query.SaveRecord(models.SubscriptionState{
-			ID: data.ID,
+			Subscription: entities.Subscription{ID: data.ID},
 		}, models.SubscriptionState{
 			Subscription: *data,
 		}, true, tx)

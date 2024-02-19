@@ -1,7 +1,6 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"gorm.io/gorm"
 )
@@ -17,17 +16,19 @@ type SubscriptionEvent struct {
 }
 
 type SubscriptionState struct {
-	gorm.Model
-	ID                    string `json:"id" gorm:"type:uuid;primaryKey"`
 	BaseModel             `msgpack:",noinline"`
 	entities.Subscription `msgpack:",noinline"`
 	// Privilege 	constants.AuthorizationPrivilege  `json:"priv" gorm:"type:int"`
 }
 
-func (bm *SubscriptionState) BeforeCreate(tx *gorm.DB) (err error) {
-	// UUID version 4
-	if bm.ID == "" {
-		bm.ID = uuid.NewString()
+
+func (d *SubscriptionState) BeforeCreate(tx *gorm.DB) (err error) {
+	if d.ID == ""  {
+		hash, err := entities.GetId(*d)
+		if err != nil {
+			panic(err)
+		}
+		d.ID = hash
 	}
-	return
+	return nil
 }

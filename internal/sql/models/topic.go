@@ -1,28 +1,32 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"gorm.io/gorm"
 )
 
 type TopicState struct {
-	gorm.Model
-	ID   string    `json:"id" gorm:"type:uuid;primaryKey"`
 	entities.Topic
+	BaseModel
 }
 
-func (bm *TopicState) BeforeCreate(tx *gorm.DB) (err error) {
-	// UUID version 4
-	if bm.ID == ""  {
-		bm.ID = uuid.NewString()
+func (d *TopicState) BeforeCreate(tx *gorm.DB) (err error) {
+	if d.ID == ""  {
+		hash, err := entities.GetId(*d)
+		if err != nil {
+			panic(err)
+		}
+		d.ID = hash
 	}
-	return
+	return nil
   }
 
+  
 type TopicEvent struct {
-	BaseModel
 	entities.Event
+	BaseModel
 	// TopicID     uint64
 	// Topic		TopicState
 }
+
+

@@ -12,7 +12,7 @@ import (
 
 
 type Authorization struct {
-	ID          	string `gorm:"primaryKey"  json:"ID,omitempty"`
+	ID   string    `json:"id" gorm:"type:char(36);not null;primaryKey"`
 	Agent string    `json:"agt" gorm:"index:idx_agent_authorization,unique"`
 	Account PublicKeyString    `json:"acct" gorm:"varchar(32),index:idx_agent_authorization,unique"`
 	Grantor AddressString    `json:"gr" gorm:"index"`

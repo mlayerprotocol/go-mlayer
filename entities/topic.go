@@ -14,7 +14,7 @@ import (
 )
 
 type Topic struct {
-	ID              string          `json:"id" gorm:"type:uuid;primaryKey"`
+	ID              string          `json:"id" gorm:"type:char(36);primaryKey;not null"`
 	Ref             string          `json:"ref,omitempty"`
 	Name            string          `json:"n,omitempty" binding:"required"`
 	Handle          string          `json:"hand,omitempty" binding:"required" gorm:"unique;type:char(64);"`
