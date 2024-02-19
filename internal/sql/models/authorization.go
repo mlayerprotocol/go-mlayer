@@ -9,7 +9,6 @@ import (
 
 
 type AuthorizationEvent struct {
-	
 	// Event `msgpack:",noinline"`
 	entities.Event	 `msgpack:",noinline"`
 	//IsValid   bool `gorm:"default:false" json:"isVal"`
@@ -20,6 +19,7 @@ type AuthorizationEvent struct {
 
 type AuthorizationState struct {
 	entities.Authorization `msgpack:",noinline"`
+	BaseModel
 }
 
 func (d *AuthorizationState) BeforeCreate(tx *gorm.DB) (err error) {

@@ -20,52 +20,50 @@ package constants
 // m.room.pinned_events: Indicates messages that are pinned in the room.
 
 type AuthorizationPrivilege uint8
-const (
-    Readriviledge AuthorizationPrivilege = 0
-    Writeriviledge AuthorizationPrivilege = 1
-    AdminPriviledge AuthorizationPrivilege = 2
-)
 
+const (
+	Readriviledge   AuthorizationPrivilege = 0
+	Writeriviledge  AuthorizationPrivilege = 1
+	AdminPriviledge AuthorizationPrivilege = 2
+)
 
 type EventType uint16
 
 // Authrization
 const (
-    AuthorizationEvent     EventType = 100
-	UnauthorizationEvent    EventType = 101
+	AuthorizationEvent   EventType = 100
+	UnauthorizationEvent EventType = 101
 )
 
 // Administrative Topic Actions
 const (
-    DeleteTopicEvent         EventType = 1000 
-	CreateTopicEvent         EventType = 1001     // m.room.create
-	PrivacySetEvent          EventType = 1002
-    BanMemberEvent           EventType = 1003
-    UnbanMemberEvent         EventType = 1004
-    ContractSetEvent         EventType = 1005
-    UpdateNameEvent          EventType = 1006     //  m.room.name
-    UpdateDescriptionEvent   EventType = 1007     //  m.room.topic
-    UpdateAvatarEvent        EventType = 1008     //  m.room.avatar
-    PinMessageEvent          EventType = 1008     //  m.room.avatar
+	DeleteTopicEvent       EventType = 1000
+	CreateTopicEvent       EventType = 1001 // m.room.create
+	PrivacySetEvent        EventType = 1002
+	BanMemberEvent         EventType = 1003
+	UnbanMemberEvent       EventType = 1004
+	ContractSetEvent       EventType = 1005
+	UpdateNameEvent        EventType = 1006 //  m.room.name
+	UpdateDescriptionEvent EventType = 1007 //  m.room.topic
+	UpdateAvatarEvent      EventType = 1008 //  m.room.avatar
+	PinMessageEvent        EventType = 1008 //  m.room.avatar
+	UpdateTopicEvent       EventType = 1009
 )
-
 
 // Member Topic Actions
 const (
-    LeaveEvent     EventType = 1100
-	JoinEvent      EventType = 1101
-    RequestedEvent      EventType = 1102
-    ApprovedEvent        EventType = 1103
-    UpgradedEvent       EventType = 1104
-    InvitedEvent      EventType = 1105
+	LeaveEvent     EventType = 1100
+	JoinTopicEvent EventType = 1101
+	RequestedEvent EventType = 1102
+	ApprovedEvent  EventType = 1103
+	UpgradedEvent  EventType = 1104
+	InvitedEvent   EventType = 1105
 )
-
 
 // Message Actions
 const (
-    DeleteMessageEvent              EventType = 1200      //m.room.encrypted
-	CreateMessageEvent              EventType = 1201      // m.room.message
-	CreateReactionEvent          EventType = 1202 // m.reaction
-    IsTypingEvent                EventType = 1203
+	DeleteMessageEvent  EventType = 1200 //m.room.encrypted
+	CreateMessageEvent  EventType = 1201 // m.room.message
+	CreateReactionEvent EventType = 1202 // m.reaction
+	// IsTypingEvent       EventType = 1203
 )
-

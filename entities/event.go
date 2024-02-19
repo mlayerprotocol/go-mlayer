@@ -11,6 +11,7 @@ import (
 	"github.com/jinzhu/copier"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"gorm.io/gorm"
 )
 
 
@@ -63,7 +64,7 @@ type EventInterface interface {
 
 type Event struct {
 	// Primary
-	ID string `gorm:"primaryKey" json:"ID,omitempty"`
+	ID string `gorm:"primaryKey;type:char(36);not null" json:"id,omitempty"`
 
 	Payload  ClientPayload    `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
 	Timestamp   uint64       `json:"ts"`
@@ -83,6 +84,19 @@ type Event struct {
 	Synced bool      `json:"sync" gorm:"default:false"`
 	Validator PublicKeyString `json:"val"`
 }
+
+func (d *Event) BeforeCreate(tx *gorm.DB) (err error) {
+	if d.ID == ""  {
+		uuid, err := GetId(*d)
+		if err != nil {
+			logger.Error(err)
+			panic(err)
+		}
+		
+		d.ID = uuid
+	}
+	return nil
+  }
 
 
 func (e *Event) Key() string {

@@ -7,11 +7,11 @@ const (
 )
 
 const (
-	DefaultRPCPort          string = "9521"
-	DefaultWebSocketAddress string = "localhost:8088"
-    DefaultRestAddress string = ":9531"
-	DefaultDataDir          string = "./data/store"
-    DefaultMLBlockchainAPIUrl         string = ":9520"
+	DefaultRPCPort            string = "9521"
+	DefaultWebSocketAddress   string = "localhost:8088"
+	DefaultRestAddress        string = ":9531"
+	DefaultDataDir            string = "./data/store"
+	DefaultMLBlockchainAPIUrl string = ":9520"
 )
 const (
 	RelayNodeType     uint = 0
@@ -21,19 +21,19 @@ const (
 const MaxBlockSize = 1000
 
 const (
-    ErrorUnauthorized = "4001"
-    ErrorBadRequest = "4000"
-    ErrorForbidden = "4003"
+	ErrorUnauthorized = "4001"
+	ErrorBadRequest   = "4000"
+	ErrorForbidden    = "4003"
 )
 
 const (
-	UnprocessedClientPayloadStore            string = "unprocessed-client-payload-store"
-    ValidMessageStore             string = "valid-messages"
+	UnprocessedClientPayloadStore string = "unprocessed-client-payload-store"
+	ValidMessageStore             string = "valid-messages"
 	UnsentMessageStore                   = "unsent-messages"
 	SentMessageStore                     = "sent-messages"
-	NewTopicSubscriptionStore          = "new-topic-subscription"
-	TopicSubscriptionStore             = "top-subscriptions"
-	TopicSubscriptionCountStore        = "topic-subscription-count"
+	NewTopicSubscriptionStore            = "new-topic-subscription"
+	TopicSubscriptionStore               = "top-subscriptions"
+	TopicSubscriptionCountStore          = "topic-subscription-count"
 	DeliveryProofStore                   = "delivery-proof-store"
 	UnconfirmedDeliveryProofStore        = "unconfirmed-delivery-proof-store"
 	DeliveryProofBlockStateStore         = "delivery-proof-block-state-store"
@@ -45,26 +45,25 @@ const (
 // Channel Ids within main context
 const (
 	ConfigKey                       string = "Config"
-    BroadcastAuthorizationEventChId         = "BroadcastAuthorizationEventChannel"
-    BroadcastTopicEventChId         = "BroadcastTopicEventChannel"
-    // IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
-    IncomingTopicEventChId         = "IncomingTopicEventChannel"
+	BroadcastAuthorizationEventChId        = "BroadcastAuthorizationEventChannel"
+	BroadcastTopicEventChId                = "BroadcastTopicEventChannel"
+	// IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
+	IncomingTopicEventChId = "IncomingTopicEventChannel"
 
+	OutgoingMessageChId     = "OutgoingMessageChannel"
+	OutgoingMessageDP2PChId = "OutgoingMessageDP2PChannel"
+	IncomingMessageChId     = "IncomingMessageChannel"
 
-	OutgoingMessageChId                    = "OutgoingMessageChannel"
-	OutgoingMessageDP2PChId                = "OutgoingMessageDP2PChannel"
-	IncomingMessageChId                    = "IncomingMessageChannel"
-    
-	PublishMessageChId                     = "PublishMessageChannel"
-	SubscribeChId                          = "SubscribeChannel"
-	SubscriptionDP2PChId                   = "SubscriptionDP2PChannel"
-	ClientHandShackChId                    = "ClientHandshakeChannel"
-	OutgoingDeliveryProof_BlockChId        = "OutgoingDeliveryProofBlockChannel"
-	OutgoingDeliveryProofChId              = "OutgoinDeliveryProofChannel"
-	PubSubBlockChId                        = "PubSubBlockChannel"
-	PubsubDeliverProofChId                 = "PubsubProofChannel"
-	PublishedSubChId                       = "PublishedSubChannel"
-    SQLDB                                   = "sqldb"
+	PublishMessageChId              = "PublishMessageChannel"
+	SubscribeChId                   = "SubscribeChannel"
+	SubscriptionDP2PChId            = "SubscriptionDP2PChannel"
+	ClientHandShackChId             = "ClientHandshakeChannel"
+	OutgoingDeliveryProof_BlockChId = "OutgoingDeliveryProofBlockChannel"
+	OutgoingDeliveryProofChId       = "OutgoinDeliveryProofChannel"
+	PubSubBlockChId                 = "PubSubBlockChannel"
+	PubsubDeliverProofChId          = "PubsubProofChannel"
+	PublishedSubChId                = "PublishedSubChannel"
+	SQLDB                           = "sqldb"
 )
 
 // State store key
@@ -73,12 +72,12 @@ const (
 	CurrentSubscriptionBlockStateKey  string = "/sub-block/current-state"
 )
 
-type Protocol string;
+type Protocol string
 
 const (
-    WS Protocol = "ws"
-    MQTT Protocol = "mqtt"
-    RPC Protocol = "rpc"
+	WS   Protocol = "ws"
+	MQTT Protocol = "mqtt"
+	RPC  Protocol = "rpc"
 )
 
 /* KEY MAPS
@@ -118,6 +117,7 @@ Handle          = hand
 Hash            = h
 Header          = head
 Index           = i
+InviteOnly 		= invO
 IsValid         = isVal
 Length          = l
 Message         = m
@@ -149,13 +149,15 @@ Signature       = sig
 Signer          = sigr
 Size            = si
 Socket          = sock
+Status          = st
 Subject         = su
-SubjectHash     = subH
-Subscriber      = subs
+SubjectHash     = suH
+Subscriber      = sub
 Synced          = sync
 Timestamp       = ts
-TopicId       = topId
-TopicIds       = topIds
+TopicHash       =topH
+TopicId         = topId
+TopicIds        = topIds
 Type            = ty
 Validator       = v
 
