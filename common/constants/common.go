@@ -95,6 +95,7 @@ Approval        = ap
 ApprovalExpiry  = apExp
 Associations    = assoc
 Authority       = auth
+Avatar          = ava
 Body            = b
 Block           = blk
 BlockId         = blkId

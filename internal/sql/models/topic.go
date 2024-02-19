@@ -7,19 +7,25 @@ import (
 )
 
 type TopicState struct {
-	gorm.Model
 	ID   string    `json:"id" gorm:"type:uuid;primaryKey"`
 	entities.Topic
 }
 
-func (bm *TopicState) BeforeCreate(tx *gorm.DB) (err error) {
+func (d *TopicState) BeforeCreate(tx *gorm.DB) (err error) {
 	// UUID version 4
-	if bm.ID == ""  {
-		bm.ID = uuid.NewString()
+	hash, err := (*d).Topic.GetHash()
+	if err != nil {
+       return err
+    }
+	u, err := uuid.FromBytes(hash)
+	if err != nil {
+      return err
+    }
+	if d.ID == ""  {
+		d.ID = u.String()
 	}
-	return
+	return nil
   }
-
 type TopicEvent struct {
 	BaseModel
 	entities.Event

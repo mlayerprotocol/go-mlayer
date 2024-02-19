@@ -60,6 +60,7 @@ func GetDependentEvents(event entities.Event) (*[]models.AuthorizationEvent, err
 
 // Save authorization only when it doesnt exist
 func SaveAuthorizationState(auth *entities.Authorization, DB *gorm.DB) (*models.AuthorizationState, error) {
+	
 	data := models.AuthorizationState{
 		// Privilege 	: auth.Priviledge,
 		Authorization: *auth,

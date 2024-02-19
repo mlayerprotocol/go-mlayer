@@ -110,5 +110,36 @@ func (p *RestService) Initialize() *gin.Engine {
 			"data": event,
         })
     })
+
+	router.POST("/api/topics/:id/update-avatar", func(c *gin.Context) {
+		var payload entities.ClientPayload
+        if err := c.BindJSON(&payload); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
+		logger.Infof("Payload %v", payload.Data)
+		topic := entities.Topic{} 
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &topic)
+		if e!=nil {
+			logger.Errorf("UnmarshalError %v", e)
+		}
+		payload.Data = topic
+		event, err := client.CreateTopic(payload, p.Ctx)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error": err.Error(),
+				"apiVersion": "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+        c.JSON(http.StatusOK, gin.H{
+            "status": "mLayer node",
+			"data": event,
+        })
+    })
 	return router
 }
