@@ -392,6 +392,7 @@ func HandleNewPubSubUnSubscribeEvent(event *entities.Event, ctx *context.Context
 	data.EventHash = event.Hash
 	data.Agent = entities.AddressString(agent)
 	data.Status = "unsubscribed"
+
 	if markAsSynced && eventError == "" {
 		updateState = true
 	}
@@ -634,7 +635,7 @@ func HandleNewPubSubApproveSubscriptionEvent(event *entities.Event, ctx *context
 			logger.Info("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
-			go HandleNewPubSubTopicEvent(&dep.Event, ctx)
+			go HandleNewPubSubApproveSubscriptionEvent(&dep.Event, ctx)
 		}
 	}
 

@@ -49,125 +49,125 @@ func GetSubscription(id string) (*models.SubscriptionState, error) {
 
 }
 
-func CreateSubscribeTopicEvent(payload entities.ClientPayload, ctx *context.Context) (*models.SubscriptionEvent, error) {
-	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+// func CreateSubscribeTopicEvent(payload entities.ClientPayload, ctx *context.Context) (*models.SubscriptionEvent, error) {
+// 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
-	// check if client payload is valid
+// 	// check if client payload is valid
 
-	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
-	// 	return nil, err
-	// }
-	authState, err := ValidateClientPayload(&payload)
-	if authState == nil {
-		// agent not authorized
-		return nil, apperror.Unauthorized("Agent not authorized to update this topic")
-	}
+// 	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
+// 	// 	return nil, err
+// 	// }
+// 	authState, err := ValidateClientPayload(&payload)
+// 	if authState == nil {
+// 		// agent not authorized
+// 		return nil, apperror.Unauthorized("Agent not authorized to update this topic")
+// 	}
 
-	payloadData := entities.Subscription{}
-	d, _ := json.Marshal(payload.Data)
-	e := json.Unmarshal(d, &payloadData)
-	if e != nil {
-		logger.Errorf("UnmarshalError %v", e)
-	}
-	payload.Data = payloadData
+// 	payloadData := entities.Subscription{}
+// 	d, _ := json.Marshal(payload.Data)
+// 	e := json.Unmarshal(d, &payloadData)
+// 	if e != nil {
+// 		logger.Errorf("UnmarshalError %v", e)
+// 	}
+// 	payload.Data = payloadData
 
-	topicData, err := GetTopic(payloadData.Topic)
-	if err != nil {
-		return nil, err
-	}
+// 	topicData, err := GetTopic(payloadData.Topic)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	if topicData == nil {
-		return nil, apperror.BadRequest("Invalid topic")
-	}
+// 	if topicData == nil {
+// 		return nil, apperror.BadRequest("Invalid topic")
+// 	}
 
-	logger.Info("Before Assoc Event")
-	var assocPrevEvent string
+// 	logger.Info("Before Assoc Event")
+// 	var assocPrevEvent string
 
-	if payload.EventType == uint16(constants.JoinTopicEvent) {
-		// dont worry validating the AuthHash for Authorization requests
-		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-		// 	return nil, errors.New("Authorization timestamp exceeded")
-		// }
-		var currentState models.SubscriptionState
-		// err = query.GetOne(models.SubscriptionState{
-		// 	Subscription: entities.Subscription{Subscriber: payload.Account, Topic: payloadData.Topic},
-		// }, &currentState)
-		// if err != nil {
-		// 	return nil, err
-		// }
+// 	if payload.EventType == uint16(constants.JoinTopicEvent) {
+// 		// dont worry validating the AuthHash for Authorization requests
+// 		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+// 		// 	return nil, errors.New("Authorization timestamp exceeded")
+// 		// }
+// 		var currentState models.SubscriptionState
+// 		// err = query.GetOne(models.SubscriptionState{
+// 		// 	Subscription: entities.Subscription{Subscriber: payload.Account, Topic: payloadData.Topic},
+// 		// }, &currentState)
+// 		// if err != nil {
+// 		// 	return nil, err
+// 		// }
 
-		// generate associations
-		if currentState.ID != "" {
-			assocPrevEvent = currentState.EventHash
+// 		// generate associations
+// 		if currentState.ID != "" {
+// 			assocPrevEvent = currentState.EventHash
 
-		}
+// 		}
 
-	}
+// 	}
 
-	if payload.EventType == uint16(constants.LeaveEvent) {
-		// dont worry validating the AuthHash for Authorization requests
-		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-		// 	return nil, errors.New("Authorization timestamp exceeded")
-		// }
-		var currentState models.SubscriptionState
-		err = query.GetOne(models.SubscriptionState{
-			Subscription: entities.Subscription{Subscriber: payload.Account, Topic: payloadData.Topic},
-		}, &currentState)
-		if err != nil {
-			return nil, err
-		}
+// 	if payload.EventType == uint16(constants.LeaveEvent) {
+// 		// dont worry validating the AuthHash for Authorization requests
+// 		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+// 		// 	return nil, errors.New("Authorization timestamp exceeded")
+// 		// }
+// 		var currentState models.SubscriptionState
+// 		err = query.GetOne(models.SubscriptionState{
+// 			Subscription: entities.Subscription{Subscriber: payload.Account, Topic: payloadData.Topic},
+// 		}, &currentState)
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		// generate associations
-		if currentState.ID != "" {
-			assocPrevEvent = currentState.EventHash
+// 		// generate associations
+// 		if currentState.ID != "" {
+// 			assocPrevEvent = currentState.EventHash
 
-		}
+// 		}
 
-	}
-	payloadHash, _ := payload.GetHash()
+// 	}
+// 	payloadHash, _ := payload.GetHash()
 
-	logger.Info("AFter Assoc Evnt")
+// 	logger.Info("AFter Assoc Evnt")
 
-	event := entities.Event{
-		Payload:           payload,
-		Timestamp:         uint64(time.Now().UnixMilli()),
-		EventType:         uint16(payload.EventType),
-		Associations:      []string{},
-		PreviousEventHash: assocPrevEvent,
-		Synced:            false,
-		PayloadHash:       hex.EncodeToString(payloadHash),
-		Broadcasted:       false,
-		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
-		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
-	}
+// 	event := entities.Event{
+// 		Payload:           payload,
+// 		Timestamp:         uint64(time.Now().UnixMilli()),
+// 		EventType:         uint16(payload.EventType),
+// 		Associations:      []string{},
+// 		PreviousEventHash: assocPrevEvent,
+// 		Synced:            false,
+// 		PayloadHash:       hex.EncodeToString(payloadHash),
+// 		Broadcasted:       false,
+// 		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
+// 		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
+// 	}
 
-	logger.Infof("Validator: %s", event.Validator)
-	b, err := event.EncodeBytes()
+// 	logger.Infof("Validator: %s", event.Validator)
+// 	b, err := event.EncodeBytes()
 
-	event.Hash = hex.EncodeToString(crypto.Sha256(b))
-	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
+// 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
+// 	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
 
-	eModel, created, err := query.SaveRecord(
-		models.SubscriptionEvent{
-			Event: entities.Event{Hash: event.Hash},
-		},
-		models.SubscriptionEvent{
-			Event: event,
-		}, false, nil)
-	if err != nil {
-		return nil, err
-	}
+// 	eModel, created, err := query.SaveRecord(
+// 		models.SubscriptionEvent{
+// 			Event: entities.Event{Hash: event.Hash},
+// 		},
+// 		models.SubscriptionEvent{
+// 			Event: event,
+// 		}, false, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	// channelpool.TopicEventPublishC <- &(eModel.Event)
+// 	// channelpool.TopicEventPublishC <- &(eModel.Event)
 
-	if created {
-		channelpool.SubscriptionEventPublishC <- &(eModel.Event)
-	}
-	return eModel, nil
+// 	if created {
+// 		channelpool.SubscriptionEventPublishC <- &(eModel.Event)
+// 	}
+// 	return eModel, nil
 
-}
+// }
 
-func CreateUnSubscribeTopicEvent(payload entities.ClientPayload, ctx *context.Context) (*models.SubscriptionEvent, error) {
+func SubscriptionEvent(payload entities.ClientPayload, ctx *context.Context) (*models.SubscriptionEvent, error) {
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// check if client payload is valid
@@ -202,6 +202,20 @@ func CreateUnSubscribeTopicEvent(payload entities.ClientPayload, ctx *context.Co
 	logger.Info("Before Assoc Event")
 	var assocPrevEvent string
 	var assocAuthEvent string
+	var pool chan *entities.Event
+
+	if payload.EventType == uint16(constants.JoinTopicEvent) {
+		var currentState models.SubscriptionState
+
+		// generate associations
+		if currentState.ID != "" {
+			assocPrevEvent = currentState.EventHash
+
+		}
+
+		pool = channelpool.SubscriptionEventPublishC
+
+	}
 
 	if payload.EventType == uint16(constants.LeaveEvent) {
 		// dont worry validating the AuthHash for Authorization requests
@@ -232,90 +246,14 @@ func CreateUnSubscribeTopicEvent(payload entities.ClientPayload, ctx *context.Co
 			// }
 		}
 
+		pool = channelpool.UnSubscribeEventPublishC
+
 	}
-	payloadHash, _ := payload.GetHash()
-
-	event := entities.Event{
-		Payload:           payload,
-		Timestamp:         uint64(time.Now().UnixMilli()),
-		EventType:         uint16(payload.EventType),
-		Associations:      []string{},
-		PreviousEventHash: assocPrevEvent,
-		AuthEventHash:     assocAuthEvent,
-		Synced:            false,
-		PayloadHash:       hex.EncodeToString(payloadHash),
-		Broadcasted:       false,
-		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
-		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
-	}
-
-	logger.Infof("Validator: %s", event.Validator)
-	b, err := event.EncodeBytes()
-
-	event.Hash = hex.EncodeToString(crypto.Sha256(b))
-	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
-
-	eModel, created, err := query.SaveRecord(
-		models.SubscriptionEvent{
-			Event: entities.Event{Hash: event.Hash},
-		},
-		models.SubscriptionEvent{
-			Event: event,
-		}, false, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// channelpool.TopicEventPublishC <- &(eModel.Event)
-
-	if created {
-		channelpool.UnSubscribeEventPublishC <- &(eModel.Event)
-	}
-	return eModel, nil
-
-}
-
-func CreateSubscriptionApprovalEvent(payload entities.ClientPayload, ctx *context.Context) (*models.SubscriptionEvent, error) {
-	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-
-	// check if client payload is valid
-
-	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
-	// 	return nil, err
-	// }
-
-	authState, err := ValidateClientPayload(&payload)
-	if authState == nil {
-
-		// agent not authorized
-		return nil, apperror.Unauthorized("Agent not authorized to update this topic")
-	}
-	if authState.Priviledge != 2 {
-		return nil, apperror.Unauthorized("Agent does not have sufficient privileges to update this topic")
-	}
-
-	payloadData := entities.Subscription{}
-	d, _ := json.Marshal(payload.Data)
-	e := json.Unmarshal(d, &payloadData)
-	if e != nil {
-		logger.Errorf("UnmarshalError %v", e)
-	}
-	payload.Data = payloadData
-
-	topicData, err := GetTopic(payloadData.Topic)
-	if err != nil {
-		return nil, err
-	}
-
-	if topicData == nil {
-		return nil, apperror.BadRequest("Invalid topic")
-	}
-
-	logger.Info("Before Assoc Event")
-	var assocPrevEvent string
-	var assocAuthEvent string
 
 	if payload.EventType == uint16(constants.ApprovedEvent) {
+		if authState.Priviledge != 2 {
+			return nil, apperror.Unauthorized("Agent does not have sufficient privileges to update this topic")
+		}
 		// dont worry validating the AuthHash for Authorization requests
 		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
 		// 	return nil, errors.New("Authorization timestamp exceeded")
@@ -325,7 +263,9 @@ func CreateSubscriptionApprovalEvent(payload entities.ClientPayload, ctx *contex
 			return nil, err
 		}
 
-		logger.Info(("after current state"))
+		if currentState == nil {
+			return nil, apperror.BadRequest("Account not subscribed")
+		}
 
 		if currentState.Status == "unsubscribed" || currentState.Status == "approved" {
 			return nil, apperror.BadRequest("Invalid request")
@@ -345,6 +285,7 @@ func CreateSubscriptionApprovalEvent(payload entities.ClientPayload, ctx *contex
 			// 	Model: entities.AuthorizationEventModel,
 			// }
 		}
+		pool = channelpool.ApproveSubscribeEventPublishC
 
 	}
 	payloadHash, _ := payload.GetHash()
@@ -383,8 +324,122 @@ func CreateSubscriptionApprovalEvent(payload entities.ClientPayload, ctx *contex
 	// channelpool.TopicEventPublishC <- &(eModel.Event)
 
 	if created {
-		channelpool.ApproveSubscribeEventPublishC <- &(eModel.Event)
+		pool <- &(eModel.Event)
 	}
 	return eModel, nil
 
 }
+
+// func CreateSubscriptionApprovalEvent(payload entities.ClientPayload, ctx *context.Context) (*models.SubscriptionEvent, error) {
+// 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+
+// 	// check if client payload is valid
+
+// 	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
+// 	// 	return nil, err
+// 	// }
+
+// 	authState, err := ValidateClientPayload(&payload)
+// 	if authState == nil {
+
+// 		// agent not authorized
+// 		return nil, apperror.Unauthorized("Agent not authorized to update this topic")
+// 	}
+// 	if authState.Priviledge != 2 {
+// 		return nil, apperror.Unauthorized("Agent does not have sufficient privileges to update this topic")
+// 	}
+
+// 	payloadData := entities.Subscription{}
+// 	d, _ := json.Marshal(payload.Data)
+// 	e := json.Unmarshal(d, &payloadData)
+// 	if e != nil {
+// 		logger.Errorf("UnmarshalError %v", e)
+// 	}
+// 	payload.Data = payloadData
+
+// 	topicData, err := GetTopic(payloadData.Topic)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	if topicData == nil {
+// 		return nil, apperror.BadRequest("Invalid topic")
+// 	}
+
+// 	logger.Info("Before Assoc Event")
+// 	var assocPrevEvent string
+// 	var assocAuthEvent string
+
+// 	if payload.EventType == uint16(constants.ApprovedEvent) {
+// 		// dont worry validating the AuthHash for Authorization requests
+// 		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+// 		// 	return nil, errors.New("Authorization timestamp exceeded")
+// 		// }
+// 		currentState, grantorAuthState, err := service.ValidateSubscriptionData(&payloadData)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		logger.Info(("after current state"))
+
+// 		if currentState.Status == "unsubscribed" || currentState.Status == "approved" {
+// 			return nil, apperror.BadRequest("Invalid request")
+// 		}
+
+// 		// generate associations
+// 		if currentState != nil {
+// 			assocPrevEvent = currentState.EventHash
+
+// 		}
+
+// 		if grantorAuthState != nil {
+// 			assocAuthEvent = grantorAuthState.EventHash
+// 			// assocAuthEvent =  entities.EventPath{
+// 			// 	Relationship: entities.AuthorizationEventAssoc,
+// 			// 	Hash: grantorAuthState.EventHash,
+// 			// 	Model: entities.AuthorizationEventModel,
+// 			// }
+// 		}
+
+// 	}
+// 	payloadHash, _ := payload.GetHash()
+
+// 	event := entities.Event{
+// 		Payload:           payload,
+// 		Timestamp:         uint64(time.Now().UnixMilli()),
+// 		EventType:         uint16(payload.EventType),
+// 		Associations:      []string{},
+// 		PreviousEventHash: assocPrevEvent,
+// 		AuthEventHash:     assocAuthEvent,
+// 		Synced:            false,
+// 		PayloadHash:       hex.EncodeToString(payloadHash),
+// 		Broadcasted:       false,
+// 		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
+// 		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
+// 	}
+
+// 	logger.Infof("Validator: %s", event.Validator)
+// 	b, err := event.EncodeBytes()
+
+// 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
+// 	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
+
+// 	eModel, created, err := query.SaveRecord(
+// 		models.SubscriptionEvent{
+// 			Event: entities.Event{Hash: event.Hash},
+// 		},
+// 		models.SubscriptionEvent{
+// 			Event: event,
+// 		}, false, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// channelpool.TopicEventPublishC <- &(eModel.Event)
+
+// 	if created {
+// 		channelpool.ApproveSubscribeEventPublishC <- &(eModel.Event)
+// 	}
+// 	return eModel, nil
+
+// }

@@ -184,43 +184,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		})
 	})
 
-	router.POST("/api/topic/subscribe", func(c *gin.Context) {
-		// id := c.Param("id")
-
-		var payload entities.ClientPayload
-		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		logger.Infof("Payload %v", payload.Data)
-		subscription := entities.Subscription{}
-		d, _ := json.Marshal(payload.Data)
-		e := json.Unmarshal(d, &subscription)
-		if e != nil {
-			logger.Errorf("UnmarshalError %v", e)
-		}
-		// subscription.Hash = id
-		payload.Data = subscription
-		event, err := client.CreateSubscribeTopicEvent(payload, p.Ctx)
-
-		if err != nil {
-			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   event,
-		})
-
-	})
-
-	router.PATCH("/api/topic/unsubscribe", func(c *gin.Context) {
+	router.PATCH("/api/subscription", func(c *gin.Context) {
 		// id := c.Param("id")
 
 		var payload entities.ClientPayload
@@ -237,7 +201,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		// subscription.ID = id
 		payload.Data = subscription
-		event, err := client.CreateUnSubscribeTopicEvent(payload, p.Ctx)
+		event, err := client.SubscriptionEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
@@ -273,7 +237,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		subscription.ID = id
 		payload.Data = subscription
-		event, err := client.CreateSubscriptionApprovalEvent(payload, p.Ctx)
+		event, err := client.SubscriptionEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
