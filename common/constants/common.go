@@ -80,6 +80,15 @@ const (
 	RPC  Protocol = "rpc"
 )
 
+type SubscriptionStatuses string
+
+const (
+	SUBSCRIBED   SubscriptionStatuses = "subscribed"
+	PENDING      SubscriptionStatuses = "pending"
+	UNSUBSCRIBED SubscriptionStatuses = "unsubscribed"
+	APPROVED     SubscriptionStatuses = "approved"
+)
+
 /* KEY MAPS
 Always enter map in sorted order
 

@@ -51,14 +51,14 @@ var privKey crypto.PrivKey
 
 const DiscoveryServiceTag = "ml-network"
 const (
-	AuthorizationChannel       string = "ml-authorization-channel"
-	TopicChannel               string = "ml-topic-channel"
-	MessageChannel             string = "ml-message-channel"
-	SubscriptionChannel               = "ml-subscription-channel"
-	UnSubscribeChannel                = "ml-unsubscribe-channel"
-	ApproveSubscriptionChannel        = "ml-approve-subscription-channel"
-	BatchChannel                      = "ml-batch-channel"
-	DeliveryProofChannel              = "ml-delivery-proof"
+	AuthorizationChannel string = "ml-authorization-channel"
+	TopicChannel         string = "ml-topic-channel"
+	MessageChannel       string = "ml-message-channel"
+	SubscriptionChannel         = "ml-subscription-channel"
+	// UnSubscribeChannel                = "ml-unsubscribe-channel"
+	// ApproveSubscriptionChannel        = "ml-approve-subscription-channel"
+	BatchChannel         = "ml-batch-channel"
+	DeliveryProofChannel = "ml-delivery-proof"
 )
 
 var peerStreams = make(map[string]peer.ID)
@@ -341,30 +341,30 @@ func Run(mainCtx *context.Context) {
 		panic(err)
 	}
 
-	unsubscribePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
-	if err != nil {
-		panic(err)
-	}
+	// unsubscribePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	approveSubscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), ApproveSubscriptionChannel, config.ChannelMessageBufferSize)
-	if err != nil {
-		panic(err)
-	}
+	// approveSubscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), ApproveSubscriptionChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	// Publishers
 	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.SubscriptionEventPublishC, subscriptionPubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
+	// go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
+	// go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
 	// Subscribers
 
 	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx, service.HandleNewPubSubTopicEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, subscriptionPubSub, mainCtx, service.HandleNewPubSubSubscriptionEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
+	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
+	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
 
 	// messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	// if err != nil {

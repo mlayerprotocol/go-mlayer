@@ -184,7 +184,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		})
 	})
 
-	router.PATCH("/api/subscription", func(c *gin.Context) {
+	router.POST("/api/topics/subscription", func(c *gin.Context) {
 		// id := c.Param("id")
 
 		var payload entities.ClientPayload
@@ -201,7 +201,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		// subscription.ID = id
 		payload.Data = subscription
-		event, err := client.SubscriptionEvent(payload, p.Ctx)
+		event, err := client.CreateSubscriptionEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
@@ -220,43 +220,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	})
 
-	router.PATCH("/api/subscription/:id/approve", func(c *gin.Context) {
-		id := c.Param("id")
-
-		var payload entities.ClientPayload
-		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		logger.Infof("Payload %v", payload.Data)
-		subscription := entities.Subscription{}
-		d, _ := json.Marshal(payload.Data)
-		e := json.Unmarshal(d, &subscription)
-		if e != nil {
-			logger.Errorf("UnmarshalError %v", e)
-		}
-		subscription.ID = id
-		payload.Data = subscription
-		event, err := client.SubscriptionEvent(payload, p.Ctx)
-
-		if err != nil {
-			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   event,
-		})
-
-	})
-
-	router.GET("/api/subscription/:id", func(c *gin.Context) {
+	router.GET("/api/topics/subscription/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		topic, err := client.GetSubscription(id)
 
@@ -275,7 +239,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		})
 	})
 
-	router.GET("/api/subscriptions", func(c *gin.Context) {
+	router.GET("/api/topics/subscriptions", func(c *gin.Context) {
 		topics, err := client.GetSubscriptions()
 
 		if err != nil {
