@@ -149,7 +149,7 @@ func CreateSubscriptionEvent(payload entities.ClientPayload, ctx *context.Contex
 			return nil, apperror.BadRequest("Subscription not found")
 		}
 
-		if currentState.Status == "unsubscribed" || currentState.Status == "approved" {
+		if currentState.Status == string(constants.UNSUBSCRIBED) || currentState.Status == string(constants.APPROVED) {
 			return nil, apperror.BadRequest("Invalid request")
 		}
 
