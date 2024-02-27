@@ -4,11 +4,12 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 )
 
+type EventInterface interface {
+}
 
 type DeleteEvent struct {
-	entities.Event	 `msgpack:",noinline"`
+	entities.Event `msgpack:",noinline"`
 	//IsValid   bool `gorm:"default:false" json:"isVal"`
 	EventType int16 `json:"t"`
 	// Payload datatypes.JSON  `json:"pld"`
 }
-

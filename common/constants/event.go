@@ -48,6 +48,7 @@ const (
 	UpdateAvatarEvent      EventType = 1008 //  m.room.avatar
 	PinMessageEvent        EventType = 1008 //  m.room.avatar
 	UpdateTopicEvent       EventType = 1009
+	UpgradeSubscriberEvent EventType = 1010
 )
 
 // Member Topic Actions
@@ -56,8 +57,7 @@ const (
 	JoinTopicEvent EventType = 1101
 	RequestedEvent EventType = 1102
 	ApprovedEvent  EventType = 1103
-	UpgradedEvent  EventType = 1104
-	InvitedEvent   EventType = 1105
+	InvitedEvent   EventType = 1104
 )
 
 // Message Actions
@@ -66,4 +66,11 @@ const (
 	CreateMessageEvent  EventType = 1201 // m.room.message
 	CreateReactionEvent EventType = 1202 // m.reaction
 	// IsTypingEvent       EventType = 1203
+)
+
+type SubscriberPrivilege uint8
+
+const (
+	MemberSubPriviledge SubscriberPrivilege = 0
+	AdminSubPriviledge  SubscriberPrivilege = 1
 )

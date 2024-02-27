@@ -8,7 +8,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -55,7 +54,7 @@ import (
 /*
 Validate and Process the topic request
 */
-func CreateTopic(
+func CreateTopicEvent(
 	payload entities.ClientPayload, ctx *context.Context,
 ) (*models.TopicEvent, error) {
 
@@ -81,10 +80,14 @@ func CreateTopic(
 	// data := payload
 	var assocPrevEvent string
 	var assocAuthEvent string
-	if payload.EventType == uint16(constants.CreateTopicEvent) {
-		// dont worry validating the AuthHash for Authorization requests
-		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-			return nil, errors.New("Authorization timestamp exceeded")
+
+	if payload.EventType == uint16(constants.CreateTopicEvent) || payload.EventType == uint16(constants.UpdateNameEvent) {
+		if payload.EventType == uint16(constants.CreateTopicEvent) {
+			// dont worry validating the AuthHash for Authorization requests
+			if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+				return nil, errors.New("Authorization timestamp exceeded")
+			}
+
 		}
 
 		currentState, grantorAuthState, err := service.ValidateTopicData(&payloadData)
@@ -105,8 +108,8 @@ func CreateTopic(
 			// 	Model: entities.AuthorizationEventModel,
 			// }
 		}
-
 	}
+
 	payloadHash, _ := payload.GetHash()
 
 	// create event struct
@@ -176,110 +179,6 @@ func GetTopics() (*[]models.TopicState, error) {
 		return nil, err
 	}
 	return &topicStates, nil
-}
-
-func CreateUpdateTopicEvent(payload entities.ClientPayload, ctx *context.Context) (*models.TopicEvent, error) {
-	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-
-	// check if client payload is valid
-
-	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
-	// 	return nil, err
-	// }
-	authState, err := ValidateClientPayload(&payload)
-	if authState == nil {
-		// agent not authorized
-		return nil, apperror.Unauthorized("Agent not authorized to update this topic")
-	}
-
-	payloadData := entities.Topic{}
-	d, _ := json.Marshal(payload.Data)
-	e := json.Unmarshal(d, &payloadData)
-	if e != nil {
-		logger.Errorf("UnmarshalError %v", e)
-	}
-	payload.Data = payloadData
-	// data := payload
-
-	topicData, err := GetTopic(payload.Hash)
-
-	if err != nil {
-		return nil, err
-
-	}
-
-	if topicData == nil {
-		return nil, apperror.BadRequest("Invalid topic id")
-	}
-
-	var assocPrevEvent string
-	var assocAuthEvent string
-	if payload.EventType == uint16(constants.UpdateNameEvent) {
-		// dont worry validating the AuthHash for Authorization requests
-		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-		// 	return nil, errors.New("Authorization timestamp exceeded")
-		// }
-
-		currentState, grantorAuthState, err := service.ValidateTopicData(&payloadData)
-		if err != nil {
-			return nil, err
-		}
-
-		// generate associations
-		if currentState != nil {
-			assocPrevEvent = currentState.EventHash
-
-		}
-		if grantorAuthState != nil {
-			assocAuthEvent = grantorAuthState.EventHash
-			// assocAuthEvent =  entities.EventPath{
-			// 	Relationship: entities.AuthorizationEventAssoc,
-			// 	Hash: grantorAuthState.EventHash,
-			// 	Model: entities.AuthorizationEventModel,
-			// }
-		}
-
-	}
-	payloadHash, _ := payload.GetHash()
-
-	// create event struct
-	event := entities.Event{
-		Payload:           payload,
-		Timestamp:         uint64(time.Now().UnixMilli()),
-		EventType:         uint16(payload.EventType),
-		Associations:      []string{},
-		PreviousEventHash: assocPrevEvent,
-		AuthEventHash:     assocAuthEvent,
-		Synced:            false,
-		PayloadHash:       hex.EncodeToString(payloadHash),
-		Broadcasted:       false,
-		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
-		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
-	}
-
-	logger.Infof("Validator: %s", event.Validator)
-	b, err := event.EncodeBytes()
-
-	event.Hash = hex.EncodeToString(crypto.Sha256(b))
-	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
-
-	eModel, created, err := query.SaveRecord(
-		models.TopicEvent{
-			Event: entities.Event{Hash: event.Hash},
-		},
-		models.TopicEvent{
-			Event: event,
-		}, false, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// channelpool.TopicEventPublishC <- &(eModel.Event)
-
-	if created {
-		channelpool.TopicEventPublishC <- &(eModel.Event)
-	}
-	return eModel, nil
 }
 
 // func ListenForNewTopicEventFromPubSub (mainCtx *context.Context) {

@@ -95,16 +95,8 @@ func CreateSubscriptionEvent(payload entities.ClientPayload, ctx *context.Contex
 
 		}
 
-		// pool = channelpool.SubscriptionEventPublishC
-
-	}
-
-	if payload.EventType == uint16(constants.LeaveEvent) {
-		// dont worry validating the AuthHash for Authorization requests
-		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-		// 	return nil, errors.New("Authorization timestamp exceeded")
-		// }
-		currentState, grantorAuthState, err := service.ValidateSubscriptionData(&payloadData)
+	} else {
+		currentState, grantorAuthState, err := service.ValidateSubscriptionData(&payloadData, &payload)
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +105,42 @@ func CreateSubscriptionEvent(payload entities.ClientPayload, ctx *context.Contex
 			return nil, apperror.BadRequest("Account not subscribed")
 		}
 
-		// generate associations
+		if payload.EventType == uint16(constants.LeaveEvent) {
+			// dont worry validating the AuthHash for Authorization requests
+			// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+			// 	return nil, errors.New("Authorization timestamp exceeded")
+			// }
+
+		}
+
+		if payload.EventType == uint16(constants.ApprovedEvent) {
+			if authState.Priviledge != constants.AdminPriviledge {
+				return nil, apperror.Unauthorized("Agent does not have sufficient privileges to update this event")
+			}
+
+		}
+
+		if payload.EventType == uint16(constants.BanMemberEvent) {
+			if authState.Priviledge != constants.AdminPriviledge {
+				return nil, apperror.Unauthorized("Agent does not have sufficient privileges to update this event")
+			}
+
+			if currentState.Status == string(constants.BANNED) {
+				return nil, apperror.BadRequest("Invalid request")
+			}
+
+		}
+
+		if payload.EventType == uint16(constants.UnbanMemberEvent) {
+			if authState.Priviledge != constants.AdminPriviledge {
+				return nil, apperror.Unauthorized("Agent does not have sufficient privileges to update this event")
+			}
+
+			if currentState.Status != string(constants.BANNED) {
+				return nil, apperror.BadRequest("Invalid request")
+			}
+
+		}
 		if currentState != nil {
 			assocPrevEvent = currentState.EventHash
 
@@ -127,48 +154,6 @@ func CreateSubscriptionEvent(payload entities.ClientPayload, ctx *context.Contex
 			// 	Model: entities.AuthorizationEventModel,
 			// }
 		}
-
-		// pool = channelpool.UnSubscribeEventPublishC
-
-	}
-
-	if payload.EventType == uint16(constants.ApprovedEvent) {
-		if authState.Priviledge != 2 {
-			return nil, apperror.Unauthorized("Agent does not have sufficient privileges to update this topic")
-		}
-		// dont worry validating the AuthHash for Authorization requests
-		// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-		// 	return nil, errors.New("Authorization timestamp exceeded")
-		// }
-		currentState, grantorAuthState, err := service.ValidateApproveSubscriptionData(&payloadData)
-		if err != nil {
-			return nil, err
-		}
-
-		if currentState == nil {
-			return nil, apperror.BadRequest("Subscription not found")
-		}
-
-		if currentState.Status == string(constants.UNSUBSCRIBED) || currentState.Status == string(constants.APPROVED) {
-			return nil, apperror.BadRequest("Invalid request")
-		}
-
-		// generate associations
-		if currentState != nil {
-			assocPrevEvent = currentState.EventHash
-
-		}
-
-		if grantorAuthState != nil {
-			assocAuthEvent = grantorAuthState.EventHash
-			// assocAuthEvent =  entities.EventPath{
-			// 	Relationship: entities.AuthorizationEventAssoc,
-			// 	Hash: grantorAuthState.EventHash,
-			// 	Model: entities.AuthorizationEventModel,
-			// }
-		}
-		// pool = channelpool.ApproveSubscribeEventPublishC
-
 	}
 	payloadHash, _ := payload.GetHash()
 
@@ -202,8 +187,6 @@ func CreateSubscriptionEvent(payload entities.ClientPayload, ctx *context.Contex
 	if err != nil {
 		return nil, err
 	}
-
-	// channelpool.TopicEventPublishC <- &(eModel.Event)
 
 	if created {
 		channelpool.SubscriptionEventPublishC <- &(eModel.Event)

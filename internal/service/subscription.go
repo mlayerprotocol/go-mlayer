@@ -20,7 +20,7 @@ import (
 /*
 Validate an agent authorization
 */
-func ValidateSubscriptionData(subscription *entities.Subscription) (currentSubscriptionState *models.SubscriptionState, grantorAuthState *models.AuthorizationState, err error) {
+func ValidateSubscriptionData(subscription *entities.Subscription, payload *entities.ClientPayload) (currentSubscriptionState *models.SubscriptionState, grantorAuthState *models.SubscriptionState, err error) {
 	// check fields of subscription
 	var currentState *models.SubscriptionState
 
@@ -29,27 +29,23 @@ func ValidateSubscriptionData(subscription *entities.Subscription) (currentSubsc
 	}, &currentState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return currentState, nil, nil
+			return nil, nil, nil
 		}
 	}
 
-	return currentState, nil, err
-}
-
-func ValidateApproveSubscriptionData(subscription *entities.Subscription) (currentSubscriptionState *models.SubscriptionState, grantorAuthState *models.AuthorizationState, err error) {
-	// check fields of subscription
-	var currentState *models.SubscriptionState
-
 	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{ID: subscription.ID},
-	}, &currentState)
+		Subscription: entities.Subscription{Subscriber: payload.Account, Topic: subscription.Topic},
+	}, &grantorAuthState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return currentState, nil, nil
 		}
 	}
+	if grantorAuthState.Role != constants.AdminSubPriviledge {
+		return currentState, nil, nil
+	}
 
-	return currentState, nil, err
+	return currentState, grantorAuthState, err
 }
 
 func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Context) {
@@ -79,15 +75,13 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		Topic: entities.Topic{Hash: data.Topic},
 	}, &topicData)
 
-	currentState, authState, authError := ValidateSubscriptionData(data)
+	currentState, authState, authError := ValidateSubscriptionData(data, &event.Payload)
 	prevEventUpToDate := false
 	authEventUpToDate := false
 
-	if (event.Payload.EventType == uint16(constants.LeaveEvent)) || (event.Payload.EventType == uint16(constants.ApprovedEvent)) {
-		// check if we are upto date on this event
-		prevEventUpToDate = (currentState == nil && event.PreviousEventHash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash)
-		authEventUpToDate = (authState == nil && event.AuthEventHash == "") || (authState != nil && authState.EventHash == event.AuthEventHash)
-	}
+	// check if we are upto date on this event
+	prevEventUpToDate = (currentState == nil && event.PreviousEventHash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash)
+	authEventUpToDate = (authState == nil && event.AuthEventHash == "") || (authState != nil && authState.EventHash == event.AuthEventHash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
@@ -134,7 +128,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		markAsSynced = true
 	}
 
-	if (event.Payload.EventType == uint16(constants.LeaveEvent)) || (event.Payload.EventType == uint16(constants.ApprovedEvent)) {
+	if event.Payload.EventType != uint16(constants.JoinTopicEvent) {
 		if authError != nil {
 			// check if we are upto date. If we are, then the error is an actual one
 			// the error should be attached when saving the event
@@ -240,11 +234,12 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	if err != nil {
 		logger.Errorf("Invalid event payload")
 	}
+
 	//Update subscription status based on the event type
 	switch event.Payload.EventType {
 	case uint16(constants.JoinTopicEvent):
 		if topicData.Public {
-			data.Status = string(constants.UNSUBSCRIBED)
+			data.Status = string(constants.SUBSCRIBED)
 		} else {
 			data.Status = string(constants.PENDING)
 		}
@@ -252,7 +247,12 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		data.Status = string(constants.UNSUBSCRIBED)
 	case uint16(constants.ApprovedEvent):
 		data.Status = string(constants.APPROVED)
-		break
+	case uint16(constants.BanMemberEvent):
+		data.Status = string(constants.BANNED)
+	case uint16(constants.UnbanMemberEvent):
+		data.Status = string(constants.UNBANNED)
+	default:
+
 	}
 
 	data.EventHash = event.Hash
@@ -282,7 +282,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 			logger.Info("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
-			go HandleNewPubSubTopicEvent(&dep.Event, ctx)
+			go HandleNewPubSubSubscriptionEvent(&dep.Event, ctx)
 		}
 	}
 
