@@ -119,9 +119,8 @@ func CreatTopSubEvent[S *models.EventInterface](payload entities.ClientPayload, 
 	// 	return  err
 	// }
 
-	logger.Info("PAYYYYYYYY", &payload)
 	authState, err := ValidateClientPayload(&payload)
-	if authState == nil {
+	if authState == nil && payload.EventType != uint16(constants.CreateTopicEvent) {
 		// agent not authorized
 		return nil, apperror.Unauthorized("Agent not authorized to perform this update")
 	}
@@ -135,6 +134,7 @@ func CreatTopSubEvent[S *models.EventInterface](payload entities.ClientPayload, 
 	switch payload.EventType {
 	case uint16(constants.CreateTopicEvent):
 		assocPrevEvent, assocAuthEvent, eventType, err = validateTopicPayload(payload)
+
 		if err != nil {
 			return nil, err
 		}

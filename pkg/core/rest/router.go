@@ -87,14 +87,14 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 		logger.Infof("Payload %v", payload)
-		subscription := entities.Subscription{}
+		topic := entities.Topic{}
 		d, _ := json.Marshal(payload.Data)
-		e := json.Unmarshal(d, &subscription)
+		e := json.Unmarshal(d, &topic)
 		if e != nil {
 			logger.Errorf("UnmarshalError %v", e)
 		}
-		// subscription.ID = id
-		payload.Data = subscription
+		// topic.ID = id
+		payload.Data = topic
 		event, err := client.CreatTopSubEvent(payload, p.Ctx)
 
 		if err != nil {

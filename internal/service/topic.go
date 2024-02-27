@@ -24,6 +24,7 @@ Validate an agent authorization
 */
 func ValidateTopicData(topic *entities.Topic) (currentTopicState *models.TopicState, grantorAuthState *models.AuthorizationState, err error) {
 	// check fields of topic
+	logger.Info("Topiccc", topic.Handle)
 	if len(topic.Handle) > 40 {
 		return nil, nil, apperror.BadRequest("Topic handle cannont be more than 40 characters")
 	}
