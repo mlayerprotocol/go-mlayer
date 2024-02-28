@@ -104,8 +104,9 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 		return []byte(""), err
 	}
 	logger.Info("ENCODED= ", hex.EncodeToString(b), msg.Data.(Payload))
+	hashed := crypto.Keccak256Hash(b)
 	var params []encoder.EncoderParam
-	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: b})
+	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
 	if msg.Account != "" {
 		params = append(params, encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.Account})

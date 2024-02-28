@@ -16,7 +16,7 @@ type MLChainAPI struct {
 	URL string
 }
 
-func InitializeMlChain (cfg *configs.MainConfiguration) {
+func Init (cfg *configs.MainConfiguration) {
 	MLChainApi = *NewMLChainAPI(cfg.MLBlockchainAPIUrl)
 }
 func NewMLChainAPI(url string) *MLChainAPI {

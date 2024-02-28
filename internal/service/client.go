@@ -22,9 +22,12 @@ var logger = &log.Logger
 func ConnectClient(message []byte, protocol constants.Protocol, client interface{}) (*entities.ClientHandshake, error) {
 	verifiedRequest, _ := entities.UnpackClientHandshake(message)
 	verifiedRequest.ClientSocket = &client
-	verifiedRequest.Protocol = protocol
-	logger.Debug("VerifiedRequest.Message: ", verifiedRequest.Message)
-	vByte := []byte(verifiedRequest.Message)
+	// verifiedRequest.Protocol = protocol
+	// logger.Debug("VerifiedRequest.Message: ", verifiedRequest.Message)
+	vByte, err := verifiedRequest.EncodeBytes()
+	if err != nil {
+		return nil, apperror.Internal("Invalid client handshake")
+	}
 	if crypto.VerifySignatureECC(verifiedRequest.Signer, &vByte, verifiedRequest.Signature) {
 		// verifiedConn = append(verifiedConn, c)
 		logger.Debug("Verification was successful: ", verifiedRequest)

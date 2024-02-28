@@ -616,7 +616,7 @@ func HandleNewPubSubApproveSubscriptionEvent(event *entities.Event, ctx *context
 
 	if updateState {
 		_, _, err := query.SaveRecord(models.SubscriptionState{
-			ID: data.ID,
+			Subscription: entities.Subscription{ID: data.ID},
 		}, models.SubscriptionState{
 			Subscription: *data,
 		}, true, tx)

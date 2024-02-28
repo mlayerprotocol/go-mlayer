@@ -64,7 +64,7 @@ type EventInterface interface {
 
 type Event struct {
 	// Primary
-	ID string `gorm:"primaryKey;type:char(36);not null" json:"id,omitempty"`
+	ID string `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
 
 	Payload  ClientPayload    `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
 	Timestamp   uint64       `json:"ts"`

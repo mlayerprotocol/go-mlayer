@@ -45,17 +45,13 @@ func (p *RestService) Initialize() *gin.Engine {
 	router.GET("/api/ping", func(c *gin.Context) {
 
 		// Send a response back
-		c.JSON(http.StatusOK, gin.H{
-			"name":        "mLayer node",
-			"apiVersion":  "1.0.0",
-			"nodeVersion": "1.0.0",
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{}))
 	})
 
 	router.PUT("/api/authorize", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 		// logger.Infof("PUT %s %v", "/api/authorize", payload.ToJSON())
@@ -64,26 +60,21 @@ func (p *RestService) Initialize() *gin.Engine {
 		logger.WithFields(logrus.Fields{"payload": string(payload.ToJSON())}).Debug("New auth payload from REST api")
 		authEvent, err := client.AuthorizeAgent(payload, p.Ctx)
 		if err != nil {
-			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 
 		// Send a response back
-		c.JSON(http.StatusOK, gin.H{
-			//"state": authState,
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
 			"event": authEvent,
-		})
+		}}))
 	})
 
 	router.POST("/api/topics", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 		logger.Infof("Payload %v", payload.Data)
@@ -91,25 +82,20 @@ func (p *RestService) Initialize() *gin.Engine {
 		d, _ := json.Marshal(payload.Data)
 		e := json.Unmarshal(d, &topic)
 		if e != nil {
-			logger.Errorf("UnmarshalError %v", e)
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: e}))
 		}
 		payload.Data = topic
 		event, err := client.CreateTopic(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   event,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
 	})
 
 	router.GET("/api/topics", func(c *gin.Context) {
@@ -117,17 +103,12 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   topics,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"data": topics,
+		}}))
 	})
 
 	router.GET("/api/topics/:id", func(c *gin.Context) {
@@ -136,11 +117,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -154,7 +131,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 		logger.Infof("Payload %v", payload.Data)
@@ -170,18 +147,13 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   event,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
 	})
 
 	router.POST("/api/topic/subscribe", func(c *gin.Context) {
@@ -189,7 +161,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 		logger.Infof("Payload %v", payload.Data)
@@ -204,19 +176,13 @@ func (p *RestService) Initialize() *gin.Engine {
 		event, err := client.CreateSubscribeTopicEvent(payload, p.Ctx)
 
 		if err != nil {
-			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   event,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
 
 	})
 
@@ -249,10 +215,9 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   event,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
 
 	})
 
@@ -285,10 +250,9 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   event,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
 
 	})
 
@@ -312,7 +276,7 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.GET("/api/subscriptions", func(c *gin.Context) {
-		topics, err := client.GetSubscriptions()
+		subs, err := client.GetSubscriptions()
 
 		if err != nil {
 			logger.Error(err)
@@ -323,10 +287,9 @@ func (p *RestService) Initialize() *gin.Engine {
 			})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   topics,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"subscriptions": subs,
+		}}))
 	})
 
 	return router

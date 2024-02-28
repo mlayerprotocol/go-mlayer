@@ -43,6 +43,8 @@ import (
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
 
+
+
 var logger = &log.Logger
 var config configs.MainConfiguration
 
@@ -61,8 +63,8 @@ const (
 	DeliveryProofChannel              = "ml-delivery-proof"
 )
 
-var peerStreams = make(map[string]peer.ID)
-var peerPubKeys = make(map[peer.ID][]byte)
+var PeerStreams = make(map[string]peer.ID)
+var PeerPubKeys = make(map[peer.ID][]byte)
 var node *host.Host
 var idht *dht.IpfsDHT
 
@@ -462,44 +464,44 @@ func handleStream(stream network.Stream) {
 	// stream.SetReadDeadline()
 	// Create a buffer stream for non blocking read and write.
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-	go readData(peerStreams[stream.ID()], rw)
+	go readData(PeerStreams[stream.ID()], rw)
 	// go sendData(rw)
 
 }
 
 func readData(p peer.ID, rw *bufio.ReadWriter) {
 	for {
-		hsString, err := rw.ReadString('\n')
+		hsData, err := rw.ReadBytes('\n')
 		if err != nil {
 			logger.Errorf("Error reading from buffer %o", err)
 			panic(err)
 		}
-		if hsString == "" {
+		if hsData == nil {
 			break
 		}
 
-		logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Info("New Handshake data from peer")
-		handshake, err := entities.UnpackHandshake([]byte(hsString))
+		logger.WithFields(logrus.Fields{"peer": p, "data": string(hsData)}).Info("New Handshake data from peer")
+		handshake, err := entities.UnpackHandshake(hsData)
 
 		if err != nil {
-			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %o", err)
+			logger.WithFields(logrus.Fields{"peer": p, "data": hsData}).Warnf("Failed to parse handshake: %o", err)
 			break
 		}
 		validHandshake := isValidHandshake(handshake, p)
 		if !validHandshake {
 			disconnect(*node, p)
-			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Infof("Disconnecting from peer (%s) with invalid handshake", p)
+			logger.WithFields(logrus.Fields{"peer": p, "data": hsData}).Infof("Disconnecting from peer (%s) with invalid handshake", p)
 			return
 		}
 		validStake := isValidStake(handshake, p)
 		if !validStake {
 			disconnect(*node, p)
-			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsString}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
+			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsData}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
 			return
 		}
 		b, _ := hexutil.Decode(handshake.Signer)
-		peerPubKeys[p] = b
-		break
+		PeerPubKeys[p] = b
+		// break
 	}
 }
 
@@ -583,7 +585,7 @@ func handleConnect(h *host.Host, pa *peer.AddrInfo) {
 		logger.Infof("Streaming to peer: %s", pi.ID)
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 		logger.Infof("New StreamID: %s", stream.ID())
-		peerStreams[stream.ID()] = pi.ID
+		PeerStreams[stream.ID()] = pi.ID
 		nodeType := constants.RelayNodeType
 		if config.Validator {
 			nodeType = constants.ValidatorNodeType
