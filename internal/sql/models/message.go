@@ -8,7 +8,7 @@ import (
 
 type MessageState struct {
 	gorm.Model
-	ID          	string   `gorm:"type:uuid;primaryKey"`
+	ID          	string   `gorm:"type:string;primaryKey"`
 	Message       string
 	Subject     string
 	To string

@@ -51,7 +51,7 @@ func (p *RestService) Initialize() *gin.Engine {
 	router.PUT("/api/authorize", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error:  err.Error()}))
 			return
 		}
 		// logger.Infof("PUT %s %v", "/api/authorize", payload.ToJSON())
@@ -60,11 +60,9 @@ func (p *RestService) Initialize() *gin.Engine {
 		logger.WithFields(logrus.Fields{"payload": string(payload.ToJSON())}).Debug("New auth payload from REST api")
 		authEvent, err := client.AuthorizeAgent(payload, p.Ctx)
 		if err != nil {
-			
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-
 		// Send a response back
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
 			"event": authEvent,
@@ -74,22 +72,23 @@ func (p *RestService) Initialize() *gin.Engine {
 	router.POST("/api/topics", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		logger.Infof("Payload %v", payload.Data)
+		logger.Infof("Payload %v", payload)
 		topic := entities.Topic{}
 		d, _ := json.Marshal(payload.Data)
 		e := json.Unmarshal(d, &topic)
 		if e != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: e}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
 		}
+		// topic.ID = id
 		payload.Data = topic
-		event, err := client.CreateTopic(payload, p.Ctx)
+		event, err := client.CreatTopSubEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
@@ -103,7 +102,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
@@ -117,7 +116,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -131,7 +130,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		logger.Infof("Payload %v", payload.Data)
@@ -143,11 +142,11 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		topic.Hash = id
 		payload.Data = topic
-		event, err := client.CreateUpdateTopicEvent(payload, p.Ctx)
+		event, err := client.CreatTopSubEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
@@ -156,12 +155,12 @@ func (p *RestService) Initialize() *gin.Engine {
 		}}))
 	})
 
-	router.POST("/api/topic/subscribe", func(c *gin.Context) {
+	router.POST("/api/topics/subscribe", func(c *gin.Context) {
 		// id := c.Param("id")
 
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		logger.Infof("Payload %v", payload.Data)
@@ -170,40 +169,78 @@ func (p *RestService) Initialize() *gin.Engine {
 		e := json.Unmarshal(d, &subscription)
 		if e != nil {
 			logger.Errorf("UnmarshalError %v", e)
-		}
-		// subscription.Hash = id
-		payload.Data = subscription
-		event, err := client.CreateSubscribeTopicEvent(payload, p.Ctx)
-
-		if err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
 			return
-		}
-
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
-			"event": event,
-		}}))
-
-	})
-
-	router.PATCH("/api/topic/unsubscribe", func(c *gin.Context) {
-		// id := c.Param("id")
-
-		var payload entities.ClientPayload
-		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		logger.Infof("Payload %v", payload.Data)
-		subscription := entities.Subscription{}
-		d, _ := json.Marshal(payload.Data)
-		e := json.Unmarshal(d, &subscription)
-		if e != nil {
-			logger.Errorf("UnmarshalError %v", e)
 		}
 		// subscription.ID = id
 		payload.Data = subscription
-		event, err := client.CreateUnSubscribeTopicEvent(payload, p.Ctx)
+		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+
+		if err != nil {
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
+
+	})
+
+	router.PATCH("/api/subscription/approve", func(c *gin.Context) {
+		id := c.Param("id")
+
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		logger.Infof("Payload %v", payload.Data)
+		subscription := entities.Subscription{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &subscription)
+		if e != nil {
+			logger.Errorf("UnmarshalError %v", e)
+		}
+		subscription.ID = id
+		payload.Data = subscription
+		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, gin.H{
+				"error":       err.Error(),
+				"apiVersion":  "1.0.0",
+				"nodeVersion": "1.0.0",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "mLayer node",
+			"data":   event,
+		})
+
+	})
+
+	router.PATCH("/api/topics/unsubscribe", func(c *gin.Context) {
+		id := c.Param("id")
+
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		logger.Infof("Payload %v", payload.Data)
+		subscription := entities.Subscription{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &subscription)
+		if e != nil {
+			logger.Errorf("UnmarshalError %v", e)
+		}
+		subscription.ID = id
+		payload.Data = subscription
+		event, err := client.CreatTopSubEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
@@ -221,7 +258,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	})
 
-	router.PATCH("/api/subscription/:id/approve", func(c *gin.Context) {
+	router.PATCH("/api/topics/ban", func(c *gin.Context) {
 		id := c.Param("id")
 
 		var payload entities.ClientPayload
@@ -238,7 +275,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		subscription.ID = id
 		payload.Data = subscription
-		event, err := client.CreateSubscriptionApprovalEvent(payload, p.Ctx)
+		event, err := client.CreatTopSubEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)

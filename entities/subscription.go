@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
@@ -15,15 +16,16 @@ import (
 var logger = &log.Logger
 
 type Subscription struct {
-	ID         string          `gorm:"primaryKey;type:uuid;not null"  json:"id,omitempty"`
-	Topic      string          `json:"top"`
-	Subscriber PublicKeyString `json:"sub"`
-	Timestamp  uint64          `json:"ts"`
-	Signature  string          `json:"sig"`
-	Hash       string          `json:"h" gorm:"unique" `
-	EventHash  string          `json:"eH" gorm:"index;char(64);"`
-	Agent      AddressString   `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
-	Status     string          `json:"st" `
+	ID         string                        `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
+	Topic      string                        `json:"top"`
+	Subscriber PublicKeyString               `json:"sub"`
+	Timestamp  uint64                        `json:"ts"`
+	Signature  string                        `json:"sig"`
+	Hash       string                        `json:"h" gorm:"unique" `
+	EventHash  string                        `json:"eH" gorm:"index;char(64);"`
+	Agent      AddressString                 `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Status     string                        `json:"st" `
+	Role       constants.SubscriberPrivilege `json:"rol" gorm:"default:0"`
 }
 
 func (sub *Subscription) Key() string {

@@ -50,6 +50,15 @@ func (msg ClientPayload) ToJSON() []byte {
 	return m
 }
 
+
+func (msg ClientPayload) EventNonce() string {
+	d, err := msg.EncodeBytes()
+	if err != nil {
+		panic(err)
+	}
+	agent, err := crypto.GetSignerECC(&d, &msg.Signature)
+	return hex.EncodeToString(crypto.Keccak256Hash([]byte(fmt.Sprintf("%s:%d",  agent, msg.Nonce))))
+}
 // func (s *ClientPayload) Encode() []byte {
 // 	b, _ := s.Data.ToString()
 // 	return b

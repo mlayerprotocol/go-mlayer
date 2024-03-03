@@ -80,6 +80,17 @@ const (
 	RPC  Protocol = "rpc"
 )
 
+type SubscriptionStatuses string
+
+const (
+	SUBSCRIBED   SubscriptionStatuses = "subscribed"
+	PENDING      SubscriptionStatuses = "pending"
+	UNSUBSCRIBED SubscriptionStatuses = "unsubscribed"
+	APPROVED     SubscriptionStatuses = "approved"
+	BANNED       SubscriptionStatuses = "banned"
+	UNBANNED     SubscriptionStatuses = "unbanned"
+)
+
 /* KEY MAPS
 Always enter map in sorted order
 
@@ -140,6 +151,7 @@ Proofs          = prs
 ProtocolId      = proId
 Receiver        = r
 Ref             = ref
+Roles 			= rol
 Secret          = sec
 Sender          = s
 SenderAddress   = sA

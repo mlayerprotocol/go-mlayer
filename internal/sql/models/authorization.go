@@ -1,7 +1,6 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"gorm.io/gorm"
 )
@@ -24,16 +23,9 @@ type AuthorizationState struct {
 
 func (d *AuthorizationState) BeforeCreate(tx *gorm.DB) (err error) {
 	// UUID version 4
-	hash, err := (*d).Authorization.GetHash()
+	d.ID, err = entities.GetId(d)
 	if err != nil {
-       return err
-    }
-	u, err := uuid.FromBytes(hash)
-	if err != nil {
-      return err
-    }
-	if d.ID == ""  {
-		d.ID = u.String()
+		panic(err)
 	}
 	return nil
   }

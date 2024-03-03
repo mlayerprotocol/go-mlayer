@@ -67,6 +67,7 @@ type Event struct {
 	ID string `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
 
 	Payload  ClientPayload    `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
+	Nonce string `json:"nonce" gorm:"type:char(64);unique" msgpack:",noinline"`
 	Timestamp   uint64       `json:"ts"`
 	EventType      uint16 `json:"t"`
 	Associations   []string      `json:"assoc" gorm:"type:text[]"`
@@ -170,12 +171,13 @@ func (e Event) GetHash() ([]byte, error) {
 func (e Event) ToString() string {
 	values := []string{}
 	d, _ := json.Marshal(e.Payload)
-	values = append(values, fmt.Sprintf("%s", e.ID))
-	values = append(values, fmt.Sprintf("%s", d))
+	values = append(values, fmt.Sprintf("%d", d))
+	values = append(values,  e.ID)
+	values = append(values, fmt.Sprintf("%d", e.BlockNumber))
 	values = append(values, fmt.Sprintf("%d", e.EventType))
-	values = append(values, fmt.Sprintf("%s", strings.Join(e.Associations, ",")))
-	values = append(values, fmt.Sprintf("%s", e.PreviousEventHash))
-	values = append(values, fmt.Sprintf("%s", e.AuthEventHash))
+	values = append(values, strings.Join(e.Associations, ","))
+	values = append(values, e.PreviousEventHash)
+	values = append(values,  e.AuthEventHash)
 	values = append(values, fmt.Sprintf("%d", e.Timestamp))
 	return strings.Join(values, "")
 }
