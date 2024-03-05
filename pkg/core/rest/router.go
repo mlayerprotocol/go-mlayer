@@ -329,5 +329,37 @@ func (p *RestService) Initialize() *gin.Engine {
 		}}))
 	})
 
+	router.POST("/api/topics/:id/messages", func(c *gin.Context) {
+		// id := c.Param("id")
+
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		logger.Infof("Payload %v", payload.Data)
+		message := entities.MessageJsonInput{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &message)
+		if e != nil {
+			logger.Errorf("UnmarshalError %v", e)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
+			return
+		}
+		// subscription.ID = id
+		payload.Data = subscription
+		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+
+		if err != nil {
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
+
+	})
+
 	return router
 }

@@ -63,8 +63,8 @@ const (
 // Message Actions
 const (
 	DeleteMessageEvent  EventType = 1200 //m.room.encrypted
-	CreateMessageEvent  EventType = 1201 // m.room.message
-	CreateReactionEvent EventType = 1202 // m.reaction
+	SendMessageEvent  EventType = 1201 // m.room.message
+	// CreateReactionEvent EventType = 1202 // m.reaction
 	// IsTypingEvent       EventType = 1203
 )
 

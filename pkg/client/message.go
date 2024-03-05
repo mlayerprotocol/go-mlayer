@@ -3,16 +3,14 @@ package client
 import (
 	// "errors"
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
-	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
@@ -46,13 +44,13 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 }
 
 func (p *MessageService) Send(chatMsg entities.ChatMessage, senderSignature string) (*entities.Event, error) {
-	if strings.ToLower(chatMsg.Validator) != strings.ToLower(crypto.GetPublicKeyEDD(p.Cfg.NetworkPrivateKey)) {
-		return nil, errors.New("Invalid Origin node address: " + chatMsg.Validator + " is not")
-	}
-	if entities.IsValidMessage(chatMsg, senderSignature) {
-		channel := strings.Split(chatMsg.Header.Receiver, ":")
+	// if strings.ToLower(chatMsg.Validator) != strings.ToLower(crypto.GetPublicKeyEDD(p.Cfg.NetworkPrivateKey)) {
+	// 	return nil, errors.New("Invalid Origin node address: " + chatMsg.Validator + " is not")
+	// }
+	if service.IsValidMessage(chatMsg, senderSignature) {
+		
 
-		if utils.Contains(chatMsg.Header.Channels, "*") || utils.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
+		//if utils.Contains(chatMsg.Header.Channels, "*") || utils.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
 
 			privateKey := p.Cfg.NetworkPrivateKey
 
@@ -70,9 +68,9 @@ func (p *MessageService) Send(chatMsg entities.ChatMessage, senderSignature stri
 				panic("outgoing channel fail")
 			}
 			*outgoingMessageC <- &message
-			fmt.Printf("Testing my function%s, %s", chatMsg.ToString(), chatMsg.Body.SubjectHash)
+			fmt.Printf("Testing my function%s, %s", chatMsg.ToString(), string(chatMsg.Body.Data))
 			return &message, nil
-		}
+		//}
 	}
 	return nil, fmt.Errorf("Invalid message signer")
 }

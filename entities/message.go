@@ -5,19 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 
 	// "math"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	cryptoEth "github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	"github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -42,17 +38,26 @@ CHAT MESSAGE
 */
 type ChatMessageHeader struct {
 	Length   int    `json:"l"`
-	Sender   string `json:"s"`
-	Approval string `json:"ap"`
+	Sender   AddressString `json:"s"`
 	Receiver string `json:"r"`
 	// ChainId       string `json:"cId"`
 	// Platform      string `json:"p"`
 	Timestamp      uint64 `json:"ts"`
-	ApprovalExpiry uint64 `json:"apExp"`
+	// ApprovalExpiry uint64 `json:"apExp"`
 	// Wildcard      bool   `json:"wildcard"`
-	Channels      []string `json:"chs"`
-	SenderAddress string   `json:"sA"`
+	// Channels      []string `json:"chs"`
+	// SenderAddress string   `json:"sA"`
 	// OwnerAddress  string `json:"oA"`
+}
+
+func (h ChatMessageHeader) EncodeBytes() []byte {
+	b, _ := encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: h.Length},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: h.Sender},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: h.Receiver},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: h.Timestamp},
+	)
+	return b
 }
 
 // TODO! platform enum channel
@@ -60,9 +65,29 @@ type ChatMessageHeader struct {
 // ! look for all subscribers to the channel
 // ! channel subscribers store
 type ChatMessageBody struct {
-	SubjectHash string `json:"subH"`
-	MessageHash string `json:"mH"`
-	CID         string `json:"cid"`
+	DataHash string `json:"mH"`
+	Url         string `json:"url"`
+	Data 		json.RawMessage `json:"d,omitempty"`
+}
+func (b ChatMessageBody) EncodeBytes() []byte {
+	e, _ := encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: b.DataHash},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: b.Url},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: b.Data},
+	)
+	return e
+}
+
+type ChatMessageAttachment struct {
+	CID string `json:"cid"`
+	Hash         string `json:"h"`
+}
+func (b ChatMessageAttachment) EncodeBytes() []byte {
+	e, _ := encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: b.CID},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: b.Hash},
+	)
+	return e
 }
 type ChatMessageAction struct {
 	Contract   string   `json:"c"`
@@ -71,11 +96,27 @@ type ChatMessageAction struct {
 	Parameters []string `json:"pa"`
 }
 
+func (a ChatMessageAction) EncodeBytes() []byte {
+	var b []byte
+	for _, d := range a.Parameters {
+		data, _ := encoder.EncodeBytes(encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: d},)
+		b = append(b, data...)
+	}
+	encoded, _ := encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: a.Contract},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: a.Abi},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: a.Action},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: a.Action},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: b},
+	)
+	return encoded
+}
+
 type ChatMessage struct {
 	Header    ChatMessageHeader   `json:"h"`
 	Body      ChatMessageBody     `json:"b"`
 	Actions   []ChatMessageAction `json:"as"`
-	Validator string              `json:"v"`
+	Attachments []ChatMessageAttachment `json:"atts"`
 }
 
 func (chatMessage ChatMessage) ToString() string {
@@ -86,11 +127,11 @@ func (chatMessage ChatMessage) ToString() string {
 	// values = append(values, fmt.Sprintf("%d", chatMessage.Header.ApprovalExpiry))
 	// values = append(values, fmt.Sprintf("%s", chatMessage.Header.ChainId))
 	// values = append(values, fmt.Sprintf("%s", chatMessage.Header.Platform))
-	values = append(values, fmt.Sprintf("%d", chatMessage.Header.Timestamp))
+	// values = append(values, fmt.Sprintf("%d", chatMessage.Header.Timestamp))
 
-	values = append(values, fmt.Sprintf("%s", chatMessage.Body.SubjectHash))
-	values = append(values, fmt.Sprintf("%s", chatMessage.Body.MessageHash))
-	values = append(values, fmt.Sprintf("%s", chatMessage.Body.CID))
+	// values = append(values, fmt.Sprintf("%s", chatMessage.Body.SubjectHash))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Body.DataHash))
+	values = append(values, fmt.Sprintf("%s", chatMessage.Body.Url))
 	_action := []string{}
 	for i := 0; i < len(chatMessage.Actions); i++ {
 		_action = append(_action, fmt.Sprintf("[%d]:%s", i, chatMessage.Actions[i].Contract))
@@ -106,7 +147,7 @@ func (chatMessage ChatMessage) ToString() string {
 	}
 
 	values = append(values, fmt.Sprintf("%s", _action))
-	values = append(values, fmt.Sprintf("%s", chatMessage.Validator))
+	
 
 	return strings.Join(values, "")
 }
@@ -120,35 +161,40 @@ func (msg ChatMessage) GetHash() ([]byte, error) {
 }
 
 func (msg ChatMessage) EncodeBytes() ([]byte, error) {
-	return encoder.EncodeBytes(encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.Validator})
+	var attachments []byte
+	var actions []byte
+	
+	for _, at := range msg.Actions {
+		attachments = append(actions, at.EncodeBytes()...)
+	}
+	for _, ac := range msg.Actions {
+		actions = append(actions, ac.EncodeBytes()...)
+	}
+	return encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.Header.EncodeBytes()},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.Body.EncodeBytes()},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: attachments},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: actions},
+	)
 }
 
-//	func (channel *ChatMessageHeader) ToApprovalString() string {
-//		values := []string{}
-//		values = append(values, fmt.Sprintf("%d", channel.ApprovalExpiry))
-//		// values = append(values, fmt.Sprintf("%s", channel.Wildcard))
-//		values = append(values, fmt.Sprintf("%s", channel.Channels))
-//		values = append(values, fmt.Sprintf("%s", channel.SenderAddress))
-//		// values = append(values, fmt.Sprintf("%s", channel.OwnerAddress))
-//		return strings.Join(values, ",")
-//	}
-func (channel *ChatMessageHeader) ToApprovalBytes() ([]byte, error) {
-	values := []string{}
-	values = append(values, fmt.Sprintf("%d", channel.ApprovalExpiry))
-	// values = append(values, fmt.Sprintf("%s", channel.Wildcard))
-	values = append(values, fmt.Sprintf("%s", channel.Channels))
-	values = append(values, fmt.Sprintf("%s", channel.SenderAddress))
-	// values = append(values, fmt.Sprintf("%s", channel.OwnerAddress))
-	b, err := encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: channel.ApprovalExpiry},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: channel.Channels},
-		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: channel.SenderAddress},
-	)
-	if err != nil {
-		return []byte(""), err
-	}
-	return b, nil
-}
+// func (channel ChatMessageHeader) ToApprovalBytes() ([]byte, error) {
+// 	values := []string{}
+// 	values = append(values, fmt.Sprintf("%d", channel.ApprovalExpiry))
+// 	// values = append(values, fmt.Sprintf("%s", channel.Wildcard))
+// 	values = append(values, fmt.Sprintf("%s", channel.Channels))
+// 	values = append(values, fmt.Sprintf("%s", channel.SenderAddress))
+// 	// values = append(values, fmt.Sprintf("%s", channel.OwnerAddress))
+// 	b, err := encoder.EncodeBytes(
+// 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: channel.ApprovalExpiry},
+// 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: channel.Channels},
+// 		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: channel.SenderAddress},
+// 	)
+// 	if err != nil {
+// 		return []byte(""), err
+// 	}
+// 	return b, nil
+// }
 
 type SuccessResponse struct {
 	Body ClientPayload
@@ -209,25 +255,31 @@ func ChatMessageFromBytes(b []byte) ChatMessage {
 func ChatMessageFromString(msg string) ChatMessage {
 	return ChatMessageFromBytes([]byte(msg))
 }
-
+type MessageJsonInputAttachments struct {
+	File []json.RawMessage `json:"f"`
+	Type string `json:"ty"`
+}
 type MessageJsonInput struct {
 	Timestamp      uint64   `json:"ts"`
-	Approval       string   `json:"ap"`
-	ApprovalExpiry uint64   `json:"apExp"`
-	Channels       []string `json:"c"`
-	SenderAddress  string   `json:"sA"`
+	// Approval       string   `json:"ap"`
+	// ApprovalExpiry uint64   `json:"apExp"`
+	// Channels       []string `json:"c"`
+	TopicId  string `json:"topId"`
+	Sender  AddressString   `json:"s"`
 	// OwnerAddress  string              `json:"oA"`
 	Receiver    string              `json:"r"`
-	Platform    string              `json:"p"`
-	ChainId     string              `json:"cI"`
+	// Platform    string              `json:"p"`
+	// ChainId     string              `json:"cI"`
 	Type        string              `json:"t"`
-	Message     string              `json:"m"`
-	Subject     string              `json:"s"`
+	Data    []byte 				`json:"d"`
+	// Subject     string              `json:"s"`
 	Signature   string              `json:"sig"`
 	Actions     []ChatMessageAction `json:"a"`
-	Origin      string              `json:"o"`
-	MessageHash string              `json:"mH"`
-	SubjectHash string              `json:"subH"`
+	// Origin      string              `json:"o"`
+	DataHash string              `json:"dH"`
+	Url string              `json:"url"`
+	Length int `json:"len"`
+	Attachments []MessageJsonInputAttachments `json:"atts"`
 }
 
 // PubSubMessage
@@ -277,105 +329,53 @@ func UnpackPubSubMessage(b []byte) (PubSubMessage, error) {
 	return message, err
 }
 
-func IsValidTopic(ch ChatMessageHeader, signature string, channelOwner string) bool {
-	approval, err := ch.ToApprovalBytes()
-	if err != nil {
-		return false
-	}
-	signer, _ := crypto.GetSignerECC(&approval, &signature)
-	if strings.ToLower(channelOwner) != strings.ToLower(signer) {
-		return false
-	}
-	if math.Abs(float64(int(ch.ApprovalExpiry)-int(time.Now().Unix()))) > constants.VALID_HANDSHAKE_SECONDS {
-		logger.WithFields(logrus.Fields{"data": ch}).Warnf("Channel Expired: %d", ch.ApprovalExpiry)
-		return false
-	}
-	isValid := crypto.VerifySignatureECC(signer, &approval, signature)
-	if !isValid {
-		logger.WithFields(logrus.Fields{"message": approval, "signature": signature}).Warnf("Invalid signer %s", signer)
-		return false
-	} else {
 
-	}
-	return true
-}
+// func IsValidSubscription(
+// 	subscription Subscription,
+// 	verifyTimestamp bool,
+// ) bool {
+// 	if verifyTimestamp {
+// 		if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().UnixMilli()))) > constants.VALID_HANDSHAKE_SECONDS {
+// 			logger.Info("Invalid Subscription, invalid handshake duration")
+// 			return false
+// 		}
+// 	}
+// 	b, err := subscription.EncodeBytes()
+// 	if err != nil {
+// 		return false
+// 	}
+// 	return crypto.VerifySignatureECC(string(subscription.Subscriber), &b, subscription.Signature)
+// }
 
-func IsValidMessage(msg ChatMessage, signature string) bool {
-	chatMessage := msg.ToJSON()
-	msgByte := []byte(msg.ToString())
-	signer, _ := crypto.GetSignerECC(&msgByte, &signature)
-	channel := strings.Split(msg.Header.Receiver, ":")
-	chaByte := []byte(strings.ToLower(channel[0]))
-	channelOwner, _ := crypto.GetSignerECC(&chaByte, &(channel[1]))
-	if strings.ToLower(channelOwner) != strings.ToLower(signer) {
-		return false
-	}
-	if !IsValidTopic(msg.Header, channel[1], channelOwner) {
-		return false
-	}
-	if math.Abs(float64(int(msg.Header.Timestamp)-int(time.Now().Unix()))) > constants.VALID_HANDSHAKE_SECONDS {
-		logger.WithFields(logrus.Fields{"data": chatMessage}).Warnf("ChatMessage Expired: %s", chatMessage)
-		return false
-	}
-	message := []byte(msg.ToString())
-	isValid := crypto.VerifySignatureECC(signer, &message, signature)
-	if !isValid {
-		logger.WithFields(logrus.Fields{"message": string(message), "signature": signature}).Warnf("Invalid signer %s", signer)
-		return false
-	} else {
+func (msg MessageJsonInput) ToChatMessage() (*ChatMessage, error) {
 
-	}
-	return true
-}
-
-func IsValidSubscription(
-	subscription Subscription,
-	verifyTimestamp bool,
-) bool {
-	if verifyTimestamp {
-		if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().UnixMilli()))) > constants.VALID_HANDSHAKE_SECONDS {
-			logger.Info("Invalid Subscription, invalid handshake duration")
-			return false
+	if len(msg.Data) > 0 {
+		msgHash := hexutil.Encode(crypto.Keccak256Hash(msg.Data))
+		if msg.DataHash != msgHash {
+			return nil, errors.New("INVALID MESSAGE")
 		}
 	}
-	b, err := subscription.EncodeBytes()
-	if err != nil {
-		return false
-	}
-	return crypto.VerifySignatureECC(string(subscription.Subscriber), &b, subscription.Signature)
-}
-
-func CreateMessageFromJson(msg MessageJsonInput) (ChatMessage, error) {
-
-	if len(msg.Message) > 0 {
-		msgHash := hexutil.Encode(crypto.Keccak256Hash([]byte(msg.Message)))
-		if msg.MessageHash != msgHash {
-			return ChatMessage{}, errors.New("Invalid Message")
-		}
-	}
-	if len(msg.Subject) > 0 {
-		subHash := hexutil.Encode(crypto.Keccak256Hash([]byte(msg.Subject)))
-		if msg.SubjectHash != subHash {
-			return ChatMessage{}, errors.New("Invalid Subject")
-		}
-	}
+	// if len(msg.Subject) > 0 {
+	// 	subHash := hexutil.Encode(crypto.Keccak256Hash([]byte(msg.Subject)))
+	// 	if msg.SubjectHash != subHash {
+	// 		return ChatMessage{}, errors.New("Invalid Subject")
+	// 	}
+	// }
 	chatMessage := ChatMessageHeader{
 		Timestamp: uint64(msg.Timestamp),
-		Approval:  msg.Approval,
 		Receiver:  msg.Receiver,
 		// ChainId:       msg.ChainId,
 		// Platform:      msg.Platform,
-		Length:         100,
-		ApprovalExpiry: msg.ApprovalExpiry,
-		Channels:       msg.Channels,
-		SenderAddress:  msg.SenderAddress,
+		Length:         msg.Length,
+		Sender:  msg.Sender,
 		// OwnerAddress:  msg.OwnerAddress,
 	}
 
 	bodyMessage := ChatMessageBody{
-		SubjectHash: msg.SubjectHash,
-		MessageHash: msg.MessageHash,
+		DataHash: msg.DataHash,
+		Data: msg.Data,
+		Url: msg.Url,
 	}
-	_chatMessage := ChatMessage{chatMessage, bodyMessage, msg.Actions, msg.Origin}
-	return _chatMessage, nil
+	_chatMessage := ChatMessage{Header: chatMessage, Body: bodyMessage, Actions: msg.Actions,}
+	return &_chatMessage, nil
 }
