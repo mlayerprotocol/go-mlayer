@@ -22,12 +22,21 @@ package constants
 type AuthorizationPrivilege uint8
 
 const (
-	Readriviledge   AuthorizationPrivilege = 0
-	Writeriviledge  AuthorizationPrivilege = 1
+	ReadPriviledge   AuthorizationPrivilege = 0
+	WritePriviledge  AuthorizationPrivilege = 1
 	AdminPriviledge AuthorizationPrivilege = 2
 )
 
+type EventPayloadType string
+const (
+	TopicPayloadType EventPayloadType = "topic"
+	SubscriptionPayloadType EventPayloadType = "subscription"
+	MessagePayloadType EventPayloadType = "message"
+)
+
 type EventType uint16
+
+
 
 // Authrization
 const (
@@ -54,7 +63,7 @@ const (
 // Member Topic Actions
 const (
 	LeaveEvent     EventType = 1100
-	JoinTopicEvent EventType = 1101
+	SubscribeTopicEvent EventType = 1101
 	RequestedEvent EventType = 1102
 	ApprovedEvent  EventType = 1103
 	InvitedEvent   EventType = 1104

@@ -84,7 +84,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		// topic.ID = id
 		payload.Data = topic
-		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
@@ -112,7 +112,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	router.GET("/api/topics/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		topic, err := client.GetTopic(id)
+		topic, err := client.GetTopicById(id)
 
 		if err != nil {
 			logger.Error(err)
@@ -142,7 +142,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		topic.Hash = id
 		payload.Data = topic
-		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
@@ -174,7 +174,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		// subscription.ID = id
 		payload.Data = subscription
-		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
 			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
@@ -204,7 +204,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		subscription.ID = id
 		payload.Data = subscription
-		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
@@ -240,7 +240,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		subscription.ID = id
 		payload.Data = subscription
-		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
@@ -275,7 +275,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		subscription.ID = id
 		payload.Data = subscription
-		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
 			logger.Error(err)
@@ -317,11 +317,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
@@ -329,16 +325,14 @@ func (p *RestService) Initialize() *gin.Engine {
 		}}))
 	})
 
-	router.POST("/api/topics/:id/messages", func(c *gin.Context) {
-		// id := c.Param("id")
-
+	router.POST("/api/topics/messages", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		logger.Infof("Payload %v", payload.Data)
-		message := entities.MessageJsonInput{}
+		message := entities.Message{}
 		d, _ := json.Marshal(payload.Data)
 		e := json.Unmarshal(d, &message)
 		if e != nil {
@@ -347,8 +341,8 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 		// subscription.ID = id
-		payload.Data = subscription
-		event, err := client.CreatTopSubEvent(payload, p.Ctx)
+		payload.Data = message
+		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
 			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))

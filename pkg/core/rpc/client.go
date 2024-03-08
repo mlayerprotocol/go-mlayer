@@ -16,7 +16,7 @@ func RpcClient() {
 
 	var reply string
 
-	args := entities.MessageJsonInput{}
+	args := entities.Message{}
 
 	client, err := rpc.DialHTTP("tcp", hostname+port)
 	if err != nil {

@@ -44,8 +44,8 @@ func AuthorizeAgent(
 		logger.Errorf("UnmarshalError %v", e)
 	}
 	payload.Data = authData
-	var assocPrevEvent string
-	var assocAuthEvent string
+	var assocPrevEvent *entities.EventPath
+	var assocAuthEvent *entities.EventPath
 	if payload.EventType == uint16(constants.AuthorizationEvent) {
 		// dont worry validating the AuthHash for Authorization requests
 		// if uint64(payload.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
@@ -65,7 +65,7 @@ func AuthorizeAgent(
 
 		// generate associations
 		if currentState != nil {
-			assocPrevEvent = currentState.EventHash
+			assocPrevEvent = entities.NewEventPath(entities.AuthEventModel, currentState.EventHash)
 			// assocPrevEvent = entities.EventPath{
 			// 	Relationship: entities.PreviousEventAssoc,
 			// 	Hash: currentState.EventHash,
@@ -73,7 +73,7 @@ func AuthorizeAgent(
 			// }.ToString()
 		}
 		if grantorAuthState != nil {
-			assocAuthEvent = grantorAuthState.EventHash
+			assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, grantorAuthState.EventHash)
 			// assocAuthEvent =  entities.EventPath{
 			// 	Relationship: entities.AuthorizationEventAssoc,
 			// 	Hash: grantorAuthState.EventHash,
@@ -92,14 +92,13 @@ func AuthorizeAgent(
 		Timestamp:         uint64(time.Now().UnixMilli()),
 		EventType:         payload.EventType,
 		Associations:      []string{},
-		PreviousEventHash: assocPrevEvent,
-		AuthEventHash:     assocAuthEvent,
+		PreviousEventHash: assocPrevEvent.ToString(),
+		AuthEventHash:     assocAuthEvent.ToString(),
 		Synced:            false,
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
 		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
 		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
-		Nonce: payload.EventNonce(),
 	}
 
 	b, err := event.EncodeBytes()

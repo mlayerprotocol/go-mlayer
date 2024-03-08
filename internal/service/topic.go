@@ -22,16 +22,16 @@ import (
 /*
 Validate an agent authorization
 */
-func ValidateTopicData(topic *entities.Topic) (currentTopicState *models.TopicState, grantorAuthState *models.AuthorizationState, err error) {
+func ValidateTopicData(topic *entities.Topic) (currentTopicState *models.TopicState, err error) {
 	// check fields of topic
 	logger.Info("Topiccc", topic.Handle)
 	if len(topic.Handle) > 40 {
-		return nil, nil, apperror.BadRequest("Topic handle cannont be more than 40 characters")
+		return nil,  apperror.BadRequest("Topic handle cannont be more than 40 characters")
 	}
 	if !utils.IsAlphaNumericDot(topic.Handle) {
-		return nil, nil, apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
+		return nil,  apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
 	}
-	return nil, nil, nil
+	return nil, nil
 }
 
 func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
@@ -54,7 +54,12 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	data := event.Payload.Data.(*entities.Topic)
 	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
-	currentState, authState, authError := ValidateTopicData(data)
+	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Hash: entities.EventPathFromString(event.AuthEventHash).Hash})
+	currentState, err := ValidateTopicData(data)
+	if err != nil {
+		// penalize node for broadcasting invalid data
+		return
+	}
 
 	// check if we are upto date on this event
 	prevEventUpToDate := (currentState == nil && event.PreviousEventHash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash)
@@ -64,7 +69,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
-		var currentStateEvent *models.TopicEvent
+		var currentStateEvent = &models.TopicEvent{}
 		err := query.GetOne(entities.Event{Hash: currentState.EventHash}, currentStateEvent)
 		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
 			isMoreRecent = true
@@ -80,7 +85,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 			if err != nil && err != gorm.ErrRecordNotFound {
 				logger.Fatal("DB error", err)
 			}
-			if currentStateEvent == nil {
+			if currentStateEvent.ID == "" {
 				markAsSynced = false
 			} else {
 				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {

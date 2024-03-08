@@ -86,7 +86,7 @@ func ProcessNewMessageEvent(ctx context.Context, unsentMessageP2pStore *db.Datas
 }
 func ProcessSentMessage(ctx context.Context, unsentMessageP2pStore *db.Datastore, outMessage *entities.ClientPayload) {
 	// VALIDATE AND DISTRIBUTE
-	// outMessage := (outEvent.Data).(*entities.ChatMessage)
+	// outMessage := (outEvent.Data).(*entities.Message)
 	// construct the event
 	// newMessageEvent := entities.Event{}
 	//d, _:= (outMessage.Data).GetHash()

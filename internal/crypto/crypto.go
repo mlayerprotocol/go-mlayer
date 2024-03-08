@@ -54,10 +54,7 @@ func NetworkPrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 
 func Keccak256Hash(message []byte) []byte {
 	messageHash := crypto.Keccak256Hash(message)
-	_bytes := []byte{0x19}
-	_bytes = append(_bytes, []byte("Ethereum Signed Message:\n32")...)
-	_bytes = append(_bytes, messageHash.Bytes()...)
-	return crypto.Keccak256Hash(_bytes).Bytes()
+	return messageHash.Bytes()
 }
 
 
@@ -124,6 +121,7 @@ func GetSignerECC(message *[]byte, signature *string) (string, error) {
 	if decoded[crypto.RecoveryIDOffset] == 27 || decoded[crypto.RecoveryIDOffset] == 28 {
 		decoded[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
 	}
+	
 	signer, err := crypto.SigToPub(hash, decoded)
 	if err != nil {
 		return "", err

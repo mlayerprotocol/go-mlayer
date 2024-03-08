@@ -80,15 +80,15 @@ const (
 	RPC  Protocol = "rpc"
 )
 
-type SubscriptionStatuses string
+type SubscriptionStatuses int16
 
 const (
-	SUBSCRIBED   SubscriptionStatuses = "subscribed"
-	PENDING      SubscriptionStatuses = "pending"
-	UNSUBSCRIBED SubscriptionStatuses = "unsubscribed"
-	APPROVED     SubscriptionStatuses = "approved"
-	BANNED       SubscriptionStatuses = "banned"
-	UNBANNED     SubscriptionStatuses = "unbanned"
+	UnsubscribedSubscriptionStatus  SubscriptionStatuses = 0
+	PendingSubscriptionStatus       SubscriptionStatuses = 1
+	SubscribedSubscriptionStatus   SubscriptionStatuses = 2
+	// ApprovedSubscriptionStatus      SubscriptionStatuses = "approved"
+	BannedSubscriptionStatus        SubscriptionStatuses = 3
+	// UNBANNED     SubscriptionStatuses = "unbanned"
 )
 
 /* KEY MAPS

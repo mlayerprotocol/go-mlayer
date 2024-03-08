@@ -4,8 +4,6 @@ import (
 	// "errors"
 	"context"
 	"encoding/hex"
-	"encoding/json"
-	"errors"
 	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -15,103 +13,15 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 )
 
-func validateTopicPayload(payload entities.ClientPayload) (assocPrevEvent string, assocAuthEvent string, eventType string, err error) {
 
-	eventType = "topic"
-	payloadData := entities.Topic{}
-	d, _ := json.Marshal(payload.Data)
-	e := json.Unmarshal(d, &payloadData)
-	if e != nil {
-		logger.Errorf("UnmarshalError %v", e)
-	}
 
-	payload.Data = payloadData
-	if payload.EventType == uint16(constants.CreateTopicEvent) {
-		// dont worry validating the AuthHash for Authorization requests
-		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-			return "", "", "", errors.New("Authorization timestamp exceeded")
-		}
 
-	}
 
-	currentState, grantorAuthState, err := service.ValidateTopicData(&payloadData)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	// generate associations
-	if currentState != nil {
-		assocPrevEvent = currentState.EventHash
-
-	}
-	if grantorAuthState != nil {
-		assocAuthEvent = grantorAuthState.EventHash
-	}
-	return assocPrevEvent, assocAuthEvent, "topic", nil
-}
-
-func validateSubscriptionPayload(payload entities.ClientPayload) (assocPrevEvent string, assocAuthEvent string, eventType string, err error) {
-
-	eventType = "subscription"
-	payloadData := entities.Subscription{}
-	d, _ := json.Marshal(payload.Data)
-	e := json.Unmarshal(d, &payloadData)
-	if e != nil {
-		logger.Errorf("UnmarshalError %v", e)
-	}
-	payload.Data = payloadData
-
-	topicData, err := GetTopic(payloadData.Topic)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	if topicData == nil {
-		return "", "", "", apperror.BadRequest("Invalid topic")
-	}
-
-	// pool = channelpool.SubscriptionEventPublishC
-
-	currentState, grantorAuthState, err := service.ValidateSubscriptionData(&payloadData, &payload)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	if currentState == nil {
-		return "", "", "", apperror.BadRequest("Account not subscribed")
-	}
-	if grantorAuthState == nil {
-		return "", "", "", apperror.Unauthorized("Agent does not have sufficient privileges to update this event")
-	}
-
-	// dont worry validating the AuthHash for Authorization requests
-	// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-	// 	return  errors.New("Authorization timestamp exceeded")
-	// }
-
-	// generate associations
-	if currentState != nil {
-		assocPrevEvent = currentState.EventHash
-
-	}
-
-	if grantorAuthState != nil {
-		assocAuthEvent = grantorAuthState.EventHash
-		// assocAuthEvent =  entities.EventPath{
-		// 	Relationship: entities.AuthorizationEventAssoc,
-		// 	Hash: grantorAuthState.EventHash,
-		// 	Model: entities.AuthorizationEventModel,
-		// }
-	}
-	return assocPrevEvent, assocAuthEvent, "subscription", nil
-}
-
-func CreatTopSubEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *context.Context) (model S, err error) {
+func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *context.Context) (model S, err error) {
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// check if client payload is valid
@@ -119,59 +29,63 @@ func CreatTopSubEvent[S *models.EventInterface](payload entities.ClientPayload, 
 	// 	return  err
 	// }
 
-	authState, err := ValidateClientPayload(&payload)
-	if authState == nil && payload.EventType != uint16(constants.CreateTopicEvent) {
-		// agent not authorized
-		return nil, apperror.Unauthorized("Agent not authorized to perform this update")
+	payload.Agent, err = payload.GetSigner()
+	if err != nil {
+		return nil, apperror.Internal(err.Error())
 	}
-
-	logger.Info("Before Assoc Event")
-	var assocPrevEvent string
-	var assocAuthEvent string
-	var eventType string
+	authState, err := ValidateClientPayload(&payload)
+	if err != nil {
+		return nil, apperror.Internal(err.Error())
+	}
+	if authState == nil && payload.EventType != uint16(constants.AuthorizationEvent) {
+		// agent not authorized
+		return nil, apperror.Unauthorized("Agent not authorized to perform this action")
+	}
+	
+	var assocPrevEvent *entities.EventPath
+	var assocAuthEvent *entities.EventPath
+	var eventPayloadType constants.EventPayloadType
 
 	//Perfom checks base on event types
 	switch payload.EventType {
-	case uint16(constants.CreateTopicEvent):
-		assocPrevEvent, assocAuthEvent, eventType, err = validateTopicPayload(payload)
+		case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.LeaveEvent):
+			eventPayloadType = constants.TopicPayloadType
+			if authState.Authorization.Priviledge < constants.AdminPriviledge {
+				return nil, apperror.Forbidden("Agent not authorized to perform this action")
+			}
+			assocPrevEvent, assocAuthEvent, err = ValidateTopicPayload(payload, authState)
+			if err != nil {
+				return nil, err
+			}
+		// case uint16(constants.SubscribeTopicEvent):
+		// 	if authState.Authorization.Priviledge < constants.AdminPriviledge {
+		// 		return nil, apperror.Forbidden("Agent not authorized to perform this action")
+		// 	}
+		// 	eventPayloadType = constants.SubscriptionPayloadType
+		// 	assocPrevEvent, assocAuthEvent,  err = ValidateSubscriptionPayload(payload, authState)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
 
-		if err != nil {
-			return nil, err
-		}
-	case uint16(constants.UpdateNameEvent):
-		assocPrevEvent, assocAuthEvent, eventType, err = validateTopicPayload(payload)
-		if err != nil {
-			return nil, err
-		}
-	case uint16(constants.JoinTopicEvent):
-		eventType = "subscription"
-		var currentState models.SubscriptionState
-		// generate associations
-		if currentState.ID != "" {
-			assocPrevEvent = currentState.EventHash
-		}
-	case uint16(constants.LeaveEvent):
-		assocPrevEvent, assocAuthEvent, eventType, err = validateTopicPayload(payload)
-		if err != nil {
-			return nil, err
-		}
-	case uint16(constants.ApprovedEvent):
-		assocPrevEvent, assocAuthEvent, eventType, err = validateSubscriptionPayload(payload)
-		if err != nil {
-			return nil, err
-		}
-	case uint16(constants.BanMemberEvent):
-		assocPrevEvent, assocAuthEvent, eventType, err = validateSubscriptionPayload(payload)
-		if err != nil {
-			return nil, err
-		}
-	case uint16(constants.UnbanMemberEvent):
-		assocPrevEvent, assocAuthEvent, eventType, err = validateSubscriptionPayload(payload)
-		if err != nil {
-			return nil, err
-		}
-	default:
-
+		case uint16(constants.SubscribeTopicEvent), uint16(constants.ApprovedEvent), uint16(constants.BanMemberEvent), uint16(constants.UnbanMemberEvent):
+			if authState.Authorization.Priviledge < constants.AdminPriviledge {
+				return nil, apperror.Forbidden("Agent not authorized to perform this action")
+			}
+			eventPayloadType = constants.SubscriptionPayloadType
+			assocPrevEvent, assocAuthEvent,  err = ValidateSubscriptionPayload(payload, authState)
+			if err != nil {
+				return nil, err
+			}
+		case uint16(constants.SendMessageEvent):
+			if authState.Authorization.Priviledge < constants.WritePriviledge {
+				return nil, apperror.Forbidden("Agent not authorized to perform this action")
+			}
+			eventPayloadType = constants.MessagePayloadType
+			assocPrevEvent, assocAuthEvent,  err = ValidateMessagePayload(payload, authState)
+			if err != nil {
+				return nil, err
+			}
+		default:
 	}
 	payloadHash, _ := payload.GetHash()
 
@@ -180,8 +94,8 @@ func CreatTopSubEvent[S *models.EventInterface](payload entities.ClientPayload, 
 		Timestamp:         uint64(time.Now().UnixMilli()),
 		EventType:         uint16(payload.EventType),
 		Associations:      []string{},
-		PreviousEventHash: assocPrevEvent,
-		AuthEventHash:     assocAuthEvent,
+		PreviousEventHash: assocPrevEvent.ToString(),
+		AuthEventHash:     assocAuthEvent.ToString(),
 		Synced:            false,
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
@@ -191,52 +105,56 @@ func CreatTopSubEvent[S *models.EventInterface](payload entities.ClientPayload, 
 
 	logger.Infof("Validator: %s", event.Validator)
 	b, err := event.EncodeBytes()
+	if err != nil {
+		return nil, apperror.Internal(err.Error())
+	}
+	logger.Infof("Validator 2: %s", event.Validator)
 
 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
 	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
 
-	if eventType == "topic" {
-		eModel, created, err := query.SaveRecord(
-			models.TopicEvent{
-				Event: entities.Event{Hash: event.Hash},
-			},
-			models.TopicEvent{
-				Event: event,
-			}, false, nil)
+	switch(eventPayloadType) {
+		case constants.TopicPayloadType:
+			eModel, created, err := query.SaveRecord(
+				models.TopicEvent{
+					Event: entities.Event{Hash: event.Hash},
+				},
+				models.TopicEvent{
+					Event: event,
+				}, false, nil)
 
-		if err != nil {
-			return nil, err
-		}
+			if err != nil {
+				return nil, err
+			}
 
-		// channelpool.TopicEventPublishC <- &(eModel.Event)
+			// channelpool.TopicEventPublishC <- &(eModel.Event)
 
-		if created {
-			channelpool.TopicEventPublishC <- &(eModel.Event)
-		}
-		var returnModel = models.EventInterface(*eModel)
-		model = &returnModel
-	}
+			if created {
+				channelpool.TopicEventPublishC <- &(eModel.Event)
+			}
+			var returnModel = models.EventInterface(*eModel)
+			model = &returnModel
 
-	if eventType == "subscription" {
-		eModel, created, err := query.SaveRecord(
-			models.SubscriptionEvent{
-				Event: entities.Event{Hash: event.Hash},
-			},
-			models.SubscriptionEvent{
-				Event: event,
-			}, false, nil)
+		case  constants.SubscriptionPayloadType:
+			eModel, created, err := query.SaveRecord(
+				models.SubscriptionEvent{
+					Event: entities.Event{Hash: event.Hash},
+				},
+				models.SubscriptionEvent{
+					Event: event,
+				}, false, nil)
 
-		if err != nil {
-			return nil, err
-		}
+			if err != nil {
+				return nil, err
+			}
 
-		// channelpool.TopicEventPublishC <- &(eModel.Event)
+			// channelpool.TopicEventPublishC <- &(eModel.Event)
 
-		if created {
-			channelpool.SubscriptionEventPublishC <- &(eModel.Event)
-		}
-		var returnModel = models.EventInterface(*eModel)
-		model = &returnModel
+			if created {
+				channelpool.SubscriptionEventPublishC <- &(eModel.Event)
+			}
+			var returnModel = models.EventInterface(*eModel)
+			model = &returnModel
 	}
 
 	return model, nil

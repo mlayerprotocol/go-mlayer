@@ -6,19 +6,26 @@ import (
 )
 
 
+
+
 type MessageState struct {
-	gorm.Model
-	ID          	string   `gorm:"type:string;primaryKey"`
-	Message       string
-	Subject     string
-	To string
-	Signature string
-	Timestamp   uint64 
+	entities.Message
+	BaseModel
 }
 
+func (d *MessageState) BeforeCreate(tx *gorm.DB) (err error) {
+	if d.ID == ""  {
+		hash, err := entities.GetId(*d)
+		if err != nil {
+			panic(err)
+		}
+		d.ID = hash
+	}
+	return nil
+  }
+
+  
 type MessageEvent struct {
-	BaseModel
 	entities.Event
-	MessageID        	uint64
-	Message 			MessageState
+	BaseModel
 }

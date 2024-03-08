@@ -3,7 +3,13 @@ package client
 import (
 	// "errors"
 
+	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"gorm.io/gorm"
@@ -44,11 +50,26 @@ import (
 Validate and Process the topic request
 */
 
-func GetTopic(id string) (*models.TopicState, error) {
+func GetTopicById(id string) (*models.TopicState, error) {
 	topicState := models.TopicState{}
 
 	err := query.GetOne(models.TopicState{
-		Topic: entities.Topic{Hash: id},
+		Topic: entities.Topic{ID: id},
+	}, &topicState)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &topicState, nil
+
+}
+func GetTopicByHash(hash string) (*models.TopicState, error) {
+	topicState := models.TopicState{}
+
+	err := query.GetOne(models.TopicState{
+		Topic: entities.Topic{Hash: hash},
 	}, &topicState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -91,3 +112,36 @@ func GetTopics() (*[]models.TopicState, error) {
 // 		go service.HandleNewPubSubTopicEvent(event, ctx)
 // 	}
 // }
+func ValidateTopicPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+
+	payloadData := entities.Topic{}
+	d, _ := json.Marshal(payload.Data)
+	e := json.Unmarshal(d, &payloadData)
+	if e != nil {
+		logger.Errorf("UnmarshalError %v", e)
+	}
+
+	payload.Data = payloadData
+	if payload.EventType == uint16(constants.CreateTopicEvent) {
+		// dont worry validating the AuthHash for Authorization requests
+		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+			return nil, nil, errors.New("Authorization timestamp exceeded")
+		}
+
+	}
+
+	currentState, err := service.ValidateTopicData(&payloadData)
+	if err != nil {
+		return nil, nil,  err
+	}
+
+	// generate associations
+	if currentState != nil {
+		assocPrevEvent = entities.NewEventPath(entities.TopicEventModel,  currentState.EventHash)
+
+	}
+	if authState != nil {
+		assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, authState.EventHash)
+	}
+	return assocPrevEvent, assocAuthEvent,  nil
+}
