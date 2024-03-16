@@ -54,16 +54,19 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	data := event.Payload.Data.(*entities.Topic)
 	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
-	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Hash: entities.EventPathFromString(event.AuthEventHash).Hash})
+	authEventHash := event.AuthEventHash.Hash
+	authState, authError := query.GetOneAuthorizationState(entities.Authorization{EventHash: authEventHash})
+	
 	currentState, err := ValidateTopicData(data)
 	if err != nil {
 		// penalize node for broadcasting invalid data
+		logger.Infof("Invalid topic data %v. Node should be penalized", err)
 		return
 	}
 
 	// check if we are upto date on this event
-	prevEventUpToDate := (currentState == nil && event.PreviousEventHash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash)
-	authEventUpToDate := (authState == nil && event.AuthEventHash == "") || (authState != nil && authState.EventHash == event.AuthEventHash)
+	prevEventUpToDate := (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
+	authEventUpToDate := (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.EventHash == authEventHash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
@@ -105,11 +108,12 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 			}
 		}
 	}
+	
 	if authError != nil {
 		// check if we are upto date. If we are, then the error is an actual one
 		// the error should be attached when saving the event
 		// But if we are not upto date, then we might need to wait for more info from the network
-
+		
 		if prevEventUpToDate && authEventUpToDate {
 			// we are upto date. This is an actual error. No need to expect an update from the network
 			eventError = authError.Error()

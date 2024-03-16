@@ -47,6 +47,16 @@ func (p *RestService) Initialize() *gin.Engine {
 		// Send a response back
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{}))
 	})
+	router.GET("/api/authorizations", func(c *gin.Context) {
+		auths, err := client.GetAuthorizations()
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: auths}))
+	})
 
 	router.PUT("/api/authorize", func(c *gin.Context) {
 		var payload entities.ClientPayload
@@ -105,9 +115,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
-			"data": topics,
-		}}))
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topics}))
 	})
 
 	router.GET("/api/topics/:id", func(c *gin.Context) {
@@ -119,10 +127,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   topic,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
 	})
 
 	router.PATCH("/api/topics/:id", func(c *gin.Context) {
@@ -181,9 +186,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
-			"event": event,
-		}}))
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: event}))
 
 	})
 
@@ -208,18 +211,11 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   event,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: event}))
 
 	})
 
@@ -244,17 +240,11 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
-			"event": event,
-		}}))
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: event}))
 
 	})
 
@@ -279,17 +269,11 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
-			"event": event,
-		}}))
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: event}))
 
 	})
 
@@ -299,17 +283,10 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, gin.H{
-				"error":       err.Error(),
-				"apiVersion":  "1.0.0",
-				"nodeVersion": "1.0.0",
-			})
+			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"status": "mLayer node",
-			"data":   topic,
-		})
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
 	})
 
 	router.GET("/api/subscriptions", func(c *gin.Context) {
@@ -320,9 +297,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
-			"subscriptions": subs,
-		}}))
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subs}))
 	})
 
 	router.POST("/api/topics/messages", func(c *gin.Context) {
@@ -349,9 +324,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
-			"event": event,
-		}}))
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: event}))
 
 	})
 

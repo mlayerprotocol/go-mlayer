@@ -42,8 +42,8 @@ func (sub Subscription) ToJSON() []byte {
 
 func (subscription Subscription) ToString() string {
 	values := []string{}
-	values = append(values, fmt.Sprintf("%s", subscription.Hash))
-	values = append(values, fmt.Sprintf("%s", subscription.ID))
+	values = append(values, subscription.Hash)
+	values = append(values, subscription.ID)
 	// values = append(values, fmt.Sprintf("%d", subscription.Timestamp))
 	values = append(values, fmt.Sprintf("%d", subscription.Subscriber))
 	values = append(values, fmt.Sprintf("%s", subscription.Timestamp))

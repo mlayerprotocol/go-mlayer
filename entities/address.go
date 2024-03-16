@@ -39,8 +39,6 @@ func (address *Address) MsgPack() []byte {
 	return b
 }
 
-
-
 func AddressFromBytes(b []byte) (Address, error) {
 	var address Address
 	err := json.Unmarshal(b, &address)
@@ -83,10 +81,18 @@ func AddressFromString(s AddressString) (Address, error) {
 	if(len(values) == 2) { 
 		return Address{Addr: values[1], Platform: values[0]}, nil
 	}
-	chain, err := strconv.ParseUint(values[2], 10, 64)
-	if(err != nil) {
-		return Address{}, err
+	var chain uint64 = 0
+	var err error
+	
+	if( len(values) > 2) {
+	chain, err = strconv.ParseUint(values[2], 10, 64)
+		if(err != nil) {
+			return Address{}, err
+		}
+		
 	}
-	return Address{Addr: values[0], Platform: values[1], Chain: uint64(chain)}, nil
+	if( len(values) > 1) {
+		return Address{Addr: values[0], Platform: values[1], Chain: uint64(chain)}, nil
+	}
+	return Address{Addr: values[0], Platform: "", Chain: uint64(chain)}, nil
 }
-

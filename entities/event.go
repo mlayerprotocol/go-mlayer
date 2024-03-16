@@ -3,7 +3,10 @@ package entities
 import (
 	// "errors"
 
+	"context"
+	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,6 +14,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 
@@ -69,6 +73,35 @@ func EventPathFromString(path string) (*EventPath) {
 	}
 }
 
+func (eP EventPath) GormDataType() string {
+	return "varchar"
+}
+func (eP EventPath) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+	
+	asString := eP.ToString()
+	return clause.Expr{
+	  SQL:  "?",
+	  Vars: []interface{}{asString},
+	  WithoutParentheses: false,
+	}
+  }
+  
+  func (sD *EventPath) Scan(value interface{}) error {
+	data, ok := value.(string)
+	if !ok {
+	  return errors.New(fmt.Sprint("Value not instance of string:", value))
+	}
+  
+	*sD = *EventPathFromString(data)
+	return nil
+  }
+  
+  func (sD *EventPath) Value() (driver.Value, error) {
+	logger.Infof("CONVERTING2 %s", sD.ToString())
+	return sD.ToString(), nil
+  }
+  
+
 type EventInterface interface {
 	EncodeBytes()  ([]byte, error)
 	GetValidator() PublicKeyString
@@ -84,8 +117,8 @@ type Event struct {
 	Timestamp   uint64       `json:"ts"`
 	EventType      uint16 `json:"t"`
 	Associations   []string      `json:"assoc" gorm:"type:text[]"`
-	PreviousEventHash   string      `json:"preE" gorm:"type:char(68);default:null"`
-	AuthEventHash   string      `json:"authE" gorm:"type:char(68);default:null"`
+	PreviousEventHash   EventPath      `json:"preE" gorm:"type:varchar;default:null"`
+	AuthEventHash   EventPath      `json:"authE" gorm:"type:varchar;default:null"`
 	PayloadHash string `json:"pH" gorm:"type:char(64);unique,"`
 	// StateHash string `json:"sh"`
 	// Secondary
@@ -192,8 +225,8 @@ func (e Event) ToString() string {
 	values = append(values, fmt.Sprintf("%d", e.BlockNumber))
 	values = append(values, fmt.Sprintf("%d", e.EventType))
 	values = append(values, strings.Join(e.Associations, ","))
-	values = append(values, e.PreviousEventHash)
-	values = append(values,  e.AuthEventHash)
+	values = append(values, e.PreviousEventHash.ToString())
+	values = append(values,  e.AuthEventHash.ToString())
 	values = append(values, fmt.Sprintf("%d", e.Timestamp))
 	return strings.Join(values, "")
 }
@@ -209,8 +242,8 @@ func (e Event) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: d},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.EventType},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: strings.Join(e.Associations, "")},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: EventPathFromString(e.PreviousEventHash).Hash},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value:  EventPathFromString(e.AuthEventHash).Hash},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.PreviousEventHash.Hash},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.AuthEventHash.Hash},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.BlockNumber},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.Timestamp},
 	)

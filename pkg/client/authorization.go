@@ -8,6 +8,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
@@ -16,8 +17,22 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"gorm.io/gorm"
 )
 
+
+func GetAuthorizations() (*[]models.AuthorizationState, error) {
+	var authState []models.AuthorizationState
+
+	err := query.GetMany(models.AuthorizationState{}, &authState)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &authState, nil
+}
 /*
 	Validate and Process the authorization request
 */
@@ -58,7 +73,7 @@ func AuthorizeAgent(
 
 		
 
-		currentState, grantorAuthState, err := service.ValidateAuthData(&authData)
+		currentState, grantorAuthState, err := service.ValidateAuthData(&authData, cfg.AddressPrefix)
 		if err != nil {
 			return nil, err
 		}
@@ -83,6 +98,7 @@ func AuthorizeAgent(
 
 	}
 	
+	
 	payloadHash, _ := payload.GetHash()
 	// hash the payload  Nonce
 	// payload.Nonce = string(crypto.Keccak256Hash(encoder.EncodeBytes(encoder.IntEncoderDataType(payload.Nonce))
@@ -92,8 +108,8 @@ func AuthorizeAgent(
 		Timestamp:         uint64(time.Now().UnixMilli()),
 		EventType:         payload.EventType,
 		Associations:      []string{},
-		PreviousEventHash: assocPrevEvent.ToString(),
-		AuthEventHash:     assocAuthEvent.ToString(),
+		PreviousEventHash: utils.IfThenElse(assocPrevEvent == nil, *entities.EventPathFromString(""), *assocPrevEvent),
+		AuthEventHash:     utils.IfThenElse(assocAuthEvent == nil, *entities.EventPathFromString(""), *assocAuthEvent),
 		Synced:            false,
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,

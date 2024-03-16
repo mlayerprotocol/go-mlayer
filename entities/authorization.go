@@ -1,33 +1,84 @@
 package entities
 
 import (
+	"context"
+	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
+type PubKeyType string
 
+const (
+	TendermintsSecp256k1PubKey PubKeyType = "tendermint/PubKeySecp256k1"
+	EthereumPubKey PubKeyType = "ethereum"
+)
+type SignatureData struct {
+	Type PubKeyType `json:"ty"`
+	PublicKey string `json:"pubK,omitempty"`
+	Signature string `json:"sig"`
+}
+
+func (sD SignatureData) GormDataType() string {
+	return "json"
+}
+func (sD SignatureData) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+	asJson, _ := json.Marshal(sD)
+	return clause.Expr{
+	  SQL:  "?",
+	  Vars: []interface{}{string(asJson)},
+	}
+  }
+  
+  func (sD *SignatureData) Scan(value interface{}) error {
+	data, ok := value.(string)
+	if !ok {
+	  return errors.New(fmt.Sprint("Value not instance of string:", value))
+	}
+  
+	result := SignatureData{}
+	err := json.Unmarshal([]byte(data), &result)
+	*sD = SignatureData(result)
+	return err
+  }
+  
+  // Value return json value, implement driver.Valuer interface
+  func (sD *SignatureData) Value() (driver.Value, error) {
+	if len(sD.Signature) == 0 {
+	  return nil, nil
+	}
+	b, _ := json.Marshal(sD)
+	return string(b), nil
+  }
+  
 
 type Authorization struct {
 	ID   string    `json:"id" gorm:"type:uuid;not null;primaryKey"`
-	Agent string    `json:"agt" gorm:"index:idx_agent_authorization,unique"`
-	Account PublicKeyString    `json:"acct" gorm:"varchar(32),index:idx_agent_authorization,unique"`
+	Agent string    `json:"agt" gorm:"index:idx_agent_account,unique"`
+	Account PublicKeyString    `json:"acct" gorm:"varchar(32),index:idx_agent_account,unique"`
 	Grantor AddressString    `json:"gr" gorm:"index"`
 	Priviledge constants.AuthorizationPrivilege    `json:"privi"`
 	TopicIds string    `json:"topIds"`
 	Timestamp uint64    `json:"ts"`
 	Duration uint64    `json:"du"`
-	Signature   string    `json:"sig"`
+	SignatureData   SignatureData    `json:"sigD" gorm:"index;json;"`
 	Hash string		`json:"h" gorm:"unique" `
 	EventHash string `json:"eH,omitempty" gorm:"index;char(64);"`
 	AuthorizationEventID string `json:"authEventId,omitempty"`
-	//AuthorizationEvent		AuthorizationEvent `json:"authEvent" gorm:"foreignKey:EventHash"`
 }
 
 func (g Authorization) GetHash() ([]byte, error) {
+	if g.Hash != "" {
+		return hex.DecodeString(g.Hash)
+	}
 	b, err  := (g.EncodeBytes())
 	if (err != nil)  {
 		logger.Errorf("Error endoding Authorization: %v", err)
@@ -62,3 +113,4 @@ func (g Authorization) EncodeBytes() ([]byte, error) {
 	
 	return b,e
 }
+

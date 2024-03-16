@@ -2,6 +2,7 @@ package encoder
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -147,4 +148,26 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 	}
 	// logger.Infof("LOG MEssage  =========> %v \n %v \n %v", index, buffer, args)
 	return buffer.Bytes(), nil
+}
+
+func AddBase64Padding(value string) string {
+    m := len(value) % 4
+    if m != 0 {
+        value += strings.Repeat("=", 4-m)
+    }
+    return value
+}
+
+func ToBase64Padded(data []byte) (string) {
+	rsl := base64.StdEncoding.EncodeToString(data)
+	return AddBase64Padding(rsl)
+}
+
+func ExtractHRP(address string) (string, error) {
+    // The separator for Bech32 is "1", so we split the string based on that.
+    parts := strings.SplitN(address, "1", 2)
+    if len(parts) < 2 {
+        return "", fmt.Errorf("invalid Bech32 address: %s", address)
+    }
+    return parts[0], nil
 }

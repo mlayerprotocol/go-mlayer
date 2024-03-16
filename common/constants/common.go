@@ -153,6 +153,8 @@ Privilege       = privi
 Proof           = pr
 Proofs          = prs
 ProtocolId      = proId
+PublicKey		= pubK
+ReadOnly		= rO
 Receiver        = r
 Ref             = ref
 Roles 			= rol
@@ -162,6 +164,7 @@ SenderAddress   = sA
 SenderSignature = sSig
 SignatureExpiry = sigExp
 Signature       = sig
+SignatureData   = sigD
 Signer          = sigr
 Size            = si
 Socket          = sock
@@ -259,3 +262,10 @@ You can change the message and send multiple times.
 </body>
 </html>
 `))
+
+
+
+/*
+{\"type\": \"cosmos-sdk/StdTx\",
+\"value\": {\"msg\": [{  \"type\": \"sign/MsgSignData\",  \"value\": {\t\"signer\": \"cosmos14y0pyqjay3p8dsqp2jd5rkft7vf9cdkqnrc43l\",\t\"data\": \"aGVsbG93b3JsZA==\"  }}],\"fee\": {\"amount\": [],\"gas\": \"0\"},\"memo\": \"\"}}
+*/

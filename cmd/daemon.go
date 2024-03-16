@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/hex"
 
 	"sync"
 
@@ -85,18 +86,26 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	
 
-	networkPrivateKey, err := cmd.Flags().GetString(string(NETWORK_PRIVATE_KEY))
-	rpcPort, err := cmd.Flags().GetString(string(RPC_PORT))
-	wsAddress, err := cmd.Flags().GetString(string(WS_ADDRESS))
-	restAddress, err := cmd.Flags().GetString(string(REST_ADDRESS))
+	
+	rpcPort, _ := cmd.Flags().GetString(string(RPC_PORT))
+	wsAddress, _ := cmd.Flags().GetString(string(WS_ADDRESS))
+	restAddress, _ := cmd.Flags().GetString(string(REST_ADDRESS))
 
+	networkPrivateKey, err := cmd.Flags().GetString(string(NETWORK_PRIVATE_KEY))
 	if err != nil || len(networkPrivateKey) == 0 {
 		panic("network_private_key is required. Use --network-private-key flag or environment var ML_NETWORK_PRIVATE_KEY")
+	}
+	if len(cfg.AddressPrefix) == 0 {
+		cfg.AddressPrefix = "ml"
 	}
 	if len(networkPrivateKey) > 0 {
 		cfg.NetworkPrivateKey = networkPrivateKey
 		cfg.NetworkPublicKey = crypto.GetPublicKeyEDD(networkPrivateKey)
-		cfg.NetworkKeyAddress = crypto.ToBech32Address(cfg.NetworkPublicKey)
+		key, err := hex.DecodeString(cfg.NetworkPublicKey)
+		if err != nil {
+			panic(err)
+		}
+		cfg.NetworkKeyAddress = crypto.ToBech32Address(key, cfg.AddressPrefix)
 	}
 
 	if len(wsAddress) > 0 {

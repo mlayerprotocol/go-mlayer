@@ -2,13 +2,16 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
@@ -20,20 +23,35 @@ import (
 	"gorm.io/gorm"
 )
 
-func ValidateAuthData(auth *entities.Authorization) (prevAuthState *models.AuthorizationState, grantorAuthState *models.AuthorizationState, err error) {
+func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevAuthState *models.AuthorizationState, grantorAuthState *models.AuthorizationState, err error) {
 	b, err :=  auth.EncodeBytes()
 	if err != nil {
 		return nil, nil, err
 	}
 	var valid bool
 	
-	if string(auth.Account) == string(auth.Grantor) {
-		valid, err = crypto.VerifySignatureEDD(string(auth.Account), &b, auth.Signature );
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		valid = crypto.VerifySignatureECC(string(auth.Grantor), &b, auth.Signature );
+	// if string(auth.Account) == string(auth.Grantor) {
+	// 	valid, err = crypto.VerifySignatureEDD(string(auth.Account), &b, auth.Signature );
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+	// } else {
+	// 	valid = crypto.VerifySignatureECC(string(auth.Grantor), &b, auth.Signature );
+	// 	if valid {
+	// 		// check if the grantor is authorized
+	// 		grantorAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: string(auth.Grantor)})
+	// 		if err == gorm.ErrRecordNotFound {
+	// 			return nil, nil, apperror.Unauthorized( "Grantor not authorized agent")
+	// 		}
+	// 		if grantorAuthState.Authorization.Priviledge != constants.AdminPriviledge {
+	// 			return nil, grantorAuthState, apperror.Forbidden(" Grantor does not have enough permission")
+	// 		}
+
+	// 	}
+	// }
+	switch auth.SignatureData.Type {
+	case entities.EthereumPubKey:
+		valid = crypto.VerifySignatureECC(string(auth.Grantor), &b, auth.SignatureData.Signature );
 		if valid {
 			// check if the grantor is authorized
 			grantorAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: string(auth.Grantor)})
@@ -43,9 +61,36 @@ func ValidateAuthData(auth *entities.Authorization) (prevAuthState *models.Autho
 			if grantorAuthState.Authorization.Priviledge != constants.AdminPriviledge {
 				return nil, grantorAuthState, apperror.Forbidden(" Grantor does not have enough permission")
 			}
-
 		}
+	
+	case entities.TendermintsSecp256k1PubKey:
+		decodedSig, err :=  base64.StdEncoding.DecodeString(auth.SignatureData.Signature)
+		if err != nil {
+			return nil, nil, err
+		}
+		msg, err := auth.GetHash()
+		if err != nil {
+			return nil, nil, err
+		}
+		grantor, err := entities.AddressFromString(auth.Grantor)
+		if err != nil {
+			return nil, nil, err
+		}
+		decoded, err := hex.DecodeString(grantor.Addr)
+		if err != nil {
+			return nil, nil, err
+		}
+		address := crypto.ToBech32Address(decoded, "cosmos")
+		authMsg :=  fmt.Sprintf("Approve %s for %s: %s", auth.Agent, addressPrefix, encoder.ToBase64Padded(msg))
+		logger.Info("AUTHMESS ", authMsg , " ", auth.Hash)
+		
+		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, address, auth.SignatureData.PublicKey);
+		if err != nil {
+			return nil, nil, err
+		}
+		
 	}
+	
 	prevAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: auth.Agent})      
 	if err != nil &&  err != gorm.ErrRecordNotFound {
 		return nil, nil, err
@@ -80,13 +125,13 @@ func HandleNewPubSubAuthEvent (event *entities.Event, ctx *context.Context) {
 		authRequest := event.Payload.Data.(*entities.Authorization)
 		hash, _ := authRequest.GetHash()
 		authRequest.Hash = hex.EncodeToString(hash)
-		currentState, authState, stateError := ValidateAuthData(authRequest)
+		currentState, authState, stateError := ValidateAuthData(authRequest, cfg.AddressPrefix)
 
 		
 	
 		// check if we are upto date on this event
-		prevEventUpToDate :=  (currentState == nil && event.PreviousEventHash == "") ||  (currentState != nil && currentState.EventHash == event.PreviousEventHash) 
-		authEventUpToDate := (authState == nil && event.AuthEventHash == "") || (authState != nil && authState.EventHash == event.AuthEventHash) 
+		prevEventUpToDate :=  (currentState == nil && event.PreviousEventHash.Hash == "") ||  (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash) 
+		authEventUpToDate := (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.EventHash == event.AuthEventHash.Hash) 
 		
 		// Confirm if this is an older event coming after a newer event.
 		// If it is, then we only have to update our event history, else we need to also update our current state

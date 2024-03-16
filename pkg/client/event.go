@@ -8,6 +8,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
@@ -88,14 +89,14 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		default:
 	}
 	payloadHash, _ := payload.GetHash()
-
+	
 	event := entities.Event{
 		Payload:           payload,
 		Timestamp:         uint64(time.Now().UnixMilli()),
 		EventType:         uint16(payload.EventType),
 		Associations:      []string{},
-		PreviousEventHash: assocPrevEvent.ToString(),
-		AuthEventHash:     assocAuthEvent.ToString(),
+		PreviousEventHash: utils.IfThenElse(assocPrevEvent == nil, *entities.EventPathFromString(""), *assocPrevEvent),
+		AuthEventHash:     utils.IfThenElse(assocAuthEvent == nil, *entities.EventPathFromString(""), *assocAuthEvent),
 		Synced:            false,
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
@@ -103,7 +104,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
 	}
 
-	logger.Infof("Validator: %s", event.Validator)
+	logger.Infof("NewEvent: %v", event)
 	b, err := event.EncodeBytes()
 	if err != nil {
 		return nil, apperror.Internal(err.Error())

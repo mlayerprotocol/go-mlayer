@@ -17,7 +17,7 @@ type Topic struct {
 	ID              string          `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	Ref             string          `json:"ref,omitempty"`
 	Name            string          `json:"n,omitempty" binding:"required"`
-	Handle          string          `json:"hand,omitempty" binding:"required" gorm:"unique;type:char(64);"`
+	Handle          string          `json:"hand,omitempty" binding:"required" gorm:"unique;type:char(64);default:null"`
 	Description     string          `json:"desc,omitempty"`
 	ParentTopicHash string          `json:"pTH,omitempty" gorm:"type:char(64)"`
 	SubscriberCount uint64          `json:"sC,omitempty"`
@@ -26,6 +26,7 @@ type Topic struct {
 	Agent AddressString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	//
 	Public     bool `json:"pub,omitempty" gorm:"default:false"`
+	ReadOnly     bool `json:"rO,omitempty" gorm:"default:false"`
 	// InviteOnly bool `json:"invO" gorm:"default:false"`
 
 	// Derived
@@ -116,6 +117,7 @@ func (topic Topic) EncodeBytes() ([]byte, error) {
 		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: topic.SubscriberCount},
 		// encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Account},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.Public},
+		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.ReadOnly},
 		// encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.InviteOnly},
 	)
 }
