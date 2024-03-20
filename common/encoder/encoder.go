@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -107,11 +108,20 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 			m[i] = bigNum.Bytes()
 		}
 		if arg.Type == HexEncoderDataType {
-			b, err := hex.DecodeString(fmt.Sprintf("%v", arg.Value))
-			if err != nil {
-				return []byte(""), err
-			}
-			m[i] = b
+			hexString := fmt.Sprintf("%v", arg.Value)
+			if strings.HasPrefix(hexString, "0x") {
+				b, err := hexutil.Decode(fmt.Sprintf("%v", arg.Value))
+				if err != nil {
+					return []byte(""), err
+				}
+				m[i] = b
+			} else {
+				b, err := hex.DecodeString(fmt.Sprintf("%v", arg.Value))
+				if err != nil {
+					return []byte(""), err
+				}
+				m[i] = b
+			}			
 		}
 		if arg.Type == AddressEncoderDataType {
 			v := fmt.Sprintf("%v", arg.Value)

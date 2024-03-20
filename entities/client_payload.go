@@ -134,7 +134,7 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
 	if msg.Account != "" {
-		params = append(params, encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.Account})
+		params = append(params, encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Account})
 	}
 	params = append(params, encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.Validator})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Nonce})
