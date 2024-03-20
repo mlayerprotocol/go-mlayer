@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -116,28 +115,33 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 		}
 		if arg.Type == AddressEncoderDataType {
 			v := fmt.Sprintf("%v", arg.Value)
-			if strings.HasPrefix(v, "0x") {
-				// treat as hex
-				b, err := hexutil.Decode(fmt.Sprintf("%v", arg.Value))
-				if err != nil {
-					return []byte(""), err
-				}
-				m[i] = b
-			} else {
-				toLower := strings.ToLower(fmt.Sprintf("%v", arg.Value))
-				values := strings.Split(strings.Trim(fmt.Sprintf("%v", toLower), " "), ":")
-				var addrBuffer bytes.Buffer
-				addrBuffer.Write([]byte(values[0]))
-				addrBuffer.Write([]byte(values[1]))
-				if len(values) == 3 {
-					chain, err := strconv.ParseUint(values[2], 10, 64)
-					if err != nil {
-						return []byte(""), err
-					}
-					addrBuffer.Write(NumberToByte(chain))
-				}
-				m[i] = addrBuffer.Bytes()
-			}
+			
+			m[i] = []byte(v)
+			// if err != nil {
+			// 	return nil, err
+			// }
+			// if strings.HasPrefix(addr.Addr, "0x") {
+			// 	// treat as hex
+			// 	b, err := hexutil.Decode(fmt.Sprintf("%v", arg.Value))
+			// 	if err != nil {
+			// 		return []byte(""), err
+			// 	}
+			// 	m[i] = b
+			// } else {
+			// 	toLower := strings.ToLower(fmt.Sprintf("%v", arg.Value))
+			// 	values := strings.Split(strings.Trim(fmt.Sprintf("%v", toLower), " "), ":")
+			// 	var addrBuffer bytes.Buffer
+			// 	addrBuffer.Write([]byte(values[0]))
+			// 	addrBuffer.Write([]byte(values[1]))
+			// 	if len(values) == 3 {
+			// 		chain, err := strconv.ParseUint(values[2], 10, 64)
+			// 		if err != nil {
+			// 			return []byte(""), err
+			// 		}
+			// 		addrBuffer.Write(NumberToByte(chain))
+			// 	}
+			// 	m[i] = addrBuffer.Bytes()
+			// }
 		}
 
 	}

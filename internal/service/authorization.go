@@ -64,27 +64,38 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 		}
 	
 	case entities.TendermintsSecp256k1PubKey:
+		
 		decodedSig, err :=  base64.StdEncoding.DecodeString(auth.SignatureData.Signature)
 		if err != nil {
 			return nil, nil, err
 		}
+		
 		msg, err := auth.GetHash()
 		if err != nil {
 			return nil, nil, err
 		}
-		grantor, err := entities.AddressFromString(auth.Grantor)
+
+		grantorAddress, err := entities.AddressFromString(auth.Grantor)
+		publicKeyBytes, err  := base64.RawStdEncoding.DecodeString(auth.SignatureData.PublicKey)
+
 		if err != nil {
 			return nil, nil, err
 		}
-		decoded, err := hex.DecodeString(grantor.Addr)
-		if err != nil {
-			return nil, nil, err
-		}
-		address := crypto.ToBech32Address(decoded, "cosmos")
+		// grantor, err := entities.AddressFromString(auth.Grantor)
+		
+		// if err != nil {
+		// 	return nil, nil, err
+		// }
+		
+		// decoded, err := hex.DecodeString(grantor.Addr)
+		// if err == nil {
+		// 	address = crypto.ToBech32Address(decoded, "cosmos") 
+		// }
+		
 		authMsg :=  fmt.Sprintf("Approve %s for %s: %s", auth.Agent, addressPrefix, encoder.ToBase64Padded(msg))
 		logger.Info("AUTHMESS ", authMsg , " ", auth.Hash)
 		
-		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, address, auth.SignatureData.PublicKey);
+		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, grantorAddress.Addr, publicKeyBytes);
 		if err != nil {
 			return nil, nil, err
 		}

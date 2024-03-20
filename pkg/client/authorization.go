@@ -45,13 +45,12 @@ func AuthorizeAgent(
 
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
-	logger.Info(cfg.NetworkPublicKey)
-	logger.Info(payload.Validator)
+	
 
 	if string(payload.Validator) != cfg.NetworkPublicKey {
 		return nil, apperror.Forbidden("Validator not authorized to procces this request")
 	}
-
+	
 	authData := entities.Authorization{}
 	d, _ := json.Marshal(payload.Data)
 	e := json.Unmarshal(d, &authData)
@@ -61,7 +60,9 @@ func AuthorizeAgent(
 	payload.Data = authData
 	var assocPrevEvent *entities.EventPath
 	var assocAuthEvent *entities.EventPath
+	
 	if payload.EventType == uint16(constants.AuthorizationEvent) {
+		
 		// dont worry validating the AuthHash for Authorization requests
 		// if uint64(payload.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
 		// 	return nil, apperror.BadRequest("Authorization timestamp exceeded")
@@ -72,9 +73,10 @@ func AuthorizeAgent(
 		}
 
 		
-
+		
 		currentState, grantorAuthState, err := service.ValidateAuthData(&authData, cfg.AddressPrefix)
 		if err != nil {
+			logger.Error(err)
 			return nil, err
 		}
 

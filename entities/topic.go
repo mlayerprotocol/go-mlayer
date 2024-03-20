@@ -21,7 +21,7 @@ type Topic struct {
 	Description     string          `json:"desc,omitempty"`
 	ParentTopicHash string          `json:"pTH,omitempty" gorm:"type:char(64)"`
 	SubscriberCount uint64          `json:"sC,omitempty"`
-	Account         PublicKeyString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Account         AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
 	Agent AddressString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	//

@@ -63,7 +63,7 @@ func (sD SignatureData) GormValue(ctx context.Context, db *gorm.DB) clause.Expr 
 type Authorization struct {
 	ID   string    `json:"id" gorm:"type:uuid;not null;primaryKey"`
 	Agent string    `json:"agt" gorm:"index:idx_agent_account,unique"`
-	Account PublicKeyString    `json:"acct" gorm:"varchar(32),index:idx_agent_account,unique"`
+	Account AddressString    `json:"acct" gorm:"varchar(32),index:idx_agent_account,unique"`
 	Grantor AddressString    `json:"gr" gorm:"index"`
 	Priviledge constants.AuthorizationPrivilege    `json:"privi"`
 	TopicIds string    `json:"topIds"`
@@ -103,8 +103,8 @@ func (g Authorization) ToString() string {
 func (g Authorization) EncodeBytes() ([]byte, error) {
 	
 	b, e := encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: string(g.Account)},
-		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: g.Agent},
+		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: string(g.Account)},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: g.Agent},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.TopicIds},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Priviledge},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Duration},

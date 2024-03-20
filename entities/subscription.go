@@ -18,7 +18,7 @@ var logger = &log.Logger
 type Subscription struct {
 	ID         string                        `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
 	Topic      string                        `json:"top"`
-	Subscriber PublicKeyString               `json:"sub"`
+	Subscriber AddressString               `json:"sub"`
 	Timestamp  uint64                        `json:"ts"`
 	Signature  string                        `json:"sig"`
 	Hash       string                        `json:"h" gorm:"unique" `
@@ -45,8 +45,8 @@ func (subscription Subscription) ToString() string {
 	values = append(values, subscription.Hash)
 	values = append(values, subscription.ID)
 	// values = append(values, fmt.Sprintf("%d", subscription.Timestamp))
-	values = append(values, fmt.Sprintf("%d", subscription.Subscriber))
-	values = append(values, fmt.Sprintf("%s", subscription.Timestamp))
+	values = append(values, string(subscription.Subscriber))
+	values = append(values, fmt.Sprintf("%d", subscription.Timestamp))
 	return strings.Join(values, ",")
 }
 

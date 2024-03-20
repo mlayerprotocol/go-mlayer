@@ -155,13 +155,8 @@ func VerifySignatureEDD(signer string, message *[]byte, signature string) (bool,
 	return  ed25519.Verify(publicKeyBytes, msg[:], signatureByte), nil
 }
 
-func VerifySignatureSECP(publicKey string, message []byte, signatureByte []byte) (bool, error) {
-	
-	publicKeyBytes, err := hex.DecodeString(publicKey)
-	if err != nil {
-		logger.WithFields(logrus.Fields{"publicKey": publicKey}).Infof("Unable to decode signer %v", err)
-		return false, err
-	}
+func VerifySignatureSECP(publicKeyBytes []byte, message []byte, signatureByte []byte) (bool, error) {
+
 	pubKey, err := btcec.ParsePubKey(publicKeyBytes, btcec.S256())
     if err != nil {
 		logger.WithFields(logrus.Fields{"key": string(publicKeyBytes)}).Infof("Unable to parse pubkey %v", err)
@@ -253,7 +248,7 @@ func ToBtcecSignature(sigHex string) (*[]byte, error) {
 	return &signature, nil
 }
 
-func VerifySignatureAmino(signedData string, signature []byte, account string, pubKey string) (bool, error) {
+func VerifySignatureAmino(signedData string, signature []byte, account string, pubKey []byte) (bool, error) {
 	jsonData  := `{"account_number":"0","chain_id":"","fee":{"amount":[],"gas":"0"},"memo":"","msgs":[{"type":"sign/MsgSignData","value":{"data":"%s","signer":"%s"}}],"sequence":"0"}`
 	jsonData = fmt.Sprintf(jsonData, signedData, account)
 
