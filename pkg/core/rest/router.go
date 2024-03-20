@@ -40,20 +40,20 @@ func NewRestService(mainCtx *context.Context) *RestService {
 	}
 }
 func CORSMiddleware() gin.HandlerFunc {
-    return func(c *gin.Context) {
+	return func(c *gin.Context) {
 
-        c.Header("Access-Control-Allow-Origin", "*")
-        c.Header("Access-Control-Allow-Credentials", "true")
-        c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-        c.Header("Access-Control-Allow-Methods", "POST,HEAD,PATCH, OPTIONS, GET, PUT")
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Header("Access-Control-Allow-Methods", "POST,HEAD,PATCH, OPTIONS, GET, PUT")
 
-        if c.Request.Method == "OPTIONS" {
-            c.AbortWithStatus(204)
-            return
-        }
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
 
-        c.Next()
-    }
+		c.Next()
+	}
 }
 func (p *RestService) Initialize() *gin.Engine {
 	router := gin.Default()
@@ -68,7 +68,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: auths}))
@@ -77,7 +77,7 @@ func (p *RestService) Initialize() *gin.Engine {
 	router.PUT("/api/authorize", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error:  err.Error()}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		// logger.Infof("PUT %s %v", "/api/authorize", payload.ToJSON())
@@ -86,7 +86,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		logger.WithFields(logrus.Fields{"payload": string(payload.ToJSON())}).Debug("New auth payload from REST api")
 		authEvent, err := client.AuthorizeAgent(payload, p.Ctx)
 		if err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		// Send a response back
