@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 )
 
-
 type ResponsePayload interface {
 	GetHash() ([]byte, error)
 	ToString() string
@@ -12,16 +11,16 @@ type ResponsePayload interface {
 }
 
 type ResponseMeta struct {
-	Page uint `json:"page,omitempty"`
-	PerPage uint `json:"perPage,omitempty"`
-	Count uint `json:"count,omitempty"`
-	Version string		`json:"version,omitempty"`
+	Page    uint   `json:"page,omitempty"`
+	PerPage uint   `json:"perPage,omitempty"`
+	Count   uint   `json:"count,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type ClientResponse struct {
-	Data any  `json:"data"`
-	Error string		`json:"error,omitempty"`
-	
+	Data  any    `json:"data"`
+	Error string `json:"error,omitempty"`
+
 	Meta ResponseMeta `json:"_meta"`
 }
 
@@ -34,7 +33,6 @@ func (cr ClientResponse) ToMap() map[string]any {
 
 func NewClientResponse(cr ClientResponse) ClientResponse {
 	cr.Meta.Version = "1.0.1"
-	
-	return cr
- }
 
+	return cr
+}

@@ -11,19 +11,20 @@ import (
 )
 
 var logger = &log.Logger
-func ProcessNewMessageEvent(ctx context.Context, unsentMessageP2pStore *db.Datastore,  wg *sync.WaitGroup) {
-		defer wg.Done()
-		for {
-			select {
 
-			// attempt to push into outgoing message channel
-			case outMessage, ok := <-channelpool.NewPayload_Cli_D_C:
-				if !ok {
-					logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+func ProcessNewMessageEvent(ctx context.Context, unsentMessageP2pStore *db.Datastore, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
 
-					return
-				}
-				go ProcessSentMessage(ctx, unsentMessageP2pStore, outMessage)
+		// attempt to push into outgoing message channel
+		case outMessage, ok := <-channelpool.NewPayload_Cli_D_C:
+			if !ok {
+				logger.Errorf("Outgoing Message channel closed. Please restart server to try or adjust buffer size in config")
+
+				return
+			}
+			go ProcessSentMessage(ctx, unsentMessageP2pStore, outMessage)
 
 			// case sub, ok := <-channelpool.SubscribersRPC_D_c:
 			// 	if !ok {
@@ -79,10 +80,10 @@ func ProcessNewMessageEvent(ctx context.Context, unsentMessageP2pStore *db.Datas
 			// 		unconfurmedBlockStore.Put(ctx, db.Key(proof.BlockKey()), proof.MsgPack())
 			// 	}()
 
-			 }
-
 		}
-	
+
+	}
+
 }
 func ProcessSentMessage(ctx context.Context, unsentMessageP2pStore *db.Datastore, outMessage *entities.ClientPayload) {
 	// VALIDATE AND DISTRIBUTE
