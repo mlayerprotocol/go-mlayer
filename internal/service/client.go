@@ -14,9 +14,9 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-	"gorm.io/gorm"
 )
 
 var logger = &log.Logger
@@ -71,12 +71,10 @@ func ValidateMessageClient(
 		return errors.New("Could not connect to subscription datastore")
 	}
 
-	db, ok1 := (*ctx).Value(constants.SQLDB).(*gorm.DB)
-	if !ok1 {
-		return errors.New("Could not connect to get")
-	}
 	var subscriptionStates []models.SubscriptionState
-	db.Find(&subscriptionStates)
+	query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{
+		Subscriber: entities.AddressString(clientHandshake.Signer),
+	}}, &subscriptionStates)
 
 	// VALIDATE AND DISTRIBUTE
 	// logger.Debugf("Signer:  %s\n", clientHandshake.Signer)

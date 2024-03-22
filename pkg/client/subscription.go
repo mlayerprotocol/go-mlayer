@@ -47,7 +47,7 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 	assocPrevEvent *entities.EventPath,
 	assocAuthEvent *entities.EventPath,
 	err error,
-	) {
+) {
 
 	payloadData := entities.Subscription{}
 	d, _ := json.Marshal(payload.Data)
@@ -69,34 +69,32 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 	}
 
 	if topicData == nil {
-		return nil, nil,  apperror.BadRequest("Invalid topic")
+		return nil, nil, apperror.BadRequest("Invalid topic")
 	}
 
 	// pool = channelpool.SubscriptionEventPublishC
 
 	currentState, err := service.ValidateSubscriptionData(&payloadData, &payload)
-	if err != nil {
-		return nil, nil,  err
+	if err != nil && (err != gorm.ErrRecordNotFound && payload.EventType == uint16(constants.SubscribeTopicEvent)) {
+		return nil, nil, err
 	}
 
-	
 	if currentState == nil && payload.EventType != uint16(constants.SubscribeTopicEvent) {
-		return nil, nil,  apperror.BadRequest("Account not subscribed")
+		return nil, nil, apperror.BadRequest("Account not subscribed")
 	}
-	if currentState != nil && payload.EventType == uint16(constants.SubscribeTopicEvent) {
-		return nil, nil,  apperror.BadRequest("Account alread subscribed")
+	if currentState != nil && currentState.Status != 0 && payload.EventType == uint16(constants.SubscribeTopicEvent) {
+		return nil, nil, apperror.BadRequest("Account already subscribed")
 	}
-	
-	
+
 	// generate associations
 	if currentState != nil {
-		assocPrevEvent =  entities.NewEventPath( entities.SubscriptionEventModel, currentState.EventHash)
+		assocPrevEvent = entities.NewEventPath(entities.SubscriptionEventModel, currentState.EventHash)
 	} else {
 		assocPrevEvent = entities.NewEventPath(entities.TopicEventModel, topicData.EventHash)
 	}
 
 	if authState != nil {
-		assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, authState.EventHash) 
+		assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, authState.EventHash)
 	}
 	return assocPrevEvent, assocAuthEvent, nil
 }
