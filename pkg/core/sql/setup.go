@@ -42,19 +42,19 @@ func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
 	for _, model := range models.Models {
 		db.AutoMigrate(&model)
 	}
-	
+
 	return db, err
 }
 
 func Init() {
 	cfg := config.Config
-logger.Infof("DB Dialect %v", config.Config.SQLDB)
+	logger.Infof("DB Dialect %v", config.Config.SQLDB)
 	Db, SqlDBErr = InitializeDb(config.Config.SQLDB.DbDialect, getDSN(cfg.SQLDB.DbDialect))
 	if SqlDBErr != nil {
 		panic(SqlDBErr)
 	}
 	db, err := Db.DB()
-	if (err != nil) {
+	if err != nil {
 		panic(err)
 	}
 	db.SetMaxIdleConns(cfg.SQLDB.DbMaxConnLifetime)
@@ -78,16 +78,16 @@ func getDSN(dialect string) string {
 		if err != nil {
 			panic(err)
 		}
-		if(strings.HasSuffix(cfg.SQLDB.DbStoragePath, "/")) {
+		if strings.HasSuffix(cfg.SQLDB.DbStoragePath, "/") {
 			dsn = fmt.Sprintf("%sdb.sqlite", cfg.SQLDB.DbStoragePath)
-		}else {
+		} else {
 			dsn = fmt.Sprintf("%s/db.sqlite", cfg.SQLDB.DbStoragePath)
 		}
 	case "mysql":
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",  config.Config.SQLDB.DbUser, config.Config.SQLDB.DbPassword,  config.Config.SQLDB.DbHost,  config.Config.SQLDB.DbPort, config.Config.SQLDB.DbDatabase)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.Config.SQLDB.DbUser, config.Config.SQLDB.DbPassword, config.Config.SQLDB.DbHost, config.Config.SQLDB.DbPort, config.Config.SQLDB.DbDatabase)
 	case "postgres":
 	default:
-		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=%s", config.Config.SQLDB.DbHost, config.Config.SQLDB.DbUser, config.Config.SQLDB.DbPassword, config.Config.SQLDB.DbDatabase, config.Config.SQLDB.DbPort, config.Config.SQLDB.DbSSLMode, config.Config.SQLDB.DbTimezone )
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=%s", config.Config.SQLDB.DbHost, config.Config.SQLDB.DbUser, config.Config.SQLDB.DbPassword, config.Config.SQLDB.DbDatabase, config.Config.SQLDB.DbPort, config.Config.SQLDB.DbSSLMode, config.Config.SQLDB.DbTimezone)
 	}
-	return dsn;
+	return dsn
 }

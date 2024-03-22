@@ -39,8 +39,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
-
-
 var Nodes = []*websocket.Conn{}
 
 var upgrader = websocket.Upgrader{
@@ -83,6 +81,7 @@ func Start(mainCtx *context.Context) {
 
 	ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
 	ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
+	ctx = context.WithValue(ctx, constants.ConnectedSubscriber, connectedSubscribers)
 
 	defer wg.Wait()
 
@@ -130,17 +129,16 @@ func Start(mainCtx *context.Context) {
 		}
 	}()
 
-
-	 wg.Add(1)
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		subscription.ProcessNewSubscription(
-		ctx,
-		subscriptionBlockStateStore,
-		topicSubscriptionCountStore,
-		newTopicSubscriptionStore,
-		topicSubscriptionStore,
-		&wg)
+			ctx,
+			subscriptionBlockStateStore,
+			topicSubscriptionCountStore,
+			newTopicSubscriptionStore,
+			topicSubscriptionStore,
+			&wg)
 	}()
 
 	wg.Add(1)
@@ -158,14 +156,13 @@ func Start(mainCtx *context.Context) {
 		// 	errc <- fmt.Errorf("P2P error: %g", err)
 		// }
 		// }()
-		
+
 		p2p.Run(&ctx)
 		// if err != nil {
 		// 	wg.Done()
 		// 	panic(err)
 		// }
 	}()
-	
 
 	wg.Add(1)
 	go func() {
@@ -237,14 +234,14 @@ func Start(mainCtx *context.Context) {
 		logger.Infof("wsAddress: %s\n", cfg.WSAddress)
 		http.HandleFunc("/echo", wss.ServeWebSocket)
 
-		logger.Fatal(http.ListenAndServe( cfg.WSAddress, nil))
+		logger.Fatal(http.ListenAndServe(cfg.WSAddress, nil))
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		rest := rest.NewRestService(&ctx)
-		
+
 		router := rest.Initialize()
 		logger.Infof("Starting REST api on: %s", cfg.RestAddress)
 		logger.Fatal(router.Run(cfg.RestAddress))

@@ -6,6 +6,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
@@ -26,24 +27,24 @@ func ProcessNewMessageEvent(ctx context.Context, unsentMessageP2pStore *db.Datas
 			}
 			go ProcessSentMessage(ctx, unsentMessageP2pStore, outMessage)
 
-			// case sub, ok := <-channelpool.SubscribersRPC_D_c:
-			// 	if !ok {
-			// 		logger.Errorf("Subscription channel closed!")
-			// 		return
-			// 	}
-			// 	if !entities.IsValidSubscription(*sub, true) {
-			// 		logger.Info("ITS NOT VALID!")
-			// 		continue
-			// 	}
-			// 	// go processor.ProcessNewSubscription(ctx, sub, channelsubscribersRPC_D_countStore, channelSubscriptionStore)
+		// case sub, ok := <-channelpool.SubscribersRPC_D_c:
+		// 	if !ok {
+		// 		logger.Errorf("Subscription channel closed!")
+		// 		return
+		// 	}
+		// 	if !entities.IsValidSubscription(*sub, true) {
+		// 		logger.Info("ITS NOT VALID!")
+		// 		continue
+		// 	}
+		// 	// go processor.ProcessNewSubscription(ctx, sub, channelsubscribersRPC_D_countStore, channelSubscriptionStore)
 
-			// case clientHandshake, ok := <-channelpool.ClientHandshakeC:
-			// 	if !ok {
-			// 		logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
-			// 		wg.Done()
-			// 		return
-			// 	}
-			// 	go processor.ValidateMessageClient(ctx, &connectedSubscribers, clientHandshake, channelSubscriptionStore)
+		case clientHandshake, ok := <-channelpool.ClientHandshakeC:
+			if !ok {
+				logger.Errorf("Verification channel closed. Please restart server to try or adjust buffer size in config")
+				wg.Done()
+				return
+			}
+			go service.ValidateMessageClient(&ctx, clientHandshake)
 
 			// case proof, ok := <-channelpool.IncomingDeliveryProofsC:
 			// 	if !ok {

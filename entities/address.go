@@ -11,15 +11,19 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 )
 
-
 type PublicKeyString string
 type AddressString string
 
+func (address *AddressString) ToString() string {
+
+	return fmt.Sprintf("%s", *address)
+}
+
 type Address struct {
-	Prefix   string    `json:"pre"`
-	Addr   string    `json:"addr"`
+	Prefix string `json:"pre"`
+	Addr   string `json:"addr"`
 	// Platform string    `json:"p"`
-	Chain  string    `json:"ch"`
+	Chain string `json:"ch"`
 }
 
 func (address *Address) ToJSON() []byte {
@@ -55,7 +59,7 @@ func (address *Address) ToString() string {
 	values = append(values, address.Prefix)
 	values = append(values, ":")
 	values = append(values, address.Addr)
-	if (address.Chain != "") {
+	if address.Chain != "" {
 		values = append(values, fmt.Sprintf("#%s", address.Chain))
 	}
 	return strings.Join(values, ":")
@@ -84,22 +88,18 @@ func (address *Address) ToBytes() []byte {
 func AddressFromString(s AddressString) (Address, error) {
 	addr := Address{Prefix: "did"}
 	values := strings.Split(strings.Trim(string(s), " "), ":")
-	
 
-	
-	
-	if(len(values) == 2) { 
+	if len(values) == 2 {
 		addr.Addr = values[1]
 		addr.Prefix = values[0]
 	}
 	values2 := strings.Split(addr.Addr, "#")
-	if (len(values2) > 1) {
+	if len(values2) > 1 {
 		addr.Addr = values2[0]
 		addr.Chain = values2[1]
 	}
-	
-	
+
 	return addr, nil
-	
+
 	//return Address{Addr: values[0], Prefix: "", Chain: uint64(chain)}, nil
 }

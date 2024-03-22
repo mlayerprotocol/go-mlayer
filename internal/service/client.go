@@ -13,8 +13,10 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
+	"gorm.io/gorm"
 )
 
 var logger = &log.Logger
@@ -60,30 +62,44 @@ func ValidateEvent(event interface{}) error {
 	return nil
 }
 
-// func ValidateMessageClient(
-// 	ctx context.Context,
-// 	connectedSubscribers *map[string]map[string][]interface{},
-// 	clientHandshake *entities.ClientHandshake,
-// 	channelSubscriberStore *db.Datastore) {
-// 	// VALIDATE AND DISTRIBUTE
-// 	logger.Debugf("Signer:  %s\n", clientHandshake.Signer)
-// 	results, err := channelSubscriberStore.Query(ctx, dsQuery.Query{
-// 		Prefix: "/" + clientHandshake.Signer,
-// 	})
-// 	if err != nil {
-// 		logger.Errorf("Channel Subscriber Store Query Error %o", err)
-// 		return
-// 	}
-// 	entries, _err := results.Rest()
-// 	for i := 0; i < len(entries); i++ {
-// 		_sub, _ := entities.SubscriptionFromBytes(entries[i].Value)
-// 		if (*connectedSubscribers)[_sub.TopicId] == nil {
-// 			(*connectedSubscribers)[_sub.TopicId] = make(map[string][]interface{})
-// 		}
-// 		(*connectedSubscribers)[_sub.TopicId][_sub.Subscriber] = append((*connectedSubscribers)[_sub.TopicId][_sub.Subscriber], clientHandshake.ClientSocket)
-// 	}
-// 	logger.Infof("results:  %s  -  %o\n", entries[0].Value, _err)
-// }
+func ValidateMessageClient(
+	ctx *context.Context,
+	clientHandshake *entities.ClientHandshake,
+) error {
+	connectedSubscribers, ok := (*ctx).Value(constants.ConnectedSubscriber).(*map[string]map[string][]interface{})
+	if !ok {
+		return errors.New("Could not connect to subscription datastore")
+	}
+
+	db, ok1 := (*ctx).Value(constants.SQLDB).(*gorm.DB)
+	if !ok1 {
+		return errors.New("Could not connect to get")
+	}
+	var subscriptionStates []models.SubscriptionState
+	db.Find(&subscriptionStates)
+
+	// VALIDATE AND DISTRIBUTE
+	// logger.Debugf("Signer:  %s\n", clientHandshake.Signer)
+	// results, err := channelSubscriberStore.Query(ctx, dsQuery.Query{
+	// 	Prefix: "/" + clientHandshake.Signer,
+	// })
+	// if err != nil {
+	// 	logger.Errorf("Channel Subscriber Store Query Error %o", err)
+	// 	return
+	// }
+	// entries, _err := results.Rest()
+	for i := 0; i < len(subscriptionStates); i++ {
+		_sub := subscriptionStates[i]
+		_topic := _sub.Subscription.Topic
+		_subscriber := _sub.Subscriber.ToString()
+		if (*connectedSubscribers)[_topic] == nil {
+			(*connectedSubscribers)[_topic] = make(map[string][]interface{})
+		}
+		(*connectedSubscribers)[_topic][_subscriber] = append((*connectedSubscribers)[_topic][_subscriber], clientHandshake.ClientSocket)
+	}
+	logger.Infof("results:  %s  \n", subscriptionStates[0])
+	return nil
+}
 
 func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 	proof *entities.DeliveryProof,
