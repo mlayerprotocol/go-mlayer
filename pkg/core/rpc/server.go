@@ -2,12 +2,10 @@ package rpc
 
 import (
 	// "errors"
-	"bytes"
+
 	"context"
-	"encoding/json"
 	"net/http"
 
-	shell "github.com/ipfs/go-ipfs-api"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
@@ -85,33 +83,33 @@ func (t authTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func (p *RpcService) SendMessage(param []byte, reply *RpcResponse) error {
-	request, err := entities.JsonMessageFromBytes(param)
-	if err != nil {
-		return err
-	}
+	// request, err := entities.JsonMessageFromBytes(param)
+	// if err != nil {
+	// 	return err
+	// }
 
 	logger.Infof("ipfs address %s", p.Cfg.Ipfs.Host)
-	client := NewClient(p.Cfg.Ipfs.ProjectId, p.Cfg.Ipfs.ProjectSecret)
-	sh := shell.NewShellWithClient(p.Cfg.Ipfs.Host, client)
-	chatMsg, err := entities.CreateMessageFromJson(request)
-	if err != nil {
-		return err
-	}
-	if len(request.Subject) > 0 && len(request.Message) > 0 {
-		ipfsData := &IpfsData{
-			Message: request.Message,
-			Subject: request.Subject,
-		}
-		tsdBin, _ := json.Marshal(ipfsData)
-		reader := bytes.NewReader(tsdBin)
+	//client := NewClient(p.Cfg.Ipfs.ProjectId, p.Cfg.Ipfs.ProjectSecret)
+	//sh := shell.NewShellWithClient(p.Cfg.Ipfs.Host, client)
+	//chatMsg, err := entities.CreateMessageFromJson(request)
+	// if err != nil {
+	// 	return err
+	// }
+	// if len(request.Subject) > 0 && len(request.Message) > 0 {
+	// 	ipfsData := &IpfsData{
+	// 		Message: request.Message,
+	// 		Subject: request.Subject,
+	// 	}
+	// 	tsdBin, _ := json.Marshal(ipfsData)
+	// 	reader := bytes.NewReader(tsdBin)
 
-		cid, err := sh.Add(reader)
-		if err != nil {
-			logger.Errorf("ipfs error:: %o", err)
-		}
-		chatMsg.Body.CID = cid
-		logger.Infof("IPFS messageCID::: %s", cid)
-	}
+	// 	cid, err := sh.Add(reader)
+	// 	if err != nil {
+	// 		logger.Errorf("ipfs error:: %o", err)
+	// 	}
+	// 	chatMsg.Body.CID = cid
+	// 	logger.Infof("IPFS messageCID::: %s", cid)
+	// }
 
 	//c, err := (*p.MessageService).Send(chatMsg, request.Signature)
 	// if err != nil {

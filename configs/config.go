@@ -38,6 +38,7 @@ type MLChainAPI struct {
 }
 
 type MainConfiguration struct {
+	AddressPrefix		 	 string 		`mapstructure:"address_prefix"`
 	NodePrivateKey           string         `mapstructure:"node_private_key"`
 	NetworkPrivateKey        string         `mapstructure:"network_private_key"`      
 	StakeContract            string         `mapstructure:"stake_contract"`

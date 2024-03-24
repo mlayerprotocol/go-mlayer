@@ -2,6 +2,7 @@ package encoder
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -107,36 +108,50 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 			m[i] = bigNum.Bytes()
 		}
 		if arg.Type == HexEncoderDataType {
-			b, err := hex.DecodeString(fmt.Sprintf("%v", arg.Value))
-			if err != nil {
-				return []byte(""), err
-			}
-			m[i] = b
-		}
-		if arg.Type == AddressEncoderDataType {
-			v := fmt.Sprintf("%v", arg.Value)
-			if strings.HasPrefix(v, "0x") {
-				// treat as hex
+			hexString := fmt.Sprintf("%v", arg.Value)
+			if strings.HasPrefix(hexString, "0x") {
 				b, err := hexutil.Decode(fmt.Sprintf("%v", arg.Value))
 				if err != nil {
 					return []byte(""), err
 				}
 				m[i] = b
 			} else {
-				toLower := strings.ToLower(fmt.Sprintf("%v", arg.Value))
-				values := strings.Split(strings.Trim(fmt.Sprintf("%v", toLower), " "), ":")
-				var addrBuffer bytes.Buffer
-				addrBuffer.Write([]byte(values[0]))
-				addrBuffer.Write([]byte(values[1]))
-				if len(values) == 3 {
-					chain, err := strconv.ParseUint(values[2], 10, 64)
-					if err != nil {
-						return []byte(""), err
-					}
-					addrBuffer.Write(NumberToByte(chain))
+				b, err := hex.DecodeString(fmt.Sprintf("%v", arg.Value))
+				if err != nil {
+					return []byte(""), err
 				}
-				m[i] = addrBuffer.Bytes()
-			}
+				m[i] = b
+			}			
+		}
+		if arg.Type == AddressEncoderDataType {
+			v := fmt.Sprintf("%v", arg.Value)
+			
+			m[i] = []byte(v)
+			// if err != nil {
+			// 	return nil, err
+			// }
+			// if strings.HasPrefix(addr.Addr, "0x") {
+			// 	// treat as hex
+			// 	b, err := hexutil.Decode(fmt.Sprintf("%v", arg.Value))
+			// 	if err != nil {
+			// 		return []byte(""), err
+			// 	}
+			// 	m[i] = b
+			// } else {
+			// 	toLower := strings.ToLower(fmt.Sprintf("%v", arg.Value))
+			// 	values := strings.Split(strings.Trim(fmt.Sprintf("%v", toLower), " "), ":")
+			// 	var addrBuffer bytes.Buffer
+			// 	addrBuffer.Write([]byte(values[0]))
+			// 	addrBuffer.Write([]byte(values[1]))
+			// 	if len(values) == 3 {
+			// 		chain, err := strconv.ParseUint(values[2], 10, 64)
+			// 		if err != nil {
+			// 			return []byte(""), err
+			// 		}
+			// 		addrBuffer.Write(NumberToByte(chain))
+			// 	}
+			// 	m[i] = addrBuffer.Bytes()
+			// }
 		}
 
 	}
@@ -147,4 +162,26 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 	}
 	// logger.Infof("LOG MEssage  =========> %v \n %v \n %v", index, buffer, args)
 	return buffer.Bytes(), nil
+}
+
+func AddBase64Padding(value string) string {
+    m := len(value) % 4
+    if m != 0 {
+        value += strings.Repeat("=", 4-m)
+    }
+    return value
+}
+
+func ToBase64Padded(data []byte) (string) {
+	rsl := base64.StdEncoding.EncodeToString(data)
+	return AddBase64Padding(rsl)
+}
+
+func ExtractHRP(address string) (string, error) {
+    // The separator for Bech32 is "1", so we split the string based on that.
+    parts := strings.SplitN(address, "1", 2)
+    if len(parts) < 2 {
+        return "", fmt.Errorf("invalid Bech32 address: %s", address)
+    }
+    return parts[0], nil
 }

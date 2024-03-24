@@ -40,6 +40,7 @@ const (
 	SubscriptionBlockStateStore          = "subscription-block-state-store"
 	DeliveryProofBlockStore              = "dp-block-store"
 	SubscriptionBlockStore               = "sub-block-store"
+	ConnectedSubscriber                  = "connected-subscriber"
 )
 
 // Channel Ids within main context
@@ -80,6 +81,17 @@ const (
 	RPC  Protocol = "rpc"
 )
 
+type SubscriptionStatuses int16
+
+const (
+	UnsubscribedSubscriptionStatus SubscriptionStatuses = 0
+	PendingSubscriptionStatus      SubscriptionStatuses = 1
+	SubscribedSubscriptionStatus   SubscriptionStatuses = 2
+	// ApprovedSubscriptionStatus      SubscriptionStatuses = "approved"
+	BannedSubscriptionStatus SubscriptionStatuses = 3
+	// UNBANNED     SubscriptionStatuses = "unbanned"
+)
+
 /* KEY MAPS
 Always enter map in sorted order
 
@@ -93,6 +105,7 @@ Amount          = amt
 Approval        = ap
 ApprovalExpiry  = apExp
 Associations    = assoc
+Attachments		= atts
 Authority       = auth
 Avatar          = ava
 Body            = b
@@ -109,17 +122,20 @@ CID             = cid
 Closed          = cl
 Contract        = co
 Data            = d
+DataHash        = dH
 Description     = desc
 Duration        = du
 EventHash       = eH
+File			= f
 Grantor         = gr
 Handle          = hand
 Hash            = h
 Header          = head
+Identifier		= id
 Index           = i
 InviteOnly 		= invO
 IsValid         = isVal
-Length          = l
+Length          = len
 Message         = m
 MessageHash     = mH
 MessageSender   = mS
@@ -138,14 +154,18 @@ Privilege       = privi
 Proof           = pr
 Proofs          = prs
 ProtocolId      = proId
+PublicKey		= pubK
+ReadOnly		= rO
 Receiver        = r
 Ref             = ref
+Roles 			= rol
 Secret          = sec
 Sender          = s
 SenderAddress   = sA
 SenderSignature = sSig
 SignatureExpiry = sigExp
 Signature       = sig
+SignatureData   = sigD
 Signer          = sigr
 Size            = si
 Socket          = sock
@@ -159,6 +179,7 @@ TopicHash       =topH
 TopicId         = topId
 TopicIds        = topIds
 Type            = ty
+Url				= url
 Validator       = v
 
 
@@ -242,3 +263,8 @@ You can change the message and send multiple times.
 </body>
 </html>
 `))
+
+/*
+{\"type\": \"cosmos-sdk/StdTx\",
+\"value\": {\"msg\": [{  \"type\": \"sign/MsgSignData\",  \"value\": {\t\"signer\": \"cosmos14y0pyqjay3p8dsqp2jd5rkft7vf9cdkqnrc43l\",\t\"data\": \"aGVsbG93b3JsZA==\"  }}],\"fee\": {\"amount\": [],\"gas\": \"0\"},\"memo\": \"\"}}
+*/

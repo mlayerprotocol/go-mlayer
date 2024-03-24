@@ -15,9 +15,10 @@ import (
 type ClientHandshake struct {
 	Signature string          `json:"sig"`
 	Signer    string          `json:"sigr"`
-	Message   string          `json:"m"`
+	// Message   string          `json:"m"`
 	Protocol  constants.Protocol `json:"proto"`
 	ClientSocket    *interface{} `json:"ws"`
+	Timestamp int64 `json:"ts"`
 }
 
 type ServerIdentity struct {
@@ -27,16 +28,30 @@ type ServerIdentity struct {
 	Address string			`json:"addr"`
 }
 
-func (sub *ClientHandshake) ToJSON() []byte {
-	m, e := json.Marshal(sub)
+func (cs ClientHandshake) ToJSON() []byte {
+	m, e := json.Marshal(cs)
 	if e != nil {
 		logger.Errorf("Unable to parse subscription to []byte")
 	}
 	return m
 }
+
 func (hs *ClientHandshake) MsgPack() []byte {
 	b, _ := encoder.MsgPackStruct(hs)
 	return b
+}
+
+func (cs ClientHandshake) EncodeBytes() ([]byte, error) {
+	return encoder.EncodeBytes(encoder.EncoderParam{
+		Type: encoder.AddressEncoderDataType,
+		Value: cs.Signer,
+	}, encoder.EncoderParam{
+		Type: encoder.HexEncoderDataType,
+		Value: "FFEE00FF",
+	}, encoder.EncoderParam{
+		Type: encoder.IntEncoderDataType,
+		Value: cs.Timestamp,
+	})
 }
 
 func UnpackClientHandshake(b []byte) (ClientHandshake, error) {

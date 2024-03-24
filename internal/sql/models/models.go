@@ -16,7 +16,6 @@ type BaseModel struct {
 // Note: Gorm will fail if the function signature
 //  does not include `*gorm.DB` and `error`
 
-
 var Models = []interface{}{
 	Config{},
 	TopicState{},

@@ -1,0 +1,1 @@
+env GOOS=linux GOARCH=amd64 CGO_ENABLED=1  CXX="x86_64-linux-musl-g++" go build -o build/go-mlayer-linux-amd64  .

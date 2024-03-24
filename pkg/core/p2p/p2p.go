@@ -43,6 +43,8 @@ import (
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
 
+
+
 var logger = &log.Logger
 var config configs.MainConfiguration
 
@@ -51,18 +53,18 @@ var privKey crypto.PrivKey
 
 const DiscoveryServiceTag = "ml-network"
 const (
-	AuthorizationChannel       string = "ml-authorization-channel"
-	TopicChannel               string = "ml-topic-channel"
-	MessageChannel             string = "ml-message-channel"
-	SubscriptionChannel               = "ml-subscription-channel"
-	UnSubscribeChannel                = "ml-unsubscribe-channel"
-	ApproveSubscriptionChannel        = "ml-approve-subscription-channel"
-	BatchChannel                      = "ml-batch-channel"
-	DeliveryProofChannel              = "ml-delivery-proof"
+	AuthorizationChannel string = "ml-authorization-channel"
+	TopicChannel         string = "ml-topic-channel"
+	MessageChannel       string = "ml-message-channel"
+	SubscriptionChannel         = "ml-subscription-channel"
+	// UnSubscribeChannel                = "ml-unsubscribe-channel"
+	// ApproveSubscriptionChannel        = "ml-approve-subscription-channel"
+	BatchChannel         = "ml-batch-channel"
+	DeliveryProofChannel = "ml-delivery-proof"
 )
 
-var peerStreams = make(map[string]peer.ID)
-var peerPubKeys = make(map[peer.ID][]byte)
+var PeerStreams = make(map[string]peer.ID)
+var PeerPubKeys = make(map[peer.ID][]byte)
 var node *host.Host
 var idht *dht.IpfsDHT
 
@@ -341,30 +343,30 @@ func Run(mainCtx *context.Context) {
 		panic(err)
 	}
 
-	unsubscribePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
-	if err != nil {
-		panic(err)
-	}
+	// unsubscribePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	approveSubscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), ApproveSubscriptionChannel, config.ChannelMessageBufferSize)
-	if err != nil {
-		panic(err)
-	}
+	// approveSubscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), ApproveSubscriptionChannel, config.ChannelMessageBufferSize)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	// Publishers
 	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.SubscriptionEventPublishC, subscriptionPubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
+	// go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
+	// go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
 	// Subscribers
 
 	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx, service.HandleNewPubSubTopicEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, subscriptionPubSub, mainCtx, service.HandleNewPubSubSubscriptionEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
+	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
+	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
 
 	// messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
@@ -462,44 +464,44 @@ func handleStream(stream network.Stream) {
 	// stream.SetReadDeadline()
 	// Create a buffer stream for non blocking read and write.
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-	go readData(peerStreams[stream.ID()], rw)
+	go readData(PeerStreams[stream.ID()], rw)
 	// go sendData(rw)
 
 }
 
 func readData(p peer.ID, rw *bufio.ReadWriter) {
 	for {
-		hsString, err := rw.ReadString('\n')
+		hsData, err := rw.ReadBytes('\n')
 		if err != nil {
 			logger.Errorf("Error reading from buffer %o", err)
 			panic(err)
 		}
-		if hsString == "" {
+		if hsData == nil {
 			break
 		}
 
-		logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Info("New Handshake data from peer")
-		handshake, err := entities.UnpackHandshake([]byte(hsString))
+		logger.WithFields(logrus.Fields{"peer": p, "data": string(hsData)}).Info("New Handshake data from peer")
+		handshake, err := entities.UnpackHandshake(hsData)
 
 		if err != nil {
-			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Warnf("Failed to parse handshake: %o", err)
+			logger.WithFields(logrus.Fields{"peer": p, "data": hsData}).Warnf("Failed to parse handshake: %o", err)
 			break
 		}
 		validHandshake := isValidHandshake(handshake, p)
 		if !validHandshake {
 			disconnect(*node, p)
-			logger.WithFields(logrus.Fields{"peer": p, "data": hsString}).Infof("Disconnecting from peer (%s) with invalid handshake", p)
+			logger.WithFields(logrus.Fields{"peer": p, "data": hsData}).Infof("Disconnecting from peer (%s) with invalid handshake", p)
 			return
 		}
 		validStake := isValidStake(handshake, p)
 		if !validStake {
 			disconnect(*node, p)
-			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsString}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
+			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsData}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
 			return
 		}
 		b, _ := hexutil.Decode(handshake.Signer)
-		peerPubKeys[p] = b
-		break
+		PeerPubKeys[p] = b
+		// break
 	}
 }
 
@@ -583,7 +585,7 @@ func handleConnect(h *host.Host, pa *peer.AddrInfo) {
 		logger.Infof("Streaming to peer: %s", pi.ID)
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 		logger.Infof("New StreamID: %s", stream.ID())
-		peerStreams[stream.ID()] = pi.ID
+		PeerStreams[stream.ID()] = pi.ID
 		nodeType := constants.RelayNodeType
 		if config.Validator {
 			nodeType = constants.ValidatorNodeType

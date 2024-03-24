@@ -3,30 +3,29 @@ package entities
 import (
 	// "errors"
 
+	"context"
+	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/jinzhu/copier"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 
 var synced = "sync"
 
-type EventAssoc uint8
-const (
-	AuthorizationEventAssoc EventAssoc  = 1
-	PreviousEventAssoc EventAssoc = 2
-)
 
 type EventModel string
 const (
-	AuthorizationEventModel EventModel  = "auth"
-	TopicEventModel EventModel = "topic"
+	AuthEventModel EventModel  = "auth"
+	TopicEventModel EventModel = "top"
+	SubscriptionEventModel EventModel = "sub"
 )
 
 /**
@@ -34,27 +33,74 @@ Event paths define the unique path to an event and its relation to the entitie
 
 **/
 type EventPath struct {
-	Relationship EventAssoc
 	Model EventModel
 	Hash string
 }
 
-func (e EventPath) ToString() string {
-	return fmt.Sprintf("%d/%s/%s", e.Relationship, e.Model, e.Hash)
+
+func (e *EventPath) ToString() string {
+	if e == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s",  e.Model, e.Hash)
 }
 
-func EventPathFromString(path string) (*EventPath, error) {
-	parts := strings.Split(path, "/")
-	assoc, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return nil, err
-	}
-	return &EventPath{
-		Relationship: EventAssoc(assoc),
-		Model: EventModel(parts[1]), 
-		Hash: parts[2],
-		}, nil
+func NewEventPath(model EventModel, hash string) (*EventPath) {
+	return &EventPath{Model: model, Hash: hash}
 }
+
+func EventPathFromString(path string) (*EventPath) {
+	parts := strings.Split(path, "/")
+	// assoc, err := strconv.Atoi(parts[0])
+	// if err != nil {
+	// 	return nil, err
+	// }
+	switch len(parts) {
+	case 0:
+		return &EventPath{}
+	case 1:
+		return &EventPath{
+			//Relationship: EventAssoc(assoc),
+			Model: EventModel(""), 
+			Hash: parts[0],
+			}
+		default:
+			return &EventPath{
+				//Relationship: EventAssoc(assoc),
+				Model: EventModel(parts[0]), 
+				Hash: parts[1],
+				}
+	}
+}
+
+func (eP EventPath) GormDataType() string {
+	return "varchar"
+}
+func (eP EventPath) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+	
+	asString := eP.ToString()
+	return clause.Expr{
+	  SQL:  "?",
+	  Vars: []interface{}{asString},
+	  WithoutParentheses: false,
+	}
+  }
+  
+  func (sD *EventPath) Scan(value interface{}) error {
+	data, ok := value.(string)
+	if !ok {
+	  return errors.New(fmt.Sprint("Value not instance of string:", value))
+	}
+  
+	*sD = *EventPathFromString(data)
+	return nil
+  }
+  
+  func (sD *EventPath) Value() (driver.Value, error) {
+	logger.Infof("CONVERTING2 %s", sD.ToString())
+	return sD.ToString(), nil
+  }
+  
 
 type EventInterface interface {
 	EncodeBytes()  ([]byte, error)
@@ -64,19 +110,20 @@ type EventInterface interface {
 
 type Event struct {
 	// Primary
-	ID string `gorm:"primaryKey;type:char(36);not null" json:"id,omitempty"`
+	ID string `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
 
 	Payload  ClientPayload    `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
+	Nonce string `json:"nonce" gorm:"type:varchar(80);unique;;default:null" msgpack:",noinline"`
 	Timestamp   uint64       `json:"ts"`
 	EventType      uint16 `json:"t"`
 	Associations   []string      `json:"assoc" gorm:"type:text[]"`
-	PreviousEventHash   string      `json:"preE" gorm:"type:char(64)"`
-	AuthEventHash   string      `json:"authE" gorm:"type:char(64)"`
-	PayloadHash string `json:"pH" gorm:"type:varchar(64);index:,"`
+	PreviousEventHash   EventPath      `json:"preE" gorm:"type:varchar;default:null"`
+	AuthEventHash   EventPath      `json:"authE" gorm:"type:varchar;default:null"`
+	PayloadHash string `json:"pH" gorm:"type:char(64);unique,"`
 	// StateHash string `json:"sh"`
 	// Secondary
 	Error string `json:"err"`
-	Hash   string    `json:"h" gorm:"unique,type:varchar(64)"`
+	Hash   string    `json:"h" gorm:"unique,type:char(64)"`
 	Signature   string    `json:"sig"`
 	Broadcasted   bool      `json:"br"`
 	BlockNumber  uint64  `json:"blk"`
@@ -95,6 +142,9 @@ func (d *Event) BeforeCreate(tx *gorm.DB) (err error) {
 		
 		d.ID = uuid
 	}
+	if d.Payload.Nonce > 0 {
+		d.Nonce = fmt.Sprintf("%s:%d", string(d.Payload.Account), d.Payload.Nonce)
+	} 
 	return nil
   }
 
@@ -170,12 +220,13 @@ func (e Event) GetHash() ([]byte, error) {
 func (e Event) ToString() string {
 	values := []string{}
 	d, _ := json.Marshal(e.Payload)
-	values = append(values, fmt.Sprintf("%s", e.ID))
-	values = append(values, fmt.Sprintf("%s", d))
+	values = append(values, fmt.Sprintf("%d", d))
+	values = append(values,  e.ID)
+	values = append(values, fmt.Sprintf("%d", e.BlockNumber))
 	values = append(values, fmt.Sprintf("%d", e.EventType))
-	values = append(values, fmt.Sprintf("%s", strings.Join(e.Associations, ",")))
-	values = append(values, fmt.Sprintf("%s", e.PreviousEventHash))
-	values = append(values, fmt.Sprintf("%s", e.AuthEventHash))
+	values = append(values, strings.Join(e.Associations, ","))
+	values = append(values, e.PreviousEventHash.ToString())
+	values = append(values,  e.AuthEventHash.ToString())
 	values = append(values, fmt.Sprintf("%d", e.Timestamp))
 	return strings.Join(values, "")
 }
@@ -191,8 +242,8 @@ func (e Event) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: d},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.EventType},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: strings.Join(e.Associations, "")},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.PreviousEventHash},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.AuthEventHash},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.PreviousEventHash.Hash},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.AuthEventHash.Hash},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.BlockNumber},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.Timestamp},
 	)

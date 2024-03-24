@@ -3,17 +3,17 @@ package client
 import (
 	// "errors"
 	"context"
-	"errors"
-	"fmt"
-	"strings"
+	"encoding/json"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
-	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
+	"gorm.io/gorm"
 )
 
 var logger = &log.Logger
@@ -31,10 +31,10 @@ type MessageService struct {
 	Cfg configs.MainConfiguration
 }
 
-type Subscribe struct {
-	channel   string
-	timestamp string
-}
+// type Subscribe struct {
+// 	channel   string
+// 	timestamp string
+// }
 
 func NewMessageService(mainCtx *context.Context) *MessageService {
 	ctx := *mainCtx
@@ -45,34 +45,96 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 	}
 }
 
-func (p *MessageService) Send(chatMsg entities.ChatMessage, senderSignature string) (*entities.Event, error) {
-	if strings.ToLower(chatMsg.Validator) != strings.ToLower(crypto.GetPublicKeyEDD(p.Cfg.NetworkPrivateKey)) {
-		return nil, errors.New("Invalid Origin node address: " + chatMsg.Validator + " is not")
+
+// func (p *MessageService) Send(chatMsg entities.Message, senderSignature string) (*entities.Event, error) {
+// 	// if strings.ToLower(chatMsg.Validator) != strings.ToLower(crypto.GetPublicKeyEDD(p.Cfg.NetworkPrivateKey)) {
+// 	// 	return nil, errors.New("Invalid Origin node address: " + chatMsg.Validator + " is not")
+// 	// }
+// 	if service.IsValidMessage(chatMsg, senderSignature) {
+		
+
+// 		//if utils.Contains(chatMsg.Header.Channels, "*") || utils.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
+
+// 			privateKey := p.Cfg.NetworkPrivateKey
+
+// 			// TODO:
+// 			// if its an array check the channels .. if its * allow
+// 			// message server::: store messages, require receiver to request message through an endpoint
+// 			hash, _ := chatMsg.GetHash()
+// 			signature, _ := crypto.SignECC(hash, privateKey)
+// 			message := entities.Event{}
+// 			message.Payload.Data = &chatMsg
+// 			message.Signature = hexutil.Encode(signature)
+// 			outgoingMessageC, ok := p.Ctx.Value(constants.OutgoingMessageChId).(*chan *entities.Event)
+// 			if !ok {
+// 				logger.Error("Could not connect to outgoing channel")
+// 				panic("outgoing channel fail")
+// 			}
+// 			*outgoingMessageC <- &message
+// 			fmt.Printf("Testing my function%s, %s", chatMsg.ToString(), string(chatMsg.Data))
+// 			return &message, nil
+// 		//}
+// 	}
+// 	return nil, errors.New("INVALID MESSAGE SIGNER")
+// }
+
+
+func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+
+	payloadData := entities.Message{}
+	d, _ := json.Marshal(payload.Data)
+	e := json.Unmarshal(d, &payloadData)
+	if e != nil {
+		logger.Errorf("UnmarshalError %v", e)
 	}
-	if entities.IsValidMessage(chatMsg, senderSignature) {
-		channel := strings.Split(chatMsg.Header.Receiver, ":")
+	payload.Data = payloadData
+	
+	topicData, err := GetTopicById(payloadData.TopicId)
+	if err != nil {
+		return nil, nil, err
+	}
 
-		if utils.Contains(chatMsg.Header.Channels, "*") || utils.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
+	if topicData == nil {
+		return nil, nil,  apperror.BadRequest("Invalid topic id")
+	}
 
-			privateKey := p.Cfg.NetworkPrivateKey
+	// pool = channelpool.SubscriptionEventPublishC
 
-			// TODO:
-			// if its an array check the channels .. if its * allow
-			// message server::: store messages, require receiver to request message through an endpoint
-			hash, _ := chatMsg.GetHash()
-			signature, _ := crypto.SignECC(hash, privateKey)
-			message := entities.Event{}
-			message.Payload.Data = &chatMsg
-			message.Signature = hexutil.Encode(signature)
-			outgoingMessageC, ok := p.Ctx.Value(constants.OutgoingMessageChId).(*chan *entities.Event)
-			if !ok {
-				logger.Error("Could not connect to outgoing channel")
-				panic("outgoing channel fail")
+
+	var subscription models.SubscriptionState
+	err = query.GetOne(models.SubscriptionState{
+		Subscription: entities.Subscription{Subscriber: payload.Account, Topic: topicData.ID, Status: constants.SubscribedSubscriptionStatus },
+	}, &subscription)
+	if err != nil {
+		if err != gorm.ErrRecordNotFound {
+			if (payload.Account != topicData.Account) {
+				return nil, entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash), apperror.Forbidden("Now subscribed to topic")
 			}
-			*outgoingMessageC <- &message
-			fmt.Printf("Testing my function%s, %s", chatMsg.ToString(), chatMsg.Body.SubjectHash)
-			return &message, nil
 		}
+		return nil, entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash), apperror.Internal(err.Error())
 	}
-	return nil, fmt.Errorf("Invalid message signer")
+	if (topicData.ReadOnly && payload.Account != topicData.Account && subscription.Role != constants.AdminSubPriviledge) {
+		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
+	}
+
+	 err = service.ValidateMessageData(&payloadData, &payload)
+	if err != nil {
+		return nil,nil,  err
+	}
+
+
+	
+
+	// dont worry validating the AuthHash for Authorization requests
+	// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
+	// 	return  errors.New("Authorization timestamp exceeded")
+	// }
+
+	// generate associations
+	assocPrevEvent = entities.NewEventPath(entities.SubscriptionEventModel, subscription.EventHash) 
+
+	if currentAuthState != nil {
+		assocAuthEvent =  entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash)
+	}
+	return assocPrevEvent, assocAuthEvent, nil
 }

@@ -22,12 +22,21 @@ package constants
 type AuthorizationPrivilege uint8
 
 const (
-	Readriviledge   AuthorizationPrivilege = 0
-	Writeriviledge  AuthorizationPrivilege = 1
+	ReadPriviledge   AuthorizationPrivilege = 0
+	WritePriviledge  AuthorizationPrivilege = 1
 	AdminPriviledge AuthorizationPrivilege = 2
 )
 
+type EventPayloadType string
+const (
+	TopicPayloadType EventPayloadType = "topic"
+	SubscriptionPayloadType EventPayloadType = "subscription"
+	MessagePayloadType EventPayloadType = "message"
+)
+
 type EventType uint16
+
+
 
 // Authrization
 const (
@@ -48,22 +57,29 @@ const (
 	UpdateAvatarEvent      EventType = 1008 //  m.room.avatar
 	PinMessageEvent        EventType = 1008 //  m.room.avatar
 	UpdateTopicEvent       EventType = 1009
+	UpgradeSubscriberEvent EventType = 1010
 )
 
 // Member Topic Actions
 const (
 	LeaveEvent     EventType = 1100
-	JoinTopicEvent EventType = 1101
+	SubscribeTopicEvent EventType = 1101
 	RequestedEvent EventType = 1102
 	ApprovedEvent  EventType = 1103
-	UpgradedEvent  EventType = 1104
-	InvitedEvent   EventType = 1105
+	InvitedEvent   EventType = 1104
 )
 
 // Message Actions
 const (
 	DeleteMessageEvent  EventType = 1200 //m.room.encrypted
-	CreateMessageEvent  EventType = 1201 // m.room.message
-	CreateReactionEvent EventType = 1202 // m.reaction
+	SendMessageEvent  EventType = 1201 // m.room.message
+	// CreateReactionEvent EventType = 1202 // m.reaction
 	// IsTypingEvent       EventType = 1203
+)
+
+type SubscriberPrivilege uint8
+
+const (
+	MemberSubPriviledge SubscriberPrivilege = 0
+	AdminSubPriviledge  SubscriberPrivilege = 1
 )

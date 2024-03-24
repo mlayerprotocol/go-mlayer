@@ -48,8 +48,8 @@ func GetDependentEvents(event entities.Event) (*[]models.AuthorizationEvent, err
 
 	data := []models.AuthorizationEvent{}
 	err := db.Db.Where(
-		&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: event.Hash}},
-	).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: event.Hash}},
+		&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: *entities.NewEventPath(entities.AuthEventModel, event.Hash)}},
+	).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: *entities.NewEventPath(entities.AuthEventModel, event.Hash)}},
 	// ).Or("? LIKE ANY (associations)", fmt.Sprintf("%%%s%%", event.Hash)
 	).Find(&data).Error
 	if err != nil {
