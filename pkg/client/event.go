@@ -65,7 +65,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	// 	}
 
 	case uint16(constants.SubscribeTopicEvent), uint16(constants.ApprovedEvent), uint16(constants.BanMemberEvent), uint16(constants.UnbanMemberEvent):
-		if authState.Authorization.Priviledge < constants.AdminPriviledge {
+		if authState.Authorization.Priviledge < constants.WritePriviledge {
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		eventPayloadType = constants.SubscriptionPayloadType
