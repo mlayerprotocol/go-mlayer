@@ -361,5 +361,17 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	})
 
+	router.GET("/api/subscription/account", func(c *gin.Context) {
+		// id := c.Param("id")
+		subscriptions, err := client.GetAccountSubscriptions()
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
+	})
+
 	return router
 }

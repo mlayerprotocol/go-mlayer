@@ -26,10 +26,10 @@ func ValidateTopicData(topic *entities.Topic) (currentTopicState *models.TopicSt
 	// check fields of topic
 	logger.Info("Topiccc", topic.Handle)
 	if len(topic.Handle) > 40 {
-		return nil,  apperror.BadRequest("Topic handle cannont be more than 40 characters")
+		return nil, apperror.BadRequest("Topic handle cannont be more than 40 characters")
 	}
 	if !utils.IsAlphaNumericDot(topic.Handle) {
-		return nil,  apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
+		return nil, apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
 	}
 	return nil, nil
 }
@@ -56,7 +56,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	data.Hash = hex.EncodeToString(hash)
 	authEventHash := event.AuthEventHash.Hash
 	authState, authError := query.GetOneAuthorizationState(entities.Authorization{EventHash: authEventHash})
-	
+
 	currentState, err := ValidateTopicData(data)
 	if err != nil {
 		// penalize node for broadcasting invalid data
@@ -108,12 +108,12 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 			}
 		}
 	}
-	
+
 	if authError != nil {
 		// check if we are upto date. If we are, then the error is an actual one
 		// the error should be attached when saving the event
 		// But if we are not upto date, then we might need to wait for more info from the network
-		
+
 		if prevEventUpToDate && authEventUpToDate {
 			// we are upto date. This is an actual error. No need to expect an update from the network
 			eventError = authError.Error()
@@ -215,9 +215,10 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	}
 	data.EventHash = event.Hash
 	data.Agent = entities.AddressString(agent)
+
 	if updateState {
 		_, _, err := query.SaveRecord(models.TopicState{
-			Topic: entities.Topic{ID: data.ID},
+			Topic: entities.Topic{Hash: data.Hash},
 		}, models.TopicState{
 			Topic: *data,
 		}, true, tx)
