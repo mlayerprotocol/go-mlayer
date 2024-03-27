@@ -47,9 +47,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	switch payload.EventType {
 	case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.LeaveEvent):
 		eventPayloadType = constants.TopicPayloadType
-		if authState.Authorization.Priviledge < constants.AdminPriviledge {
-			return nil, apperror.Forbidden("Agent not authorized to perform this action")
-		}
+		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
+		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
+		// }
 		assocPrevEvent, assocAuthEvent, err = ValidateTopicPayload(payload, authState)
 		if err != nil {
 			return nil, err

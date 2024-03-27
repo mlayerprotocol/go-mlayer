@@ -27,6 +27,37 @@ func GetSubscriptions() (*[]models.SubscriptionState, error) {
 	return &subscriptionStates, nil
 }
 
+func GetAccountSubscriptions() (*[]models.TopicState, error) {
+
+	// query.GetAccountSubscriptions("did:cosmos1vxm0v5dm9hacm3mznvx852fmtu6792wpa4wgqx")
+	var subscriptionStates []models.SubscriptionState
+	var topicStates []models.TopicState
+
+	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Subscriber: "did:cosmos1vxm0v5dm9hacm3mznvx852fmtu6792wpa4wgqx"}}, &subscriptionStates)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	topicIds := make([]string, len(subscriptionStates))
+
+	for _, sub := range subscriptionStates {
+		topicIds = append(topicIds, sub.Topic)
+	}
+
+	topErr := query.GetWithIN(models.TopicState{}, &topicStates, topicIds)
+	if topErr != nil {
+		if topErr == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &topicStates, nil
+}
+
 func GetSubscription(id string) (*models.SubscriptionState, error) {
 	subscriptionState := models.SubscriptionState{}
 
