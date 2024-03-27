@@ -39,7 +39,7 @@ const (
 	NETWORK                  = "network"
 	RPC_PORT            Flag = "rpc-port"
 	WS_ADDRESS          Flag = "ws-address"
-	REST_ADDRESS          Flag = "rest-address"
+	REST_ADDRESS        Flag = "rest-address"
 	DATA_DIR            Flag = "data-dir"
 )
 const MaxDeliveryProofBlockSize = 1000
@@ -77,16 +77,12 @@ func init() {
 
 }
 
-
 func daemonFunc(cmd *cobra.Command, args []string) {
 	cfg := configs.Config
 	ctx := context.Background()
 
 	sql.Init()
 
-	
-
-	
 	rpcPort, _ := cmd.Flags().GetString(string(RPC_PORT))
 	wsAddress, _ := cmd.Flags().GetString(string(WS_ADDRESS))
 	restAddress, _ := cmd.Flags().GetString(string(REST_ADDRESS))
@@ -109,11 +105,11 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}
 
 	if len(wsAddress) > 0 {
-		cfg.WSAddress = wsAddress;
+		cfg.WSAddress = wsAddress
 	}
 
 	if len(restAddress) > 0 {
-		cfg.RestAddress = restAddress;
+		cfg.RestAddress = restAddress
 	}
 
 	dataDir, err := cmd.Flags().GetString(string(DATA_DIR))
@@ -134,12 +130,11 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		rpcPort = cfg.RPCPort
 	}
 	if len(rpcPort) > 0 {
-		cfg.RPCPort = rpcPort;
+		cfg.RPCPort = rpcPort
 	}
 	if len(cfg.RPCPort) == 0 {
-		cfg.RPCPort = constants.DefaultRPCPort;
+		cfg.RPCPort = constants.DefaultRPCPort
 	}
-
 
 	chain.Init(&cfg)
 
@@ -154,8 +149,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// ADD EVENT BROADCAST CHANNELS TO THE CONTEXT
 	ctx = context.WithValue(ctx, constants.BroadcastAuthorizationEventChId, &channelpool.AuthorizationEventPublishC)
 	ctx = context.WithValue(ctx, constants.BroadcastTopicEventChId, &channelpool.TopicEventPublishC)
-	
-	
+
 	// CLEANUP
 	ctx = context.WithValue(ctx, constants.IncomingMessageChId, &channelpool.IncomingMessageEvent_P2P_D_C)
 	ctx = context.WithValue(ctx, constants.OutgoingMessageChId, &channelpool.NewPayload_Cli_D_C)
@@ -176,6 +170,7 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 
 	node.Start(&ctx)
 }
+
 // func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 
 // 	c, err := upgrader.Upgrade(w, r, nil)

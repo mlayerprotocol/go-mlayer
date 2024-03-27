@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -17,24 +18,24 @@ type Payload interface {
 	EncodeBytes() ([]byte, error)
 }
 
-func GetId (d Payload) (string, error) {
+func GetId(d Payload) (string, error) {
 	hash, err := d.GetHash()
 	if err != nil {
 		return "", err
-	 }
-	 u, err := uuid.FromBytes(hash[:16])
-	 if err != nil {
-	   return "", err
-	 }
-	 return u.String(), nil
-  }
+	}
+	u, err := uuid.FromBytes(hash[:16])
+	if err != nil {
+		return "", err
+	}
+	return u.String(), nil
+}
 
 type ClientPayload struct {
 	// Primary
-	Data      interface{}     `json:"d"`
-	Timestamp int             `json:"ts"`
-	EventType uint16          `json:"ty"`
-	Nonce     uint64          `json:"nonce"`
+	Data      interface{}   `json:"d"`
+	Timestamp int           `json:"ts"`
+	EventType uint16        `json:"ty"`
+	Nonce     uint64        `json:"nonce"`
 	Account   AddressString `json:"acct,omitempty"` // optional public key of sender
 	// Authorization *Authorization `json:"auth"`
 	// AuthHash string `json:"auth"` // optional hash of
@@ -42,14 +43,13 @@ type ClientPayload struct {
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
 	Signature string `json:"sig"`
 	Hash      string `json:"h,omitempty"`
-	Agent string `gorm:"-" json:"-"`
+	Agent     string `gorm:"-" json:"-"`
 }
 
 func (msg ClientPayload) ToJSON() []byte {
 	m, _ := json.Marshal(&msg)
 	return m
 }
-
 
 // func (msg ClientPayload) EventNonce() string {
 // 	return fmt.Sprintf("%s:%s", string(msg.Account), msg.Nonce)
@@ -59,7 +59,7 @@ func (msg ClientPayload) ToJSON() []byte {
 // 	// }
 // 	// agent, _ := crypto.GetSignerECC(&d, &msg.Signature)
 // 	// return hex.EncodeToString(crypto.Keccak256Hash([]byte(fmt.Sprintf("%s:%d",  agent, msg.Nonce))))
-// 	return 
+// 	return
 // }
 // func (s *ClientPayload) Encode() []byte {
 // 	b, _ := s.Data.ToString()
@@ -91,9 +91,10 @@ func (msg ClientPayload) GetHash() ([]byte, error) {
 }
 
 func (msg ClientPayload) GetSigner() (string, error) {
-	
+
 	if len(msg.Agent) == 0 {
 		b, err := msg.EncodeBytes()
+		logger.Info("ENCODEDBBBBB", " ", hex.EncodeToString(b), " ", hex.EncodeToString(crypto.Keccak256Hash(b)))
 		if err != nil {
 			return "", err
 		}
@@ -127,9 +128,9 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	
+
 	hashed := crypto.Keccak256Hash(b)
-	// logger.Info("ENCODED==== ", hex.EncodeToString(b), " ", hex.EncodeToString(hashed))
+	// logger.Info("ENCODED==== ", hex.EncodeToString(b), " HASHED==== ", hex.EncodeToString(hashed))
 	var params []encoder.EncoderParam
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
@@ -149,4 +150,11 @@ func ClientPayloadFromBytes(b []byte) (ClientPayload, error) {
 	var message ClientPayload
 	err := json.Unmarshal(b, &message)
 	return message, err
+}
+
+
+/** SYNC REQUEST PAYLOAD **/
+type SyncRequest struct {
+	Interval ResponseInterval `json:"inter"`
+	TopicIds string `json:"topIds"`
 }

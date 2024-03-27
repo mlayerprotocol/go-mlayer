@@ -40,6 +40,7 @@ const (
 	SubscriptionBlockStateStore          = "subscription-block-state-store"
 	DeliveryProofBlockStore              = "dp-block-store"
 	SubscriptionBlockStore               = "sub-block-store"
+	ConnectedSubscriber                  = "connected-subscriber"
 )
 
 // Channel Ids within main context
@@ -83,11 +84,11 @@ const (
 type SubscriptionStatuses int16
 
 const (
-	UnsubscribedSubscriptionStatus  SubscriptionStatuses = 0
-	PendingSubscriptionStatus       SubscriptionStatuses = 1
+	UnsubscribedSubscriptionStatus SubscriptionStatuses = 0
+	PendingSubscriptionStatus      SubscriptionStatuses = 1
 	SubscribedSubscriptionStatus   SubscriptionStatuses = 2
 	// ApprovedSubscriptionStatus      SubscriptionStatuses = "approved"
-	BannedSubscriptionStatus        SubscriptionStatuses = 3
+	BannedSubscriptionStatus SubscriptionStatuses = 3
 	// UNBANNED     SubscriptionStatuses = "unbanned"
 )
 
@@ -133,6 +134,7 @@ Header          = head
 Identifier		= id
 Index           = i
 InviteOnly 		= invO
+Interval		= inter
 IsValid         = isVal
 Length          = len
 Message         = m
@@ -154,6 +156,7 @@ Proof           = pr
 Proofs          = prs
 ProtocolId      = proId
 PublicKey		= pubK
+Range			= range
 ReadOnly		= rO
 Receiver        = r
 Ref             = ref
@@ -262,8 +265,6 @@ You can change the message and send multiple times.
 </body>
 </html>
 `))
-
-
 
 /*
 {\"type\": \"cosmos-sdk/StdTx\",
