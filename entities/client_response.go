@@ -69,3 +69,4 @@ type Presence struct {
 	Topics TopicResponse `json:"topics,omitempty"`
  }
 
+	

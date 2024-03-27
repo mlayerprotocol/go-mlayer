@@ -18,6 +18,8 @@ const (
 	ValidatorNodeType      = 1
 )
 
+
+
 const MaxBlockSize = 1000
 
 const (
@@ -80,6 +82,8 @@ const (
 	MQTT Protocol = "mqtt"
 	RPC  Protocol = "rpc"
 )
+
+
 
 type SubscriptionStatuses int16
 

@@ -30,8 +30,8 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
 			//return nil, nil, apperror.Unauthorized("Not a subscriber")
-		// } else {
-			return nil,  err
+			// } else {
+			return nil, err
 		}
 	}
 	return currentState, err
@@ -69,19 +69,18 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	var topicData *models.TopicState
 
 	err = query.GetOne(models.TopicState{
-		Topic: entities.Topic{Hash: data.Topic},
+		Topic: entities.Topic{ID: data.Topic},
 	}, &topicData)
 
 	currentState, authError := ValidateSubscriptionData(data, &event.Payload)
 	prevEventUpToDate := false
 	authEventUpToDate := false
 
-
 	// check if we are upto date on this event
 	prevEventUpToDate = (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
-	
-	authState, authError := query.GetOneAuthorizationState(entities.Authorization{EventHash:  event.AuthEventHash.Hash})
-	
+
+	authState, authError := query.GetOneAuthorizationState(entities.Authorization{EventHash: event.AuthEventHash.Hash})
+
 	authEventUpToDate = (authState.ID == "" && event.AuthEventHash.Hash == "") || (authState.ID != "" && authState.EventHash == event.AuthEventHash.Hash)
 
 	// Confirm if this is an older event coming after a newer event.
@@ -226,8 +225,6 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 			}
 		}
 	}
-
-	
 
 	//Update subscription status based on the event type
 	switch event.Payload.EventType {
