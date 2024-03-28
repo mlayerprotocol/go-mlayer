@@ -361,9 +361,22 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	})
 
-	router.GET("/api/subscription/account", func(c *gin.Context) {
-		// id := c.Param("id")
-		subscriptions, err := client.GetAccountSubscriptions()
+	router.POST("/api/subscription/account", func(c *gin.Context) {
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		logger.Infof("Payload %v", payload.Data)
+		message := entities.Message{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &message)
+		if e != nil {
+			logger.Errorf("UnmarshalError %v", e)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
+			return
+		}
+		subscriptions, err := client.GetAccountSubscriptions(payload)
 
 		if err != nil {
 			logger.Error(err)
