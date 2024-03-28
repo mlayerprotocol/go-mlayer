@@ -215,6 +215,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	}
 	data.EventHash = event.Hash
 	data.Agent = entities.AddressString(agent)
+	data.Account = event.Payload.Account
 
 	if updateState {
 		_, _, err := query.SaveRecord(models.TopicState{
