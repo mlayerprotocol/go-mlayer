@@ -27,13 +27,23 @@ func GetSubscriptions() (*[]models.SubscriptionState, error) {
 	return &subscriptionStates, nil
 }
 
-func GetAccountSubscriptions() (*[]models.TopicState, error) {
+func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicState, error) {
+
+	payloadData := entities.Subscription{}
+	d, _ := json.Marshal(payload.Data)
+	e := json.Unmarshal(d, &payloadData)
+	if e != nil {
+		logger.Errorf("UnmarshalError %v", e)
+	}
+
+	payload.Data = payloadData
 
 	// query.GetAccountSubscriptions("did:cosmos1vxm0v5dm9hacm3mznvx852fmtu6792wpa4wgqx")
 	var subscriptionStates []models.SubscriptionState
+	var subTopicStates []models.TopicState
 	var topicStates []models.TopicState
 
-	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Subscriber: "did:cosmos1vxm0v5dm9hacm3mznvx852fmtu6792wpa4wgqx"}}, &subscriptionStates)
+	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Subscriber: payload.Account}}, &subscriptionStates)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -47,13 +57,23 @@ func GetAccountSubscriptions() (*[]models.TopicState, error) {
 		topicIds = append(topicIds, sub.Topic)
 	}
 
-	topErr := query.GetWithIN(models.TopicState{}, &topicStates, topicIds)
-	if topErr != nil {
-		if topErr == gorm.ErrRecordNotFound {
+	subTopErr := query.GetWithIN(models.TopicState{}, &subTopicStates, topicIds)
+	if subTopErr != nil {
+		if subTopErr == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
+
+	topErr := query.GetMany(models.TopicState{Topic: entities.Topic{Agent: entities.AddressString(payload.Agent)}}, &topicStates)
+	if topErr != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	topicStates = append(topicStates, subTopicStates...)
 
 	return &topicStates, nil
 }
