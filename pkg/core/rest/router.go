@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/pkg/client"
@@ -64,24 +65,17 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{}))
 	})
 	router.GET("/api/authorizations", func(c *gin.Context) {
-
-		rawQuery := c.Request.URL.Query()
-		var query map[string]string = map[string]string{}
-		for key, v := range rawQuery {
-			if len(v) > 0 {
-				query[key] = v[0]
-			}
-
-		}
-		b, requestErr := json.Marshal(query)
-		if requestErr != nil {
-			logger.Error(requestErr)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: requestErr.Error()}))
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 			return
 		}
 		var authEntity entities.Authorization
-		json.Unmarshal(b, &authEntity)
-		auths, err := client.GetAuthorizations(authEntity)
+		var payload entities.ClientPayload
+		json.Unmarshal(*b, &authEntity)
+		json.Unmarshal(*b, &payload)
+		auths, err := client.GetAccountAuthorizations(&authEntity, &payload)
 
 		if err != nil {
 			logger.Error(err)
@@ -166,12 +160,14 @@ func (p *RestService) Initialize() *gin.Engine {
 	router.GET("/api/topics/subscribers", func(c *gin.Context) {
 		subs, err := client.GetSubscriptions()
 
-
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
-
-		if err != nil {
-			logger.Error(err)\
+			logger.Error(err)
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
@@ -363,6 +359,40 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: event}))
 
+	})
+
+	router.GET("/api/subscription/account", func(c *gin.Context) {
+		// id := c.Param("id")
+		subscriptions, err := client.GetAccountSubscriptions()
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
+	})
+
+	router.GET("/api/sync", func(c *gin.Context) {
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+			return
+		}
+		var authEntity entities.Authorization
+		var payload entities.ClientPayload
+		json.Unmarshal(*b, &authEntity)
+		json.Unmarshal(*b, &payload)
+
+		syncResponse := entities.SyncResponse{}
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: syncResponse}))
 	})
 
 	return router

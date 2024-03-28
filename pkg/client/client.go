@@ -45,5 +45,5 @@ func ValidateClientPayload(
 
 func SyncRequest(payload *entities.ClientPayload) (entities.SyncResponse) {
 	var response = entities.SyncResponse{}
-	var 
+	return response 
 }

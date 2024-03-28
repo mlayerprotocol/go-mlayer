@@ -255,7 +255,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 	if updateState {
 		_, _, err := query.SaveRecord(models.SubscriptionState{
-			Subscription: entities.Subscription{ID: data.ID},
+			Subscription: entities.Subscription{Hash: data.Hash},
 		}, models.SubscriptionState{
 			Subscription: *data,
 		}, true, tx)

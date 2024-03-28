@@ -63,8 +63,8 @@ type Presence struct {
 }
 
  type SyncResponse struct {
-	Time ResponseInterval `json:"time,omitempty"`
-	Authorization Authorization `json:"auth,omitempty"`
+	TimeFrame ResponseInterval `json:"time,omitempty"`
+	Authorization Authorization `json:"auths,omitempty"`
 	Presence Presence `json:"presence,omitempty"`
 	Topics TopicResponse `json:"topics,omitempty"`
  }

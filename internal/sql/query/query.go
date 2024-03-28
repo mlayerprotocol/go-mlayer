@@ -1,6 +1,9 @@
 package query
 
 import (
+	"fmt"
+
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"gorm.io/gorm"
@@ -17,8 +20,20 @@ func GetOne[T any, U any](filter T, data *U) error {
 	return nil
 }
 
-func GetMany[T any, U any](item T, data *U) error {
-	err := db.Db.Where(&item).Find(data).Error
+func GetMany[T any, U any](filter T, data *U) error {
+	err := db.Db.Where(&filter).Find(data).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
+
+func GetWithIN[T any, U any, I any](item T, data *U, slice I) error {
+	err := db.Db.Find(data, slice).Error
+
 	if err != nil {
 		return err
 	}
@@ -71,4 +86,34 @@ func SaveRecord[Model any](where Model, data Model, update bool, DB *gorm.DB) (m
 		tx.Commit()
 	}
 	return &data, result.RowsAffected > 0, nil
+}
+
+func GetTableName(table any) string {
+	stmt := &gorm.Statement{DB: db.Db}
+	stmt.Parse(table)
+	return stmt.Schema.Table
+}
+
+func GetAccountSubscriptions(account string) {
+
+	topicTableName := GetTableName(models.TopicState{})
+	subscriptionTableName := GetTableName(models.SubscriptionState{})
+
+	rows, err := db.Db.Table(subscriptionTableName).Where(fmt.Sprintf("%s.subscriber = \"%s\"", subscriptionTableName, account)).Joins(fmt.Sprintf("right join %s on %s.topic = %s.id", topicTableName, subscriptionTableName, topicTableName)).Rows()
+	defer rows.Close()
+
+	// logger.Info(rows.)
+
+	if err != nil {
+		logger.Info(err)
+	}
+
+	var subscriptions []map[string]string
+	for rows.Next() {
+		var subscription map[string]string
+		db.Db.ScanRows(rows, &subscription)
+		subscriptions = append(subscriptions, subscription)
+	}
+	logger.Infof("%s", subscriptions)
+
 }
