@@ -20,10 +20,12 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetAuthorizations() (*[]models.AuthorizationState, error) {
+func GetAuthorizations(auth entities.Authorization) (*[]models.AuthorizationState, error) {
 	var authState []models.AuthorizationState
 
-	err := query.GetMany(models.AuthorizationState{}, &authState)
+	err := query.GetMany(models.AuthorizationState{
+		Authorization: auth,
+	}, &authState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
