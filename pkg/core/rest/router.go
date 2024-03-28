@@ -351,14 +351,6 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 		logger.Infof("Payload %v", payload.Data)
-		message := entities.Message{}
-		d, _ := json.Marshal(payload.Data)
-		e := json.Unmarshal(d, &message)
-		if e != nil {
-			logger.Errorf("UnmarshalError %v", e)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
-			return
-		}
 		subscriptions, err := client.GetAccountSubscriptions(payload)
 
 		if err != nil {
