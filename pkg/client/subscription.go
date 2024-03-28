@@ -29,15 +29,6 @@ func GetSubscriptions() (*[]models.SubscriptionState, error) {
 
 func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicState, error) {
 
-	payloadData := entities.Subscription{}
-	d, _ := json.Marshal(payload.Data)
-	e := json.Unmarshal(d, &payloadData)
-	if e != nil {
-		logger.Errorf("UnmarshalError %v", e)
-	}
-
-	payload.Data = payloadData
-
 	// query.GetAccountSubscriptions("did:cosmos1vxm0v5dm9hacm3mznvx852fmtu6792wpa4wgqx")
 	var subscriptionStates []models.SubscriptionState
 	var subTopicStates []models.TopicState
