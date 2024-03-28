@@ -64,7 +64,24 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{}))
 	})
 	router.GET("/api/authorizations", func(c *gin.Context) {
-		auths, err := client.GetAuthorizations()
+
+		rawQuery := c.Request.URL.Query()
+		var query map[string]string = map[string]string{}
+		for key, v := range rawQuery {
+			if len(v) > 0 {
+				query[key] = v[0]
+			}
+
+		}
+		b, requestErr := json.Marshal(query)
+		if requestErr != nil {
+			logger.Error(requestErr)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: requestErr.Error()}))
+			return
+		}
+		var authEntity entities.Authorization
+		json.Unmarshal(b, &authEntity)
+		auths, err := client.GetAuthorizations(authEntity)
 
 		if err != nil {
 			logger.Error(err)
@@ -149,8 +166,12 @@ func (p *RestService) Initialize() *gin.Engine {
 	router.GET("/api/topics/subscribers", func(c *gin.Context) {
 		subs, err := client.GetSubscriptions()
 
+
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
+
+		if err != nil {
+			logger.Error(err)\
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
@@ -191,7 +212,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
@@ -220,7 +241,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
@@ -249,7 +270,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
@@ -278,7 +299,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		if err != nil {
 			logger.Error(err)
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
@@ -336,7 +357,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {
-			c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 
