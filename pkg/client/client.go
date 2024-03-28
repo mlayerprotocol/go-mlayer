@@ -41,9 +41,3 @@ func ValidateClientPayload(
 	}
 	return nil, apperror.BadRequest("Unable to resolve agent")
 }
-
-
-func SyncRequest(payload *entities.ClientPayload) (entities.SyncResponse) {
-	var response = entities.SyncResponse{}
-	return response 
-}

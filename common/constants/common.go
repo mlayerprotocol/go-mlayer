@@ -18,8 +18,6 @@ const (
 	ValidatorNodeType      = 1
 )
 
-
-
 const MaxBlockSize = 1000
 
 const (
@@ -83,8 +81,6 @@ const (
 	RPC  Protocol = "rpc"
 )
 
-
-
 type SubscriptionStatuses int16
 
 const (
@@ -138,7 +134,6 @@ Header          = head
 Identifier		= id
 Index           = i
 InviteOnly 		= invO
-Interval		= inter
 IsValid         = isVal
 Length          = len
 Message         = m
@@ -160,7 +155,6 @@ Proof           = pr
 Proofs          = prs
 ProtocolId      = proId
 PublicKey		= pubK
-Range			= range
 ReadOnly		= rO
 Receiver        = r
 Ref             = ref

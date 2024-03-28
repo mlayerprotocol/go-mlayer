@@ -20,16 +20,14 @@ func GetOne[T any, U any](filter T, data *U) error {
 	return nil
 }
 
-func GetMany[T any, U any](filter T, data *U) error {
-	err := db.Db.Where(&filter).Find(data).Error
+func GetMany[T any, U any](item T, data *U) error {
+	err := db.Db.Where(&item).Find(data).Error
 	if err != nil {
 		return err
 	}
 
 	return nil
 }
-
-
 
 func GetWithIN[T any, U any, I any](item T, data *U, slice I) error {
 	err := db.Db.Find(data, slice).Error

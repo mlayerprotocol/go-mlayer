@@ -1,11 +1,9 @@
 package utils
 
 import (
-	"encoding/json"
 	"regexp"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
@@ -36,38 +34,4 @@ func IfThenElse[T any](condition bool, a T, b T) T {
 		return a
 	}
 	return b
-}
-
-// func ParseQuery[Entity any](c *gin.Context, entitie *Entity) (error) {
-// 	rawQuery := c.Request.URL.Query()
-// 		var query map[string]string = map[string]string{}
-// 		for key, v := range rawQuery {
-// 			if len(v) > 0 {
-// 				query[key] = v[0]
-// 			}
-
-// 		}
-// 		b, requestErr := json.Marshal(query)
-// 		if requestErr != nil {
-// 			return requestErr
-// 		}
-// 		// for _, e := range entities {
-// 			json.Unmarshal(b, entitie)
-// 		// }
-// 		return nil
-// }
-func ParseQueryString(c *gin.Context) (*[]byte, error) {
-	rawQuery := c.Request.URL.Query()
-		var query map[string]string = map[string]string{}
-		for key, v := range rawQuery {
-			if len(v) > 0 {
-				query[key] = v[0]
-			}
-
-		}
-		b, requestErr := json.Marshal(query)
-		if requestErr != nil {
-			return nil, requestErr
-		}
-		return &b, nil
 }

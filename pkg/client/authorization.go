@@ -20,31 +20,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func getAuthorizations(auth entities.Authorization) (*[]models.AuthorizationState, error) {
+func GetAuthorizations(auth entities.Authorization) (*[]models.AuthorizationState, error) {
 	var authState []models.AuthorizationState
 
 	err := query.GetMany(models.AuthorizationState{
 		Authorization: auth,
-	}, &authState)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &authState, nil
-}
-
-func GetAccountAuthorizations(auth *entities.Authorization, clientPayload *entities.ClientPayload) (*[]models.AuthorizationState, error) {
-	//agentAuthState, _ := ValidateClientPayload(clientPayload)
-	
-	// if agentAuthState == nil || agentAuthState.Priviledge == 0 {
-	// 	return nil, apperror.Unauthorized("Agent not authorized")
-	// }
-	var authState []models.AuthorizationState
-
-	err := query.GetMany(models.AuthorizationState{
-		Authorization: *auth,
 	}, &authState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {

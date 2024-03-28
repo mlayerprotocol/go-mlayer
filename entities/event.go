@@ -130,7 +130,6 @@ type Event struct {
 	IsValid   bool      `json:"isVal" gorm:"default:false"`
 	Synced bool      `json:"sync" gorm:"default:false"`
 	Validator PublicKeyString `json:"val"`
-	InternalEvents []interface{} `json:"iEs" gorm:"_"`
 }
 
 func (d *Event) BeforeCreate(tx *gorm.DB) (err error) {
