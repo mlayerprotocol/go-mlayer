@@ -113,19 +113,19 @@ func (a MessageAction) EncodeBytes() []byte {
 }
 
 type Message struct {
-	ID        string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Timestamp uint64        `json:"ts"`
-	TopicId   string        `json:"topId"`
-	Sender    AddressString `json:"s"`
+	ID              string          `json:"id" gorm:"type:uuid;primaryKey;not null"`
+	// Timestamp      uint64   `json:"ts"`
+	TopicId  string `json:"topId"`
+	Sender  AddressString   `json:"s"`
 	// OwnerAddress  string              `json:"oA"`
 	Receiver AddressString   `json:"r"`
 	Data     string          `json:"d"`
 	Actions  []MessageAction `json:"a"`
 	// Length int `json:"len"`
+	Attachments []MessageAttachment `json:"atts"`
 
 	/// DERIVED
-	Hash        string              `json:"h"`
-	Attachments []MessageAttachment `json:"atts"`
+	Hash string `json:"h"`
 	// Subject     string              `json:"s"`
 	Signature string `json:"sig"`
 	// Origin      string              `json:"o"`
