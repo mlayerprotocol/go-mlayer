@@ -14,10 +14,12 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetSubscriptions() (*[]models.SubscriptionState, error) {
+func GetSubscriptions(payload entities.Subscription) (*[]models.SubscriptionState, error) {
 	var subscriptionStates []models.SubscriptionState
 
-	err := query.GetMany(models.SubscriptionState{}, &subscriptionStates)
+	err := query.GetMany(models.SubscriptionState{
+		Subscription: payload,
+	}, &subscriptionStates)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -48,12 +50,14 @@ func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicSta
 		topicIds = append(topicIds, sub.Topic)
 	}
 
-	subTopErr := query.GetWithIN(models.TopicState{}, &subTopicStates, topicIds)
-	if subTopErr != nil {
-		if subTopErr == gorm.ErrRecordNotFound {
-			return nil, nil
+	if len(topicIds) > 0 {
+		subTopErr := query.GetWithIN(models.TopicState{}, &subTopicStates, topicIds)
+		if subTopErr != nil {
+			if subTopErr == gorm.ErrRecordNotFound {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return nil, err
 	}
 
 	topErr := query.GetMany(models.TopicState{Topic: entities.Topic{Account: payload.Account}}, &topicStates)

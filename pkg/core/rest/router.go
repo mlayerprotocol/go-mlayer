@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/pkg/client"
@@ -65,22 +66,15 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 	router.GET("/api/authorizations", func(c *gin.Context) {
 
-		rawQuery := c.Request.URL.Query()
-		var query map[string]string = map[string]string{}
-		for key, v := range rawQuery {
-			if len(v) > 0 {
-				query[key] = v[0]
-			}
-
-		}
-		b, requestErr := json.Marshal(query)
-		if requestErr != nil {
-			logger.Error(requestErr)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: requestErr.Error()}))
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 			return
 		}
+
 		var authEntity entities.Authorization
-		json.Unmarshal(b, &authEntity)
+		json.Unmarshal(*b, &authEntity)
 		auths, err := client.GetAuthorizations(authEntity)
 
 		if err != nil {
@@ -164,7 +158,21 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.GET("/api/topics/subscribers", func(c *gin.Context) {
-		subs, err := client.GetSubscriptions()
+
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+			return
+		}
+
+		//
+		var payload entities.Subscription
+		json.Unmarshal(*b, &payload)
+
+		logger.Infof("Payload %v", payload.Topic)
+
+		subs, err := client.GetSubscriptions(payload)
 
 		if err != nil {
 			logger.Error(err)
@@ -362,12 +370,19 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.POST("/api/subscription/account", func(c *gin.Context) {
-		var payload entities.ClientPayload
-		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 			return
 		}
-		logger.Infof("Payload %v", payload.Data)
+
+		//
+		var payload entities.ClientPayload
+		json.Unmarshal(*b, &payload)
+
+		logger.Infof("Payload %v", payload.Account)
 		subscriptions, err := client.GetAccountSubscriptions(payload)
 
 		if err != nil {
