@@ -37,6 +37,7 @@ func IfThenElse[T any](condition bool, a T, b T) T {
 	}
 	return b
 }
+
 func ParseQueryString(c *gin.Context) (*[]byte, error) {
 	rawQuery := c.Request.URL.Query()
 	var query map[string]string = map[string]string{}
@@ -52,3 +53,4 @@ func ParseQueryString(c *gin.Context) (*[]byte, error) {
 	}
 	return &b, nil
 }
+

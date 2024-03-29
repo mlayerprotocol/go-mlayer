@@ -1,5 +1,20 @@
 package query
 
+import (
+	"github.com/mlayerprotocol/go-mlayer/entities"
+	db "github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
+)
+
+
+func GetManyWithEvent[T any, U any](filter T, event entities.Event, data *U) error {
+	err := db.Db.Where(&filter).Joins().Find(data).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // func GetEvent(grantor string, agent string) (*models.Config, error) {
 
 // 	data := models.Config{}

@@ -37,6 +37,7 @@ type ClientPayload struct {
 	EventType uint16        `json:"ty"`
 	Nonce     uint64        `json:"nonce"`
 	Account   AddressString `json:"acct,omitempty"` // optional public key of sender
+	
 	// Authorization *Authorization `json:"auth"`
 	// AuthHash string `json:"auth"` // optional hash of
 	Validator PublicKeyString `json:"val,omitempty"`
@@ -44,6 +45,9 @@ type ClientPayload struct {
 	Signature string `json:"sig"`
 	Hash      string `json:"h,omitempty"`
 	Agent     string `gorm:"-" json:"-"`
+
+	Page   uint16 `json:"page,omitempty" gorm:"_"`
+	PerPage   uint16 `json:"perPage,omitempty" gorm:"_"`
 }
 
 func (msg ClientPayload) ToJSON() []byte {
@@ -123,13 +127,14 @@ func (msg ClientPayload) GetSigner() (string, error) {
 // }
 
 func (msg ClientPayload) EncodeBytes() ([]byte, error) {
-
-	b, err := msg.Data.(Payload).EncodeBytes()
-	if err != nil {
-		return []byte(""), err
+	hashed := []byte("")
+	if msg.Data != nil {
+		b, err := msg.Data.(Payload).EncodeBytes()
+		if err != nil {
+			return []byte(""), err
+		}
+		hashed = crypto.Keccak256Hash(b)
 	}
-
-	hashed := crypto.Keccak256Hash(b)
 	// logger.Info("ENCODED==== ", hex.EncodeToString(b), " HASHED==== ", hex.EncodeToString(hashed))
 	var params []encoder.EncoderParam
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
@@ -150,4 +155,11 @@ func ClientPayloadFromBytes(b []byte) (ClientPayload, error) {
 	var message ClientPayload
 	err := json.Unmarshal(b, &message)
 	return message, err
+}
+
+
+/** SYNC REQUEST PAYLOAD **/
+type SyncRequest struct {
+	Interval ResponseInterval `json:"inter"`
+	TopicIds string `json:"topIds"`
 }
