@@ -31,7 +31,6 @@ func GetSubscriptions(payload entities.Subscription) (*[]models.SubscriptionStat
 
 func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicState, error) {
 
-	// query.GetAccountSubscriptions("did:cosmos1vxm0v5dm9hacm3mznvx852fmtu6792wpa4wgqx")
 	var subscriptionStates []models.SubscriptionState
 	var subTopicStates []models.TopicState
 	var topicStates []models.TopicState
