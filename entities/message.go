@@ -120,12 +120,12 @@ type Message struct {
 	// OwnerAddress  string              `json:"oA"`
 	Receiver AddressString   `json:"r"`
 	Data     string          `json:"d"`
-	Actions  []MessageAction `json:"a"`
+	Actions  []MessageAction `array:"a"`
 	// Length int `json:"len"`
 
 	/// DERIVED
 	Hash        string              `json:"h"`
-	Attachments []MessageAttachment `json:"atts"`
+	Attachments []MessageAttachment `arrray:"atts"`
 	// Subject     string              `json:"s"`
 	Signature string `json:"sig"`
 	// Origin      string              `json:"o"`

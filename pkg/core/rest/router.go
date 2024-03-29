@@ -182,6 +182,18 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subs}))
 	})
 
+	router.GET("/api/topics/:id/messages", func(c *gin.Context) {
+		id := c.Param("id")
+		messages, err := client.GetMessages(id)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: messages}))
+	})
+
 	router.GET("/api/topics/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		topic, err := client.GetTopicById(id)
