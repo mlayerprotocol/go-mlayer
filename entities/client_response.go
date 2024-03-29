@@ -33,6 +33,40 @@ func (cr ClientResponse) ToMap() map[string]any {
 
 func NewClientResponse(cr ClientResponse) ClientResponse {
 	cr.Meta.Version = "1.0.1"
-
 	return cr
 }
+
+ type ResponseInterval struct {
+	FromTime uint64 `json:"fromT,omitempty"`
+	ToTime uint64 `json:"toT,omitempty"`
+	FromBlock uint64 `json:"fromB,omitempty"`
+	ToBlock uint64 `json:"toB,omitempty"`
+}
+type TopicResponse struct {
+	Updates []Event `json:"updates,omitempty"`
+	Joins []Event `json:"joins,omitempty"`
+	Leaves []Event `json:"leaves,omitempty"`
+	Messages []Event `json:"msg,omitempty"`
+}
+
+type ConnectionState  uint8
+
+const (
+	OfflineState ConnectionState = 0
+	OnlineState ConnectionState = 1
+)
+type Presence struct {
+	Account AddressString `json:"acct"`
+	MetaData json.RawMessage `json:"metaD"`
+	ConnectionState ConnectionState `json:"connS"`
+	ActiveAgo uint64 `json:"actA"`
+}
+
+ type SyncResponse struct {
+	TimeFrame ResponseInterval `json:"time,omitempty"`
+	Authorization Authorization `json:"auths,omitempty"`
+	Presence Presence `json:"presence,omitempty"`
+	Topics TopicResponse `json:"topics,omitempty"`
+ }
+
+	
