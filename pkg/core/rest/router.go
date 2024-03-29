@@ -65,17 +65,19 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{}))
 	})
 	router.GET("/api/authorizations", func(c *gin.Context) {
+
 		b, parseError := utils.ParseQueryString(c)
 		if parseError != nil {
 			logger.Error(parseError)
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 			return
 		}
+
 		var authEntity entities.Authorization
-		var payload entities.ClientPayload
+
 		json.Unmarshal(*b, &authEntity)
-		json.Unmarshal(*b, &payload)
-		auths, err := client.GetAccountAuthorizations(&authEntity, &payload)
+		auths, err := client.GetAuthorizations(authEntity)
+
 
 		if err != nil {
 			logger.Error(err)
@@ -158,7 +160,21 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.GET("/api/topics/subscribers", func(c *gin.Context) {
-		subs, err := client.GetSubscriptions()
+
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+			return
+		}
+
+		//
+		var payload entities.Subscription
+		json.Unmarshal(*b, &payload)
+
+		logger.Infof("Payload %v", payload.Topic)
+
+		subs, err := client.GetSubscriptions(payload)
 
 		if err != nil {
 			logger.Error(err)
@@ -362,12 +378,19 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.POST("/api/subscription/account", func(c *gin.Context) {
-		var payload entities.ClientPayload
-		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 			return
 		}
-		logger.Infof("Payload %v", payload.Data)
+
+		//
+		var payload entities.ClientPayload
+		json.Unmarshal(*b, &payload)
+
+		logger.Infof("Payload %v", payload.Account)
 		subscriptions, err := client.GetAccountSubscriptions(payload)
 
 		if err != nil {
