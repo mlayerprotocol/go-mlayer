@@ -30,13 +30,11 @@ func GetSubscriptions(payload entities.Subscription) (*[]models.SubscriptionStat
 }
 
 func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicState, error) {
-
-	// query.GetAccountSubscriptions("did:cosmos1vxm0v5dm9hacm3mznvx852fmtu6792wpa4wgqx")
 	var subscriptionStates []models.SubscriptionState
 	var subTopicStates []models.TopicState
 	var topicStates []models.TopicState
 
-	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Subscriber: payload.Account}}, &subscriptionStates)
+	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Account: payload.Account}}, &subscriptionStates)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -128,6 +126,11 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 	if currentState == nil && payload.EventType != uint16(constants.SubscribeTopicEvent) {
 		return nil, nil, apperror.BadRequest("Account not subscribed")
 	}
+
+	if currentState != nil && payload.Account == topicData.Account && payload.EventType == uint16(constants.SubscribeTopicEvent) {
+		return nil, nil, apperror.BadRequest("You currently own this topic")
+	}
+
 	if currentState != nil && currentState.Status != 0 && payload.EventType == uint16(constants.SubscribeTopicEvent) {
 		return nil, nil, apperror.BadRequest("Account already subscribed")
 	}

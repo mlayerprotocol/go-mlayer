@@ -36,6 +36,21 @@ type MessageService struct {
 // 	timestamp string
 // }
 
+func GetMessages(topicId string) (*[]models.MessageState, error) {
+	var messageStates []models.MessageState
+
+	err := query.GetMany(models.MessageState{
+		Message: entities.Message{TopicId: topicId},
+	}, &messageStates)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &messageStates, nil
+}
+
 func NewMessageService(mainCtx *context.Context) *MessageService {
 	ctx := *mainCtx
 	cfg, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
@@ -99,10 +114,10 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 
 	var subscription models.SubscriptionState
 	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{Subscriber: payload.Account, Topic: topicData.ID},
+		Subscription: entities.Subscription{Account: payload.Account, Topic: topicData.ID},
 	}, &subscription)
 	logger.Info()
-	if err != nil {
+	if err != nil && payload.Account != topicData.Account {
 		if err != gorm.ErrRecordNotFound {
 			if payload.Account != topicData.Account {
 				return nil, entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash), apperror.Forbidden("Now subscribed to topic")

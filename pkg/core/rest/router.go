@@ -74,9 +74,10 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 
 		var authEntity entities.Authorization
+		var clientPayload entities.ClientPayload
 
 		json.Unmarshal(*b, &authEntity)
-		auths, err := client.GetAuthorizations(authEntity)
+		auths, err := client.GetAccountAuthorizations(&authEntity, &clientPayload)
 
 
 		if err != nil {
@@ -169,12 +170,12 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 
 		//
-		var payload entities.Subscription
-		json.Unmarshal(*b, &payload)
+		var subPayload entities.Subscription
+		json.Unmarshal(*b, &subPayload)
 
-		logger.Infof("Payload %v", payload.Topic)
+		logger.Infof("Payload %v", subPayload.Topic)
 
-		subs, err := client.GetSubscriptions(payload)
+		subs, err := client.GetSubscriptions(subPayload)
 
 		if err != nil {
 			logger.Error(err)
@@ -188,6 +189,18 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subs}))
+	})
+
+	router.GET("/api/topics/:id/messages", func(c *gin.Context) {
+		id := c.Param("id")
+		messages, err := client.GetMessages(id)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: messages}))
 	})
 
 	router.GET("/api/topics/:id", func(c *gin.Context) {
@@ -414,12 +427,13 @@ func (p *RestService) Initialize() *gin.Engine {
 		json.Unmarshal(*b, &payload)
 
 		syncResponse := entities.SyncResponse{}
+		client.SyncAgent(&entities.SyncRequest{}, &entities.ClientPayload{})
 
-		if err != nil {
-			logger.Error(err)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
-			return
-		}
+		// if err != nil {
+		// 	logger.Error(err)
+		// 	c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+		// 	return
+		// }
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: syncResponse}))
 	})
 

@@ -42,6 +42,7 @@ func GetAccountAuthorizations(auth *entities.Authorization, clientPayload *entit
 	// 	return nil, apperror.Unauthorized("Agent not authorized")
 	// }
 	var authState []models.AuthorizationState
+	auth.Account = clientPayload.Account
 
 	err := query.GetMany(models.AuthorizationState{
 		Authorization: *auth,
