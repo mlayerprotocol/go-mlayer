@@ -34,7 +34,7 @@ func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicSta
 	var subTopicStates []models.TopicState
 	var topicStates []models.TopicState
 
-	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Subscriber: payload.Account}}, &subscriptionStates)
+	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Account: payload.Account}}, &subscriptionStates)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil

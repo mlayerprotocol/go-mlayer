@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 
+	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
@@ -39,6 +40,32 @@ func GetWithIN[T any, U any, I any](item T, data *U, slice I) error {
 	}
 
 	return nil
+}
+
+type Result struct {
+	models.SubscriptionState
+	Block uint
+  }
+
+func GetSubscriptionsByBlock(subState entities.Subscription, from uint, to uint, block bool) ([]Result, error) {
+	subStateTable := GetTableName(models.SubscriptionState{})
+	subEventTable := GetTableName(models.SubscriptionEvent{})
+
+	rows, err := db.Db.Model(&models.SubscriptionState{}).Select(fmt.Sprintf("%s.*, %s.block_number", subStateTable, subEventTable)).Where(models.SubscriptionState{Subscription: subState}).
+	Joins(fmt.Sprintf("left join %s on  %s.event_hash = %s.hash", subEventTable, subStateTable, subEventTable)).
+ 	Where(fmt.Sprintf("%s.block_number >= %d and %s.block_number < %d", subEventTable, from, subEventTable, to)).Rows()
+	
+	 list := []Result{}
+	for rows.Next() {
+		rsl := Result{}
+		rows.Scan(rsl)
+		list = append(list, rsl)
+	}
+	if err != nil {
+		return list, err
+	}
+	logger.Info("RSL ", list)
+	return list, nil
 }
 
 // func GetDependentEvents [T any] (event entities.Event) (*[]T, error) {

@@ -114,7 +114,7 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 
 	var subscription models.SubscriptionState
 	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{Subscriber: payload.Account, Topic: topicData.ID},
+		Subscription: entities.Subscription{Account: payload.Account, Topic: topicData.ID},
 	}, &subscription)
 	logger.Info()
 	if err != nil && payload.Account != topicData.Account {
