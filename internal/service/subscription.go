@@ -77,11 +77,11 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	authEventUpToDate := false
 
 	// check if we are upto date on this event
-	prevEventUpToDate = (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
+	prevEventUpToDate = query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
 
 	authState, authError := query.GetOneAuthorizationState(entities.Authorization{EventHash: event.AuthEventHash.Hash})
 
-	authEventUpToDate = (authState.ID == "" && event.AuthEventHash.Hash == "") || (authState.ID != "" && authState.EventHash == event.AuthEventHash.Hash)
+	authEventUpToDate = query.EventExist(&event.AuthEventHash) || (authState.ID == "" && event.AuthEventHash.Hash == "") || (authState.ID != "" && authState.EventHash == event.AuthEventHash.Hash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state

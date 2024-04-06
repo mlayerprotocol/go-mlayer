@@ -1,5 +1,10 @@
 package query
 
+import (
+	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+)
+
 // func GetEvent(grantor string, agent string) (*models.Config, error) {
 
 // 	data := models.Config{}
@@ -34,3 +39,42 @@ package query
 // 	tx.Commit()
 // 	return &data, nil
 // }
+
+func EventExist(ePath *entities.EventPath) bool {
+	if ePath.Hash == "" {
+		return true
+	}
+	if ePath.Model == entities.SubscriptionEventModel {
+		var subData *models.SubscriptionEvent
+		err := GetOne(models.SubscriptionEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &subData)
+		return err == nil
+	}
+
+	if ePath.Model == entities.TopicEventModel {
+		var topData *models.TopicEvent
+		err := GetOne(models.TopicEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &topData)
+		return err == nil
+	}
+
+	if ePath.Model == entities.AuthEventModel {
+		var authData *models.AuthorizationEvent
+		err := GetOne(models.AuthorizationEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &authData)
+		return err == nil
+	}
+
+	if ePath.Model == entities.MessageEventModel {
+		var msgData *models.MessageEvent
+		err := GetOne(models.MessageEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &msgData)
+		return err == nil
+	}
+
+	return false
+}

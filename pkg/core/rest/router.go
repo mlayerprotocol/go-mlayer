@@ -319,6 +319,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
+		payload.EventType = uint16(constants.UpdateTopicEvent)
 		logger.Infof("Payload %v", payload.Data)
 		topic := entities.Topic{}
 		d, _ := json.Marshal(payload.Data)
@@ -401,6 +402,17 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: blockStats}))
+	})
+
+	router.GET("/api/main-stats", func(c *gin.Context) {
+		mainStats, err := client.GetMainStats()
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: mainStats}))
 	})
 
 	// router.GET("/api/block-stats", func(c *gin.Context) {

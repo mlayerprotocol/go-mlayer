@@ -114,7 +114,7 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
 	}
 
-	err = service.ValidateMessageData(&payloadData, &payload)
+	_, err = service.ValidateMessageData(&payloadData, &payload)
 	if err != nil {
 		return nil, nil, err
 	}

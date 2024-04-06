@@ -25,6 +25,7 @@ const (
 	AuthEventModel         EventModel = "auth"
 	TopicEventModel        EventModel = "top"
 	SubscriptionEventModel EventModel = "sub"
+	MessageEventModel      EventModel = "msg"
 )
 
 /*

@@ -65,8 +65,8 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	}
 
 	// check if we are upto date on this event
-	prevEventUpToDate := (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
-	authEventUpToDate := (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.EventHash == authEventHash)
+	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
+	authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.EventHash == authEventHash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
