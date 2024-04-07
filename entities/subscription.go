@@ -18,7 +18,7 @@ var logger = &log.Logger
 type Subscription struct {
 	ID         string                         `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
 	Topic      string                         `json:"top"`
-	Account AddressString                  `json:"sub"`
+	Account    AddressString                  `json:"sub"`
 	Timestamp  uint64                         `json:"ts"`
 	Signature  string                         `json:"sig"`
 	Hash       string                         `json:"h" gorm:"unique" `

@@ -64,9 +64,9 @@ type Presence struct {
 
  type SyncResponse struct {
 	TimeFrame ResponseInterval `json:"time,omitempty"`
-	Authorization Authorization `json:"auths,omitempty"`
-	Presence Presence `json:"presence,omitempty"`
-	Topics TopicResponse `json:"topics,omitempty"`
+	Authorization []Authorization `json:"auths,omitempty"`
+	Presence []Presence `json:"presence,omitempty"`
+	Topics map[string]TopicResponse `json:"topics,omitempty"`
  }
 
 	

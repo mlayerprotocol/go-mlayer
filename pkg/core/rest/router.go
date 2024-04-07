@@ -437,5 +437,64 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: syncResponse}))
 	})
 
+	router.GET("/api/block-stats", func(c *gin.Context) {
+		blockStats, err := client.GetBlockStats()
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: blockStats}))
+	})
+
+	// router.GET("/api/block-stats", func(c *gin.Context) {
+	// 	b, parseError := utils.ParseQueryString(c)
+	// 	if parseError != nil {
+	// 		logger.Error(parseError)
+	// 		c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+	// 		return
+	// 	}
+
+	// 	//
+	// 	var params BlockParams
+	// 	json.Unmarshal(*b, &params)
+	// 	fromBlock, fromBlockErr := strconv.Atoi(params.FromBlock)
+	// 	toBlock, toBlockErr := strconv.Atoi(params.ToBlock)
+
+	// 	if fromBlockErr != nil || toBlockErr != nil {
+	// 		logger.Error(parseError)
+	// 		c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: utils.IfThenElse(fromBlockErr != nil, fromBlockErr.Error(), toBlockErr.Error())}))
+	// 		return
+	// 	}
+	// 	stats := []BlockStat{}
+	// 	for i := fromBlock; i <= toBlock; i++ {
+
+	// 		topicEvents, err := client.GetTopicEvents()
+	// 		if err != nil {
+	// 			logger.Error(err)
+	// 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+	// 			return
+	// 		}
+	// 		stats = append(stats, BlockStat{
+	// 			Events:   i,
+	// 			Topics:   i,
+	// 			Messages: i,
+	// 		})
+	// 	}
+
+	// 	logger.Infof("Payload %v", params)
+
+	// 	c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: stats}))
+	// })
 	return router
+}
+
+type BlockParams struct {
+	FromBlock string `json:"from_block"`
+	ToBlock   string `json:"to_block"`
+}
+type BlockStat struct {
+	Events   int `json:"events"`
+	Topics   int `json:"topics"`
+	Messages int `json:"messages"`
 }

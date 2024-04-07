@@ -154,6 +154,17 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		model = &returnModel
 	}
 
+	_, _, blockStatErr := query.IncrementBlockStat(models.BlockStat{
+		Stats: entities.Stats{
+			BlockNumber: event.BlockNumber,
+			EventType:   event.EventType,
+		},
+	})
+
+	if blockStatErr != nil {
+		return nil, blockStatErr
+	}
+
 	return model, nil
 
 }
