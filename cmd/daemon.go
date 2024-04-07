@@ -125,6 +125,10 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	if len(network) > 0 {
 		cfg.Network = network
 	}
+	if len(cfg.Network) == 0 {
+		cfg.Network = constants.DefaultNetwork
+	}
+
 
 	if rpcPort == constants.DefaultRPCPort && len(cfg.RPCPort) > 0 {
 		rpcPort = cfg.RPCPort

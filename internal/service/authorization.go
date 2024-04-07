@@ -139,8 +139,8 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 	currentState, authState, stateError := ValidateAuthData(authRequest, cfg.AddressPrefix)
 
 	// check if we are upto date on this event
-	prevEventUpToDate := (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
-	authEventUpToDate := (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.EventHash == event.AuthEventHash.Hash)
+	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
+	authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event.Hash == event.AuthEventHash.Hash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
@@ -156,7 +156,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 		// use the last 4 digits of their event hash
 		if currentState.Timestamp == authRequest.Timestamp {
 			// get the event payload of the current state
-			currentStateEvent, err := query.GetOneAuthorizationEvent(entities.Event{Hash: currentState.EventHash})
+			currentStateEvent, err := query.GetOneAuthorizationEvent(entities.Event{Hash: currentState.Event.Hash})
 			if err != nil && err != gorm.ErrRecordNotFound {
 				logger.Fatal("DB error", err)
 			}
@@ -169,7 +169,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
 					// logger.Infof("Current state %v", currentStateEvent.Payload)
 					csN := new(big.Int)
-					csN.SetString(currentState.EventHash[56:], 16)
+					csN.SetString(currentState.Event.Hash[56:], 16)
 					nsN := new(big.Int)
 					nsN.SetString(event.Hash[56:], 16)
 
@@ -263,7 +263,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 			}
 		}
 	}
-	authRequest.EventHash = event.Hash
+	authRequest.Event = *entities.NewEventPath(event.Validator, entities.AuthEventModel, event.Hash)
 	if updateState {
 		_, err := query.SaveAuthorizationState(authRequest, tx)
 		if err != nil {
@@ -280,7 +280,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 			logger.Info("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
-			channelpool.AuthorizationEventPublishC <- &dep.Event
+			channelpool.AuthorizationEventPublishC <- &dep
 		}
 	}
 

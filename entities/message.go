@@ -120,12 +120,13 @@ type Message struct {
 	// OwnerAddress  string              `json:"oA"`
 	Receiver AddressString   `json:"r"`
 	Data     string          `json:"d"`
-	Actions  []MessageAction `array:"a"`
+	Actions  []MessageAction `json:"a" gorm:"json;"`
 	// Length int `json:"len"`
-	Attachments []MessageAttachment `json:"atts"`
 
 	/// DERIVED
-	Hash string `json:"h"`
+	Event  EventPath              `json:"e,omitempty" gorm:"index;char(64);"`
+	Hash        string              `json:"h"`
+	Attachments []MessageAttachment `json:"atts" gorm:"json;"`
 	// Subject     string              `json:"s"`
 	Signature string `json:"sig"`
 	// Origin      string              `json:"o"`

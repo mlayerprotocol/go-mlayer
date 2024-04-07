@@ -44,16 +44,24 @@ func GetManyAuthorizationEvents(event entities.Event) (*models.AuthorizationEven
 	}
 	return &data, nil
 }
-func GetDependentEvents(event entities.Event) (*[]models.AuthorizationEvent, error) {
+func GetDependentEvents(event entities.Event) (*[]entities.Event, error) {
 
-	data := []models.AuthorizationEvent{}
-	err := db.Db.Where(
-		&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: *entities.NewEventPath(entities.AuthEventModel, event.Hash)}},
-	).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: *entities.NewEventPath(entities.AuthEventModel, event.Hash)}},
-	// ).Or("? LIKE ANY (associations)", fmt.Sprintf("%%%s%%", event.Hash)
-	).Find(&data).Error
-	if err != nil {
-		return nil, err
+	data := []entities.Event{}
+	// err := db.Db.Where(
+	// 	&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: *entities.NewEventPath(entities.AuthEventModel, event.Hash)}},
+	// ).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: *entities.NewEventPath(entities.AuthEventModel, event.Hash)}},
+	// // ).Or("? LIKE ANY (associations)", fmt.Sprintf("%%%s%%", event.Hash)
+	// ).Find(&data).Error
+	// if err != nil {
+	// 	return nil, err
+	// }
+	prevEvent, _ := GetEventFromPath(&event.PreviousEventHash)
+	if prevEvent != nil {
+		data = append(data, *prevEvent)
+	}
+	authEvent, _ := GetEventFromPath(&event.AuthEventHash)
+	if prevEvent != nil {
+		data = append(data, *authEvent)
 	}
 	return &data, nil
 }
@@ -155,15 +163,15 @@ func SaveAuthorizationStateAndEvent(authEvent *entities.Event, tx *gorm.DB) (*mo
 	
 	auth := (*authEvent).Payload.Data.(entities.Authorization)
 	
-	hash, err := auth.GetHash()
+	hash, _ := auth.GetHash()
 	auth.Hash = hex.EncodeToString(hash)
-	auth.EventHash = authEvent.Hash
+	auth.Event = *entities.NewEventPath(authEvent.Validator, entities.AuthEventModel, authEvent.Hash)
 	event , created, err := SaveAuthorizationEvent(authEvent, false, tx)
 	if err != nil {
 		logger.Errorf("SQL: %v", err)
 		return nil, nil, err
 	}
-	auth.AuthorizationEventID = event.Event.ID
+	// auth.AuthorizationEventID = event.Event.ID
 	if created {
 		state, err := SaveAuthorizationState(&auth, tx)
 		if err != nil {

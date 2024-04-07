@@ -12,10 +12,11 @@ const (
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data/store"
 	DefaultMLBlockchainAPIUrl string = ":9520"
+	DefaultNetwork string = "mainnet"
 )
 const (
-	RelayNodeType     uint = 0
-	ValidatorNodeType      = 1
+	RelayNodeType  uint = 0
+	ValidatorNodeType   uint   = 1
 )
 
 
@@ -129,6 +130,7 @@ Data            = d
 DataHash        = dH
 Description     = desc
 Duration        = du
+Event			= e
 EventHash       = eH
 File			= f
 Grantor         = gr

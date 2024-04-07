@@ -45,7 +45,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 
 	//Perfom checks base on event types
 	switch payload.EventType {
-	case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.LeaveEvent):
+	case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.UpdateTopicEvent), uint16(constants.LeaveEvent):
 		eventPayloadType = constants.TopicPayloadType
 		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
 		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
@@ -106,6 +106,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		return nil, apperror.Internal(err.Error())
 	}
 	logger.Infof("Validator 2: %s", event.Validator)
+	logger.Infof("eventPayloadType 2: %s", eventPayloadType)
 
 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
 	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
@@ -152,6 +153,38 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
+
+	case constants.MessagePayloadType:
+		eModel, created, err := query.SaveRecord(
+			models.MessageEvent{
+				Event: entities.Event{Hash: event.Hash},
+			},
+			models.MessageEvent{
+				Event: event,
+			}, false, nil)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// channelpool.TopicEventPublishC <- &(eModel.Event)
+
+		if created {
+			channelpool.MessageEventPublishC <- &(eModel.Event)
+		}
+		var returnModel = models.EventInterface(*eModel)
+		model = &returnModel
+	}
+
+	_, _, blockStatErr := query.IncrementBlockStat(models.BlockStat{
+		Stats: entities.Stats{
+			BlockNumber: event.BlockNumber,
+			EventType:   event.EventType,
+		},
+	})
+
+	if blockStatErr != nil {
+		return nil, blockStatErr
 	}
 
 	return model, nil

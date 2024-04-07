@@ -77,18 +77,18 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	authEventUpToDate := false
 
 	// check if we are upto date on this event
-	prevEventUpToDate = (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
+	prevEventUpToDate = query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
 
-	authState, authError := query.GetOneAuthorizationState(entities.Authorization{EventHash: event.AuthEventHash.Hash})
+	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: event.AuthEventHash})
 
-	authEventUpToDate = (authState.ID == "" && event.AuthEventHash.Hash == "") || (authState.ID != "" && authState.EventHash == event.AuthEventHash.Hash)
+	authEventUpToDate = query.EventExist(&event.AuthEventHash) || (authState.ID == "" && event.AuthEventHash.Hash == "") || (authState.ID != "" && authState.Event.Hash == event.AuthEventHash.Hash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
 		var currentStateEvent *models.SubscriptionEvent
-		err := query.GetOne(entities.Event{Hash: currentState.EventHash}, &currentStateEvent)
+		err := query.GetOne(entities.Event{Hash: currentState.Event.Hash}, &currentStateEvent)
 		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
 			isMoreRecent = true
 		}
@@ -112,7 +112,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
 					// logger.Infof("Current state %v", currentStateEvent.Payload)
 					csN := new(big.Int)
-					csN.SetString(currentState.EventHash[56:], 16)
+					csN.SetString(currentState.Event.Hash[56:], 16)
 					nsN := new(big.Int)
 					nsN.SetString(event.Hash[56:], 16)
 
@@ -246,7 +246,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 	}
 
-	data.EventHash = event.Hash
+	data.Event = *entities.NewEventPath(event.Validator, entities.SubscriptionEventModel, event.Hash)
 	data.Agent = entities.AddressString(agent)
 
 	if markAsSynced && eventError == "" {
@@ -273,7 +273,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 			logger.Info("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
-			go HandleNewPubSubSubscriptionEvent(&dep.Event, ctx)
+			go HandleNewPubSubSubscriptionEvent(&dep, ctx)
 		}
 	}
 

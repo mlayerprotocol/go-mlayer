@@ -1,5 +1,10 @@
 package query
 
+import (
+	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+)
+
 // func GetManyWithEvent[T any, U any](filter T, event entities.Event, data *U) error {
 // 	err := db.Db.Where(&filter).Joins().Find(data).Error
 // 	if err != nil {
@@ -43,3 +48,59 @@ package query
 // 	tx.Commit()
 // 	return &data, nil
 // }
+
+func EventExist(ePath *entities.EventPath) bool {
+	if ePath.Hash == "" {
+		return true
+	}
+	event, _ := GetEventFromPath(ePath)
+	return event != nil
+}
+
+func GetEventFromPath(ePath *entities.EventPath) (*entities.Event, error) {
+	if ePath.Model == entities.SubscriptionEventModel {
+		var data *models.SubscriptionEvent
+		err := GetOne(models.SubscriptionEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Event, nil
+	}
+
+	if ePath.Model == entities.TopicEventModel {
+		var data *models.TopicEvent
+		err := GetOne(models.TopicEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Event, nil
+	}
+
+	if ePath.Model == entities.AuthEventModel {
+		var data *models.AuthorizationEvent
+		err := GetOne(models.AuthorizationEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Event, nil
+	}
+
+	if ePath.Model == entities.MessageEventModel {
+		var data *models.MessageEvent
+		err := GetOne(models.MessageEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Event, nil
+	}
+
+	return nil, nil
+}

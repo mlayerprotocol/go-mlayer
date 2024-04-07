@@ -40,7 +40,11 @@ func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 	for _, model := range models.Models {
-		db.AutoMigrate(&model)
+		err := db.AutoMigrate(&model)
+		if err != nil {
+			logger.Errorf("UnmarshalError %v", err)
+		}
+
 	}
 
 	return db, err

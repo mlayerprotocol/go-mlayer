@@ -26,4 +26,5 @@ var Models = []interface{}{
 	AuthorizationEvent{},
 	SubscriptionState{},
 	SubscriptionEvent{},
+	BlockStat{},
 }

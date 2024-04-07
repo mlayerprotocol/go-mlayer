@@ -94,24 +94,41 @@ func GetTopics() (*[]models.TopicState, error) {
 	return &topicStates, nil
 }
 
+func GetTopicEvents() (*[]models.TopicEvent, error) {
+	var topicEvents []models.TopicEvent
+
+	err := query.GetMany(models.TopicEvent{
+		Event: entities.Event{
+			BlockNumber: 1,
+		},
+	}, &topicEvents)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &topicEvents, nil
+}
+
 // func ListenForNewTopicEventFromPubSub (mainCtx *context.Context) {
 // 	ctx, cancel := context.WithCancel(*mainCtx)
 // 	defer cancel()
 
-// 	incomingTopicC, ok := (*mainCtx).Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
-// 	if !ok {
-// 		logger.Errorf("incomingTopicC closed")
-// 		return
-// 	}
-// 	for {
-// 		event, ok :=  <-*incomingTopicC
-// 		if !ok {
-// 			logger.Fatal("incomingTopicC closed for read")
-// 			return
-// 		}
-// 		go service.HandleNewPubSubTopicEvent(event, ctx)
-// 	}
-// }
+//		incomingTopicC, ok := (*mainCtx).Value(constants.IncomingTopicEventChId).(*chan *entities.Event)
+//		if !ok {
+//			logger.Errorf("incomingTopicC closed")
+//			return
+//		}
+//		for {
+//			event, ok :=  <-*incomingTopicC
+//			if !ok {
+//				logger.Fatal("incomingTopicC closed for read")
+//				return
+//			}
+//			go service.HandleNewPubSubTopicEvent(event, ctx)
+//		}
+//	}
 func ValidateTopicPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
 	payloadData := entities.Topic{}
@@ -132,16 +149,16 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 
 	currentState, err := service.ValidateTopicData(&payloadData)
 	if err != nil {
-		return nil, nil,  err
+		return nil, nil, err
 	}
 
 	// generate associations
 	if currentState != nil {
-		assocPrevEvent = entities.NewEventPath(entities.TopicEventModel,  currentState.EventHash)
+		assocPrevEvent = &currentState.Event
 
 	}
 	if authState != nil {
-		assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, authState.EventHash)
+		assocAuthEvent =&authState.Event
 	}
-	return assocPrevEvent, assocAuthEvent,  nil
+	return assocPrevEvent, assocAuthEvent, nil
 }
