@@ -54,8 +54,8 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	data := event.Payload.Data.(*entities.Topic)
 	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
-	authEventHash := event.AuthEventHash.Hash
-	authState, authError := query.GetOneAuthorizationState(entities.Authorization{EventHash: authEventHash})
+	authEventHash := event.AuthEventHash
+	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
 
 	currentState, err := ValidateTopicData(data)
 	if err != nil {
@@ -65,15 +65,15 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	}
 
 	// check if we are upto date on this event
-	prevEventUpToDate := (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.EventHash == event.PreviousEventHash.Hash)
-	authEventUpToDate := (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.EventHash == authEventHash)
+	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
+	authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
 		var currentStateEvent = &models.TopicEvent{}
-		err := query.GetOne(entities.Event{Hash: currentState.EventHash}, currentStateEvent)
+		err := query.GetOne(entities.Event{Hash: currentState.Event.Hash}, currentStateEvent)
 		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
 			isMoreRecent = true
 		}
@@ -97,7 +97,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
 					// logger.Infof("Current state %v", currentStateEvent.Payload)
 					csN := new(big.Int)
-					csN.SetString(currentState.EventHash[56:], 16)
+					csN.SetString(currentState.Event.Hash[56:], 16)
 					nsN := new(big.Int)
 					nsN.SetString(event.Hash[56:], 16)
 
@@ -213,7 +213,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	if err != nil {
 		logger.Errorf("Invalid event payload")
 	}
-	data.EventHash = event.Hash
+	data.Event = *entities.NewEventPath(event.Validator, entities.TopicEventModel, event.Hash)
 	data.Agent = entities.AddressString(agent)
 	data.Account = event.Payload.Account
 
@@ -237,7 +237,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 			logger.Info("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
-			go HandleNewPubSubTopicEvent(&dep.Event, ctx)
+			go HandleNewPubSubTopicEvent(&dep, ctx)
 		}
 	}
 

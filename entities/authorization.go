@@ -71,8 +71,8 @@ type Authorization struct {
 	Duration             uint64                           `json:"du"`
 	SignatureData        SignatureData                    `json:"sigD" gorm:"index;json;"`
 	Hash                 string                           `json:"h" gorm:"unique" `
-	EventHash            string                           `json:"eH,omitempty" gorm:"index;char(64);"`
-	AuthorizationEventID string                           `json:"authEventId,omitempty"`
+	Event           EventPath                           `json:"e,omitempty" gorm:"index;varchar;"`
+	// AuthorizationEventID string                           `json:"authEventId,omitempty"`
 }
 
 func (g Authorization) GetHash() ([]byte, error) {

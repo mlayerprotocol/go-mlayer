@@ -154,24 +154,11 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 
 	// generate associations
 	if currentState != nil {
-		assocPrevEvent = entities.NewEventPath(entities.TopicEventModel, currentState.EventHash)
+		assocPrevEvent = &currentState.Event
 
 	}
 	if authState != nil {
-		assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, authState.EventHash)
+		assocAuthEvent =&authState.Event
 	}
 	return assocPrevEvent, assocAuthEvent, nil
-}
-
-func GetBlockStats() (*[]models.BlockStat, error) {
-	var blockStat []models.BlockStat
-
-	err := query.GetManyTx(models.BlockStat{}).Order("block_number desc").Find(&blockStat).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &blockStat, nil
 }

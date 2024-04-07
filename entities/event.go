@@ -25,6 +25,7 @@ const (
 	AuthEventModel         EventModel = "auth"
 	TopicEventModel        EventModel = "top"
 	SubscriptionEventModel EventModel = "sub"
+	MessageEventModel      EventModel = "msg"
 )
 
 /*
@@ -34,19 +35,20 @@ Event paths define the unique path to an event and its relation to the entitie
 *
 */
 type EventPath struct {
-	Model EventModel
-	Hash  string
+	Model EventModel `json:"mod"`
+	Hash  string `json:"h"`
+	Validator  PublicKeyString `json:"val"`
 }
 
 func (e *EventPath) ToString() string {
-	if e == nil {
+	if e == nil || e.Hash == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/%s", e.Model, e.Hash)
+	return fmt.Sprintf("%s/%s/%s", e.Validator, e.Model, e.Hash)
 }
 
-func NewEventPath(model EventModel, hash string) *EventPath {
-	return &EventPath{Model: model, Hash: hash}
+func NewEventPath(validator PublicKeyString, model EventModel, hash string) *EventPath {
+	return &EventPath{Model: model, Hash: hash, Validator: validator}
 }
 
 func EventPathFromString(path string) *EventPath {
@@ -64,11 +66,18 @@ func EventPathFromString(path string) *EventPath {
 			Model: EventModel(""),
 			Hash:  parts[0],
 		}
-	default:
+	case 2:
 		return &EventPath{
 			//Relationship: EventAssoc(assoc),
-			Model: EventModel(parts[0]),
+			Model: EventModel(""),
 			Hash:  parts[1],
+			Validator:  PublicKeyString(parts[0]),
+		}
+	default:
+		return &EventPath{
+			Validator: PublicKeyString(parts[0]),
+			Model: EventModel(parts[1]),
+			Hash:  parts[2],
 		}
 	}
 }
@@ -97,7 +106,6 @@ func (sD *EventPath) Scan(value interface{}) error {
 }
 
 func (sD *EventPath) Value() (driver.Value, error) {
-	logger.Infof("CONVERTING2 %s", sD.ToString())
 	return sD.ToString(), nil
 }
 

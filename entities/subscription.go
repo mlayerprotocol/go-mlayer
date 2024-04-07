@@ -22,7 +22,7 @@ type Subscription struct {
 	Timestamp  uint64                         `json:"ts"`
 	Signature  string                         `json:"sig"`
 	Hash       string                         `json:"h" gorm:"unique" `
-	EventHash  string                         `json:"eH" gorm:"index;char(64);"`
+	Event  EventPath                         `json:"e" gorm:"index;char(64);"`
 	Agent      AddressString                  `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
 	Status     constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:tinyint;index"`
 	Role       constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
@@ -96,7 +96,7 @@ func (sub Subscription) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Topic},
 		// encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: sub.Subscriber},
-		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.EventHash},
+		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Event},
 		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: sub.Status},
 		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: sub.Timestamp},
 	)

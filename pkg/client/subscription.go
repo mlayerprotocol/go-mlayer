@@ -137,13 +137,13 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 
 	// generate associations
 	if currentState != nil {
-		assocPrevEvent = entities.NewEventPath(entities.SubscriptionEventModel, currentState.EventHash)
+		assocPrevEvent =&currentState.Event
 	} else {
-		assocPrevEvent = entities.NewEventPath(entities.TopicEventModel, topicData.EventHash)
+		assocPrevEvent = &topicData.Event
 	}
 
 	if authState != nil {
-		assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, authState.EventHash)
+		assocAuthEvent = &authState.Event
 	}
 	return assocPrevEvent, assocAuthEvent, nil
 }

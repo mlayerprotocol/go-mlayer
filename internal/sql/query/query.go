@@ -20,10 +20,12 @@ func GetOne[T any, U any](filter T, data *U) error {
 	}
 	return nil
 }
+func GetTx() *gorm.DB {
+	return db.Db
+}
 
 func GetManyTx[T any](item T) *gorm.DB {
 	return db.Db.Where(&item)
-
 }
 
 func GetMany[T any, U any](item T, data *U) error {

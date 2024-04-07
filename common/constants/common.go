@@ -130,6 +130,7 @@ Data            = d
 DataHash        = dH
 Description     = desc
 Duration        = du
+Event			= e
 EventHash       = eH
 File			= f
 Grantor         = gr

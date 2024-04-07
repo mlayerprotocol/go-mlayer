@@ -30,7 +30,7 @@ type Topic struct {
 	// InviteOnly bool `json:"invO" gorm:"default:false"`
 
 	// Derived
-	EventHash string  `json:"eH,omitempty" gorm:"index;char(64);"`
+	Event EventPath  `json:"e,omitempty" gorm:"index;varchar;"`
 	Hash      string  `json:"h,omitempty" gorm:"type:char(64)"`
 	Balance   float64 `json:"bal" gorm:"default:0"`
 	// Signature   string    `json:"sig,omitempty" binding:"required"  gorm:"non null;"`

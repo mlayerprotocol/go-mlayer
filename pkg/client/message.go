@@ -120,16 +120,16 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 	if err != nil && payload.Account != topicData.Account {
 		if err != gorm.ErrRecordNotFound {
 			if payload.Account != topicData.Account {
-				return nil, entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash), apperror.Forbidden("Now subscribed to topic")
+				return nil, &currentAuthState.Event, apperror.Forbidden("Now subscribed to topic")
 			}
 		}
-		return nil, entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash), apperror.Internal(err.Error())
+		return nil, &currentAuthState.Event, apperror.Internal(err.Error())
 	}
 	if topicData.ReadOnly && payload.Account != topicData.Account && subscription.Role != constants.AdminSubPriviledge {
 		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
 	}
 
-	err = service.ValidateMessageData(&payloadData, &payload)
+	_, err = service.ValidateMessageData(&payloadData, &payload)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -140,10 +140,10 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 	// }
 
 	// generate associations
-	assocPrevEvent = entities.NewEventPath(entities.SubscriptionEventModel, subscription.EventHash)
+	assocPrevEvent = &subscription.Event
 
 	if currentAuthState != nil {
-		assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash)
+		assocAuthEvent = &currentAuthState.Event
 	}
 	return assocPrevEvent, assocAuthEvent, nil
 }
