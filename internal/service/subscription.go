@@ -229,7 +229,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	//Update subscription status based on the event type
 	switch event.Payload.EventType {
 	case uint16(constants.SubscribeTopicEvent):
-		if topicData.Public {
+		if *topicData.Public {
 			data.Status = constants.SubscribedSubscriptionStatus
 		} else {
 			data.Status = constants.PendingSubscriptionStatus

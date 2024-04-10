@@ -86,7 +86,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 			// get the event payload of the current state
 
 			if err != nil && err != gorm.ErrRecordNotFound {
-				logger.Fatal("DB error", err)
+				logger.Error("DB error", err)
 			}
 			if currentStateEvent.ID == "" {
 				markAsSynced = false
@@ -144,7 +144,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	// If are upto date, then we should update the state based on if its a recent or old event
 	if len(eventError) == 0 {
 		if prevEventUpToDate && authEventUpToDate { // we are upto date
-			if currentState == nil || (currentState != nil && isMoreRecent) {
+			if currentState == nil || isMoreRecent {
 				updateState = true
 				markAsSynced = true
 			} else {
@@ -161,6 +161,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 
 	// Save stuff permanently
 	tx := sql.Db.Begin()
+	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
 	if string(event.Validator) != (*cfg).NetworkPublicKey {
@@ -178,7 +179,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 		}, false, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Fatal("5000: Db Error", err)
+			logger.Error("1000: Db Error", err)
 			return
 		}
 	} else {
@@ -189,7 +190,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
 			}, true, tx)
 			if err != nil {
-				logger.Fatal("DB error", err)
+				logger.Error("DB error", err)
 			}
 		} else {
 			// mark as broadcasted
@@ -200,7 +201,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 					Event: entities.Event{Broadcasted: true},
 				}, true, tx)
 			if err != nil {
-				logger.Fatal("DB error", err)
+				logger.Error("DB error", err)
 			}
 		}
 	}
@@ -216,16 +217,17 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	data.Event = *entities.NewEventPath(event.Validator, entities.TopicEventModel, event.Hash)
 	data.Agent = entities.AddressString(agent)
 	data.Account = event.Payload.Account
+	// logger.Error("data.Public ", data.Public)
 
 	if updateState {
 		_, _, err := query.SaveRecord(models.TopicState{
-			Topic: entities.Topic{Hash: data.Hash},
+			Topic: entities.Topic{ID: data.ID},
 		}, models.TopicState{
 			Topic: *data,
-		}, true, tx)
+		}, event.EventType == uint16(constants.UpdateTopicEvent), tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Fatal("5000: Db Error", err)
+			logger.Error("7000: Db Error", err)
 			return
 		}
 	}

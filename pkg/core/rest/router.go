@@ -79,7 +79,6 @@ func (p *RestService) Initialize() *gin.Engine {
 		json.Unmarshal(*b, &authEntity)
 		auths, err := client.GetAccountAuthorizations(&authEntity, &clientPayload)
 
-
 		if err != nil {
 			logger.Error(err)
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
@@ -332,8 +331,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	})
 
-	router.PATCH("/api/topics/:id", func(c *gin.Context) {
-		id := c.Param("id")
+	router.PUT("/api/topics", func(c *gin.Context) {
 
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
@@ -348,7 +346,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		if e != nil {
 			logger.Errorf("UnmarshalError %v", e)
 		}
-		topic.Hash = id
+		// topic.Hash = id
 		payload.Data = topic
 		event, err := client.CreateEvent(payload, p.Ctx)
 
@@ -369,7 +367,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		logger.Infof("Payload %v", payload.Data)
+		logger.Infof("Payload:::::: %v", payload.Data)
 		message := entities.Message{}
 		d, _ := json.Marshal(payload.Data)
 		e := json.Unmarshal(d, &message)
