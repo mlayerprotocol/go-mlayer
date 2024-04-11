@@ -7,7 +7,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy Node App
+      - name: Deploy Node
         uses: appleboy/ssh-action@v0.1.4
         with:
           host: ${{secrets.SSH_HOST}}
@@ -16,3 +16,4 @@ jobs:
 
           script: |
             ./mlayer-deploy.sh
+            
