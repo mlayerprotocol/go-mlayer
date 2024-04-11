@@ -2,6 +2,7 @@ package entities
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -77,9 +78,10 @@ CHAT MESSAGE
 // }
 
 type MessageAttachment struct {
-	CID string `json:"cid"`
-	Hash         string `json:"h"`
+	CID  string `json:"cid"`
+	Hash string `json:"h"`
 }
+
 func (b MessageAttachment) EncodeBytes() []byte {
 	e, _ := encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: b.CID},
@@ -87,6 +89,7 @@ func (b MessageAttachment) EncodeBytes() []byte {
 	)
 	return e
 }
+
 type MessageAction struct {
 	Contract   string   `json:"c"`
 	Abi        string   `json:"abi"`
@@ -97,13 +100,12 @@ type MessageAction struct {
 func (a MessageAction) EncodeBytes() []byte {
 	var b []byte
 	for _, d := range a.Parameters {
-		data, _ := encoder.EncodeBytes(encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: d},)
+		data, _ := encoder.EncodeBytes(encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: d})
 		b = append(b, data...)
 	}
 	encoded, _ := encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: a.Contract},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: a.Abi},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: a.Action},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: a.Action},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: b},
 	)
@@ -112,24 +114,24 @@ func (a MessageAction) EncodeBytes() []byte {
 
 type Message struct {
 	ID              string          `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Timestamp      uint64   `json:"ts"`
+	// Timestamp      uint64   `json:"ts"`
 	TopicId  string `json:"topId"`
 	Sender  AddressString   `json:"s"`
 	// OwnerAddress  string              `json:"oA"`
-	Receiver    AddressString              `json:"r"`
-	Data    []byte 				`json:"d"`
-	Actions     []MessageAction `json:"a"`
+	Receiver AddressString   `json:"r"`
+	Data     string          `json:"d"`
+	Actions  []MessageAction `json:"a" gorm:"json;"`
 	// Length int `json:"len"`
 
 	/// DERIVED
-	Hash string `json:"h"`
-	Attachments []MessageAttachment `json:"atts"`
+	Event  EventPath              `json:"e,omitempty" gorm:"index;char(64);"`
+	Hash        string              `json:"h"`
+	Attachments []MessageAttachment `json:"atts" gorm:"json;"`
 	// Subject     string              `json:"s"`
-	Signature   string              `json:"sig"`
+	Signature string `json:"sig"`
 	// Origin      string              `json:"o"`
-	DataHash string              `json:"dH"`
-	Url string              `json:"url"`
-	
+	DataHash string `json:"dH"`
+	Url      string `json:"url"`
 }
 
 func (chatMessage Message) ToString() string {
@@ -160,7 +162,6 @@ func (chatMessage Message) ToString() string {
 	}
 
 	values = append(values, fmt.Sprintf("%s", _action))
-	
 
 	return strings.Join(values, "")
 }
@@ -176,18 +177,21 @@ func (msg Message) GetHash() ([]byte, error) {
 func (msg Message) EncodeBytes() ([]byte, error) {
 	var attachments []byte
 	var actions []byte
-	
+
 	for _, at := range msg.Actions {
 		attachments = append(actions, at.EncodeBytes()...)
 	}
 	for _, ac := range msg.Actions {
 		actions = append(actions, ac.EncodeBytes()...)
 	}
+
+	logger.Info("Mesage....", string(msg.Data))
+	dataByte, _ := hex.DecodeString(msg.Data)
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.TopicId},
 		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Sender},
 		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Receiver},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: crypto.Keccak256Hash(msg.Data)},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: crypto.Keccak256Hash(dataByte)},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: attachments},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: actions},
 	)
@@ -270,11 +274,11 @@ func MessageFromBytes(b []byte) Message {
 func MessageFromString(msg string) Message {
 	return MessageFromBytes([]byte(msg))
 }
+
 // type MessageJsonInputAttachments struct {
 // 	File []json.RawMessage `json:"f"`
 // 	Type string `json:"ty"`
 // }
-
 
 // type MessageJsonInput struct {
 // 	Timestamp      uint64   `json:"ts"`
@@ -345,7 +349,6 @@ func MessageFromString(msg string) Message {
 // 	err := encoder.MsgPackUnpackStruct(b, &message)
 // 	return message, err
 // }
-
 
 // func IsValidSubscription(
 // 	subscription Subscription,

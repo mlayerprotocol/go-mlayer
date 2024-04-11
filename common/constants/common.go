@@ -7,16 +7,19 @@ const (
 )
 
 const (
-	DefaultRPCPort            string = "9521"
+	DefaultRPCPort            string = "9525"
 	DefaultWebSocketAddress   string = "localhost:8088"
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data/store"
 	DefaultMLBlockchainAPIUrl string = ":9520"
+	DefaultNetwork string = "mainnet"
 )
 const (
-	RelayNodeType     uint = 0
-	ValidatorNodeType      = 1
+	RelayNodeType  uint = 0
+	ValidatorNodeType   uint   = 1
 )
+
+
 
 const MaxBlockSize = 1000
 
@@ -81,6 +84,8 @@ const (
 	RPC  Protocol = "rpc"
 )
 
+
+
 type SubscriptionStatuses int16
 
 const (
@@ -125,6 +130,7 @@ Data            = d
 DataHash        = dH
 Description     = desc
 Duration        = du
+Event			= e
 EventHash       = eH
 File			= f
 Grantor         = gr
@@ -134,6 +140,7 @@ Header          = head
 Identifier		= id
 Index           = i
 InviteOnly 		= invO
+Interval		= inter
 IsValid         = isVal
 Length          = len
 Message         = m
@@ -155,6 +162,7 @@ Proof           = pr
 Proofs          = prs
 ProtocolId      = proId
 PublicKey		= pubK
+Range			= range
 ReadOnly		= rO
 Receiver        = r
 Ref             = ref

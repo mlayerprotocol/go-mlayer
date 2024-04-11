@@ -36,6 +36,21 @@ type MessageService struct {
 // 	timestamp string
 // }
 
+func GetMessages(topicId string) (*[]models.MessageState, error) {
+	var messageStates []models.MessageState
+
+	err := query.GetMany(models.MessageState{
+		Message: entities.Message{TopicId: topicId},
+	}, &messageStates)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &messageStates, nil
+}
+
 func NewMessageService(mainCtx *context.Context) *MessageService {
 	ctx := *mainCtx
 	cfg, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
@@ -45,13 +60,11 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 	}
 }
 
-
 // func (p *MessageService) Send(chatMsg entities.Message, senderSignature string) (*entities.Event, error) {
 // 	// if strings.ToLower(chatMsg.Validator) != strings.ToLower(crypto.GetPublicKeyEDD(p.Cfg.NetworkPrivateKey)) {
 // 	// 	return nil, errors.New("Invalid Origin node address: " + chatMsg.Validator + " is not")
 // 	// }
 // 	if service.IsValidMessage(chatMsg, senderSignature) {
-		
 
 // 		//if utils.Contains(chatMsg.Header.Channels, "*") || utils.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
 
@@ -78,7 +91,6 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 // 	return nil, errors.New("INVALID MESSAGE SIGNER")
 // }
 
-
 func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
 	payloadData := entities.Message{}
@@ -88,42 +100,39 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 		logger.Errorf("UnmarshalError %v", e)
 	}
 	payload.Data = payloadData
-	
+
 	topicData, err := GetTopicById(payloadData.TopicId)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if topicData == nil {
-		return nil, nil,  apperror.BadRequest("Invalid topic id")
+		return nil, nil, apperror.BadRequest("Invalid topic id")
 	}
 
 	// pool = channelpool.SubscriptionEventPublishC
 
-
 	var subscription models.SubscriptionState
 	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{Subscriber: payload.Account, Topic: topicData.ID, Status: constants.SubscribedSubscriptionStatus },
+		Subscription: entities.Subscription{Account: payload.Account, Topic: topicData.ID},
 	}, &subscription)
-	if err != nil {
+	logger.Info()
+	if err != nil && payload.Account != topicData.Account {
 		if err != gorm.ErrRecordNotFound {
-			if (payload.Account != topicData.Account) {
-				return nil, entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash), apperror.Forbidden("Now subscribed to topic")
+			if payload.Account != topicData.Account {
+				return nil, &currentAuthState.Event, apperror.Forbidden("Now subscribed to topic")
 			}
 		}
-		return nil, entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash), apperror.Internal(err.Error())
+		return nil, &currentAuthState.Event, apperror.Internal(err.Error())
 	}
-	if (topicData.ReadOnly && payload.Account != topicData.Account && subscription.Role != constants.AdminSubPriviledge) {
+	if *topicData.ReadOnly && payload.Account != topicData.Account && subscription.Role != constants.AdminSubPriviledge {
 		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
 	}
 
-	 err = service.ValidateMessageData(&payloadData, &payload)
+	_, err = service.ValidateMessageData(&payloadData, &payload)
 	if err != nil {
-		return nil,nil,  err
+		return nil, nil, err
 	}
-
-
-	
 
 	// dont worry validating the AuthHash for Authorization requests
 	// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
@@ -131,10 +140,10 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 	// }
 
 	// generate associations
-	assocPrevEvent = entities.NewEventPath(entities.SubscriptionEventModel, subscription.EventHash) 
+	assocPrevEvent = &subscription.Event
 
 	if currentAuthState != nil {
-		assocAuthEvent =  entities.NewEventPath(entities.AuthEventModel, currentAuthState.EventHash)
+		assocAuthEvent = &currentAuthState.Event
 	}
 	return assocPrevEvent, assocAuthEvent, nil
 }

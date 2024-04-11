@@ -43,10 +43,8 @@ import (
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
 
-
-
 var logger = &log.Logger
-var config configs.MainConfiguration
+// var config configs.MainConfiguration
 
 var protocolId string
 var privKey crypto.PrivKey
@@ -87,7 +85,7 @@ func shortID(p peer.ID) string {
 	return pretty[len(pretty)-12:]
 }
 
-func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string) {
+func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string, config *configs.MainConfiguration) {
 
 	routingDiscovery := drouting.NewRoutingDiscovery(kdht)
 	dutil.Advertise(ctx, routingDiscovery, rendezvous)
@@ -120,7 +118,7 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 						kdht.ForceRefresh()
 						continue
 					}
-					logger.Debugf("Connected to discovered peer: %s \n", p.ID.String())
+					logger.Debugf("Connected to discovered peer: %s at %s \n", p.ID.String(), p.Addrs)
 					handleConnect(&h, &p)
 				}
 			}
@@ -136,7 +134,8 @@ func Run(mainCtx *context.Context) {
 	ctx, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
 
-	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
+	config, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
+	
 	if !ok {
 
 	}
@@ -174,7 +173,7 @@ func Run(mainCtx *context.Context) {
 
 	// }
 
-	if len(cfg.NodePrivateKey) == 0 {
+	if len(config.NodePrivateKey) == 0 {
 		priv, _, err := crypto.GenerateKeyPair(
 			crypto.Ed25519, // Select your key type. Ed25519 are nice short
 			-1,             // Select key length when possible (i.e. RSA).
@@ -184,7 +183,7 @@ func Run(mainCtx *context.Context) {
 		}
 		privKey = priv
 	} else {
-		priv, err := crypto.UnmarshalECDSAPrivateKey(hexutil.MustDecode(cfg.NodePrivateKey))
+		priv, err := crypto.UnmarshalECDSAPrivateKey(hexutil.MustDecode(config.NodePrivateKey))
 		if err != nil {
 			panic(err)
 		}
@@ -201,7 +200,7 @@ func Run(mainCtx *context.Context) {
 		// Use the keypair we generated
 		libp2p.Identity(privKey),
 		// Multiple listen addresses
-		libp2p.ListenAddrStrings(cfg.Listeners...),
+		libp2p.ListenAddrStrings(config.Listeners...),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
@@ -225,14 +224,14 @@ func Run(mainCtx *context.Context) {
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 
 			var bootstrapPeers []peer.AddrInfo
-			for _, addr := range cfg.BootstrapPeers {
+			for _, addr := range config.BootstrapPeers {
 				addr, _ := multiaddr.NewMultiaddr(addr)
 				pi, _ := peer.AddrInfoFromP2pAddr(addr)
 				bootstrapPeers = append(bootstrapPeers, *pi)
 			}
 			var dhtOptions []dht.Option
 			dhtOptions = append(dhtOptions, dht.BootstrapPeers(bootstrapPeers...))
-			if cfg.BootstrapNode {
+			if config.BootstrapNode {
 				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeServer))
 			}
 			kdht, err := dht.New(ctx, h, dhtOptions...)
@@ -255,7 +254,7 @@ func Run(mainCtx *context.Context) {
 				return nil, err
 			}
 
-			for _, addr := range cfg.BootstrapPeers {
+			for _, addr := range config.BootstrapPeers {
 				addr, _ := multiaddr.NewMultiaddr(addr)
 				pi, err := peer.AddrInfoFromP2pAddr(addr)
 				if err != nil {
@@ -270,7 +269,7 @@ func Run(mainCtx *context.Context) {
 					handleConnect(&h, pi)
 				}
 			}
-			go Discover(ctx, h, kdht, "icms")
+			go Discover(ctx, h, kdht, fmt.Sprintf("ml:%s", config.Network), config)
 
 			// routingOptions := routing.Options{
 			// 	Expired: true,
@@ -325,7 +324,9 @@ func Run(mainCtx *context.Context) {
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
 
-	logger.Infof("Host started with ID is %s\n", h.ID())
+	logger.Infof("Host started with ID %s", h.ID())
+	logger.Infof("Host Network: %s", protocolId)
+	logger.Infof("Host Listening on: %s", h.Addrs())
 
 	// Subscrbers
 	authorizationPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
@@ -339,6 +340,11 @@ func Run(mainCtx *context.Context) {
 	}
 
 	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+
+	messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
@@ -357,6 +363,7 @@ func Run(mainCtx *context.Context) {
 	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.SubscriptionEventPublishC, subscriptionPubSub, mainCtx)
+	go PublishChannelEventToNetwork(channelpool.MessageEventPublishC, messagePubSub, mainCtx)
 	// go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
 	// go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
@@ -365,6 +372,7 @@ func Run(mainCtx *context.Context) {
 	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx, service.HandleNewPubSubTopicEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, subscriptionPubSub, mainCtx, service.HandleNewPubSubSubscriptionEvent)
+	go ProcessEventsReceivedFromOtherNodes(&entities.Message{}, messagePubSub, mainCtx, service.HandleNewPubSubMessageEvent)
 	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
 	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
 
@@ -470,6 +478,8 @@ func handleStream(stream network.Stream) {
 }
 
 func readData(p peer.ID, rw *bufio.ReadWriter) {
+	ctx, _ := context.WithCancel(context.Background())
+	config, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	for {
 		hsData, err := rw.ReadBytes('\n')
 		if err != nil {
@@ -493,7 +503,7 @@ func readData(p peer.ID, rw *bufio.ReadWriter) {
 			logger.WithFields(logrus.Fields{"peer": p, "data": hsData}).Infof("Disconnecting from peer (%s) with invalid handshake", p)
 			return
 		}
-		validStake := isValidStake(handshake, p)
+		validStake := isValidStake(handshake, p, config)
 		if !validStake {
 			disconnect(*node, p)
 			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsData}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
@@ -523,7 +533,7 @@ func isValidHandshake(handshake entities.Handshake, p peer.ID) bool {
 	logger.Debugf("New Valid handshake from peer: %s", p)
 	return true
 }
-func isValidStake(handshake entities.Handshake, p peer.ID) bool {
+func isValidStake(handshake entities.Handshake, p peer.ID, config *configs.MainConfiguration) bool {
 	if handshake.Data.NodeType == constants.ValidatorNodeType && config.Validator {
 		stakeContract, _, _, err := evm.StakeContract(config.EVMRPCHttp, config.StakeContract)
 		if err != nil {
@@ -572,26 +582,30 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	handleConnect(&n.h, &pi)
 }
 
-func handleConnect(h *host.Host, pa *peer.AddrInfo) {
-	pi := *pa
-	logger.Debugf("Successfully connected to peer: %s", pi.ID)
+func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
+	// pi := *pa
+	logger.Debugf("Successfully connected to peer: %s", pairAddr.ID)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stream, err := (*h).NewStream(ctx, pi.ID, protocol.ID(protocolId))
+	stream, err := (*h).NewStream(ctx, pairAddr.ID, protocol.ID(protocolId))
+	config, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
+	if !ok {
+
+	}
 
 	if err != nil {
-		logger.Warningf("Unable to establish stream with peer: %s %o", pi.ID, err)
+		logger.Warningf("Unable to establish stream with peer: %s %o", pairAddr.ID, err)
 	} else {
-		logger.Infof("Streaming to peer: %s", pi.ID)
+		logger.Infof("Streaming to peer: %s", pairAddr.ID)
 		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 		logger.Infof("New StreamID: %s", stream.ID())
-		PeerStreams[stream.ID()] = pi.ID
+		PeerStreams[stream.ID()] = pairAddr.ID
 		nodeType := constants.RelayNodeType
 		if config.Validator {
 			nodeType = constants.ValidatorNodeType
 		}
 		hs, _ := entities.CreateHandshake(defaultNick((*h).ID()), protocolId, config.NetworkPrivateKey, nodeType)
-		go sendData(pi.ID, rw, (&hs).MsgPack())
+		go sendData(pairAddr.ID, rw, (&hs).MsgPack())
 	}
 }
 

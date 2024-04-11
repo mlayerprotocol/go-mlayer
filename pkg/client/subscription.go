@@ -14,10 +14,12 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetSubscriptions() (*[]models.SubscriptionState, error) {
+func GetSubscriptions(payload entities.Subscription) (*[]models.SubscriptionState, error) {
 	var subscriptionStates []models.SubscriptionState
 
-	err := query.GetMany(models.SubscriptionState{}, &subscriptionStates)
+	err := query.GetMany(models.SubscriptionState{
+		Subscription: payload,
+	}, &subscriptionStates)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -25,6 +27,48 @@ func GetSubscriptions() (*[]models.SubscriptionState, error) {
 		return nil, err
 	}
 	return &subscriptionStates, nil
+}
+
+func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicState, error) {
+	var subscriptionStates []models.SubscriptionState
+	var subTopicStates []models.TopicState
+	var topicStates []models.TopicState
+
+	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Account: payload.Account}}, &subscriptionStates)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	topicIds := make([]string, len(subscriptionStates))
+
+	for _, sub := range subscriptionStates {
+		topicIds = append(topicIds, sub.Topic)
+	}
+
+	if len(topicIds) > 0 {
+		subTopErr := query.GetWithIN(models.TopicState{}, &subTopicStates, topicIds)
+		if subTopErr != nil {
+			if subTopErr == gorm.ErrRecordNotFound {
+				return nil, nil
+			}
+			return nil, err
+		}
+	}
+
+	topErr := query.GetMany(models.TopicState{Topic: entities.Topic{Account: payload.Account}}, &topicStates)
+	if topErr != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	topicStates = append(topicStates, subTopicStates...)
+
+	return &topicStates, nil
 }
 
 func GetSubscription(id string) (*models.SubscriptionState, error) {
@@ -82,19 +126,24 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 	if currentState == nil && payload.EventType != uint16(constants.SubscribeTopicEvent) {
 		return nil, nil, apperror.BadRequest("Account not subscribed")
 	}
+
+	if currentState != nil && payload.Account == topicData.Account && payload.EventType == uint16(constants.SubscribeTopicEvent) {
+		return nil, nil, apperror.BadRequest("You currently own this topic")
+	}
+
 	if currentState != nil && currentState.Status != 0 && payload.EventType == uint16(constants.SubscribeTopicEvent) {
 		return nil, nil, apperror.BadRequest("Account already subscribed")
 	}
 
 	// generate associations
 	if currentState != nil {
-		assocPrevEvent = entities.NewEventPath(entities.SubscriptionEventModel, currentState.EventHash)
+		assocPrevEvent =&currentState.Event
 	} else {
-		assocPrevEvent = entities.NewEventPath(entities.TopicEventModel, topicData.EventHash)
+		assocPrevEvent = &topicData.Event
 	}
 
 	if authState != nil {
-		assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, authState.EventHash)
+		assocAuthEvent = &authState.Event
 	}
 	return assocPrevEvent, assocAuthEvent, nil
 }

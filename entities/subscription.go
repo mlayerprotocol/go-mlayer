@@ -16,20 +16,20 @@ import (
 var logger = &log.Logger
 
 type Subscription struct {
-	ID         string                         `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
-	Topic      string                         `json:"top"`
-	Subscriber AddressString                  `json:"sub"`
-	Timestamp  uint64                         `json:"ts"`
-	Signature  string                         `json:"sig"`
-	Hash       string                         `json:"h" gorm:"unique" `
-	EventHash  string                         `json:"eH" gorm:"index;char(64);"`
-	Agent      AddressString                  `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
-	Status     constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:tinyint;index"`
-	Role       constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
+	ID        string                         `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
+	Topic     string                         `json:"top"`
+	Account   AddressString                  `json:"sub"`
+	Timestamp uint64                         `json:"ts"`
+	Signature string                         `json:"sig"`
+	Hash      string                         `json:"h" gorm:"unique" `
+	Event     EventPath                      `json:"e" gorm:"index;char(64);"`
+	Agent     AddressString                  `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
+	Status    constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:smallint;index"`
+	Role      constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
 }
 
 func (sub *Subscription) Key() string {
-	return fmt.Sprintf("/%s/%s", sub.Subscriber, sub.Topic)
+	return fmt.Sprintf("/%s/%s", sub.Account, sub.Topic)
 }
 
 func (sub Subscription) ToJSON() []byte {
@@ -45,7 +45,7 @@ func (subscription Subscription) ToString() string {
 	values = append(values, subscription.Hash)
 	values = append(values, subscription.ID)
 	// values = append(values, fmt.Sprintf("%d", subscription.Timestamp))
-	values = append(values, string(subscription.Subscriber))
+	values = append(values, string(subscription.Account))
 	values = append(values, fmt.Sprintf("%d", subscription.Timestamp))
 	return strings.Join(values, ",")
 }
@@ -96,7 +96,7 @@ func (sub Subscription) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Topic},
 		// encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: sub.Subscriber},
-		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.EventHash},
+		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Event},
 		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: sub.Status},
 		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: sub.Timestamp},
 	)

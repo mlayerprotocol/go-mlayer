@@ -20,10 +20,33 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetAuthorizations() (*[]models.AuthorizationState, error) {
+func getAuthorizations(auth entities.Authorization) (*[]models.AuthorizationState, error) {
 	var authState []models.AuthorizationState
 
-	err := query.GetMany(models.AuthorizationState{}, &authState)
+	err := query.GetMany(models.AuthorizationState{
+		Authorization: auth,
+	}, &authState)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &authState, nil
+}
+
+func GetAccountAuthorizations(auth *entities.Authorization, clientPayload *entities.ClientPayload) (*[]models.AuthorizationState, error) {
+	//agentAuthState, _ := ValidateClientPayload(clientPayload)
+	
+	// if agentAuthState == nil || agentAuthState.Priviledge == 0 {
+	// 	return nil, apperror.Unauthorized("Agent not authorized")
+	// }
+	var authState []models.AuthorizationState
+	auth.Account = clientPayload.Account
+
+	err := query.GetMany(models.AuthorizationState{
+		Authorization: *auth,
+	}, &authState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -78,18 +101,18 @@ func AuthorizeAgent(
 
 		// generate associations
 		if currentState != nil {
-			assocPrevEvent = entities.NewEventPath(entities.AuthEventModel, currentState.EventHash)
+			assocPrevEvent = &currentState.Event
 			// assocPrevEvent = entities.EventPath{
 			// 	Relationship: entities.PreviousEventAssoc,
-			// 	Hash: currentState.EventHash,
+			// 	Hash: currentState.Event,
 			// 	Model: entities.AuthorizationEventModel,
 			// }.ToString()
 		}
 		if grantorAuthState != nil {
-			assocAuthEvent = entities.NewEventPath(entities.AuthEventModel, grantorAuthState.EventHash)
+			assocAuthEvent = &grantorAuthState.Event
 			// assocAuthEvent =  entities.EventPath{
 			// 	Relationship: entities.AuthorizationEventAssoc,
-			// 	Hash: grantorAuthState.EventHash,
+			// 	Hash: grantorAuthState.Event,
 			// 	Model: entities.AuthorizationEventModel,
 			// }
 		}

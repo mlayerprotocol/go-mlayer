@@ -12,6 +12,7 @@ var IncomingTopicEventSubscriptionC = make(chan *entities.Event)
 var AuthorizationEventPublishC = make(chan *entities.Event)
 var TopicEventPublishC = make(chan *entities.Event)
 var SubscriptionEventPublishC = make(chan *entities.Event)
+var MessageEventPublishC = make(chan *entities.Event)
 var UnSubscribeEventPublishC = make(chan *entities.Event)
 var ApproveSubscribeEventPublishC = make(chan *entities.Event)
 

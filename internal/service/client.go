@@ -73,7 +73,7 @@ func ValidateMessageClient(
 
 	var subscriptionStates []models.SubscriptionState
 	query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{
-		Subscriber: entities.AddressString(clientHandshake.Signer),
+		Account: entities.AddressString(clientHandshake.Signer),
 	}}, &subscriptionStates)
 
 	// VALIDATE AND DISTRIBUTE
@@ -89,7 +89,7 @@ func ValidateMessageClient(
 	for i := 0; i < len(subscriptionStates); i++ {
 		_sub := subscriptionStates[i]
 		_topic := _sub.Subscription.Topic
-		_subscriber := _sub.Subscriber.ToString()
+		_subscriber := _sub.Account.ToString()
 		if (*connectedSubscribers)[_topic] == nil {
 			(*connectedSubscribers)[_topic] = make(map[string][]interface{})
 		}

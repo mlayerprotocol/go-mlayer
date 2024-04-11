@@ -22,7 +22,7 @@ var SqlDBErr error
 var logger = &log.Logger
 
 func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
-	logger.Infof("Initializing %s db...", driver)
+	logger.Infof("Initializing %s db... dsn %s", driver, dsn)
 	var dialect gorm.Dialector
 	switch driver {
 	case "postgres":
@@ -40,7 +40,11 @@ func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 	for _, model := range models.Models {
-		db.AutoMigrate(&model)
+		err := db.AutoMigrate(&model)
+		if err != nil {
+			logger.Errorf("UnmarshalError %v", err)
+		}
+
 	}
 
 	return db, err
@@ -85,7 +89,7 @@ func getDSN(dialect string) string {
 		}
 	case "mysql":
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.Config.SQLDB.DbUser, config.Config.SQLDB.DbPassword, config.Config.SQLDB.DbHost, config.Config.SQLDB.DbPort, config.Config.SQLDB.DbDatabase)
-	case "postgres":
+	// case "postgres":
 	default:
 		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=%s", config.Config.SQLDB.DbHost, config.Config.SQLDB.DbUser, config.Config.SQLDB.DbPassword, config.Config.SQLDB.DbDatabase, config.Config.SQLDB.DbPort, config.Config.SQLDB.DbSSLMode, config.Config.SQLDB.DbTimezone)
 	}
