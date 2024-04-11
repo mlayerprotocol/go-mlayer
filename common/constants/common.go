@@ -7,7 +7,7 @@ const (
 )
 
 const (
-	DefaultRPCPort            string = "9521"
+	DefaultRPCPort            string = "9525"
 	DefaultWebSocketAddress   string = "localhost:8088"
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data/store"
