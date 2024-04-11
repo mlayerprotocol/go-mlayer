@@ -37,8 +37,6 @@ func GetMany[T any, U any](item T, data *U) error {
 	return nil
 }
 
-
-
 func GetWithIN[T any, U any, I any](item T, data *U, slice I) error {
 	err := db.Db.Find(data, slice).Error
 
@@ -52,17 +50,17 @@ func GetWithIN[T any, U any, I any](item T, data *U, slice I) error {
 type Result struct {
 	models.SubscriptionState
 	Block uint
-  }
+}
 
 func GetSubscriptionsByBlock(subState entities.Subscription, from uint, to uint, block bool) ([]Result, error) {
 	subStateTable := GetTableName(models.SubscriptionState{})
 	subEventTable := GetTableName(models.SubscriptionEvent{})
 
 	rows, err := db.Db.Model(&models.SubscriptionState{}).Select(fmt.Sprintf("%s.*, %s.block_number", subStateTable, subEventTable)).Where(models.SubscriptionState{Subscription: subState}).
-	Joins(fmt.Sprintf("left join %s on  %s.event_hash = %s.hash", subEventTable, subStateTable, subEventTable)).
- 	Where(fmt.Sprintf("%s.block_number >= %d and %s.block_number < %d", subEventTable, from, subEventTable, to)).Rows()
-	
-	 list := []Result{}
+		Joins(fmt.Sprintf("left join %s on  %s.event_hash = %s.hash", subEventTable, subStateTable, subEventTable)).
+		Where(fmt.Sprintf("%s.block_number >= %d and %s.block_number < %d", subEventTable, from, subEventTable, to)).Rows()
+
+	list := []Result{}
 	for rows.Next() {
 		rsl := Result{}
 		rows.Scan(rsl)
@@ -118,7 +116,7 @@ func SaveRecord[Model any](where Model, data Model, update bool, DB *gorm.DB) (m
 	if update {
 		result = tx.Where(where).Assign(data).FirstOrCreate(&data)
 	} else {
-		result = tx.Where(where).FirstOrCreate(&data)
+		result = tx.Create(&data)
 	}
 	if result.Error != nil {
 		tx.Rollback()

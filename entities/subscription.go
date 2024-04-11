@@ -16,16 +16,16 @@ import (
 var logger = &log.Logger
 
 type Subscription struct {
-	ID         string                         `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
-	Topic      string                         `json:"top"`
-	Account    AddressString                  `json:"sub"`
-	Timestamp  uint64                         `json:"ts"`
-	Signature  string                         `json:"sig"`
-	Hash       string                         `json:"h" gorm:"unique" `
-	Event  EventPath                         `json:"e" gorm:"index;char(64);"`
-	Agent      AddressString                  `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
-	Status     constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:tinyint;index"`
-	Role       constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
+	ID        string                         `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
+	Topic     string                         `json:"top"`
+	Account   AddressString                  `json:"sub"`
+	Timestamp uint64                         `json:"ts"`
+	Signature string                         `json:"sig"`
+	Hash      string                         `json:"h" gorm:"unique" `
+	Event     EventPath                      `json:"e" gorm:"index;char(64);"`
+	Agent     AddressString                  `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
+	Status    constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:smallint;index"`
+	Role      constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
 }
 
 func (sub *Subscription) Key() string {

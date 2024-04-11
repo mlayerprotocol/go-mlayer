@@ -125,7 +125,7 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 		}
 		return nil, &currentAuthState.Event, apperror.Internal(err.Error())
 	}
-	if topicData.ReadOnly && payload.Account != topicData.Account && subscription.Role != constants.AdminSubPriviledge {
+	if *topicData.ReadOnly && payload.Account != topicData.Account && subscription.Role != constants.AdminSubPriviledge {
 		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
 	}
 
