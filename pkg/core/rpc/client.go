@@ -12,7 +12,7 @@ import (
 func RpcClient() {
 
 	hostname := "localhost"
-	port := ":9525"
+	port := ":9526"
 
 	var reply string
 
