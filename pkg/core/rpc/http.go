@@ -77,7 +77,7 @@ func (p *HttpService) sendHttp(w http.ResponseWriter, r *http.Request) {
 func (p *HttpService) Start() error {
 
 	hostname := "localhost"
-	port := ":95211"
+	port := ":9525"
 	client, err := rpc.DialHTTP("tcp", hostname+port)
 
 	if err != nil {
