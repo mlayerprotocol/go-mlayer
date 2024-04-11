@@ -6,6 +6,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: dev
     steps:
       - name: Deploy Node
         uses: appleboy/ssh-action@v0.1.4
@@ -16,4 +17,3 @@ jobs:
 
           script: |
             ./mlayer-deploy.sh
-            
