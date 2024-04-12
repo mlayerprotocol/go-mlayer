@@ -245,6 +245,7 @@ func Start(mainCtx *context.Context) {
 		router := rest.Initialize()
 		logger.Infof("Starting REST api on: %s", cfg.RestAddress)
 		logger.Fatal(router.Run(cfg.RestAddress))
+	
 	}()
 
 	wg.Add(1)
@@ -252,6 +253,7 @@ func Start(mainCtx *context.Context) {
 		defer wg.Done()
 		sendHttp := rpcServer.NewHttpService(&ctx)
 		err := sendHttp.Start()
+
 		if err != nil {
 			logger.Fatal("Http error: ", err)
 		}
