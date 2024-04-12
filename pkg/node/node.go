@@ -220,7 +220,7 @@ func Start(mainCtx *context.Context) {
 		defer wg.Done()
 		rpc.Register(rpcServer.NewRpcService(&ctx))
 		rpc.HandleHTTP()
-		listener, err := net.Listen("tcp", cfg.RPCHost+":"+cfg.RPCPort)
+		listener, err := net.Listen("tcp", "127.0.0.1:"+cfg.RPCPort)
 		if err != nil {
 			logger.Fatal("RPC failed to listen on TCP port: ", err)
 		}
@@ -259,7 +259,7 @@ func Start(mainCtx *context.Context) {
 		defer cancel()
 		defer wg.Done()
 		wss := ws.NewWsService(&ctx)
-		logger.Infof("wsAddress: %s\n", cfg.WSAddress)
+		logger.Infof("WsAddress: %s\n", cfg.WSAddress)
 		http.HandleFunc("/echo", wss.ServeWebSocket)
 
 		logger.Fatal(http.ListenAndServe(cfg.WSAddress, nil))
