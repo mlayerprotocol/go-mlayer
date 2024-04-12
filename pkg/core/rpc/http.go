@@ -77,7 +77,7 @@ func (p *HttpService) sendHttp(w http.ResponseWriter, r *http.Request) {
 // }
 
 func (p *HttpService) Start(rpcPort string) error {
-	_, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	_, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	hostname := "localhost"
 	port := fmt.Sprintf(":%s", rpcPort)

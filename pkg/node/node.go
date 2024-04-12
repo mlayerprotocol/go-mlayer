@@ -6,6 +6,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"strings"
 	"sync"
@@ -229,6 +230,21 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		defer wg.Done()
+		sendHttp := rpcServer.NewHttpService(&ctx)
+		err := sendHttp.Start(cfg.RPCPort)
+
+		if err != nil {
+			logger.Fatal("Http error: ", err)
+		}
+		logger.Infof("New http connection")
+	}()
+
+	wg.Add(1)
+	go func() {
 		defer wg.Done()
 		wss := ws.NewWsService(&ctx)
 		logger.Infof("wsAddress: %s\n", cfg.WSAddress)
@@ -248,17 +264,7 @@ func Start(mainCtx *context.Context) {
 	
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		sendHttp := rpcServer.NewHttpService(&ctx)
-		err := sendHttp.Start(cfg.RPCPort)
-
-		if err != nil {
-			logger.Fatal("Http error: ", err)
-		}
-		logger.Infof("New http connection")
-	}()
+	
 
 }
 
