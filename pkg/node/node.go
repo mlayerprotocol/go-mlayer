@@ -99,6 +99,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
 		defer wg.Done()
 		for {
 			select {
@@ -132,6 +134,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		subscription.ProcessNewSubscription(
 			ctx,
@@ -144,6 +148,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
 	}()
@@ -167,6 +173,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
 		if err != nil {
@@ -207,6 +215,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		rpc.Register(rpcServer.NewRpcService(&ctx))
 		rpc.HandleHTTP()
@@ -245,6 +255,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		wss := ws.NewWsService(&ctx)
 		logger.Infof("wsAddress: %s\n", cfg.WSAddress)
@@ -255,6 +267,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		rest := rest.NewRestService(&ctx)
 
