@@ -99,7 +99,7 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		defer wg.Done()
 		for {
