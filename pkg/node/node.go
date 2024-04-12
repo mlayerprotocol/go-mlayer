@@ -220,11 +220,15 @@ func Start(mainCtx *context.Context) {
 		defer wg.Done()
 		rpc.Register(rpcServer.NewRpcService(&ctx))
 		rpc.HandleHTTP()
-		listener, err := net.Listen("tcp", "127.0.0.1:"+cfg.RPCPort)
+		host :=  cfg.RPCHost
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		listener, err := net.Listen("tcp", host+":"+cfg.RPCPort)
 		if err != nil {
 			logger.Fatal("RPC failed to listen on TCP port: ", err)
 		}
-		logger.Infof("RPC server runing on: %+s", cfg.RPCHost+":"+cfg.RPCPort)
+		logger.Infof("RPC server runing on: %+s", host+":"+cfg.RPCPort)
 		go http.Serve(listener, nil)
 		// for {
 		// 	conn, err := listener.Accept()
