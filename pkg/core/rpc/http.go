@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/rpc"
 	"time"
@@ -75,11 +76,11 @@ func (p *HttpService) sendHttp(w http.ResponseWriter, r *http.Request) {
 // 	jsonrpc.ServeConn(conn)
 // }
 
-func (p *HttpService) Start() error {
+func (p *HttpService) Start(rpcPort string) error {
 	_, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	hostname := "localhost"
-	port := ":9525"
+	port := fmt.Sprintf(":%s", rpcPort)
 	client, err := rpc.DialHTTP("tcp", hostname+port)
 
 	if err != nil {

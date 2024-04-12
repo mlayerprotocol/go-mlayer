@@ -252,7 +252,7 @@ func Start(mainCtx *context.Context) {
 	go func() {
 		defer wg.Done()
 		sendHttp := rpcServer.NewHttpService(&ctx)
-		err := sendHttp.Start()
+		err := sendHttp.Start(cfg.RPCPort)
 
 		if err != nil {
 			logger.Fatal("Http error: ", err)
