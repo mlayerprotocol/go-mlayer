@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/rpc"
+	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
@@ -75,7 +76,8 @@ func (p *HttpService) sendHttp(w http.ResponseWriter, r *http.Request) {
 // }
 
 func (p *HttpService) Start() error {
-
+	_, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 	hostname := "localhost"
 	port := ":9525"
 	client, err := rpc.DialHTTP("tcp", hostname+port)
@@ -84,7 +86,8 @@ func (p *HttpService) Start() error {
 		logger.Errorf("Rpc Error::", err)
 		return err
 	}
-	logger.Info("Dial to rpc successful!")
+	
+	defer client.Close()
 	p.rpcClient = client
 	http.HandleFunc("/", p.sendHttp)
 	// http.HandleFunc("/rpcendpoint", p.serveJSONRPC)
