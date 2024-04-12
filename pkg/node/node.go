@@ -6,6 +6,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"syscall"
 
 	"strings"
 	"sync"
@@ -213,6 +214,22 @@ func Start(mainCtx *context.Context) {
 		if err != nil {
 			logger.Fatal("RPC failed to listen on TCP port: ", err)
 		}
+		// Get the file descriptor associated with the listener
+		file, err := listener.(*net.TCPListener).File()
+		if err != nil {
+			logger.Fatal("File error:", err)
+		}
+
+		// Get the file descriptor's integer value
+		fd := int(file.Fd())
+
+		// Set SO_REUSEADDR option
+		err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+		if err != nil {
+			logger.Fatal("SetsockoptInt error:", err)
+		}
+
+		defer file.Close()
 		logger.Infof("RPC server runing on: %+s", cfg.RPCHost+":"+cfg.RPCPort)
 		go http.Serve(listener, nil)
 		// for {
