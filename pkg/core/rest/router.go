@@ -74,10 +74,10 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 
 		var authEntity entities.Authorization
-		var clientPayload entities.ClientPayload
 
 		json.Unmarshal(*b, &authEntity)
-		auths, err := client.GetAccountAuthorizations(&authEntity, &clientPayload)
+		logger.Infof("authEntity %v", authEntity)
+		auths, err := client.GetAccountAuthorizations(&authEntity)
 
 		if err != nil {
 			logger.Error(err)
