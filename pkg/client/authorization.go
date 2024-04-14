@@ -35,14 +35,14 @@ func getAuthorizations(auth entities.Authorization) (*[]models.AuthorizationStat
 	return &authState, nil
 }
 
-func GetAccountAuthorizations(auth *entities.Authorization, clientPayload *entities.ClientPayload) (*[]models.AuthorizationState, error) {
+func GetAccountAuthorizations(auth *entities.Authorization) (*[]models.AuthorizationState, error) {
 	//agentAuthState, _ := ValidateClientPayload(clientPayload)
-	
+
 	// if agentAuthState == nil || agentAuthState.Priviledge == 0 {
 	// 	return nil, apperror.Unauthorized("Agent not authorized")
 	// }
 	var authState []models.AuthorizationState
-	auth.Account = clientPayload.Account
+	// auth.Account = clientPayload.Account
 
 	err := query.GetMany(models.AuthorizationState{
 		Authorization: *auth,
