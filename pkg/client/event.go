@@ -16,6 +16,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"gorm.io/gorm"
 )
 
 func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *context.Context) (model S, err error) {
@@ -189,4 +190,116 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 
 	return model, nil
 
+}
+
+func GetEvent(eventId string, eventType int) (model interface{}, err error) {
+	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+
+	// check if client payload is valid
+	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
+	// 	return  err
+	// }
+
+	//Perfom checks base on event types
+	switch uint16(eventType) {
+	case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.UpdateTopicEvent), uint16(constants.LeaveEvent):
+		topic, err1 := GetTopicEventById(eventId)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+
+	case uint16(constants.SubscribeTopicEvent), uint16(constants.ApprovedEvent), uint16(constants.BanMemberEvent), uint16(constants.UnbanMemberEvent):
+		topic, err1 := GetSubEventById(eventId)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+	case uint16(constants.SendMessageEvent), uint16(constants.DeleteMessageEvent):
+		topic, err1 := GetMessageEventById(eventId)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+
+	case uint16(constants.AuthorizationEvent), uint16(constants.UnauthorizationEvent):
+		topic, err1 := GetAuthorizationEventById(eventId)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+	default:
+	}
+
+	return model, nil
+
+}
+
+func GetTopicEventById(id string) (*models.TopicEvent, error) {
+	nEvent := models.TopicEvent{}
+
+	err := query.GetOne(models.TopicEvent{
+		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+
+}
+
+func GetSubEventById(id string) (*models.SubscriptionEvent, error) {
+	nEvent := models.SubscriptionEvent{}
+
+	err := query.GetOne(models.SubscriptionEvent{
+		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+}
+
+func GetMessageEventById(id string) (*models.MessageEvent, error) {
+	nEvent := models.MessageEvent{}
+
+	err := query.GetOne(models.MessageEvent{
+		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+}
+
+func GetAuthorizationEventById(id string) (*models.AuthorizationEvent, error) {
+	nEvent := models.AuthorizationEvent{}
+
+	err := query.GetOne(models.AuthorizationEvent{
+		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -455,6 +456,28 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: mainStats}))
+	})
+
+	router.GET("/api/event/:type/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		logger.Info(id)
+		typeParam := c.Param("type")
+		typeParamInt, err := strconv.Atoi(typeParam)
+		if err != nil {
+			// ... handle error
+			logger.Error(err, typeParam)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+
+		topic, err := client.GetEvent(id, typeParamInt)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
 	})
 
 	// router.GET("/api/block-stats", func(c *gin.Context) {
