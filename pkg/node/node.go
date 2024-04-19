@@ -16,9 +16,8 @@ import (
 	"net/rpc"
 
 	// "net/rpc/jsonrpc"
-	"github.com/ethereum/go-ethereum"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
 	"github.com/mlayerprotocol/go-mlayer/configs"
@@ -30,7 +29,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/message"
 	"github.com/mlayerprotocol/go-mlayer/internal/subscription"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
@@ -60,7 +58,7 @@ func Start(mainCtx *context.Context) {
 	}
 	connectedSubscribers := make(map[string]map[string][]interface{})
 
-	incomingEventsC := make(chan types.Log)
+	// incomingEventsC := make(chan types.Log)
 
 	var wg sync.WaitGroup
 	// errc := make(chan error)
@@ -171,47 +169,47 @@ func Start(mainCtx *context.Context) {
 		// }
 	}()
 
-	wg.Add(1)
-	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		defer wg.Done()
-		_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
-		if err != nil {
-			logger.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
-		}
-		query := ethereum.FilterQuery{
-			// FromBlock: big.NewInt(23506010),
-			// ToBlock:   big.NewInt(23506110),
+	// wg.Add(1)
+	// go func() {
+	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
+	// 	if err != nil {
+	// 		logger.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
+	// 	}
+	// 	query := ethereum.FilterQuery{
+	// 		// FromBlock: big.NewInt(23506010),
+	// 		// ToBlock:   big.NewInt(23506110),
 
-			Addresses: []common.Address{contractAddress},
-		}
+	// 		Addresses: []common.Address{contractAddress},
+	// 	}
 
-		// logs, err := client.FilterLogs(context.Background(), query)
-		// if err != nil {
-		// 	logger.Fatal(err)
-		// }
-		// parserEvent(logs[0], "StakeEvent")
+	// 	// logs, err := client.FilterLogs(context.Background(), query)
+	// 	// if err != nil {
+	// 	// 	logger.Fatal(err)
+	// 	// }
+	// 	// parserEvent(logs[0], "StakeEvent")
 
-		// logger.Infof("Past Events", logs)
-		// incomingEventsC
+	// 	// logger.Infof("Past Events", logs)
+	// 	// incomingEventsC
 
-		sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
-		if err != nil {
-			logger.Fatal(err, "SubscribeFilterLogs")
-		}
+	// 	sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
+	// 	if err != nil {
+	// 		logger.Fatal(err, "SubscribeFilterLogs")
+	// 	}
 
-		for {
-			select {
-			case err := <-sub.Err():
-				logger.Fatal(err)
-			case vLog := <-incomingEventsC:
-				fmt.Println(vLog) // pointer to event log
-				parserEvent(vLog, "StakeEvent")
-			}
-		}
+	// 	for {
+	// 		select {
+	// 		case err := <-sub.Err():
+	// 			logger.Fatal(err)
+	// 		case vLog := <-incomingEventsC:
+	// 			fmt.Println(vLog) // pointer to event log
+	// 			parserEvent(vLog, "StakeEvent")
+	// 		}
+	// 	}
 
-	}()
+	// }()
 
 	wg.Add(1)
 	go func() {
