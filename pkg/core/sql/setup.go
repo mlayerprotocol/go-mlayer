@@ -8,6 +8,7 @@ import (
 
 	config "github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql/migration"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -44,9 +45,13 @@ func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
 		if err != nil {
 			logger.Errorf("UnmarshalError %v", err)
 		}
-
+		
+		
+		if err != nil {
+			logger.Errorf("UnmarshalError %v", err)
+		}
 	}
-
+	
 	return db, err
 }
 
@@ -57,6 +62,22 @@ func Init() {
 	if SqlDBErr != nil {
 		panic(SqlDBErr)
 	}
+	for _, migration := range migration.Migrations {
+		var m models.MigrationState;
+		key := strings.ToLower(fmt.Sprintf("%s:%s", migration.DateTime,  migration.Id))
+		err := Db.Where(models.MigrationState{Key: key }).First(&m).Error
+		if err == gorm.ErrRecordNotFound {
+			err := migration.Migrate(Db)
+			if err == nil {
+				Db.Create(models.MigrationState{Key: key })
+			} else {
+				log.Logger.Error("Migration Error", err)
+				panic(err)
+			}
+
+		}
+
+	}
 	db, err := Db.DB()
 	if err != nil {
 		panic(err)
@@ -64,6 +85,9 @@ func Init() {
 	db.SetMaxIdleConns(cfg.SQLDB.DbMaxConnLifetime)
 	db.SetMaxOpenConns(cfg.SQLDB.DbMaxOpenConns)
 	db.SetConnMaxLifetime(time.Duration(cfg.SQLDB.DbMaxConnLifetime) * time.Second)
+
+	
+	
 }
 
 func logLevel() dbLogger.LogLevel {

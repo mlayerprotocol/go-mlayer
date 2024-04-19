@@ -13,7 +13,7 @@ import (
 var logger = &log.Logger
 
 func GetOne[T any, U any](filter T, data *U) error {
-	err := db.Db.Where(&filter).First(data).Error
+	err := db.Db.Where(&filter).Take(data).Error
 	if err != nil {
 
 		return err
