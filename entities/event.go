@@ -26,6 +26,7 @@ const (
 	TopicEventModel        EventModel = "top"
 	SubscriptionEventModel EventModel = "sub"
 	MessageEventModel      EventModel = "msg"
+	SubNetworkEventModel   EventModel = "subnet"
 )
 
 /*
@@ -35,9 +36,9 @@ Event paths define the unique path to an event and its relation to the entitie
 *
 */
 type EventPath struct {
-	Model EventModel `json:"mod"`
-	Hash  string `json:"h"`
-	Validator  PublicKeyString `json:"val"`
+	Model     EventModel      `json:"mod"`
+	Hash      string          `json:"h"`
+	Validator PublicKeyString `json:"val"`
 }
 
 func (e *EventPath) ToString() string {
@@ -69,15 +70,15 @@ func EventPathFromString(path string) *EventPath {
 	case 2:
 		return &EventPath{
 			//Relationship: EventAssoc(assoc),
-			Model: EventModel(""),
-			Hash:  parts[1],
-			Validator:  PublicKeyString(parts[0]),
+			Model:     EventModel(""),
+			Hash:      parts[1],
+			Validator: PublicKeyString(parts[0]),
 		}
 	default:
 		return &EventPath{
 			Validator: PublicKeyString(parts[0]),
-			Model: EventModel(parts[1]),
-			Hash:  parts[2],
+			Model:     EventModel(parts[1]),
+			Hash:      parts[2],
 		}
 	}
 }
