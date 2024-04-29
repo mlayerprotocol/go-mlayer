@@ -480,6 +480,34 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
 	})
 
+	router.POST("/api/sub-networks", func(c *gin.Context) {
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		logger.Infof("Payload %v", payload)
+		subNetwork := entities.SubNetwork{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &subNetwork)
+		if e != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
+		}
+		// subNetwork.ID = id
+		payload.Data = subNetwork
+		event, err := client.CreateEvent(payload, p.Ctx)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
+	})
+
 	// router.GET("/api/block-stats", func(c *gin.Context) {
 	// 	b, parseError := utils.ParseQueryString(c)
 	// 	if parseError != nil {

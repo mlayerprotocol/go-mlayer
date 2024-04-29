@@ -44,6 +44,7 @@ import (
 )
 
 var logger = &log.Logger
+
 // var config configs.MainConfiguration
 
 var protocolId string
@@ -53,6 +54,7 @@ const DiscoveryServiceTag = "ml-network"
 const (
 	AuthorizationChannel string = "ml-authorization-channel"
 	TopicChannel         string = "ml-topic-channel"
+	SubNetworkChannel    string = "ml-sub-network-channel"
 	MessageChannel       string = "ml-message-channel"
 	SubscriptionChannel         = "ml-subscription-channel"
 	// UnSubscribeChannel                = "ml-unsubscribe-channel"
@@ -135,7 +137,7 @@ func Run(mainCtx *context.Context) {
 	defer cancel()
 
 	config, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
-	
+
 	if !ok {
 
 	}
@@ -339,6 +341,11 @@ func Run(mainCtx *context.Context) {
 		panic(err)
 	}
 
+	subNetworkPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubNetworkChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+
 	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
@@ -362,6 +369,7 @@ func Run(mainCtx *context.Context) {
 	// Publishers
 	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
+	go PublishChannelEventToNetwork(channelpool.SubNetworkEventPublishC, subNetworkPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.SubscriptionEventPublishC, subscriptionPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.MessageEventPublishC, messagePubSub, mainCtx)
 	// go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
