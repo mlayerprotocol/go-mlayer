@@ -50,9 +50,10 @@ func ValidateEvent(event interface{}) error {
 	if e.GetValidator() != e.Payload.Validator {
 		return apperror.Forbidden("Payload validator does not match event validator")
 	}
-	logger.Infof("EVENT%s %s", string(e.GetValidator()), e.GetSignature())
+	logger.Infof("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())
 	valid, err := crypto.VerifySignatureEDD(string(e.GetValidator()), &b, e.GetSignature())
 	if err != nil {
+		logger.Error(err)
 		return err
 	}
 	if !valid {
@@ -74,7 +75,7 @@ func ValidateMessageClient(
 	var subscriptionStates []models.SubscriptionState
 	query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{
 		Account: entities.AddressString(clientHandshake.Signer),
-	}}, &subscriptionStates)
+	}}, &subscriptionStates, nil)
 
 	// VALIDATE AND DISTRIBUTE
 	// logger.Debugf("Signer:  %s\n", clientHandshake.Signer)
@@ -161,7 +162,7 @@ func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 			block.Size += 1
 			if block.Size >= MaxBlockSize {
 				block.Closed = true
-				block.NodeHeight = chain.MLChainApi.GetCurrentBlockNumber()
+				block.NodeHeight = chain.API.GetCurrentBlockNumber()
 			}
 			// save the proof and the batch
 			block.Hash = hexutil.Encode(crypto.Keccak256Hash([]byte(proof.Signature + block.Hash)))

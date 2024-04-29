@@ -190,7 +190,6 @@ func UnpackEvent[DataType any](b []byte, data *DataType) (*Event, error) {
 	if err != nil {
 		logger.Errorf("UnmarshalError:: %o", err)
 	}
-	logger.Infof("PL:: %v", pl.Data)
 	_, err2 := pl.EncodeBytes()
 	if err2 != nil {
 		logger.Errorf("EncodeBytesError:: %o", err)

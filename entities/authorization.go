@@ -35,7 +35,7 @@ func (sD SignatureData) GormValue(ctx context.Context, db *gorm.DB) clause.Expr 
 	asJson, _ := json.Marshal(sD)
 	return clause.Expr{
 		SQL:  "?",
-		Vars: []interface{}{string(asJson)},
+		Vars: []interface{}{asJson},
 	}
 }
 

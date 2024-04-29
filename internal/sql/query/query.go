@@ -28,12 +28,25 @@ func GetManyTx[T any](item T) *gorm.DB {
 	return db.Db.Where(&item)
 }
 
-func GetMany[T any, U any](item T, data *U) error {
-	err := GetManyTx(item).Find(data).Error
+type Order string
+const (
+	OrderDec Order = "desc"
+	OrderAsc Order = "asc"
+)
+
+func GetMany[T any, U any](item T, data *U, order *map[string]Order) error {
+	tx := GetManyTx(item)
+	if order != nil {
+		logger.Infof("ORDER BY")
+		for k := range(*order) {
+			logger.Infof("%s %s",  k, (*order)[k])
+			tx = tx.Order(fmt.Sprintf("%s %s", k, (*order)[k]))
+		}
+	}	
+	err := tx.Find(data).Error
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 

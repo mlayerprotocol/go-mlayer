@@ -91,7 +91,7 @@ func ProcessNewSubscription(
 			block.Size += 1
 			if block.Size >= constants.MaxBlockSize {
 				block.Closed = true
-				block.NodeHeight = chain.MLChainApi.GetCurrentBlockNumber()
+				block.NodeHeight = chain.API.GetCurrentBlockNumber()
 			}
 			subCountKey := db.Key("/" + block.BlockId + "/" + sub.Signature)
 			subCount := 0

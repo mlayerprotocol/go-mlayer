@@ -66,6 +66,6 @@ func GetMainStats() (*entities.MainStat, error) {
 		Accounts:     accountCount,
 		TopicBalance: topicBalanceCount,
 		Messages:     messageCount,
-		MessageCount: big.NewInt(0).Mul(chain.MLChainApi.GetCurrentMessageCost(), big.NewInt(messageCount)),
+		MessageCount: big.NewInt(0).Mul(chain.API.GetCurrentMessageCost(), big.NewInt(messageCount)),
 	}, nil
 }

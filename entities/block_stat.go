@@ -5,13 +5,13 @@ package entities
 type Stats struct {
 	ID                 string `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	BlockNumber        uint64 `json:"blk"`
-	EventCount         uint64 `json:"ec"`
-	MessageCount       uint64 `json:"mc"`
-	TopicCount         uint64 `json:"tc"`
-	AuthorizationCount uint64 `json:"ac"`
+	EventCount         uint64 `json:"eC"`
+	MessageCount       uint64 `json:"mC"`
+	TopicCount         uint64 `json:"tC"`
+	AuthorizationCount uint64 `json:"authC"`
 	Cycle uint64 `json:"cy"`
 	Epoch uint64 `json:"ep"`
-	Volume uint64 `json:"vol"`
+	MessageCost string `json:"mCo"`
 	// Count              uint64 `json:"c" gorm:"default:1"`
 }
 

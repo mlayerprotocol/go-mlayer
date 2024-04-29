@@ -51,10 +51,12 @@ func IncrementBlockStat(blockNumber uint64, eventType *constants.EventType ) (mo
 	// 		return nil, false, eErr
 	// 	}
 	// }
-	epoch:= chain.GetEpoch(blockNumber)
-	cycle:= chain.GetCycle(blockNumber)
+	epoch := chain.GetEpoch(blockNumber)
+	cycle := chain.GetCycle(blockNumber)
+	
+	
 
-	tx.Exec(fmt.Sprintf("UPDATE %s SET event_count = event_count + 1, %s = %s + %d, cycle = %d, epoch = %d WHERE block_number = ?", GetTableName(models.BlockStat{}), fieldName, fieldName, increment, cycle, epoch),  blockNumber)
+	tx.Exec(fmt.Sprintf("UPDATE %s SET event_count = event_count + 1, %s = %s + %d, message_cost = %s, cycle = %d, epoch = %d WHERE block_number = ?", GetTableName(models.BlockStat{}), fieldName, fieldName, increment, chain.API.GetCurrentMessageCost(), cycle, epoch),  blockNumber)
 	
 	// data.EventCount = data.EventCount + 1
 	// tx.Save(&data)

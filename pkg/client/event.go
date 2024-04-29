@@ -97,7 +97,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		Synced:            false,
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
-		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
+		BlockNumber:       chain.API.GetCurrentBlockNumber(),
 		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
 	}
 
