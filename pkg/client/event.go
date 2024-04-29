@@ -203,14 +203,10 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
+		
 	}
-
-	_, _, blockStatErr := query.IncrementBlockStat(models.BlockStat{
-		Stats: entities.Stats{
-			BlockNumber: event.BlockNumber,
-			EventType:   event.EventType,
-		},
-	})
+	//query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType) )
+	_, _, blockStatErr := query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType)  )
 
 	if blockStatErr != nil {
 		return nil, blockStatErr

@@ -8,6 +8,14 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 )
 
+func GetEpoch(blockNumber uint64) uint64 {
+	return blockNumber / 14400
+}
+func GetCycle(blockNumber uint64) uint64 {
+	cycle := 1 + (GetEpoch(blockNumber) / 30)
+	return cycle
+}
+
 const NetworkStartDate = uint64(1706468787000)
 
 var MLChainApi MLChainAPI
@@ -28,14 +36,17 @@ func (n *MLChainAPI) GetCurrentBlockNumber() uint64 {
 }
 
 func (n *MLChainAPI) GetCurrentEpoch() uint64 {
-	return n.GetCurrentBlockNumber() / 14400
+	return GetEpoch(n.GetCurrentBlockNumber())
 }
+
 
 func (n *MLChainAPI) GetCurrentCycle() uint64 {
-	return n.GetCurrentEpoch() / 30
+	return GetCycle(n.GetCurrentBlockNumber())
 }
 
+
 func (n *MLChainAPI) GetCurrentYear() uint64 {
+	
 	return n.GetCurrentCycle() / 12
 }
 
@@ -68,3 +79,5 @@ func (n *MLChainAPI) GetChannelBalance(address entities.AddressString) *big.Int 
 	bal.SetString("100000000000000000000000000", 10)
 	return bal
 }
+
+

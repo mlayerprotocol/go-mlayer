@@ -29,7 +29,7 @@ type SignatureData struct {
 }
 
 func (sD SignatureData) GormDataType() string {
-	return "json"
+	return "jsonObject"
 }
 func (sD SignatureData) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	asJson, _ := json.Marshal(sD)
@@ -40,13 +40,13 @@ func (sD SignatureData) GormValue(ctx context.Context, db *gorm.DB) clause.Expr 
 }
 
 func (sD *SignatureData) Scan(value interface{}) error {
-	data, ok := value.(string)
+	data, ok := value.([]byte)
 	if !ok {
 		return errors.New(fmt.Sprint("Value not instance of string:", value))
 	}
 
 	result := SignatureData{}
-	err := json.Unmarshal([]byte(data), &result)
+	err := json.Unmarshal(data, &result)
 	*sD = SignatureData(result)
 	return err
 }
@@ -69,7 +69,7 @@ type Authorization struct {
 	TopicIds             string                           `json:"topIds"`
 	Timestamp            uint64                           `json:"ts"`
 	Duration             uint64                           `json:"du"`
-	SignatureData        SignatureData                    `json:"sigD" gorm:"index;json;"`
+	SignatureData        SignatureData                    `json:"sigD" gorm:"jsonObject;"`
 	Hash                 string                           `json:"h" gorm:"unique" `
 	Event           EventPath                           `json:"e,omitempty" gorm:"index;varchar;"`
 	// AuthorizationEventID string                           `json:"authEventId,omitempty"`

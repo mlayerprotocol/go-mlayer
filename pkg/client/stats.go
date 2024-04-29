@@ -30,8 +30,8 @@ func GetMainStats() (*entities.MainStat, error) {
 	// var mainStat []entities.MainStat
 	var accountCount int64
 	var topicBalanceCount int64
-	var messages int64
 	var messageCount int64
+	
 
 	err := query.GetTx().Model(&models.AuthorizationState{}).Group("account").Count(&accountCount).Error
 	if err != nil {
@@ -47,13 +47,13 @@ func GetMainStats() (*entities.MainStat, error) {
 		}
 		return nil, err
 	}
-	err = query.GetTx().Model(&models.MessageState{}).Count(&messages).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
+	// err = query.GetTx().Model(&models.MessageState{}).Count(&messages).Error
+	// if err != nil {
+	// 	if err == gorm.ErrRecordNotFound {
+	// 		return nil, nil
+	// 	}
+	// 	return nil, err
+	// }
 
 	err = query.GetTx().Model(&models.MessageState{}).Count(&messageCount).Error
 	if err != nil {
@@ -65,7 +65,7 @@ func GetMainStats() (*entities.MainStat, error) {
 	return &entities.MainStat{
 		Accounts:     accountCount,
 		TopicBalance: topicBalanceCount,
-		Messages:     messages,
+		Messages:     messageCount,
 		MessageCount: big.NewInt(0).Mul(chain.MLChainApi.GetCurrentMessageCost(), big.NewInt(messageCount)),
 	}, nil
 }

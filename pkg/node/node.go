@@ -6,6 +6,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"strings"
 	"sync"
@@ -15,9 +16,8 @@ import (
 	"net/rpc"
 
 	// "net/rpc/jsonrpc"
-	"github.com/ethereum/go-ethereum"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
 	"github.com/mlayerprotocol/go-mlayer/configs"
@@ -29,7 +29,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/message"
 	"github.com/mlayerprotocol/go-mlayer/internal/subscription"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
@@ -59,7 +58,7 @@ func Start(mainCtx *context.Context) {
 	}
 	connectedSubscribers := make(map[string]map[string][]interface{})
 
-	incomingEventsC := make(chan types.Log)
+	// incomingEventsC := make(chan types.Log)
 
 	var wg sync.WaitGroup
 	// errc := make(chan error)
@@ -98,6 +97,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		for {
 			select {
@@ -131,6 +132,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		subscription.ProcessNewSubscription(
 			ctx,
@@ -143,6 +146,8 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
 	}()
@@ -164,56 +169,64 @@ func Start(mainCtx *context.Context) {
 		// }
 	}()
 
+	// wg.Add(1)
+	// go func() {
+	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
+	// 	if err != nil {
+	// 		logger.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
+	// 	}
+	// 	query := ethereum.FilterQuery{
+	// 		// FromBlock: big.NewInt(23506010),
+	// 		// ToBlock:   big.NewInt(23506110),
+
+	// 		Addresses: []common.Address{contractAddress},
+	// 	}
+
+	// 	// logs, err := client.FilterLogs(context.Background(), query)
+	// 	// if err != nil {
+	// 	// 	logger.Fatal(err)
+	// 	// }
+	// 	// parserEvent(logs[0], "StakeEvent")
+
+	// 	// logger.Infof("Past Events", logs)
+	// 	// incomingEventsC
+
+	// 	sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
+	// 	if err != nil {
+	// 		logger.Fatal(err, "SubscribeFilterLogs")
+	// 	}
+
+	// 	for {
+	// 		select {
+	// 		case err := <-sub.Err():
+	// 			logger.Fatal(err)
+	// 		case vLog := <-incomingEventsC:
+	// 			fmt.Println(vLog) // pointer to event log
+	// 			parserEvent(vLog, "StakeEvent")
+	// 		}
+	// 	}
+
+	// }()
+
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
-		if err != nil {
-			logger.Fatal(err, cfg.EVMRPCWss, cfg.StakeContract)
-		}
-		query := ethereum.FilterQuery{
-			// FromBlock: big.NewInt(23506010),
-			// ToBlock:   big.NewInt(23506110),
-
-			Addresses: []common.Address{contractAddress},
-		}
-
-		// logs, err := client.FilterLogs(context.Background(), query)
-		// if err != nil {
-		// 	logger.Fatal(err)
-		// }
-		// parserEvent(logs[0], "StakeEvent")
-
-		// logger.Infof("Past Events", logs)
-		// incomingEventsC
-
-		sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
-		if err != nil {
-			logger.Fatal(err, "SubscribeFilterLogs")
-		}
-
-		for {
-			select {
-			case err := <-sub.Err():
-				logger.Fatal(err)
-			case vLog := <-incomingEventsC:
-				fmt.Println(vLog) // pointer to event log
-				parserEvent(vLog, "StakeEvent")
-			}
-		}
-
-	}()
-
-	wg.Add(1)
-	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		rpc.Register(rpcServer.NewRpcService(&ctx))
 		rpc.HandleHTTP()
-		listener, err := net.Listen("tcp", cfg.RPCHost+":"+cfg.RPCPort)
+		host :=  cfg.RPCHost
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		listener, err := net.Listen("tcp", host+":"+cfg.RPCPort)
 		if err != nil {
 			logger.Fatal("RPC failed to listen on TCP port: ", err)
 		}
-		logger.Infof("RPC server runing on: %+s", cfg.RPCHost+":"+cfg.RPCPort)
+		logger.Infof("RPC server runing on: %+s", host+":"+cfg.RPCPort)
 		go http.Serve(listener, nil)
 		// for {
 		// 	conn, err := listener.Accept()
@@ -229,9 +242,26 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		defer wg.Done()
+		sendHttp := rpcServer.NewHttpService(&ctx)
+		err := sendHttp.Start(cfg.RPCPort)
+
+		if err != nil {
+			logger.Fatal("Http error: ", err)
+		}
+		logger.Infof("New http connection")
+	}()
+
+	wg.Add(1)
+	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		wss := ws.NewWsService(&ctx)
-		logger.Infof("wsAddress: %s\n", cfg.WSAddress)
+		logger.Infof("WsAddress: %s\n", cfg.WSAddress)
 		http.HandleFunc("/echo", wss.ServeWebSocket)
 
 		logger.Fatal(http.ListenAndServe(cfg.WSAddress, nil))
@@ -239,24 +269,18 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		defer wg.Done()
 		rest := rest.NewRestService(&ctx)
 
 		router := rest.Initialize()
 		logger.Infof("Starting REST api on: %s", cfg.RestAddress)
 		logger.Fatal(router.Run(cfg.RestAddress))
+	
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		sendHttp := rpcServer.NewHttpService(&ctx)
-		err := sendHttp.Start()
-		if err != nil {
-			logger.Fatal("Http error: ", err)
-		}
-		logger.Infof("New http connection")
-	}()
+	
 
 }
 

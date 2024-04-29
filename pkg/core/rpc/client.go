@@ -1,40 +1,33 @@
 package rpc
 
-import (
-	"log"
-	"net/rpc"
-
-	"github.com/mlayerprotocol/go-mlayer/entities"
-)
-
 // rpc client
 
-func RpcClient() {
+// func RpcClient() {
 
-	hostname := "localhost"
-	port := ":9525"
+// 	hostname := "localhost"
+// 	port := ":9525"
 
-	var reply string
+// 	var reply string
 
-	args := entities.Message{}
+// 	args := entities.Message{}
 
-	client, err := rpc.DialHTTP("tcp", hostname+port)
-	if err != nil {
-		log.Fatal("dialing: ", err)
-	}
+// 	client, err := rpc.DialHTTP("tcp", hostname+port)
+// 	if err != nil {
+// 		log.Fatal("dialing: ", err)
+// 	}
 
-	// Call normally takes service name.function name, args and
-	// the address of the variable that hold the reply. Here we
-	// have no args in the demo therefore we can pass the empty
-	// args struct.
-	err = client.Call("RpcService.SendMessage", args, &reply)
-	if err != nil {
-		log.Fatal("error", err)
-	}
+// 	// Call normally takes service name.function name, args and
+// 	// the address of the variable that hold the reply. Here we
+// 	// have no args in the demo therefore we can pass the empty
+// 	// args struct.
+// 	err = client.Call("RpcService.SendMessage", args, &reply)
+// 	if err != nil {
+// 		log.Fatal("error", err)
+// 	}
 
-	// log the result
-	log.Printf("%s\n", reply)
-}
+// 	// log the result
+// 	log.Printf("%s\n", reply)
+// }
 
 // func serveJSONRPC(w http.ResponseWriter, req *http.Request) {
 //     if req.Method != "CONNECT" {
