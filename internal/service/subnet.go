@@ -24,12 +24,12 @@ Validate an agent authorization
 */
 func ValidateSubnetData(Subnet *entities.Subnet) (currentSubnetState *models.SubnetState, err error) {
 	// check fields of Subnet
-	logger.Info("Subnetcc", Subnet.Handle)
-	if len(Subnet.Handle) > 40 {
-		return nil, apperror.BadRequest("Subnet handle cannont be more than 40 characters")
+	logger.Info("Subnetcc", Subnet.Ref)
+	if len(Subnet.Ref) > 60 {
+		return nil, apperror.BadRequest("Subnet ref cannont be more than 40 characters")
 	}
-	if !utils.IsAlphaNumericDot(Subnet.Handle) {
-		return nil, apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
+	if len(Subnet.Ref) > 0 && !utils.IsAlphaNumericDot(Subnet.Ref) {
+		return nil, apperror.BadRequest("Ref must be alphanumeric, _ and . but cannot start with a number")
 	}
 	return nil, nil
 }

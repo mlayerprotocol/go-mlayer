@@ -15,24 +15,18 @@ import (
 
 type Subnet struct {
 	ID          string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Ref         string        `json:"ref,omitempty"`
 	Name        string        `json:"n,omitempty" binding:"required"`
-	Handle      string        `json:"hand,omitempty" binding:"required" gorm:"unique;type:char(64);default:null"`
-	Description string        `json:"desc,omitempty"`
-	Account     AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Ref      string        `json:"ref,omitempty"  gorm:"unique;type:char(64);default:null"`
 
+	// Readonly
+	Account     AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	Agent AddressString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
-	//
-	Public   *bool `json:"pub,omitempty" gorm:"default:false"`
-	ReadOnly *bool `json:"rO,omitempty" gorm:"default:false"`
-	// InviteOnly bool `json:"invO" gorm:"default:false"`
+
 
 	// Derived
 	Event   EventPath `json:"e,omitempty" gorm:"index;varchar;"`
 	Hash    string    `json:"h,omitempty" gorm:"type:char(64)"`
-	Balance float64   `json:"bal" gorm:"default:0"`
-	// Signature   string    `json:"sig,omitempty" binding:"required"  gorm:"non null;"`
-	// Broadcasted   bool      `json:"br,omitempty"  gorm:"default:false;"`
+	
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
 }
 
@@ -100,7 +94,6 @@ func (topic Subnet) ToString() string {
 	// values = append(values, fmt.Sprintf("%d", topic.Timestamp))
 	// values = append(values, fmt.Sprintf("%d", topic.SubscriberCount))
 	values = append(values, string(topic.Account))
-	values = append(values, fmt.Sprintf("%t", topic.Public))
 	// values = append(values, fmt.Sprintf("%s", topic.Signature))
 	return strings.Join(values, ",")
 }
@@ -110,12 +103,6 @@ func (topic Subnet) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.ID},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Name},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Handle},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Description},
-		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: topic.SubscriberCount},
-		// encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Account},
-		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.Public},
-		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.ReadOnly},
 		// encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.InviteOnly},
 	)
 }
