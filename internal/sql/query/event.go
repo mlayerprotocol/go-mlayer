@@ -80,6 +80,17 @@ func GetEventFromPath(ePath *entities.EventPath) (*entities.Event, error) {
 		return &data.Event, nil
 	}
 
+	if ePath.Model == entities.SubNetworkEventModel {
+		var data *models.SubNetworkEvent
+		err := GetOne(models.SubNetworkEvent{
+			Event: entities.Event{Hash: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Event, nil
+	}
+
 	if ePath.Model == entities.AuthEventModel {
 		var data *models.AuthorizationEvent
 		err := GetOne(models.AuthorizationEvent{

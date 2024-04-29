@@ -22,21 +22,21 @@ package constants
 type AuthorizationPrivilege uint8
 
 const (
-	ReadPriviledge   AuthorizationPrivilege = 0
-	WritePriviledge  AuthorizationPrivilege = 1
+	ReadPriviledge  AuthorizationPrivilege = 0
+	WritePriviledge AuthorizationPrivilege = 1
 	AdminPriviledge AuthorizationPrivilege = 2
 )
 
 type EventPayloadType string
+
 const (
-	TopicPayloadType EventPayloadType = "topic"
+	TopicPayloadType        EventPayloadType = "topic"
 	SubscriptionPayloadType EventPayloadType = "subscription"
-	MessagePayloadType EventPayloadType = "message"
+	MessagePayloadType      EventPayloadType = "message"
+	SubNetworkPayloadType   EventPayloadType = "sub_network"
 )
 
 type EventType uint16
-
-
 
 // Authrization
 const (
@@ -62,17 +62,17 @@ const (
 
 // Member Topic Actions
 const (
-	LeaveEvent     EventType = 1100
+	LeaveEvent          EventType = 1100
 	SubscribeTopicEvent EventType = 1101
-	RequestedEvent EventType = 1102
-	ApprovedEvent  EventType = 1103
-	InvitedEvent   EventType = 1104
+	RequestedEvent      EventType = 1102
+	ApprovedEvent       EventType = 1103
+	InvitedEvent        EventType = 1104
 )
 
 // Message Actions
 const (
-	DeleteMessageEvent  EventType = 1200 //m.room.encrypted
-	SendMessageEvent  EventType = 1201 // m.room.message
+	DeleteMessageEvent EventType = 1200 //m.room.encrypted
+	SendMessageEvent   EventType = 1201 // m.room.message
 	// CreateReactionEvent EventType = 1202 // m.reaction
 	// IsTypingEvent       EventType = 1203
 )
@@ -82,4 +82,20 @@ type SubscriberPrivilege uint8
 const (
 	MemberSubPriviledge SubscriberPrivilege = 0
 	AdminSubPriviledge  SubscriberPrivilege = 1
+)
+
+// Administrative SubNetwork Actions
+const (
+	DeleteSubNetworkEvent EventType = 1300
+	CreateSubNetworkEvent EventType = 1301 // m.room.create
+	// PrivacySetEvent        EventType = 1002
+	// BanMemberEvent         EventType = 1003
+	// UnbanMemberEvent       EventType = 1004
+	// ContractSetEvent       EventType = 1005
+	// UpdateNameEvent        EventType = 1006 //  m.room.name
+	// UpdateDescriptionEvent EventType = 1007 //  m.room.topic
+	// UpdateAvatarEvent      EventType = 1008 //  m.room.avatar
+	// PinMessageEvent        EventType = 1008 //  m.room.avatar
+	UpdateSubNetworkEvent EventType = 1309
+	// UpgradeSubscriberEvent EventType = 1010
 )

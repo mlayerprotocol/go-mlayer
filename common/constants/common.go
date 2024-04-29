@@ -12,14 +12,12 @@ const (
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data/store"
 	DefaultMLBlockchainAPIUrl string = ":9520"
-	DefaultNetwork string = "mainnet"
+	DefaultNetwork            string = "mainnet"
 )
 const (
-	RelayNodeType  uint = 0
-	ValidatorNodeType   uint   = 1
+	RelayNodeType     uint = 0
+	ValidatorNodeType uint = 1
 )
-
-
 
 const MaxBlockSize = 1000
 
@@ -51,6 +49,7 @@ const (
 	ConfigKey                       string = "Config"
 	BroadcastAuthorizationEventChId        = "BroadcastAuthorizationEventChannel"
 	BroadcastTopicEventChId                = "BroadcastTopicEventChannel"
+	BroadcastSubNetworkEventChId           = "BroadcastSubNetworkEventChannel"
 	// IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
 	IncomingTopicEventChId = "IncomingTopicEventChannel"
 
@@ -83,8 +82,6 @@ const (
 	MQTT Protocol = "mqtt"
 	RPC  Protocol = "rpc"
 )
-
-
 
 type SubscriptionStatuses int16
 

@@ -5,12 +5,12 @@ import (
 	"gorm.io/gorm"
 )
 
-type TopicState struct {
-	entities.Topic
+type SubNetworkState struct {
+	entities.SubNetwork
 	BaseModel
 }
 
-func (d *TopicState) BeforeCreate(tx *gorm.DB) (err error) {
+func (d *SubNetworkState) BeforeCreate(tx *gorm.DB) (err error) {
 	if d.ID == "" {
 		hash, err := entities.GetId(*d)
 		if err != nil {
@@ -21,9 +21,9 @@ func (d *TopicState) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
-type TopicEvent struct {
+type SubNetworkEvent struct {
 	entities.Event
 	BaseModel
-	// TopicID     uint64
-	// Topic		TopicState
+	// SubNetworkID     uint64
+	// SubNetwork		SubNetworkState
 }

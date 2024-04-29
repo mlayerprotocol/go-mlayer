@@ -55,16 +55,24 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		if err != nil {
 			return nil, err
 		}
-	// case uint16(constants.SubscribeTopicEvent):
-	// 	if authState.Authorization.Priviledge < constants.AdminPriviledge {
-	// 		return nil, apperror.Forbidden("Agent not authorized to perform this action")
-	// 	}
-	// 	eventPayloadType = constants.SubscriptionPayloadType
-	// 	assocPrevEvent, assocAuthEvent,  err = ValidateSubscriptionPayload(payload, authState)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
+		// case uint16(constants.SubscribeTopicEvent):
+		// 	if authState.Authorization.Priviledge < constants.AdminPriviledge {
+		// 		return nil, apperror.Forbidden("Agent not authorized to perform this action")
+		// 	}
+		// 	eventPayloadType = constants.SubscriptionPayloadType
+		// 	assocPrevEvent, assocAuthEvent,  err = ValidateSubscriptionPayload(payload, authState)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+	case uint16(constants.CreateSubNetworkEvent), uint16(constants.UpdateSubNetworkEvent):
+		eventPayloadType = constants.SubNetworkPayloadType
+		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
+		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
+		// }
+		assocPrevEvent, assocAuthEvent, err = ValidateSubNetworkPayload(payload, authState)
+		if err != nil {
+			return nil, err
+		}
 	case uint16(constants.SubscribeTopicEvent), uint16(constants.ApprovedEvent), uint16(constants.BanMemberEvent), uint16(constants.UnbanMemberEvent):
 		if authState.Authorization.Priviledge < constants.WritePriviledge {
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
@@ -130,6 +138,26 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 
 		if created {
 			channelpool.TopicEventPublishC <- &(eModel.Event)
+		}
+		var returnModel = models.EventInterface(*eModel)
+		model = &returnModel
+	case constants.SubNetworkPayloadType:
+		eModel, created, err := query.SaveRecord(
+			models.SubNetworkEvent{
+				Event: entities.Event{Hash: event.Hash},
+			},
+			models.SubNetworkEvent{
+				Event: event,
+			}, false, nil)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// channelpool.SubNetworkEventPublishC <- &(eModel.Event)
+
+		if created {
+			channelpool.SubNetworkEventPublishC <- &(eModel.Event)
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
