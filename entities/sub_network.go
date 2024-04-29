@@ -13,7 +13,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 )
 
-type SubNetwork struct {
+type Subnet struct {
 	ID          string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	Ref         string        `json:"ref,omitempty"`
 	Name        string        `json:"n,omitempty" binding:"required"`
@@ -36,11 +36,11 @@ type SubNetwork struct {
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
 }
 
-func (topic *SubNetwork) Key() string {
+func (topic *Subnet) Key() string {
 	return fmt.Sprintf("/%s/%s", topic.Account, topic.Hash)
 }
 
-func (topic *SubNetwork) ToJSON() []byte {
+func (topic *Subnet) ToJSON() []byte {
 	m, e := json.Marshal(topic)
 	if e != nil {
 		logger.Errorf("Unable to parse subscription to []byte")
@@ -48,12 +48,12 @@ func (topic *SubNetwork) ToJSON() []byte {
 	return m
 }
 
-func (topic *SubNetwork) MsgPack() []byte {
+func (topic *Subnet) MsgPack() []byte {
 	b, _ := encoder.MsgPackStruct(topic)
 	return b
 }
 
-func SubNetworkToByte(i uint64) []byte {
+func SubnetToByte(i uint64) []byte {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, i)
 
@@ -61,31 +61,31 @@ func SubNetworkToByte(i uint64) []byte {
 	return b
 }
 
-func SubNetworkFromBytes(b []byte) (SubNetwork, error) {
-	var topic SubNetwork
+func SubnetFromBytes(b []byte) (Subnet, error) {
+	var topic Subnet
 	// if err := json.Unmarshal(b, &message); err != nil {
 	// 	panic(err)
 	// }
 	err := json.Unmarshal(b, &topic)
 	return topic, err
 }
-func UnpackSubNetwork(b []byte) (SubNetwork, error) {
-	var topic SubNetwork
+func UnpackSubnet(b []byte) (Subnet, error) {
+	var topic Subnet
 	err := encoder.MsgPackUnpackStruct(b, topic)
 	return topic, err
 }
 
-func (p *SubNetwork) CanSend(channel string, sender AddressString) bool {
+func (p *Subnet) CanSend(channel string, sender AddressString) bool {
 	// check if user can send
 	return true
 }
 
-func (p *SubNetwork) IsMember(channel string, sender AddressString) bool {
+func (p *Subnet) IsMember(channel string, sender AddressString) bool {
 	// check if user can send
 	return true
 }
 
-func (topic SubNetwork) GetHash() ([]byte, error) {
+func (topic Subnet) GetHash() ([]byte, error) {
 	b, err := topic.EncodeBytes()
 	if err != nil {
 		return []byte(""), err
@@ -93,7 +93,7 @@ func (topic SubNetwork) GetHash() ([]byte, error) {
 	return crypto.Keccak256Hash(b), nil
 }
 
-func (topic SubNetwork) ToString() string {
+func (topic Subnet) ToString() string {
 	values := []string{}
 	values = append(values, topic.Hash)
 	values = append(values, topic.Name)
@@ -105,7 +105,7 @@ func (topic SubNetwork) ToString() string {
 	return strings.Join(values, ",")
 }
 
-func (topic SubNetwork) EncodeBytes() ([]byte, error) {
+func (topic Subnet) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.ID},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},

@@ -64,12 +64,12 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		// 	if err != nil {
 		// 		return nil, err
 		// 	}
-	case uint16(constants.CreateSubNetworkEvent), uint16(constants.UpdateSubNetworkEvent):
-		eventPayloadType = constants.SubNetworkPayloadType
+	case uint16(constants.CreateSubnetEvent), uint16(constants.UpdateSubnetEvent):
+		eventPayloadType = constants.SubnetPayloadType
 		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
 		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		// }
-		assocPrevEvent, assocAuthEvent, err = ValidateSubNetworkPayload(payload, authState)
+		assocPrevEvent, assocAuthEvent, err = ValidateSubnetPayload(payload, authState)
 		if err != nil {
 			return nil, err
 		}
@@ -141,12 +141,12 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
-	case constants.SubNetworkPayloadType:
+	case constants.SubnetPayloadType:
 		eModel, created, err := query.SaveRecord(
-			models.SubNetworkEvent{
+			models.SubnetEvent{
 				Event: entities.Event{Hash: event.Hash},
 			},
-			models.SubNetworkEvent{
+			models.SubnetEvent{
 				Event: event,
 			}, false, nil)
 
@@ -154,10 +154,10 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, err
 		}
 
-		// channelpool.SubNetworkEventPublishC <- &(eModel.Event)
+		// channelpool.SubnetEventPublishC <- &(eModel.Event)
 
 		if created {
-			channelpool.SubNetworkEventPublishC <- &(eModel.Event)
+			channelpool.SubnetEventPublishC <- &(eModel.Event)
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel

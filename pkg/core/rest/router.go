@@ -480,21 +480,21 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
 	})
 
-	router.POST("/api/sub-networks", func(c *gin.Context) {
+	router.POST("/api/subnets", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
 		logger.Infof("Payload %v", payload)
-		subNetwork := entities.SubNetwork{}
+		Subnet := entities.Subnet{}
 		d, _ := json.Marshal(payload.Data)
-		e := json.Unmarshal(d, &subNetwork)
+		e := json.Unmarshal(d, &Subnet)
 		if e != nil {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
 		}
-		// subNetwork.ID = id
-		payload.Data = subNetwork
+		// Subnet.ID = id
+		payload.Data = Subnet
 		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {

@@ -28,8 +28,8 @@ var Models = []interface{}{
 	SubscriptionEvent{},
 	BlockStat{},
 
-	SubNetworkState{},
-	SubNetworkEvent{},
+	SubnetState{},
+	SubnetEvent{},
 
 	MigrationState{},
 

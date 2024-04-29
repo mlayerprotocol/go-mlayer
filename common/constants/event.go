@@ -33,7 +33,7 @@ const (
 	TopicPayloadType        EventPayloadType = "topic"
 	SubscriptionPayloadType EventPayloadType = "subscription"
 	MessagePayloadType      EventPayloadType = "message"
-	SubNetworkPayloadType   EventPayloadType = "sub_network"
+	SubnetPayloadType   EventPayloadType = "sub_network"
 )
 
 type EventType uint16
@@ -84,10 +84,10 @@ const (
 	AdminSubPriviledge  SubscriberPrivilege = 1
 )
 
-// Administrative SubNetwork Actions
+// Administrative Subnet Actions
 const (
-	DeleteSubNetworkEvent EventType = 1300
-	CreateSubNetworkEvent EventType = 1301 // m.room.create
+	DeleteSubnetEvent EventType = 1300
+	CreateSubnetEvent EventType = 1301 // m.room.create
 	// PrivacySetEvent        EventType = 1002
 	// BanMemberEvent         EventType = 1003
 	// UnbanMemberEvent       EventType = 1004
@@ -96,6 +96,6 @@ const (
 	// UpdateDescriptionEvent EventType = 1007 //  m.room.topic
 	// UpdateAvatarEvent      EventType = 1008 //  m.room.avatar
 	// PinMessageEvent        EventType = 1008 //  m.room.avatar
-	UpdateSubNetworkEvent EventType = 1309
+	UpdateSubnetEvent EventType = 1309
 	// UpgradeSubscriberEvent EventType = 1010
 )

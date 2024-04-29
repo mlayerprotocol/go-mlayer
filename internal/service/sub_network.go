@@ -22,20 +22,20 @@ import (
 /*
 Validate an agent authorization
 */
-func ValidateSubNetworkData(subNetwork *entities.SubNetwork) (currentSubNetworkState *models.SubNetworkState, err error) {
-	// check fields of subNetwork
-	logger.Info("SubNetworkcc", subNetwork.Handle)
-	if len(subNetwork.Handle) > 40 {
-		return nil, apperror.BadRequest("SubNetwork handle cannont be more than 40 characters")
+func ValidateSubnetData(Subnet *entities.Subnet) (currentSubnetState *models.SubnetState, err error) {
+	// check fields of Subnet
+	logger.Info("Subnetcc", Subnet.Handle)
+	if len(Subnet.Handle) > 40 {
+		return nil, apperror.BadRequest("Subnet handle cannont be more than 40 characters")
 	}
-	if !utils.IsAlphaNumericDot(subNetwork.Handle) {
+	if !utils.IsAlphaNumericDot(Subnet.Handle) {
 		return nil, apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
 	}
 	return nil, nil
 }
 
-func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context) {
-	logger.WithFields(logrus.Fields{"event": event}).Debug("New subNetwork event from pubsub channel")
+func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
+	logger.WithFields(logrus.Fields{"event": event}).Debug("New Subnet event from pubsub channel")
 	markAsSynced := false
 	updateState := false
 	var eventError string
@@ -51,16 +51,16 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// Extract and validate the Data of the paylaod which is an Events Payload Data,
-	data := event.Payload.Data.(*entities.SubNetwork)
+	data := event.Payload.Data.(*entities.Subnet)
 	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
 	authEventHash := event.AuthEventHash
 	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
 
-	currentState, err := ValidateSubNetworkData(data)
+	currentState, err := ValidateSubnetData(data)
 	if err != nil {
 		// penalize node for broadcasting invalid data
-		logger.Infof("Invalid subNetwork data %v. Node should be penalized", err)
+		logger.Infof("Invalid Subnet data %v. Node should be penalized", err)
 		return
 	}
 
@@ -72,7 +72,7 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
-		var currentStateEvent = &models.SubNetworkEvent{}
+		var currentStateEvent = &models.SubnetEvent{}
 		err := query.GetOne(entities.Event{Hash: currentState.Event.Hash}, currentStateEvent)
 		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
 			isMoreRecent = true
@@ -170,11 +170,11 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 		event.IsValid = markAsSynced && len(eventError) == 0.
 		event.Synced = markAsSynced
 		event.Broadcasted = true
-		_, _, err := query.SaveRecord(models.SubNetworkEvent{
+		_, _, err := query.SaveRecord(models.SubnetEvent{
 			Event: entities.Event{
 				PayloadHash: event.PayloadHash,
 			},
-		}, models.SubNetworkEvent{
+		}, models.SubnetEvent{
 			Event: *event,
 		}, false, tx)
 		if err != nil {
@@ -184,9 +184,9 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 		}
 	} else {
 		if markAsSynced {
-			_, _, err := query.SaveRecord(models.SubNetworkEvent{
+			_, _, err := query.SaveRecord(models.SubnetEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash},
-			}, models.SubNetworkEvent{
+			}, models.SubnetEvent{
 				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
 			}, true, tx)
 			if err != nil {
@@ -194,10 +194,10 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 			}
 		} else {
 			// mark as broadcasted
-			_, _, err := query.SaveRecord(models.SubNetworkEvent{
+			_, _, err := query.SaveRecord(models.SubnetEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
 			},
-				models.SubNetworkEvent{
+				models.SubnetEvent{
 					Event: entities.Event{Broadcasted: true},
 				}, true, tx)
 			if err != nil {
@@ -214,17 +214,17 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 	if err != nil {
 		logger.Errorf("Invalid event payload")
 	}
-	data.Event = *entities.NewEventPath(event.Validator, entities.SubNetworkEventModel, event.Hash)
+	data.Event = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
 	data.Agent = entities.AddressString(agent)
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
 
 	if updateState {
-		_, _, err := query.SaveRecord(models.SubNetworkState{
-			SubNetwork: entities.SubNetwork{ID: data.ID},
-		}, models.SubNetworkState{
-			SubNetwork: *data,
-		}, event.EventType == uint16(constants.UpdateSubNetworkEvent), tx)
+		_, _, err := query.SaveRecord(models.SubnetState{
+			Subnet: entities.Subnet{ID: data.ID},
+		}, models.SubnetState{
+			Subnet: *data,
+		}, event.EventType == uint16(constants.UpdateSubnetEvent), tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("7000: Db Error", err)
@@ -239,7 +239,7 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 			logger.Info("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
-			go HandleNewPubSubSubNetworkEvent(&dep, ctx)
+			go HandleNewPubSubSubnetEvent(&dep, ctx)
 		}
 	}
 

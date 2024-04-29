@@ -15,30 +15,30 @@ import (
 	"gorm.io/gorm"
 )
 
-// type SubNetworkService struct {
+// type SubnetService struct {
 // 	Ctx context.Context
 // 	Cfg configs.MainConfiguration
 // }
 
-// func NewSubNetworkService(mainCtx *context.Context) *SubNetworkService {
+// func NewSubnetService(mainCtx *context.Context) *SubnetService {
 // 	ctx := *mainCtx
 // 	cfg, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
-// 	return &SubNetworkService{
+// 	return &SubnetService{
 // 		Ctx: ctx,
 // 		Cfg: *cfg,
 // 	}
 // }
 
-// func (p *SubNetworkService) NewSubNetworkSubscription(sub *entities.Subscription) error {
+// func (p *SubnetService) NewSubnetSubscription(sub *entities.Subscription) error {
 // 	// subscribersc, ok := p.Ctx.Value(utils.SubscribeChId).(*chan *entities.Subscription)
 
 // 	// validate before storing
 // 	if entities.IsValidSubscription(*sub, true) {
-// 		subNetworkSubscriberStore, ok := p.Ctx.Value(constants.NewSubNetworkSubscriptionStore).(*db.Datastore)
+// 		SubnetSubscriberStore, ok := p.Ctx.Value(constants.NewSubnetSubscriptionStore).(*db.Datastore)
 // 		if !ok {
 // 			return errors.New("Could not connect to subscription datastore")
 // 		}
-// 		error := subNetworkSubscriberStore.Set(p.Ctx, db.Key(sub.Key()), sub.MsgPack(), false)
+// 		error := SubnetSubscriberStore.Set(p.Ctx, db.Key(sub.Key()), sub.MsgPack(), false)
 // 		if error != nil {
 // 			return error
 // 		}
@@ -47,91 +47,91 @@ import (
 // }
 
 /*
-Validate and Process the subNetwork request
+Validate and Process the Subnet request
 */
 
-func GetSubNetworkById(id string) (*models.SubNetworkState, error) {
-	subNetworkState := models.SubNetworkState{}
+func GetSubnetById(id string) (*models.SubnetState, error) {
+	SubnetState := models.SubnetState{}
 
-	err := query.GetOne(models.SubNetworkState{
-		SubNetwork: entities.SubNetwork{ID: id},
-	}, &subNetworkState)
+	err := query.GetOne(models.SubnetState{
+		Subnet: entities.Subnet{ID: id},
+	}, &SubnetState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &subNetworkState, nil
+	return &SubnetState, nil
 
 }
-func GetSubNetworkByHash(hash string) (*models.SubNetworkState, error) {
-	subNetworkState := models.SubNetworkState{}
+func GetSubnetByHash(hash string) (*models.SubnetState, error) {
+	SubnetState := models.SubnetState{}
 
-	err := query.GetOne(models.SubNetworkState{
-		SubNetwork: entities.SubNetwork{Hash: hash},
-	}, &subNetworkState)
+	err := query.GetOne(models.SubnetState{
+		Subnet: entities.Subnet{Hash: hash},
+	}, &SubnetState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &subNetworkState, nil
+	return &SubnetState, nil
 
 }
 
-func GetSubNetworks() (*[]models.SubNetworkState, error) {
-	var subNetworkStates []models.SubNetworkState
+func GetSubnets() (*[]models.SubnetState, error) {
+	var SubnetStates []models.SubnetState
 
-	err := query.GetMany(models.SubNetworkState{}, &subNetworkStates)
+	err := query.GetMany(models.SubnetState{}, &SubnetStates, nil)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &subNetworkStates, nil
+	return &SubnetStates, nil
 }
 
-func GetSubNetworkEvents() (*[]models.SubNetworkEvent, error) {
-	var subNetworkEvents []models.SubNetworkEvent
+func GetSubnetEvents() (*[]models.SubnetEvent, error) {
+	var SubnetEvents []models.SubnetEvent
 
-	err := query.GetMany(models.SubNetworkEvent{
+	err := query.GetMany(models.SubnetEvent{
 		Event: entities.Event{
 			BlockNumber: 1,
 		},
-	}, &subNetworkEvents)
+	}, &SubnetEvents, nil)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &subNetworkEvents, nil
+	return &SubnetEvents, nil
 }
 
-// func ListenForNewSubNetworkEventFromPubSub (mainCtx *context.Context) {
+// func ListenForNewSubnetEventFromPubSub (mainCtx *context.Context) {
 // 	ctx, cancel := context.WithCancel(*mainCtx)
 // 	defer cancel()
 
-//		incomingSubNetworkC, ok := (*mainCtx).Value(constants.IncomingSubNetworkEventChId).(*chan *entities.Event)
+//		incomingSubnetC, ok := (*mainCtx).Value(constants.IncomingSubnetEventChId).(*chan *entities.Event)
 //		if !ok {
-//			logger.Errorf("incomingSubNetworkC closed")
+//			logger.Errorf("incomingSubnetC closed")
 //			return
 //		}
 //		for {
-//			event, ok :=  <-*incomingSubNetworkC
+//			event, ok :=  <-*incomingSubnetC
 //			if !ok {
-//				logger.Fatal("incomingSubNetworkC closed for read")
+//				logger.Fatal("incomingSubnetC closed for read")
 //				return
 //			}
-//			go service.HandleNewPubSubSubNetworkEvent(event, ctx)
+//			go service.HandleNewPubSubSubnetEvent(event, ctx)
 //		}
 //	}
-func ValidateSubNetworkPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
-	payloadData := entities.SubNetwork{}
+	payloadData := entities.Subnet{}
 	d, _ := json.Marshal(payload.Data)
 	e := json.Unmarshal(d, &payloadData)
 	if e != nil {
@@ -139,7 +139,7 @@ func ValidateSubNetworkPayload(payload entities.ClientPayload, authState *models
 	}
 
 	payload.Data = payloadData
-	if payload.EventType == uint16(constants.CreateSubNetworkEvent) {
+	if payload.EventType == uint16(constants.CreateSubnetEvent) {
 		// dont worry validating the AuthHash for Authorization requests
 		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
 			return nil, nil, errors.New("Authorization timestamp exceeded")
@@ -147,7 +147,7 @@ func ValidateSubNetworkPayload(payload entities.ClientPayload, authState *models
 
 	}
 
-	currentState, err := service.ValidateSubNetworkData(&payloadData)
+	currentState, err := service.ValidateSubnetData(&payloadData)
 	if err != nil {
 		return nil, nil, err
 	}
