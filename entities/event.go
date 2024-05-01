@@ -26,7 +26,8 @@ const (
 	TopicEventModel        EventModel = "top"
 	SubscriptionEventModel EventModel = "sub"
 	MessageEventModel      EventModel = "msg"
-	SubnetEventModel   EventModel = "subnet"
+	SubnetEventModel       EventModel = "subnet"
+	WalletEventModel       EventModel = "wal"
 )
 
 /*

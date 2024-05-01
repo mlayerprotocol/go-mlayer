@@ -36,6 +36,7 @@ type Topic struct {
 	// Signature   string    `json:"sig,omitempty" binding:"required"  gorm:"non null;"`
 	// Broadcasted   bool      `json:"br,omitempty"  gorm:"default:false;"`
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
+	Subnet    string `json:"snet"`
 }
 
 func (topic *Topic) Key() string {
@@ -120,5 +121,6 @@ func (topic Topic) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.Public},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.ReadOnly},
 		// encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.InviteOnly},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Subnet},
 	)
 }

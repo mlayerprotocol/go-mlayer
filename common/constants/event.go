@@ -33,7 +33,8 @@ const (
 	TopicPayloadType        EventPayloadType = "topic"
 	SubscriptionPayloadType EventPayloadType = "subscription"
 	MessagePayloadType      EventPayloadType = "message"
-	SubnetPayloadType   EventPayloadType = "sub_network"
+	SubnetPayloadType       EventPayloadType = "sub_network"
+	WalletPayloadType       EventPayloadType = "wallet"
 )
 
 type EventType uint16
@@ -98,4 +99,12 @@ const (
 	// PinMessageEvent        EventType = 1008 //  m.room.avatar
 	UpdateSubnetEvent EventType = 1309
 	// UpgradeSubscriberEvent EventType = 1010
+)
+
+// Administrative Wallet Actions
+const (
+	DeleteWalletEvent EventType = 1400
+	CreateWalletEvent EventType = 1401 // m.room.create
+
+	UpdateWalletEvent EventType = 1409
 )

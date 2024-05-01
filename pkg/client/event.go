@@ -73,6 +73,15 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		if err != nil {
 			return nil, err
 		}
+	case uint16(constants.CreateWalletEvent), uint16(constants.UpdateWalletEvent):
+		eventPayloadType = constants.WalletPayloadType
+		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
+		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
+		// }
+		assocPrevEvent, assocAuthEvent, err = ValidateWalletPayload(payload, authState)
+		if err != nil {
+			return nil, err
+		}
 	case uint16(constants.SubscribeTopicEvent), uint16(constants.ApprovedEvent), uint16(constants.BanMemberEvent), uint16(constants.UnbanMemberEvent):
 		if authState.Authorization.Priviledge < constants.WritePriviledge {
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
@@ -162,6 +171,27 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
 
+	case constants.WalletPayloadType:
+		eModel, created, err := query.SaveRecord(
+			models.WalletEvent{
+				Event: entities.Event{Hash: event.Hash},
+			},
+			models.WalletEvent{
+				Event: event,
+			}, false, nil)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// channelpool.WalletEventPublishC <- &(eModel.Event)
+
+		if created {
+			channelpool.WalletEventPublishC <- &(eModel.Event)
+		}
+		var returnModel = models.EventInterface(*eModel)
+		model = &returnModel
+
 	case constants.SubscriptionPayloadType:
 		eModel, created, err := query.SaveRecord(
 			models.SubscriptionEvent{
@@ -203,10 +233,10 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
-		
+
 	}
 	//query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType) )
-	_, _, blockStatErr := query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType)  )
+	_, _, blockStatErr := query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType))
 
 	if blockStatErr != nil {
 		return nil, blockStatErr
@@ -228,6 +258,15 @@ func GetEvent(eventId string, eventType int) (model interface{}, err error) {
 	switch uint16(eventType) {
 	case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.UpdateTopicEvent), uint16(constants.LeaveEvent):
 		topic, err1 := GetTopicEventById(eventId)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+
+	case uint16(constants.CreateSubnetEvent):
+		topic, err1 := GetSubnetEventById(eventId)
 
 		if err1 != nil {
 			logger.Error(err)
@@ -271,6 +310,22 @@ func GetTopicEventById(id string) (*models.TopicEvent, error) {
 	nEvent := models.TopicEvent{}
 
 	err := query.GetOne(models.TopicEvent{
+		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+
+}
+
+func GetSubnetEventById(id string) (*models.SubnetEvent, error) {
+	nEvent := models.SubnetEvent{}
+
+	err := query.GetOne(models.SubnetEvent{
 		Event: entities.Event{ID: id},
 	}, &nEvent)
 	if err != nil {

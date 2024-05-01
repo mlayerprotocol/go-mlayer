@@ -15,30 +15,30 @@ import (
 	"gorm.io/gorm"
 )
 
-// type SubnetService struct {
+// type WalletService struct {
 // 	Ctx context.Context
 // 	Cfg configs.MainConfiguration
 // }
 
-// func NewSubnetService(mainCtx *context.Context) *SubnetService {
+// func NewWalletService(mainCtx *context.Context) *WalletService {
 // 	ctx := *mainCtx
 // 	cfg, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
-// 	return &SubnetService{
+// 	return &WalletService{
 // 		Ctx: ctx,
 // 		Cfg: *cfg,
 // 	}
 // }
 
-// func (p *SubnetService) NewSubnetSubscription(sub *entities.Subscription) error {
+// func (p *WalletService) NewWalletSubscription(sub *entities.Subscription) error {
 // 	// subscribersc, ok := p.Ctx.Value(utils.SubscribeChId).(*chan *entities.Subscription)
 
 // 	// validate before storing
 // 	if entities.IsValidSubscription(*sub, true) {
-// 		SubnetSubscriberStore, ok := p.Ctx.Value(constants.NewSubnetSubscriptionStore).(*db.Datastore)
+// 		WalletSubscriberStore, ok := p.Ctx.Value(constants.NewWalletSubscriptionStore).(*db.Datastore)
 // 		if !ok {
 // 			return errors.New("Could not connect to subscription datastore")
 // 		}
-// 		error := SubnetSubscriberStore.Set(p.Ctx, db.Key(sub.Key()), sub.MsgPack(), false)
+// 		error := WalletSubscriberStore.Set(p.Ctx, db.Key(sub.Key()), sub.MsgPack(), false)
 // 		if error != nil {
 // 			return error
 // 		}
@@ -47,91 +47,91 @@ import (
 // }
 
 /*
-Validate and Process the Subnet request
+Validate and Process the Wallet request
 */
 
-func GetSubnetById(id string) (*models.SubnetState, error) {
-	SubnetState := models.SubnetState{}
+func GetWalletById(id string) (*models.WalletState, error) {
+	WalletState := models.WalletState{}
 
-	err := query.GetOne(models.SubnetState{
-		Subnet: entities.Subnet{ID: id},
-	}, &SubnetState)
+	err := query.GetOne(models.WalletState{
+		Wallet: entities.Wallet{ID: id},
+	}, &WalletState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &SubnetState, nil
+	return &WalletState, nil
 
 }
-func GetSubnetByHash(hash string) (*models.SubnetState, error) {
-	SubnetState := models.SubnetState{}
+func GetWalletByHash(hash string) (*models.WalletState, error) {
+	WalletState := models.WalletState{}
 
-	err := query.GetOne(models.SubnetState{
-		Subnet: entities.Subnet{Hash: hash},
-	}, &SubnetState)
+	err := query.GetOne(models.WalletState{
+		Wallet: entities.Wallet{Hash: hash},
+	}, &WalletState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &SubnetState, nil
+	return &WalletState, nil
 
 }
 
-func GetSubnets(item models.SubnetState) (*[]models.SubnetState, error) {
-	var SubnetStates []models.SubnetState
+func GetWallets() (*[]models.WalletState, error) {
+	var WalletStates []models.WalletState
 
-	err := query.GetMany(item, &SubnetStates, nil)
+	err := query.GetMany(models.WalletState{}, &WalletStates, nil)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &SubnetStates, nil
+	return &WalletStates, nil
 }
 
-func GetSubnetEvents() (*[]models.SubnetEvent, error) {
-	var SubnetEvents []models.SubnetEvent
+func GetWalletEvents() (*[]models.WalletEvent, error) {
+	var WalletEvents []models.WalletEvent
 
-	err := query.GetMany(models.SubnetEvent{
+	err := query.GetMany(models.WalletEvent{
 		Event: entities.Event{
 			BlockNumber: 1,
 		},
-	}, &SubnetEvents, nil)
+	}, &WalletEvents, nil)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &SubnetEvents, nil
+	return &WalletEvents, nil
 }
 
-// func ListenForNewSubnetEventFromPubSub (mainCtx *context.Context) {
+// func ListenForNewWalletEventFromPubSub (mainCtx *context.Context) {
 // 	ctx, cancel := context.WithCancel(*mainCtx)
 // 	defer cancel()
 
-//		incomingSubnetC, ok := (*mainCtx).Value(constants.IncomingSubnetEventChId).(*chan *entities.Event)
+//		incomingWalletC, ok := (*mainCtx).Value(constants.IncomingWalletEventChId).(*chan *entities.Event)
 //		if !ok {
-//			logger.Errorf("incomingSubnetC closed")
+//			logger.Errorf("incomingWalletC closed")
 //			return
 //		}
 //		for {
-//			event, ok :=  <-*incomingSubnetC
+//			event, ok :=  <-*incomingWalletC
 //			if !ok {
-//				logger.Fatal("incomingSubnetC closed for read")
+//				logger.Fatal("incomingWalletC closed for read")
 //				return
 //			}
-//			go service.HandleNewPubSubSubnetEvent(event, ctx)
+//			go service.HandleNewPubSubWalletEvent(event, ctx)
 //		}
 //	}
-func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+func ValidateWalletPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
-	payloadData := entities.Subnet{}
+	payloadData := entities.Wallet{}
 	d, _ := json.Marshal(payload.Data)
 	e := json.Unmarshal(d, &payloadData)
 	if e != nil {
@@ -139,7 +139,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	}
 
 	payload.Data = payloadData
-	if payload.EventType == uint16(constants.CreateSubnetEvent) {
+	if payload.EventType == uint16(constants.CreateWalletEvent) {
 		// dont worry validating the AuthHash for Authorization requests
 		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
 			return nil, nil, errors.New("Authorization timestamp exceeded")
@@ -147,7 +147,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 
 	}
 
-	currentState, err := service.ValidateSubnetData(&payloadData)
+	currentState, err := service.ValidateWalletData(&payloadData)
 	if err != nil {
 		return nil, nil, err
 	}

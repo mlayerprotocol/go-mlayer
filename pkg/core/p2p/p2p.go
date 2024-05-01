@@ -54,7 +54,8 @@ const DiscoveryServiceTag = "ml-network"
 const (
 	AuthorizationChannel string = "ml-authorization-channel"
 	TopicChannel         string = "ml-topic-channel"
-	SubnetChannel    string = "ml-sub-network-channel"
+	SubnetChannel        string = "ml-sub-network-channel"
+	WalletChannel        string = "ml-wallet-channel"
 	MessageChannel       string = "ml-message-channel"
 	SubscriptionChannel         = "ml-subscription-channel"
 	// UnSubscribeChannel                = "ml-unsubscribe-channel"
@@ -346,6 +347,11 @@ func Run(mainCtx *context.Context) {
 		panic(err)
 	}
 
+	WalletPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), WalletChannel, config.ChannelMessageBufferSize)
+	if err != nil {
+		panic(err)
+	}
+
 	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
@@ -370,6 +376,7 @@ func Run(mainCtx *context.Context) {
 	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.SubnetEventPublishC, SubnetPubSub, mainCtx)
+	go PublishChannelEventToNetwork(channelpool.WalletEventPublishC, WalletPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.SubscriptionEventPublishC, subscriptionPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.MessageEventPublishC, messagePubSub, mainCtx)
 	// go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
@@ -379,6 +386,8 @@ func Run(mainCtx *context.Context) {
 
 	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx, service.HandleNewPubSubTopicEvent)
+	go ProcessEventsReceivedFromOtherNodes(&entities.Subnet{}, SubnetPubSub, mainCtx, service.HandleNewPubSubSubnetEvent)
+	go ProcessEventsReceivedFromOtherNodes(&entities.Wallet{}, WalletPubSub, mainCtx, service.HandleNewPubSubWalletEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, subscriptionPubSub, mainCtx, service.HandleNewPubSubSubscriptionEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Message{}, messagePubSub, mainCtx, service.HandleNewPubSubMessageEvent)
 	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)

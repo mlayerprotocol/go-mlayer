@@ -61,17 +61,18 @@ func (sD *SignatureData) Value() (driver.Value, error) {
 }
 
 type Authorization struct {
-	ID                   string                           `json:"id" gorm:"type:uuid;not null;primaryKey"`
-	Agent                string                           `json:"agt" gorm:"index:idx_agent_account,unique"`
-	Account              AddressString                    `json:"acct" gorm:"varchar(32),index:idx_agent_account,unique"`
-	Grantor              AddressString                    `json:"gr" gorm:"index"`
-	Priviledge           constants.AuthorizationPrivilege `json:"privi"`
-	TopicIds             string                           `json:"topIds"`
-	Timestamp            uint64                           `json:"ts"`
-	Duration             uint64                           `json:"du"`
-	SignatureData        SignatureData                    `json:"sigD" gorm:"jsonObject;"`
-	Hash                 string                           `json:"h" gorm:"unique" `
-	Event           EventPath                           `json:"e,omitempty" gorm:"index;varchar;"`
+	ID            string                           `json:"id" gorm:"type:uuid;not null;primaryKey"`
+	Agent         string                           `json:"agt" gorm:"index:idx_agent_account,unique"`
+	Account       AddressString                    `json:"acct" gorm:"varchar(32),index:idx_agent_account,unique"`
+	Grantor       AddressString                    `json:"gr" gorm:"index"`
+	Priviledge    constants.AuthorizationPrivilege `json:"privi"`
+	TopicIds      string                           `json:"topIds"`
+	Timestamp     uint64                           `json:"ts"`
+	Duration      uint64                           `json:"du"`
+	SignatureData SignatureData                    `json:"sigD" gorm:"jsonObject;"`
+	Hash          string                           `json:"h" gorm:"unique" `
+	Event         EventPath                        `json:"e,omitempty" gorm:"index;varchar;"`
+	Subnet        string                           `json:"snet"`
 	// AuthorizationEventID string                           `json:"authEventId,omitempty"`
 }
 
@@ -106,6 +107,7 @@ func (g Authorization) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.TopicIds},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Priviledge},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Duration},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: g.Subnet},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Timestamp},
 	)
 

@@ -11,15 +11,17 @@ import (
 	"gorm.io/gorm"
 )
 
-
-
 type Wallet struct {
 	// Primary
-	ID string `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
-	Account           AddressString `json:"acct"`
-	Subnet             string        `json:"subn" gorm:"type:varchar(32);index;not null" msgpack:",noinline"`
-	Name         string        `json:"name" gorm:"type:char(12);not null"`
-	Timestamp            uint64                           `json:"ts"`
+	ID        string        `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
+	Account   AddressString `json:"acct"`
+	Subnet    string        `json:"snet" gorm:"type:varchar(32);index;not null" msgpack:",noinline"`
+	Name      string        `json:"n" gorm:"type:char(12);not null"`
+	Timestamp uint64        `json:"ts"`
+
+	// Derived
+	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`
+	Hash  string    `json:"h,omitempty" gorm:"type:char(64)"`
 }
 
 func (d *Wallet) BeforeCreate(tx *gorm.DB) (err error) {
@@ -32,7 +34,7 @@ func (d *Wallet) BeforeCreate(tx *gorm.DB) (err error) {
 
 		d.ID = uuid
 	}
-	
+
 	return nil
 }
 
@@ -53,7 +55,6 @@ func (e *Wallet) MsgPack() []byte {
 	return b
 }
 
-
 func WalletFromJSON(b []byte) (Event, error) {
 	var e Event
 	// if err := json.Unmarshal(b, &message); err != nil {
@@ -68,25 +69,24 @@ func (e Wallet) GetHash() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	return crypto.Sha256(b), nil
+	return crypto.Keccak256Hash(b), nil
 }
 
 func (e Wallet) ToString() string {
 	values := []string{}
+	values = append(values, e.Hash)
 	values = append(values, e.Name)
 	values = append(values, e.Subnet)
-	values = append(values,  e.Account.ToString())
-	
+	values = append(values, e.Account.ToString())
+
 	return strings.Join(values, "")
 }
 
 func (e Wallet) EncodeBytes() ([]byte, error) {
 
-	
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: e.Name},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.Subnet},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: e.Account},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: e.Account.ToString()},
 	)
 }
-

@@ -12,6 +12,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/pkg/client"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/sirupsen/logrus"
@@ -495,6 +496,69 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		// Subnet.ID = id
 		payload.Data = Subnet
+		event, err := client.CreateEvent(payload, p.Ctx)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: map[string]any{
+			"event": event,
+		}}))
+	})
+
+	router.GET("/api/subnets", func(c *gin.Context) {
+
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+			return
+		}
+
+		var subnetState models.SubnetState
+
+		json.Unmarshal(*b, &subnetState)
+
+		subnets, err := client.GetSubnets(subnetState)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subnets}))
+	})
+
+	router.GET("/api/subnets/:id/by-account", func(c *gin.Context) {
+		id := c.Param("id")
+		messages, err := client.GetMessages(id)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: messages}))
+	})
+
+	router.POST("/api/wallets", func(c *gin.Context) {
+		var payload entities.ClientPayload
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		logger.Infof("Payload %v", payload)
+		Wallet := entities.Wallet{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &Wallet)
+		if e != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
+		}
+		// Wallet.ID = id
+		payload.Data = Wallet
 		event, err := client.CreateEvent(payload, p.Ctx)
 
 		if err != nil {

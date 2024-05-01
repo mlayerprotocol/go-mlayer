@@ -31,6 +31,8 @@ var Models = []interface{}{
 	SubnetState{},
 	SubnetEvent{},
 
-	MigrationState{},
+	WalletState{},
+	WalletEvent{},
 
+	MigrationState{},
 }
