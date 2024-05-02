@@ -28,7 +28,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/message"
-	"github.com/mlayerprotocol/go-mlayer/internal/subscription"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
@@ -64,15 +63,15 @@ func Start(mainCtx *context.Context) {
 	// errc := make(chan error)
 
 	// deliveryProofBlockStateStore := db.New(&ctx, constants.DeliveryProofBlockStateStore)
-	subscriptionBlockStateStore := db.New(&ctx, constants.SubscriptionBlockStateStore)
+	// subscriptionBlockStateStore := db.New(&ctx, constants.SubscriptionBlockStateStore)
 
 	// stores messages that have been validated
 	// validMessagesStore := db.New(&ctx, constants.ValidMessageStore)
-	unProcessedClientPayloadStore := db.New(&ctx, constants.UnprocessedClientPayloadStore)
+	unProcessedClientPayloadStore := db.New(&ctx, fmt.Sprintf("%s", constants.UnprocessedClientPayloadStore))
 	unsentMessageP2pStore := db.New(&ctx, constants.UnsentMessageStore)
-	topicSubscriptionStore := db.New(&ctx, constants.TopicSubscriptionStore)
+	// topicSubscriptionStore := db.New(&ctx, constants.TopicSubscriptionStore)
 	newTopicSubscriptionStore := db.New(&ctx, constants.NewTopicSubscriptionStore)
-	topicSubscriptionCountStore := db.New(&ctx, constants.TopicSubscriptionCountStore)
+	// topicSubscriptionCountStore := db.New(&ctx, constants.TopicSubscriptionCountStore)
 	// sentMessageStore := db.Db(&ctx, constants.SentMessageStore)
 	// deliveryProofStore := db.New(&ctx, constants.DeliveryProofStore)
 	// localDPBlockStore := db.New(&ctx, constants.DeliveryProofBlockStore)
@@ -80,7 +79,7 @@ func Start(mainCtx *context.Context) {
 
 	ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
 	ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
-	ctx = context.WithValue(ctx, constants.ConnectedSubscriber, connectedSubscribers)
+	ctx = context.WithValue(ctx, constants.ConnectedSubscribersMap, connectedSubscribers)
 
 	defer wg.Wait()
 
@@ -130,19 +129,19 @@ func Start(mainCtx *context.Context) {
 		}
 	}()
 
-	wg.Add(1)
-	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		defer wg.Done()
-		subscription.ProcessNewSubscription(
-			ctx,
-			subscriptionBlockStateStore,
-			topicSubscriptionCountStore,
-			newTopicSubscriptionStore,
-			topicSubscriptionStore,
-			&wg)
-	}()
+	// wg.Add(1)
+	// go func() {
+	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	subscription.ProcessNewSubscription(
+	// 		ctx,
+	// 		subscriptionBlockStateStore,
+	// 		topicSubscriptionCountStore,
+	// 		newTopicSubscriptionStore,
+	// 		topicSubscriptionStore,
+	// 		&wg)
+	// }()
 
 	wg.Add(1)
 	go func() {

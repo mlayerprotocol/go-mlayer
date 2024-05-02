@@ -18,14 +18,15 @@ func GetCycle(blockNumber uint64) uint64 {
 
 const NetworkStartDate = uint64(1706468787000)
 
-var MLChainApi MLChainAPI
+var API MLChainAPI
 
 type MLChainAPI struct {
 	URL string
 }
 
+
 func Init(cfg *configs.MainConfiguration) {
-	MLChainApi = *NewMLChainAPI(cfg.MLBlockchainAPIUrl)
+	API = *NewMLChainAPI(cfg.MLBlockchainAPIUrl)
 }
 func NewMLChainAPI(url string) *MLChainAPI {
 	return &MLChainAPI{URL: url}
@@ -57,6 +58,12 @@ func (n *MLChainAPI) Get() big.Int {
 }
 
 func (n *MLChainAPI) GetStakeBalance(address entities.AddressString) big.Int {
+	bal := new(big.Int)
+	bal.SetString("100000000000000000000000000", 10)
+	return *bal
+}
+
+func (n *MLChainAPI) GetSubnetBalance(hashOrId string) big.Int {
 	bal := new(big.Int)
 	bal.SetString("100000000000000000000000000", 10)
 	return *bal

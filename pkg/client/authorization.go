@@ -25,7 +25,7 @@ func getAuthorizations(auth entities.Authorization) (*[]models.AuthorizationStat
 
 	err := query.GetMany(models.AuthorizationState{
 		Authorization: auth,
-	}, &authState)
+	}, &authState, nil)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -46,7 +46,7 @@ func GetAccountAuthorizations(auth *entities.Authorization) (*[]models.Authoriza
 
 	err := query.GetMany(models.AuthorizationState{
 		Authorization: *auth,
-	}, &authState)
+	}, &authState, nil)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -133,7 +133,7 @@ func AuthorizeAgent(
 		Synced:            false,
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
-		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
+		BlockNumber:       chain.API.GetCurrentBlockNumber(),
 		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
 	}
 

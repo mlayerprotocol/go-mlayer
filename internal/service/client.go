@@ -3,19 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"math/big"
 
-	"sync"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/chain"
-	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
-	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
@@ -39,6 +34,52 @@ func ConnectClient(message []byte, protocol constants.Protocol, client interface
 
 }
 
+func IsMoreRecent(
+	currenStatetEventId string,
+	currenStatetHash string,
+	currentStateEventTimestamp int,
+	eventHash string,
+	eventPayloadTimestamp int,
+	markedAsSynced bool,
+	) (isMoreRecent bool , markAsSynced bool) {
+	isMoreRecent = false
+	markAsSynced = markedAsSynced
+		if currentStateEventTimestamp < eventPayloadTimestamp {
+			isMoreRecent = true
+		}
+		if currentStateEventTimestamp  > eventPayloadTimestamp {
+			isMoreRecent = false
+		}
+		// if the authorization was created at exactly the same time but their hash is different
+		// use the last 4 digits of their event hash
+		if currentStateEventTimestamp == eventPayloadTimestamp  {
+			// get the event payload of the current state
+
+			// if err != nil && err != gorm.ErrRecordNotFound {
+			// 	logger.Error("DB error", err)
+			// }
+			if currenStatetEventId == "" {
+				markAsSynced = false
+			} else {
+				// if currentStateEventTimestamp < event.Payload.Timestamp {
+				// 	isMoreRecent = true
+				// }
+				// if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
+					// logger.Infof("Current state %v", currentStateEvent.Payload)
+					csN := new(big.Int)
+					csN.SetString(currenStatetHash[56:], 16)
+					nsN := new(big.Int)
+					nsN.SetString(eventHash[56:], 16)
+
+					if csN.Cmp(nsN) < 1 {
+						isMoreRecent = true
+					}
+				//}
+			}
+		}
+		return isMoreRecent, markAsSynced
+}
+
 func ValidateEvent(event interface{}) error {
 	e := event.(entities.Event)
 	b, err := e.EncodeBytes()
@@ -50,9 +91,10 @@ func ValidateEvent(event interface{}) error {
 	if e.GetValidator() != e.Payload.Validator {
 		return apperror.Forbidden("Payload validator does not match event validator")
 	}
-	logger.Infof("EVENT%s %s", string(e.GetValidator()), e.GetSignature())
+	logger.Infof("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())
 	valid, err := crypto.VerifySignatureEDD(string(e.GetValidator()), &b, e.GetSignature())
 	if err != nil {
+		logger.Error(err)
 		return err
 	}
 	if !valid {
@@ -66,7 +108,7 @@ func ValidateMessageClient(
 	ctx *context.Context,
 	clientHandshake *entities.ClientHandshake,
 ) error {
-	connectedSubscribers, ok := (*ctx).Value(constants.ConnectedSubscriber).(*map[string]map[string][]interface{})
+	connectedSubscribers, ok := (*ctx).Value(constants.ConnectedSubscribersMap).(*map[string]map[string][]interface{})
 	if !ok {
 		return errors.New("Could not connect to subscription datastore")
 	}
@@ -74,7 +116,7 @@ func ValidateMessageClient(
 	var subscriptionStates []models.SubscriptionState
 	query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{
 		Account: entities.AddressString(clientHandshake.Signer),
-	}}, &subscriptionStates)
+	}}, &subscriptionStates, nil)
 
 	// VALIDATE AND DISTRIBUTE
 	// logger.Debugf("Signer:  %s\n", clientHandshake.Signer)
@@ -99,106 +141,526 @@ func ValidateMessageClient(
 	return nil
 }
 
-func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
-	proof *entities.DeliveryProof,
-	deliveryProofStore *db.Datastore,
-	channelSubscriberStore *db.Datastore,
-	stateStore *db.Datastore,
-	localBlockStore *db.Datastore,
-	MaxBlockSize int,
-	mutex *sync.RWMutex,
+// func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
+// 	proof *entities.DeliveryProof,
+// 	deliveryProofStore *db.Datastore,
+// 	channelSubscriberStore *db.Datastore,
+// 	stateStore *db.Datastore,
+// 	localBlockStore *db.Datastore,
+// 	MaxBlockSize int,
+// 	mutex *sync.RWMutex,
+// ) {
+
+// 	err := deliveryProofStore.Set(ctx, db.Key(proof.Key()), proof.MsgPack(), true)
+// 	if err == nil {
+// 		// msg, err := validMessagesStore.Get(ctx, db.Key(fmt.Sprintf("/%s/%s", proof.MessageSender, proof.MessageHash)))
+// 		// if err != nil {
+// 		// 	// invalid proof or proof has been tampered with
+// 		// 	return
+// 		// }
+// 		// get signer of proof
+// 		b, err := proof.EncodeBytes()
+// 		if err != nil {
+// 			return
+// 		}
+// 		susbscriber, err := crypto.GetSignerECC(&b, &proof.Signature)
+// 		if err != nil {
+// 			// invalid proof or proof has been tampered with
+// 			return
+// 		}
+// 		// check if the signer of the proof is a member of the channel
+// 		isSubscriber, err := channelSubscriberStore.Has(ctx, db.Key("/"+susbscriber+"/"+proof.MessageHash))
+// 		if isSubscriber {
+// 			// proof is valid, so we should add to a new or existing batch
+// 			var block *entities.Block
+// 			var err error
+// 			txn, err := stateStore.NewTransaction(ctx, false)
+// 			if err != nil {
+// 				logger.Errorf("State query errror %o", err)
+// 				// invalid proof or proof has been tampered with
+// 				return
+// 			}
+// 			blockData, err := txn.Get(ctx, db.Key(constants.CurrentDeliveryProofBlockStateKey))
+// 			if err != nil {
+// 				logger.Errorf("State query errror %o", err)
+// 				// invalid proof or proof has been tampered with
+// 				txn.Discard(ctx)
+// 				return
+// 			}
+// 			if len(blockData) > 0 && block.Size < MaxBlockSize {
+// 				block, err = entities.UnpackBlock(blockData)
+// 				if err != nil {
+// 					logger.Errorf("Invalid batch %o", err)
+// 					// invalid proof or proof has been tampered with
+// 					txn.Discard(ctx)
+// 					return
+// 				}
+// 			} else {
+// 				// generate a new batch
+// 				block = entities.NewBlock()
+
+// 			}
+// 			block.Size += 1
+// 			if block.Size >= MaxBlockSize {
+// 				block.Closed = true
+// 				block.NodeHeight = chain.API.GetCurrentBlockNumber()
+// 			}
+// 			// save the proof and the batch
+// 			block.Hash = hexutil.Encode(crypto.Keccak256Hash([]byte(proof.Signature + block.Hash)))
+// 			err = txn.Put(ctx, db.Key(constants.CurrentDeliveryProofBlockStateKey), block.MsgPack())
+// 			if err != nil {
+// 				logger.Errorf("Unable to update State store error %o", err)
+// 				txn.Discard(ctx)
+// 				return
+// 			}
+// 			proof.Block = block.BlockId
+// 			proof.Index = block.Size
+// 			err = deliveryProofStore.Put(ctx, db.Key(proof.Key()), proof.MsgPack())
+// 			if err != nil {
+// 				txn.Discard(ctx)
+// 				logger.Errorf("Unable to save proof to store error %o", err)
+// 				return
+// 			}
+// 			err = localBlockStore.Put(ctx, db.Key(constants.CurrentDeliveryProofBlockStateKey), block.MsgPack())
+// 			if err != nil {
+// 				logger.Errorf("Unable to save batch error %o", err)
+// 				txn.Discard(ctx)
+// 				return
+// 			}
+// 			err = txn.Commit(ctx)
+// 			if err != nil {
+// 				logger.Errorf("Unable to commit state update transaction errror %o", err)
+// 				txn.Discard(ctx)
+// 				return
+// 			}
+// 			// dispatch the proof and the batch
+// 			if block.Closed {
+// 				channelpool.OutgoingDeliveryProof_BlockC <- block
+// 			}
+// 			channelpool.OutgoingDeliveryProofC <- proof
+
+// 		}
+
+// 	}
+
+// }
+
+/*
+type Model struct {
+	Event entities.Event
+}
+func FinalizeEvent [ T entities.Payload, State any] (
+	payloadType constants.EventPayloadType,
+	event entities.Event, 
+	currentStateHash string,
+	currentStateEventHash string,
+	dataHash string,
+	currentStateEvent *entities.Event,
+	emptyState State,
+	currentState  *State, finalState map[string]interface{},
 ) {
+	markAsSynced := false
+	updateState := false
+	var eventError string
+	// Confirm if this is an older event coming after a newer event.
+	// If it is, then we only have to update our event history, else we need to also update our current state
+	
+	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentStateEventHash == event.PreviousEventHash.Hash)
+	// authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
+	isMoreRecent := false
+	if currentState != nil && currentStateHash != dataHash {
+		err := query.GetOne(entities.Event{Hash: currentStateEventHash}, currentStateEvent)
+		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
+			isMoreRecent = true
+		}
+		if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
+			isMoreRecent = false
+		}
+		// if the authorization was created at exactly the same time but their hash is different
+		// use the last 4 digits of their event hash
+		if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
+			// get the event payload of the current state
 
-	err := deliveryProofStore.Set(ctx, db.Key(proof.Key()), proof.MsgPack(), true)
-	if err == nil {
-		// msg, err := validMessagesStore.Get(ctx, db.Key(fmt.Sprintf("/%s/%s", proof.MessageSender, proof.MessageHash)))
-		// if err != nil {
-		// 	// invalid proof or proof has been tampered with
-		// 	return
-		// }
-		// get signer of proof
-		b, err := proof.EncodeBytes()
-		if err != nil {
-			return
-		}
-		susbscriber, err := crypto.GetSignerECC(&b, &proof.Signature)
-		if err != nil {
-			// invalid proof or proof has been tampered with
-			return
-		}
-		// check if the signer of the proof is a member of the channel
-		isSubscriber, err := channelSubscriberStore.Has(ctx, db.Key("/"+susbscriber+"/"+proof.MessageHash))
-		if isSubscriber {
-			// proof is valid, so we should add to a new or existing batch
-			var block *entities.Block
-			var err error
-			txn, err := stateStore.NewTransaction(ctx, false)
-			if err != nil {
-				logger.Errorf("State query errror %o", err)
-				// invalid proof or proof has been tampered with
-				return
+			if err != nil && err != gorm.ErrRecordNotFound {
+				logger.Error("DB error", err)
 			}
-			blockData, err := txn.Get(ctx, db.Key(constants.CurrentDeliveryProofBlockStateKey))
-			if err != nil {
-				logger.Errorf("State query errror %o", err)
-				// invalid proof or proof has been tampered with
-				txn.Discard(ctx)
-				return
-			}
-			if len(blockData) > 0 && block.Size < MaxBlockSize {
-				block, err = entities.UnpackBlock(blockData)
-				if err != nil {
-					logger.Errorf("Invalid batch %o", err)
-					// invalid proof or proof has been tampered with
-					txn.Discard(ctx)
-					return
-				}
+			if currentStateEvent.ID == "" {
+				markAsSynced = false
 			} else {
-				// generate a new batch
-				block = entities.NewBlock()
+				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
+					isMoreRecent = true
+				}
+				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
+					// logger.Infof("Current state %v", currentStateEvent.Payload)
+					csN := new(big.Int)
+					csN.SetString(currentStateEventHash[56:], 16)
+					nsN := new(big.Int)
+					nsN.SetString(event.Hash[56:], 16)
 
+					if csN.Cmp(nsN) < 1 {
+						isMoreRecent = true
+					}
+				}
 			}
-			block.Size += 1
-			if block.Size >= MaxBlockSize {
-				block.Closed = true
-				block.NodeHeight = chain.MLChainApi.GetCurrentBlockNumber()
-			}
-			// save the proof and the batch
-			block.Hash = hexutil.Encode(crypto.Keccak256Hash([]byte(proof.Signature + block.Hash)))
-			err = txn.Put(ctx, db.Key(constants.CurrentDeliveryProofBlockStateKey), block.MsgPack())
-			if err != nil {
-				logger.Errorf("Unable to update State store error %o", err)
-				txn.Discard(ctx)
-				return
-			}
-			proof.Block = block.BlockId
-			proof.Index = block.Size
-			err = deliveryProofStore.Put(ctx, db.Key(proof.Key()), proof.MsgPack())
-			if err != nil {
-				txn.Discard(ctx)
-				logger.Errorf("Unable to save proof to store error %o", err)
-				return
-			}
-			err = localBlockStore.Put(ctx, db.Key(constants.CurrentDeliveryProofBlockStateKey), block.MsgPack())
-			if err != nil {
-				logger.Errorf("Unable to save batch error %o", err)
-				txn.Discard(ctx)
-				return
-			}
-			err = txn.Commit(ctx)
-			if err != nil {
-				logger.Errorf("Unable to commit state update transaction errror %o", err)
-				txn.Discard(ctx)
-				return
-			}
-			// dispatch the proof and the batch
-			if block.Closed {
-				channelpool.OutgoingDeliveryProof_BlockC <- block
-			}
-			channelpool.OutgoingDeliveryProofC <- proof
+		}
+	}
 
+
+	// If no error, then we should act accordingly as well
+	// If are upto date, then we should update the state based on if its a recent or old event
+	if len(eventError) == 0 {
+		if prevEventUpToDate { // we are upto date
+			if currentState == nil || isMoreRecent {
+				updateState = true
+				markAsSynced = true
+			} else {
+				// Its an old event
+				markAsSynced = true
+				updateState = false
+			}
+		} else {
+			updateState = false
+			markAsSynced = false
 		}
 
 	}
 
+	// Save stuff permanently
+	tx := sql.Db.Begin()
+	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
+
+	// If the event was not signed by your node
+	if string(event.Validator) != (*cfg).NetworkPublicKey {
+		// save the event
+		event.Error = eventError
+		event.IsValid = markAsSynced && len(eventError) == 0.
+		event.Synced = markAsSynced
+		event.Broadcasted = true
+		// _, _, err := query.SaveRecord(models.SubnetEvent{
+		// 	Event: entities.Event{
+		// 		PayloadHash: event.PayloadHash,
+		// 	},
+		// }, models.SubnetEvent{
+		// 	Event: event,
+		// }, false, tx)
+		_, _, err := saveEvent(payloadType, entities.Event{
+					PayloadHash: event.PayloadHash,
+				}, &event, false, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Error("1000: Db Error", err)
+			return
+		}
+	} else {
+		if markAsSynced {
+			// _, _, err := query.SaveRecord(Model{
+			// 	Event: entities.Event{PayloadHash: event.PayloadHash},
+			// }.(), Model{
+			// 	Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
+			// }.(), true, tx)
+			_, _, err := saveEvent(payloadType, entities.Event{
+				PayloadHash: event.PayloadHash,
+			},  &entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0}, false, tx)
+			if err != nil {
+				logger.Error("DB error", err)
+			}
+		} else {
+			// mark as broadcasted
+			// _, _, err := query.SaveRecord(models.SubnetEvent{
+			// 	Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
+			// },
+			// 	models.SubnetEvent{
+			// 		Event: entities.Event{Broadcasted: true},
+			// 	}, true, tx)
+				_, _, err := saveEvent(payloadType, entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},  &entities.Event{Broadcasted: true}, false, tx)
+			if err != nil {
+				logger.Error("DB error", err)
+			}
+		}
+	}
+
+	// d, err := event.Payload.EncodeBytes()
+	// if err != nil {
+	// 	logger.Errorf("Invalid event payload")
+	// }
+	// agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
+	// if err != nil {
+	// 	logger.Errorf("Invalid event payload")
+	// }
+	//data.Event = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
+	//state["event"] = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
+	//data.Account = event.Payload.Account
+	//state["account"] = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
+	// logger.Error("data.Public ", data.Public)
+
+	if updateState {
+		// _, _, err := query.SaveRecord(models.SubnetState{
+		// 	Subnet: entities.Subnet{ID: data.ID},
+		// }, models.SubnetState{
+		// 	Subnet: *data,
+		// }, event.EventType == uint16(constants.UpdateSubnetEvent), tx)
+		// if err != nil {
+		// 	tx.Rollback()
+		// 	logger.Error("7000: Db Error", err)
+		// 	return
+		// }
+		_, err := query.SaveRecordWithMap()
+	}
+	tx.Commit()
+
+	if string(event.Validator) != (*cfg).NetworkPublicKey {
+		dependent, err := query.GetDependentEvents(*event)
+		if err != nil {
+			logger.Info("Unable to get dependent events", err)
+		}
+		for _, dep := range *dependent {
+			go HandleNewPubSubSubnetEvent(&dep, ctx)
+		}
+	}
 }
+
+
+
+func saveEvent(payloadType constants.EventPayloadType, where entities.Event, data *entities.Event,  update bool, tx *gorm.DB) (interface{}, bool, error) {
+	switch (payloadType) {
+	case constants.AuthorizationPayloadType: 
+		return query.SaveRecord(models.AuthorizationEvent{
+			Event: where,
+		}, models.AuthorizationEvent{
+			Event: *data,
+		}, update, tx)
+		
+	
+	case constants.SubnetPayloadType: 
+		return query.SaveRecord(models.SubnetEvent{
+			Event: where,
+		}, models.SubnetEvent{
+			Event: *data,
+		}, update, tx)
+	}
+
+
+}
+*/
+/*
+func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator func(p entities.Payload)(*entities.Payload, error)) {
+	logger.WithFields(logrus.Fields{"event": event}).Debug("New topic event from pubsub channel")
+	markAsSynced := false
+	updateState := false
+	var eventError string
+	// hash, _ := event.GetHash()
+	
+
+	logger.Infof("Event is a valid event %s", event.PayloadHash)
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+
+	// Extract and validate the Data of the paylaod which is an Events Payload Data,
+	data := event.Payload.Data.(entities.Payload)
+	stateMap := map[string]interface{}{}
+	logger.Infof("NEWTOPICEVENT: %s", event.Hash)
+
+	err := ValidateEvent(*event)
+
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	dataHash, _ := data.GetHash()
+	stateMap["hash"] = hex.EncodeToString(dataHash)
+	authEventHash := event.AuthEventHash
+	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
+
+	currentState, err := validator(data)
+	if err != nil {
+		// penalize node for broadcasting invalid data
+		logger.Infof("Invalid topic data %v. Node should be penalized", err)
+		return
+	}
+
+	// check if we are upto date on this event
+	
+	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && (*currentState).GetEvent().Hash == event.PreviousEventHash.Hash)
+	authEventUpToDate := true
+	if event.AuthEventHash.Hash != "" {
+		authEventUpToDate = query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
+	}
+	
+	// Confirm if this is an older event coming after a newer event.
+	// If it is, then we only have to update our event history, else we need to also update our current state
+	isMoreRecent := false
+	currentStateHash, _ := (*currentState).GetHash()
+	if currentState != nil && hex.EncodeToString(currentStateHash) != stateMap["hash"] {
+		var currentStateEvent = &models.Event{}
+		err := query.GetOne(entities.Event{Hash: (*currentState).GetEvent().Hash}, currentStateEvent)
+		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
+			isMoreRecent = true
+		}
+		if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
+			isMoreRecent = false
+		}
+		// if the authorization was created at exactly the same time but their hash is different
+		// use the last 4 digits of their event hash
+		if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
+			// get the event payload of the current state
+
+			if err != nil && err != gorm.ErrRecordNotFound {
+				logger.Error("DB error", err)
+			}
+			if currentStateEvent.ID == "" {
+				markAsSynced = false
+			} else {
+				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
+					isMoreRecent = true
+				}
+				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
+					// logger.Infof("Current state %v", currentStateEvent.Payload)
+					csN := new(big.Int)
+					csN.SetString(currentState.Event.Hash[56:], 16)
+					nsN := new(big.Int)
+					nsN.SetString(event.Hash[56:], 16)
+
+					if csN.Cmp(nsN) < 1 {
+						isMoreRecent = true
+					}
+				}
+			}
+		}
+	}
+	
+	if authError != nil {
+		// check if we are upto date. If we are, then the error is an actual one
+		// the error should be attached when saving the event
+		// But if we are not upto date, then we might need to wait for more info from the network
+
+		if prevEventUpToDate && authEventUpToDate {
+			// we are upto date. This is an actual error. No need to expect an update from the network
+			eventError = authError.Error()
+			markAsSynced = true
+		} else {
+			if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
+				if strings.HasPrefix(authError.Error(), constants.ErrorForbidden) || strings.HasPrefix(authError.Error(), constants.ErrorUnauthorized) {
+					markAsSynced = false
+				} else {
+					// entire event can be considered bad since the payload data is bad
+					// this should have been sorted out before broadcasting to the network
+					// TODO penalize the node that broadcasted this
+					eventError = authError.Error()
+					markAsSynced = true
+				}
+
+			} else {
+				// we are upto date. We just need to store this event as well.
+				// No need to update state
+				markAsSynced = true
+				eventError = authError.Error()
+			}
+		}
+
+	}
+
+	// If no error, then we should act accordingly as well
+	// If are upto date, then we should update the state based on if its a recent or old event
+	if len(eventError) == 0 {
+		if prevEventUpToDate && authEventUpToDate { // we are upto date
+			if currentState == nil || isMoreRecent {
+				updateState = true
+				markAsSynced = true
+			} else {
+				// Its an old event
+				markAsSynced = true
+				updateState = false
+			}
+		} else {
+			updateState = false
+			markAsSynced = false
+		}
+
+	}
+
+	// Save stuff permanently
+	tx := sql.Db.Begin()
+	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
+
+	// If the event was not signed by your node
+	if string(event.Validator) != (*cfg).NetworkPublicKey {
+		// save the event
+		event.Error = eventError
+		event.IsValid = markAsSynced && len(eventError) == 0.
+		event.Synced = markAsSynced
+		event.Broadcasted = true
+		_, _, err := query.SaveRecord(models.TopicEvent{
+			Event: entities.Event{
+				PayloadHash: event.PayloadHash,
+			},
+		}, models.TopicEvent{
+			Event: *event,
+		}, false, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Error("1000: Db Error", err)
+			return
+		}
+	} else {
+		if markAsSynced {
+			_, _, err := query.SaveRecord(models.TopicEvent{
+				Event: entities.Event{PayloadHash: event.PayloadHash},
+			}, models.TopicEvent{
+				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
+			}, true, tx)
+			if err != nil {
+				logger.Error("DB error", err)
+			}
+		} else {
+			// mark as broadcasted
+			_, _, err := query.SaveRecord(models.TopicEvent{
+				Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
+			},
+				models.TopicEvent{
+					Event: entities.Event{Broadcasted: true},
+				}, true, tx)
+			if err != nil {
+				logger.Error("DB error", err)
+			}
+		}
+	}
+
+	d, err := event.Payload.EncodeBytes()
+	if err != nil {
+		logger.Errorf("Invalid event payload")
+	}
+	agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
+	if err != nil {
+		logger.Errorf("Invalid event payload")
+	}
+	data.Event = *entities.NewEventPath(event.Validator, entities.TopicEventModel, event.Hash)
+	data.Agent = entities.AddressString(agent)
+	data.Account = event.Payload.Account
+	// logger.Error("data.Public ", data.Public)
+
+	if updateState {
+		_, _, err := query.SaveRecord(models.TopicState{
+			Topic: entities.Topic{ID: data.ID},
+		}, models.TopicState{
+			Topic: *data,
+		}, event.EventType == uint16(constants.UpdateTopicEvent), tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Error("7000: Db Error", err)
+			return
+		}
+	}
+	tx.Commit()
+
+	if string(event.Validator) != (*cfg).NetworkPublicKey {
+		dependent, err := query.GetDependentEvents(*event)
+		if err != nil {
+			logger.Info("Unable to get dependent events", err)
+		}
+		for _, dep := range *dependent {
+			go HandleNewPubSubTopicEvent(&dep, ctx)
+		}
+	}
+
+	// TODO Broadcast the updated state
+}
+*/

@@ -4,6 +4,7 @@ import (
 	// "errors"
 	"context"
 	"encoding/hex"
+	"slices"
 	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -26,18 +27,23 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
 	// 	return  err
 	// }
+	
 
 	payload.Agent, err = payload.GetSigner()
 	if err != nil {
 		return nil, apperror.Internal(err.Error())
 	}
-	authState, err := ValidateClientPayload(&payload)
-	if err != nil {
-		return nil, apperror.Internal(err.Error())
-	}
-	if authState == nil && payload.EventType != uint16(constants.AuthorizationEvent) {
-		// agent not authorized
-		return nil, apperror.Unauthorized("Agent not authorized to perform this action")
+	var authState *models.AuthorizationState
+	excludedEvents := []constants.EventType{constants.CreateSubnetEvent, constants.CreateSubnetEvent, constants.DeleteSubnetEvent, constants.AuthorizationEvent}
+	if !slices.Contains(excludedEvents, constants.EventType( payload.EventType))  {
+		authState, err := ValidateClientPayload(&payload)
+		if err != nil {
+			return nil, err
+		}
+		if authState == nil && payload.EventType != uint16(constants.AuthorizationEvent) {
+			// agent not authorized
+			return nil, apperror.Unauthorized("Agent not authorized to perform this action")
+		}
 	}
 
 	var assocPrevEvent *entities.EventPath
@@ -64,12 +70,21 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		// 	if err != nil {
 		// 		return nil, err
 		// 	}
-	case uint16(constants.CreateSubNetworkEvent), uint16(constants.UpdateSubNetworkEvent):
-		eventPayloadType = constants.SubNetworkPayloadType
+	case uint16(constants.CreateSubnetEvent), uint16(constants.UpdateSubnetEvent):
+		eventPayloadType = constants.SubnetPayloadType
 		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
 		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		// }
-		assocPrevEvent, assocAuthEvent, err = ValidateSubNetworkPayload(payload, authState)
+		assocPrevEvent, assocAuthEvent, err = ValidateSubnetPayload(payload, authState, ctx)
+		if err != nil {
+			return nil, err
+		}
+	case uint16(constants.CreateWalletEvent), uint16(constants.UpdateWalletEvent):
+		eventPayloadType = constants.WalletPayloadType
+		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
+		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
+		// }
+		assocPrevEvent, assocAuthEvent, err = ValidateWalletPayload(payload, authState)
 		if err != nil {
 			return nil, err
 		}
@@ -78,6 +93,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		eventPayloadType = constants.SubscriptionPayloadType
+		payload.Subnet = payload.Subnet
 		assocPrevEvent, assocAuthEvent, err = ValidateSubscriptionPayload(payload, authState)
 		if err != nil {
 			return nil, err
@@ -105,7 +121,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		Synced:            false,
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
-		BlockNumber:       chain.MLChainApi.GetCurrentBlockNumber(),
+		BlockNumber:       chain.API.GetCurrentBlockNumber(),
 		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
 	}
 
@@ -141,12 +157,12 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
-	case constants.SubNetworkPayloadType:
+	case constants.SubnetPayloadType:
 		eModel, created, err := query.SaveRecord(
-			models.SubNetworkEvent{
+			models.SubnetEvent{
 				Event: entities.Event{Hash: event.Hash},
 			},
-			models.SubNetworkEvent{
+			models.SubnetEvent{
 				Event: event,
 			}, false, nil)
 
@@ -154,10 +170,31 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, err
 		}
 
-		// channelpool.SubNetworkEventPublishC <- &(eModel.Event)
+		// channelpool.SubnetEventPublishC <- &(eModel.Event)
 
 		if created {
-			channelpool.SubNetworkEventPublishC <- &(eModel.Event)
+			channelpool.SubnetEventPublishC <- &(eModel.Event)
+		}
+		var returnModel = models.EventInterface(*eModel)
+		model = &returnModel
+
+	case constants.WalletPayloadType:
+		eModel, created, err := query.SaveRecord(
+			models.WalletEvent{
+				Event: entities.Event{Hash: event.Hash},
+			},
+			models.WalletEvent{
+				Event: event,
+			}, false, nil)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// channelpool.WalletEventPublishC <- &(eModel.Event)
+
+		if created {
+			channelpool.WalletEventPublishC <- &(eModel.Event)
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
@@ -203,10 +240,10 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
-		
+
 	}
 	//query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType) )
-	_, _, blockStatErr := query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType)  )
+	_, _, blockStatErr := query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType))
 
 	if blockStatErr != nil {
 		return nil, blockStatErr
@@ -228,6 +265,15 @@ func GetEvent(eventId string, eventType int) (model interface{}, err error) {
 	switch uint16(eventType) {
 	case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.UpdateTopicEvent), uint16(constants.LeaveEvent):
 		topic, err1 := GetTopicEventById(eventId)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+
+	case uint16(constants.CreateSubnetEvent):
+		topic, err1 := GetSubnetEventById(eventId)
 
 		if err1 != nil {
 			logger.Error(err)
@@ -271,6 +317,22 @@ func GetTopicEventById(id string) (*models.TopicEvent, error) {
 	nEvent := models.TopicEvent{}
 
 	err := query.GetOne(models.TopicEvent{
+		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+
+}
+
+func GetSubnetEventById(id string) (*models.SubnetEvent, error) {
+	nEvent := models.SubnetEvent{}
+
+	err := query.GetOne(models.SubnetEvent{
 		Event: entities.Event{ID: id},
 	}, &nEvent)
 	if err != nil {

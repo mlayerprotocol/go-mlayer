@@ -7,19 +7,19 @@ import (
 	"gorm.io/gorm"
 )
 
-// Save subNetwork state only when it doesnt exist
-func UpdateSubNetworkState(subNetwork *entities.SubNetwork, DB *gorm.DB) (*models.SubNetworkState, error) {
-	data := models.SubNetworkState{
+// Save Subnet state only when it doesnt exist
+func UpdateSubnetState(Subnet *entities.Subnet, DB *gorm.DB) (*models.SubnetState, error) {
+	data := models.SubnetState{
 		// Privilege 	: auth.Priviledge,
-		SubNetwork: *subNetwork,
+		Subnet: *Subnet,
 	}
 	tx := DB
 	if DB == nil {
 		tx = db.Db.Begin()
 	}
-	err := tx.Where(models.SubNetworkState{
-		SubNetwork: entities.SubNetwork{Hash: subNetwork.Hash,
-			Account: subNetwork.Account},
+	err := tx.Where(models.SubnetState{
+		Subnet: entities.Subnet{Hash: Subnet.Hash,
+			Account: Subnet.Account},
 	}).Assign(data).FirstOrCreate(&data).Error
 	if err != nil {
 		return nil, err

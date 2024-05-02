@@ -140,6 +140,7 @@ func VerifySignatureECC(signer string, message *[]byte, signature string) bool {
 }
 
 func VerifySignatureEDD(signer string, message *[]byte, signature string) (bool, error) {
+	logger.Infof("NODESIGNER %s; Signature: %s; message: %s", signer, signature, hex.EncodeToString(*message))
 	signatureByte, err := hex.DecodeString(signature)
 	if err != nil {
 		logger.WithFields(logrus.Fields{"signature": signature}).Infof("Unable to decode signature %v", err)

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
@@ -26,7 +27,8 @@ const (
 	TopicEventModel        EventModel = "top"
 	SubscriptionEventModel EventModel = "sub"
 	MessageEventModel      EventModel = "msg"
-	SubNetworkEventModel   EventModel = "subnet"
+	SubnetEventModel       EventModel = "subnet"
+	WalletEventModel       EventModel = "wal"
 )
 
 /*
@@ -144,13 +146,13 @@ type Event struct {
 
 func (d *Event) BeforeCreate(tx *gorm.DB) (err error) {
 	if d.ID == "" {
-		uuid, err := GetId(*d)
-		if err != nil {
-			logger.Error(err)
-			panic(err)
-		}
-
-		d.ID = uuid
+		hash, err := d.GetHash()
+		u, err := uuid.FromBytes(hash[:16])
+	if err != nil {
+		return err
+	}
+	
+		d.ID = u.String()
 	}
 	if d.Payload.Nonce > 0 {
 		d.Nonce = fmt.Sprintf("%s:%d", string(d.Payload.Account), d.Payload.Nonce)
@@ -191,7 +193,6 @@ func UnpackEvent[DataType any](b []byte, data *DataType) (*Event, error) {
 	if err != nil {
 		logger.Errorf("UnmarshalError:: %o", err)
 	}
-	logger.Infof("PL:: %v", pl.Data)
 	_, err2 := pl.EncodeBytes()
 	if err2 != nil {
 		logger.Errorf("EncodeBytesError:: %o", err)

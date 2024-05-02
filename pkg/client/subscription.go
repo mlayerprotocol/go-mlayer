@@ -16,10 +16,10 @@ import (
 
 func GetSubscriptions(payload entities.Subscription) (*[]models.SubscriptionState, error) {
 	var subscriptionStates []models.SubscriptionState
-
+ 	order := map[string]query.Order{"timestamp":query.OrderDec,"created_at": query.OrderDec}
 	err := query.GetMany(models.SubscriptionState{
 		Subscription: payload,
-	}, &subscriptionStates)
+	}, &subscriptionStates, &order)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -33,8 +33,9 @@ func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicSta
 	var subscriptionStates []models.SubscriptionState
 	var subTopicStates []models.TopicState
 	var topicStates []models.TopicState
-
-	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Account: payload.Account}}, &subscriptionStates)
+	order := map[string]query.Order{"timestamp": query.OrderDec, "created_at": query.OrderDec}
+	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Account: payload.Account}},
+		&subscriptionStates, &order)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -57,8 +58,8 @@ func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicSta
 			return nil, err
 		}
 	}
-
-	topErr := query.GetMany(models.TopicState{Topic: entities.Topic{Account: payload.Account}}, &topicStates)
+	
+	topErr := query.GetMany(models.TopicState{Topic: entities.Topic{Account: payload.Account}}, &topicStates, nil)
 	if topErr != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -131,7 +132,7 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 		return nil, nil, apperror.BadRequest("You currently own this topic")
 	}
 
-	if currentState != nil && currentState.Status != 0 && payload.EventType == uint16(constants.SubscribeTopicEvent) {
+	if currentState != nil && currentState.Status != constants.UnsubscribedSubscriptionStatus && payload.EventType == uint16(constants.SubscribeTopicEvent) {
 		return nil, nil, apperror.BadRequest("Account already subscribed")
 	}
 

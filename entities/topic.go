@@ -4,6 +4,7 @@ import (
 	// "errors"
 
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,15 +16,14 @@ import (
 
 type Topic struct {
 	ID              string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Ref             string        `json:"ref,omitempty"`
-	Name            string        `json:"n,omitempty" binding:"required"`
-	Handle          string        `json:"hand,omitempty" binding:"required" gorm:"unique;type:char(64);default:null"`
-	Description     string        `json:"desc,omitempty"`
+	// Name            string        `json:"n,omitempty" binding:"required"`
+	Ref          string        `json:"ref,omitempty" binding:"required" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(64);default:null"`
+	Meta     string        `json:"meta,omitempty"`
 	ParentTopicHash string        `json:"pTH,omitempty" gorm:"type:char(64)"`
 	SubscriberCount uint64        `json:"sC,omitempty"`
 	Account         AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
-	Agent AddressString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	//
 	Public   *bool `json:"pub,omitempty" gorm:"default:false"`
 	ReadOnly *bool `json:"rO,omitempty" gorm:"default:false"`
@@ -36,6 +36,7 @@ type Topic struct {
 	// Signature   string    `json:"sig,omitempty" binding:"required"  gorm:"non null;"`
 	// Broadcasted   bool      `json:"br,omitempty"  gorm:"default:false;"`
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
+	Subnet    string `json:"snet" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(34);"`
 }
 
 func (topic *Topic) Key() string {
@@ -88,6 +89,9 @@ func (p *Topic) IsMember(channel string, sender AddressString) bool {
 }
 
 func (topic Topic) GetHash() ([]byte, error) {
+	if topic.Hash != "" {
+		return hex.DecodeString(topic.Hash)
+	}
 	b, err := topic.EncodeBytes()
 	if err != nil {
 		return []byte(""), err
@@ -98,7 +102,7 @@ func (topic Topic) GetHash() ([]byte, error) {
 func (topic Topic) ToString() string {
 	values := []string{}
 	values = append(values, topic.Hash)
-	values = append(values, topic.Name)
+	values = append(values, topic.Meta)
 	// values = append(values, fmt.Sprintf("%d", topic.Timestamp))
 	values = append(values, fmt.Sprintf("%d", topic.SubscriberCount))
 	values = append(values, string(topic.Account))
@@ -107,18 +111,24 @@ func (topic Topic) ToString() string {
 	return strings.Join(values, ",")
 }
 
+func (topic Topic) GetEvent() (EventPath) {
+	return topic.Event
+}
+func (topic Topic) GetAgent() (DeviceString) {
+	return topic.Agent
+}
+
 func (topic Topic) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.ID},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Name},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Handle},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Description},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Meta},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.ParentTopicHash},
 		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: topic.SubscriberCount},
 		// encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Account},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.Public},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.ReadOnly},
 		// encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.InviteOnly},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Subnet},
 	)
 }

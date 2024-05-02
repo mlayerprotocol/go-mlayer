@@ -16,6 +16,7 @@ type Payload interface {
 	GetHash() ([]byte, error)
 	ToString() string
 	EncodeBytes() ([]byte, error)
+	GetEvent() (EventPath)
 }
 
 func GetId(d Payload) (string, error) {
@@ -44,7 +45,8 @@ type ClientPayload struct {
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
 	Signature string `json:"sig"`
 	Hash      string `json:"h,omitempty"`
-	Agent     string `gorm:"-" json:"-"`
+	Agent     DeviceString `gorm:"-" json:"-"`
+	Subnet	  string `json:"snet" gorm:"index;"`
 
 	Page   uint16 `json:"page,omitempty" gorm:"_"`
 	PerPage   uint16 `json:"perPage,omitempty" gorm:"_"`
@@ -94,7 +96,7 @@ func (msg ClientPayload) GetHash() ([]byte, error) {
 	return bs, nil
 }
 
-func (msg ClientPayload) GetSigner() (string, error) {
+func (msg ClientPayload) GetSigner() (DeviceString, error) {
 
 	if len(msg.Agent) == 0 {
 		b, err := msg.EncodeBytes()
@@ -102,7 +104,8 @@ func (msg ClientPayload) GetSigner() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		msg.Agent, _ = crypto.GetSignerECC(&b, &msg.Signature)
+		agent, _ :=  crypto.GetSignerECC(&b, &msg.Signature)
+		msg.Agent = AddressFromString(agent).ToDeviceString()
 		return msg.Agent, nil
 	}
 	return msg.Agent, nil

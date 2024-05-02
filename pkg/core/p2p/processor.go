@@ -41,6 +41,7 @@ func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 	for {
 			event, ok := <-channelPool
 			
+			
 			if !ok {
 				logger.Fatalf("Channel pool closed. %v", &channelPool)
 				panic("Channel pool closed")
@@ -87,6 +88,7 @@ func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 			// 	}
 			// 	logger.Infof("ADEDEEDDD %v", b)
 				err := pubsubChannel.Publish(entities.NewPubSubMessage(pack))
+				
 				if err != nil {
 					logger.Errorf("Unable to publish message. Please restart server to try again or adjust buffer size in config. Failed with error %v", err)
 					return
@@ -158,12 +160,14 @@ func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, 
 	defer cancel()
 	for {
 		message, ok := <-fromPubSubChannel.Messages
+		
 		if !ok {
 			logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
 			return
 		}
 		
 		event, errT := entities.UnpackEvent(message.Data,  payload)
+		
 		if errT != nil {
 			logger.Errorf("Error receiving event  %v\n", errT)
 			continue;

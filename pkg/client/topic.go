@@ -83,8 +83,8 @@ func GetTopicByHash(hash string) (*models.TopicState, error) {
 
 func GetTopics() (*[]models.TopicState, error) {
 	var topicStates []models.TopicState
-
-	err := query.GetMany(models.TopicState{}, &topicStates)
+	order := &map[string]query.Order{"timestamp":query.OrderDec}
+	err := query.GetMany(models.TopicState{}, &topicStates, order)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -96,12 +96,12 @@ func GetTopics() (*[]models.TopicState, error) {
 
 func GetTopicEvents() (*[]models.TopicEvent, error) {
 	var topicEvents []models.TopicEvent
-
+	order := &map[string]query.Order{"timestamp":query.OrderDec}
 	err := query.GetMany(models.TopicEvent{
 		Event: entities.Event{
 			BlockNumber: 1,
 		},
-	}, &topicEvents)
+	}, &topicEvents, order)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil

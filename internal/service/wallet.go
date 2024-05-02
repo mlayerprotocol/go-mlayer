@@ -3,39 +3,34 @@ package service
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 	"strings"
 
-	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
-	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
 /*
 Validate an agent authorization
 */
-func ValidateSubNetworkData(subNetwork *entities.SubNetwork) (currentSubNetworkState *models.SubNetworkState, err error) {
-	// check fields of subNetwork
-	logger.Info("SubNetworkcc", subNetwork.Handle)
-	if len(subNetwork.Handle) > 40 {
-		return nil, apperror.BadRequest("SubNetwork handle cannont be more than 40 characters")
-	}
-	if !utils.IsAlphaNumericDot(subNetwork.Handle) {
-		return nil, apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
-	}
+func ValidateWalletData(Wallet *entities.Wallet) (currentWalletState *models.WalletState, err error) {
+	// check fields of Wallet
+	// logger.Info("Walletcc", Wallet.Ref)
+	// if len(Wallet.Ref) > 60 {
+	// 	return nil, apperror.BadRequest("Wallet ref cannont be more than 40 characters")
+	// }
+	// if len(Wallet.Ref) > 0 && !utils.IsAlphaNumericDot(Wallet.Ref) {
+	// 	return nil, apperror.BadRequest("Ref must be alphanumeric, _ and . but cannot start with a number")
+	// }
 	return nil, nil
 }
 
-func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context) {
-	logger.WithFields(logrus.Fields{"event": event}).Debug("New subNetwork event from pubsub channel")
+func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
+	logger.WithFields(logrus.Fields{"event": event}).Debug("New Wallet event from pubsub channel")
 	markAsSynced := false
 	updateState := false
 	var eventError string
@@ -51,16 +46,16 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// Extract and validate the Data of the paylaod which is an Events Payload Data,
-	data := event.Payload.Data.(*entities.SubNetwork)
+	data := event.Payload.Data.(*entities.Wallet)
 	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
 	authEventHash := event.AuthEventHash
 	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
 
-	currentState, err := ValidateSubNetworkData(data)
+	currentState, err := ValidateWalletData(data)
 	if err != nil {
 		// penalize node for broadcasting invalid data
-		logger.Infof("Invalid subNetwork data %v. Node should be penalized", err)
+		logger.Infof("Invalid Wallet data %v. Node should be penalized", err)
 		return
 	}
 
@@ -72,41 +67,16 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
-		var currentStateEvent = &models.SubNetworkEvent{}
-		err := query.GetOne(entities.Event{Hash: currentState.Event.Hash}, currentStateEvent)
-		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
-			isMoreRecent = true
-		}
-		if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
-			isMoreRecent = false
-		}
-		// if the authorization was created at exactly the same time but their hash is different
-		// use the last 4 digits of their event hash
-		if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
-			// get the event payload of the current state
-
-			if err != nil && err != gorm.ErrRecordNotFound {
-				logger.Error("DB error", err)
-			}
-			if currentStateEvent.ID == "" {
-				markAsSynced = false
-			} else {
-				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
-					isMoreRecent = true
-				}
-				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
-					csN := new(big.Int)
-					csN.SetString(currentState.Event.Hash[56:], 16)
-					nsN := new(big.Int)
-					nsN.SetString(event.Hash[56:], 16)
-
-					if csN.Cmp(nsN) < 1 {
-						isMoreRecent = true
-					}
-				}
-			}
-		}
+		var currentStateEvent = &models.WalletEvent{}
+		query.GetOne(entities.Event{Hash: currentState.Event.Hash}, currentStateEvent)
+		isMoreRecent, markAsSynced = IsMoreRecent(
+			currentStateEvent.ID,
+			currentState.Event.Hash,
+			currentStateEvent.Payload.Timestamp,
+			event.Hash,
+			event.Payload.Timestamp,
+			markAsSynced,
+		 )
 	}
 
 	if authError != nil {
@@ -170,11 +140,11 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 		event.IsValid = markAsSynced && len(eventError) == 0.
 		event.Synced = markAsSynced
 		event.Broadcasted = true
-		_, _, err := query.SaveRecord(models.SubNetworkEvent{
+		_, _, err := query.SaveRecord(models.WalletEvent{
 			Event: entities.Event{
 				PayloadHash: event.PayloadHash,
 			},
-		}, models.SubNetworkEvent{
+		}, models.WalletEvent{
 			Event: *event,
 		}, false, tx)
 		if err != nil {
@@ -184,9 +154,9 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 		}
 	} else {
 		if markAsSynced {
-			_, _, err := query.SaveRecord(models.SubNetworkEvent{
+			_, _, err := query.SaveRecord(models.WalletEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash},
-			}, models.SubNetworkEvent{
+			}, models.WalletEvent{
 				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
 			}, true, tx)
 			if err != nil {
@@ -194,10 +164,10 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 			}
 		} else {
 			// mark as broadcasted
-			_, _, err := query.SaveRecord(models.SubNetworkEvent{
+			_, _, err := query.SaveRecord(models.WalletEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
 			},
-				models.SubNetworkEvent{
+				models.WalletEvent{
 					Event: entities.Event{Broadcasted: true},
 				}, true, tx)
 			if err != nil {
@@ -206,25 +176,25 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 		}
 	}
 
-	d, err := event.Payload.EncodeBytes()
-	if err != nil {
-		logger.Errorf("Invalid event payload")
-	}
-	agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
-	if err != nil {
-		logger.Errorf("Invalid event payload")
-	}
-	data.Event = *entities.NewEventPath(event.Validator, entities.SubNetworkEventModel, event.Hash)
-	data.Agent = entities.AddressString(agent)
+	// d, err := event.Payload.EncodeBytes()
+	// if err != nil {
+	// 	logger.Errorf("Invalid event payload")
+	// }
+	// agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
+	// if err != nil {
+	// 	logger.Errorf("Invalid event payload")
+	// }
+	data.Event = *entities.NewEventPath(event.Validator, entities.WalletEventModel, event.Hash)
+	// data.Agent = entities.AddressString(agent)
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
 
 	if updateState {
-		_, _, err := query.SaveRecord(models.SubNetworkState{
-			SubNetwork: entities.SubNetwork{ID: data.ID},
-		}, models.SubNetworkState{
-			SubNetwork: *data,
-		}, event.EventType == uint16(constants.UpdateSubNetworkEvent), tx)
+		_, _, err := query.SaveRecord(models.WalletState{
+			Wallet: entities.Wallet{ID: data.ID},
+		}, models.WalletState{
+			Wallet: *data,
+		}, event.EventType == uint16(constants.UpdateWalletEvent), tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("7000: Db Error", err)
@@ -239,7 +209,7 @@ func HandleNewPubSubSubNetworkEvent(event *entities.Event, ctx *context.Context)
 			logger.Info("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
-			go HandleNewPubSubSubNetworkEvent(&dep, ctx)
+			go HandleNewPubSubWalletEvent(&dep, ctx)
 		}
 	}
 

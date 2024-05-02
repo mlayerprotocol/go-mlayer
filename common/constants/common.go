@@ -27,9 +27,10 @@ const (
 	ErrorForbidden    = "4003"
 )
 
+type DataStore string
 const (
-	UnprocessedClientPayloadStore string = "unprocessed-client-payload-store"
-	ValidMessageStore             string = "valid-messages"
+	UnprocessedClientPayloadStore DataStore = "unprocessed-client-payload-store"
+	ValidMessageStore          DataStore   		 = "valid-messages"
 	UnsentMessageStore                   = "unsent-messages"
 	SentMessageStore                     = "sent-messages"
 	NewTopicSubscriptionStore            = "new-topic-subscription"
@@ -41,15 +42,15 @@ const (
 	SubscriptionBlockStateStore          = "subscription-block-state-store"
 	DeliveryProofBlockStore              = "dp-block-store"
 	SubscriptionBlockStore               = "sub-block-store"
-	ConnectedSubscriber                  = "connected-subscriber"
+	ConnectedSubscribersMap                 = "connected-subscribers-map"
 )
 
 // Channel Ids within main context
 const (
 	ConfigKey                       string = "Config"
-	BroadcastAuthorizationEventChId        = "BroadcastAuthorizationEventChannel"
+	BroadcastAuthorizationEventChId    string    = "BroadcastAuthorizationEventChannel"
 	BroadcastTopicEventChId                = "BroadcastTopicEventChannel"
-	BroadcastSubNetworkEventChId           = "BroadcastSubNetworkEventChannel"
+	BroadcastSubnetEventChId           = "BroadcastSubnetEventChannel"
 	// IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
 	IncomingTopicEventChId = "IncomingTopicEventChannel"
 
@@ -92,6 +93,21 @@ const (
 	// ApprovedSubscriptionStatus      SubscriptionStatuses = "approved"
 	BannedSubscriptionStatus SubscriptionStatuses = 3
 	// UNBANNED     SubscriptionStatuses = "unbanned"
+)
+
+type SubnetCategory int16
+const (
+	CategoryGeneral SubnetCategory = 1
+	CategoryMobility SubnetCategory = 2
+	CategoryEnergy SubnetCategory = 3
+	CategoryEnvironmental SubnetCategory = 4
+	CategoryHealthcare SubnetCategory = 5
+	CategorySmartCity SubnetCategory = 6
+	CategorySmartHome SubnetCategory = 7
+	CategoryGeoLocation SubnetCategory = 8
+	CategoryP2PMessaging SubnetCategory = 9
+	CategorySharedCompute SubnetCategory = 10
+	CategoryFileSharing SubnetCategory = 11
 )
 
 /* KEY MAPS

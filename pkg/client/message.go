@@ -41,7 +41,7 @@ func GetMessages(topicId string) (*[]models.MessageState, error) {
 
 	err := query.GetMany(models.MessageState{
 		Message: entities.Message{TopicId: topicId},
-	}, &messageStates)
+	}, &messageStates, nil)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil

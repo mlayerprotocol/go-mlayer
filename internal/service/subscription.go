@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 	"strings"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -25,7 +24,7 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 	var currentState *models.SubscriptionState
 
 	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{Account: subscription.Account, Topic: subscription.Topic},
+		Subscription: entities.Subscription{Account: subscription.Account, Subnet: subscription.Subnet, Topic: subscription.Topic},
 	}, &currentState)
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
@@ -68,10 +67,11 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 	var topicData *models.TopicState
 
-	err = query.GetOne(models.TopicState{
-		Topic: entities.Topic{ID: data.Topic},
+	query.GetOne(models.TopicState{
+		Topic: entities.Topic{ID: data.Topic, Subnet: event.Payload.Subnet},
 	}, &topicData)
 
+	data.Subnet = event.Payload.Subnet
 	currentState, authError := ValidateSubscriptionData(data, &event.Payload)
 	prevEventUpToDate := false
 	authEventUpToDate := false
@@ -79,7 +79,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	// check if we are upto date on this event
 	prevEventUpToDate = query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
 
-	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: event.AuthEventHash})
+	authState, _ := query.GetOneAuthorizationState(entities.Authorization{Event: event.AuthEventHash})
 
 	authEventUpToDate = query.EventExist(&event.AuthEventHash) || (authState.ID == "" && event.AuthEventHash.Hash == "") || (authState.ID != "" && authState.Event.Hash == event.AuthEventHash.Hash)
 
@@ -88,40 +88,15 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
 		var currentStateEvent *models.SubscriptionEvent
-		err := query.GetOne(entities.Event{Hash: currentState.Event.Hash}, &currentStateEvent)
-		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
-			isMoreRecent = true
-		}
-		if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
-			isMoreRecent = false
-		}
-		// if the authorization was created at exactly the same time but their hash is different
-		// use the last 4 digits of their event hash
-		if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
-			// get the event payload of the current state
-
-			if err != nil && err != gorm.ErrRecordNotFound {
-				logger.Fatal("DB error", err)
-			}
-			if currentStateEvent == nil {
-				markAsSynced = false
-			} else {
-				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
-					isMoreRecent = true
-				}
-				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
-					csN := new(big.Int)
-					csN.SetString(currentState.Event.Hash[56:], 16)
-					nsN := new(big.Int)
-					nsN.SetString(event.Hash[56:], 16)
-
-					if csN.Cmp(nsN) < 1 {
-						isMoreRecent = true
-					}
-				}
-			}
-		}
+		query.GetOne(entities.Event{Hash: currentState.Event.Hash}, &currentStateEvent)
+		isMoreRecent, markAsSynced = IsMoreRecent(
+			currentStateEvent.ID,
+			currentState.Event.Hash,
+			currentStateEvent.Payload.Timestamp,
+			event.Hash,
+			event.Payload.Timestamp,
+			markAsSynced,
+		 )
 	}
 
 	if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
@@ -247,15 +222,17 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	}
 
 	data.Event = *entities.NewEventPath(event.Validator, entities.SubscriptionEventModel, event.Hash)
-	data.Agent = entities.AddressString(agent)
+	data.Agent = entities.AddressFromString(agent).ToDeviceString()
 
 	if markAsSynced && eventError == "" {
 		updateState = true
 	}
 
+	data.Subnet = event.Payload.Subnet
+
 	if updateState {
 		_, _, err := query.SaveRecord(models.SubscriptionState{
-			Subscription: entities.Subscription{Hash: data.Hash},
+			Subscription: entities.Subscription{ID: data.ID, Subnet: data.Subnet},
 		}, models.SubscriptionState{
 			Subscription: *data,
 		}, true, tx)

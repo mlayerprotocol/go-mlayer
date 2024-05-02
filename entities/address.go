@@ -13,10 +13,16 @@ import (
 
 type PublicKeyString string
 type AddressString string
+type DeviceString AddressString
 
 func (address *AddressString) ToString() string {
 
 	return fmt.Sprintf("%s", *address)
+}
+
+func (address *AddressString) ToAddressString() AddressString {
+
+	return AddressString(address.ToString())
 }
 
 type Address struct {
@@ -39,6 +45,11 @@ func (address *Address) MsgPack() []byte {
 	return b
 }
 
+func (address Address) ToDeviceString() DeviceString {
+	address.Prefix = "did"
+	return DeviceString(address.ToString())
+}
+
 func AddressFromBytes(b []byte) (Address, error) {
 	var address Address
 	err := json.Unmarshal(b, &address)
@@ -54,7 +65,7 @@ func (address *Address) GetHash() []byte {
 	return crypto.Keccak256Hash(address.ToBytes())
 }
 
-func (address *Address) ToString() string {
+func (address Address) ToString() AddressString {
 	values := []string{}
 	values = append(values, address.Prefix)
 	values = append(values, ":")
@@ -62,7 +73,7 @@ func (address *Address) ToString() string {
 	if address.Chain != "" {
 		values = append(values, fmt.Sprintf("#%s", address.Chain))
 	}
-	return strings.Join(values, ":")
+	return AddressString(strings.Join(values, ""))
 }
 
 func (address *Address) ToBytes() []byte {
@@ -85,10 +96,16 @@ func (address *Address) ToBytes() []byte {
 	return []byte(address.ToString())
 }
 
-func AddressFromString(s AddressString) (Address, error) {
-	addr := Address{Prefix: "did"}
+func AddressFromString(s string) (Address) {
+	addr := Address{Prefix: "mid"}
 	values := strings.Split(strings.Trim(string(s), " "), ":")
+	if len(values) == 0 {
+		return Address{}
+	}
 
+	if len(values) == 1 {
+		addr.Addr = values[0]
+	}
 	if len(values) == 2 {
 		addr.Addr = values[1]
 		addr.Prefix = values[0]
@@ -99,7 +116,7 @@ func AddressFromString(s AddressString) (Address, error) {
 		addr.Chain = values2[1]
 	}
 
-	return addr, nil
+	return addr
 
 	//return Address{Addr: values[0], Prefix: "", Chain: uint64(chain)}, nil
 }
