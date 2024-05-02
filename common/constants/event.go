@@ -30,6 +30,7 @@ const (
 type EventPayloadType string
 
 const (
+	AuthorizationPayloadType        EventPayloadType = "authorization"
 	TopicPayloadType        EventPayloadType = "topic"
 	SubscriptionPayloadType EventPayloadType = "subscription"
 	MessagePayloadType      EventPayloadType = "message"

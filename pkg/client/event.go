@@ -4,6 +4,7 @@ import (
 	// "errors"
 	"context"
 	"encoding/hex"
+	"slices"
 	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -26,18 +27,23 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
 	// 	return  err
 	// }
+	
 
 	payload.Agent, err = payload.GetSigner()
 	if err != nil {
 		return nil, apperror.Internal(err.Error())
 	}
-	authState, err := ValidateClientPayload(&payload)
-	if err != nil {
-		return nil, apperror.Internal(err.Error())
-	}
-	if authState == nil && payload.EventType != uint16(constants.AuthorizationEvent) {
-		// agent not authorized
-		return nil, apperror.Unauthorized("Agent not authorized to perform this action")
+	var authState *models.AuthorizationState
+	excludedEvents := []constants.EventType{constants.CreateSubnetEvent, constants.CreateSubnetEvent, constants.DeleteSubnetEvent, constants.AuthorizationEvent}
+	if !slices.Contains(excludedEvents, constants.EventType( payload.EventType))  {
+		authState, err := ValidateClientPayload(&payload)
+		if err != nil {
+			return nil, err
+		}
+		if authState == nil && payload.EventType != uint16(constants.AuthorizationEvent) {
+			// agent not authorized
+			return nil, apperror.Unauthorized("Agent not authorized to perform this action")
+		}
 	}
 
 	var assocPrevEvent *entities.EventPath
@@ -69,7 +75,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
 		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		// }
-		assocPrevEvent, assocAuthEvent, err = ValidateSubnetPayload(payload, authState)
+		assocPrevEvent, assocAuthEvent, err = ValidateSubnetPayload(payload, authState, ctx)
 		if err != nil {
 			return nil, err
 		}

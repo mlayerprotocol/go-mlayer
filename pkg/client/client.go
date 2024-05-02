@@ -5,7 +5,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
-	"gorm.io/gorm"
 )
 
 func ValidateClientPayload(
@@ -18,22 +17,38 @@ func ValidateClientPayload(
 	// 	return nil, apperror.Internal(err.Error())
 	// }
 	// logger.Info("ENCODEDBYTESSS"," ", hex.EncodeToString(d), " ", hex.EncodeToString(crypto.Keccak256Hash(d)))
+	
 	agent, err:= payload.GetSigner()
 	logger.Infof("device %s", agent)
 	if err != nil {
 		return nil, err
 	}
+	if payload.Subnet == "" {
+		return nil,  apperror.Forbidden("Subnet Id is required")
+	}
+	// subnet := models.SubnetState{}
+	// err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: payload.Subnet, Account: payload.Account}}, &subnet)
+	// if err != nil {
+	// 	if err == gorm.ErrRecordNotFound {
+	// 		return nil,  apperror.Forbidden("Invalid subnet id")
+	// 	}
+	// 	return nil, apperror.Internal(err.Error())
+	// }
+	
+	
 	// check if device is authorized
 	if agent != "" {
+		
 		authData := models.AuthorizationState{}
 		err := query.GetOne(models.AuthorizationState{
 			Authorization: entities.Authorization{Account: payload.Account,
-				Agent: agent},
+				Subnet: payload.Subnet,
+				Agent: entities.DeviceString(agent)},
 		}, &authData)
 		if err != nil {
-			if err == gorm.ErrRecordNotFound {
-				return nil, nil
-			}
+			// if err == gorm.ErrRecordNotFound {
+			// 	return nil, nil
+			// }
 			return nil, err
 		} else {
 			return &authData, nil

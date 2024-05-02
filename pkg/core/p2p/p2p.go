@@ -542,7 +542,7 @@ func isValidHandshake(handshake entities.Handshake, p peer.ID) bool {
 	if err != nil {
 		return false
 	}
-	isValid := cryptoMl.VerifySignatureECC(handshake.Signer, &message, handshake.Signature)
+	isValid := cryptoMl.VerifySignatureECC(entities.AddressFromString(string(handshake.Signer)).Addr, &message, handshake.Signature)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": message, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
 		return false

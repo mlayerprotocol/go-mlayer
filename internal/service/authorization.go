@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -49,12 +48,23 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 
 	// 	}
 	// }
+	if auth.Subnet == "" {
+		return nil, nil, apperror.Forbidden("Subnet is required")
+	}
+	subnet := models.SubnetState{}
+	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: auth.Subnet, Account: auth.Account}}, &subnet)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil, apperror.Forbidden("Invalid subnet id")
+		}
+		return nil, nil, apperror.Internal(err.Error())
+	}
 	switch auth.SignatureData.Type {
 	case entities.EthereumPubKey:
-		valid = crypto.VerifySignatureECC(string(auth.Grantor), &b, auth.SignatureData.Signature)
+		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(auth.Grantor)).Addr, &b, auth.SignatureData.Signature)
 		if valid {
 			// check if the grantor is authorized
-			grantorAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: string(auth.Grantor)})
+			grantorAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: entities.DeviceString(auth.Grantor.ToAddressString())})
 			if err == gorm.ErrRecordNotFound {
 				return nil, nil, apperror.Unauthorized("Grantor not authorized agent")
 			}
@@ -78,7 +88,7 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 			return nil, nil, err
 		}
 
-		grantorAddress, err := entities.AddressFromString(auth.Grantor)
+		grantorAddress := entities.AddressFromString(string(auth.Grantor))
 		publicKeyBytes, err := base64.RawStdEncoding.DecodeString(auth.SignatureData.PublicKey)
 
 		if err != nil {
@@ -95,7 +105,7 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 		// 	address = crypto.ToBech32Address(decoded, "cosmos")
 		// }
 
-		authMsg := fmt.Sprintf("Approve %s for %s: %s", auth.Agent, addressPrefix, encoder.ToBase64Padded(msg))
+		authMsg := fmt.Sprintf("Approve %s for %s: %s", entities.AddressFromString(string(auth.Agent)).Addr, addressPrefix, encoder.ToBase64Padded(msg))
 		logger.Info("AUTHMESS ", authMsg, " ", auth.Hash)
 
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, grantorAddress.Addr, publicKeyBytes)
@@ -134,6 +144,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 
 	// Extract and validate the Data of the paylaod which is an Events Payload Data,
 	authRequest := event.Payload.Data.(*entities.Authorization)
+	authRequest.Agent = entities.AddressFromString(string(authRequest.Agent)).ToDeviceString()
 	hash, _ := authRequest.GetHash()
 	authRequest.Hash = hex.EncodeToString(hash)
 	currentState, authState, stateError := ValidateAuthData(authRequest, cfg.AddressPrefix)
@@ -146,39 +157,48 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != authRequest.Hash {
-		if currentState.Timestamp < authRequest.Timestamp {
-			isMoreRecent = true
-		}
-		if currentState.Timestamp > authRequest.Timestamp {
-			isMoreRecent = false
-		}
-		// if the authorization was created at exactly the same time but their hash is different
-		// use the last 4 digits of their event hash
-		if currentState.Timestamp == authRequest.Timestamp {
-			// get the event payload of the current state
 			currentStateEvent, err := query.GetOneAuthorizationEvent(entities.Event{Hash: currentState.Event.Hash})
 			if err != nil && err != gorm.ErrRecordNotFound {
 				logger.Fatal("DB error", err)
 			}
-			if currentStateEvent == nil {
-				markAsSynced = false
-			} else {
-				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
-					isMoreRecent = true
-				}
-				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
-					csN := new(big.Int)
-					csN.SetString(currentState.Event.Hash[56:], 16)
-					nsN := new(big.Int)
-					nsN.SetString(event.Hash[56:], 16)
+		isMoreRecent, markAsSynced = IsMoreRecent(
+			currentStateEvent.ID,
+			currentState.Event.Hash,
+			currentStateEvent.Payload.Timestamp,
+			event.Hash,
+			event.Payload.Timestamp,
+			markAsSynced,
+		 )
+		// if currentState.Timestamp < authRequest.Timestamp {
+		// 	isMoreRecent = true
+		// }
+		// if currentState.Timestamp > authRequest.Timestamp {
+		// 	isMoreRecent = false
+		// }
+		// // if the authorization was created at exactly the same time but their hash is different
+		// // use the last 4 digits of their event hash
+		// if currentState.Timestamp == authRequest.Timestamp {
+		// 	// get the event payload of the current state
+		
+		// 	if currentStateEvent == nil {
+		// 		markAsSynced = false
+		// 	} else {
+		// 		if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
+		// 			isMoreRecent = true
+		// 		}
+		// 		if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
+		// 			// logger.Infof("Current state %v", currentStateEvent.Payload)
+		// 			csN := new(big.Int)
+		// 			csN.SetString(currentState.Event.Hash[56:], 16)
+		// 			nsN := new(big.Int)
+		// 			nsN.SetString(event.Hash[56:], 16)
 
-					if csN.Cmp(nsN) < 1 {
-						isMoreRecent = true
-					}
-				}
-			}
-		}
+		// 			if csN.Cmp(nsN) < 1 {
+		// 				isMoreRecent = true
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 	if stateError != nil {
 		// check if we are upto date. If we are, then the error is an actual one

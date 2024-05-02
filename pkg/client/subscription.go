@@ -132,7 +132,7 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 		return nil, nil, apperror.BadRequest("You currently own this topic")
 	}
 
-	if currentState != nil && currentState.Status != 0 && payload.EventType == uint16(constants.SubscribeTopicEvent) {
+	if currentState != nil && currentState.Status != constants.UnsubscribedSubscriptionStatus && payload.EventType == uint16(constants.SubscribeTopicEvent) {
 		return nil, nil, apperror.BadRequest("Account already subscribed")
 	}
 

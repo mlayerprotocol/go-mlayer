@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
@@ -145,13 +146,13 @@ type Event struct {
 
 func (d *Event) BeforeCreate(tx *gorm.DB) (err error) {
 	if d.ID == "" {
-		uuid, err := GetId(*d)
-		if err != nil {
-			logger.Error(err)
-			panic(err)
-		}
-
-		d.ID = uuid
+		hash, err := d.GetHash()
+		u, err := uuid.FromBytes(hash[:16])
+	if err != nil {
+		return err
+	}
+	
+		d.ID = u.String()
 	}
 	if d.Payload.Nonce > 0 {
 		d.Nonce = fmt.Sprintf("%s:%d", string(d.Payload.Account), d.Payload.Nonce)

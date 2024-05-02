@@ -4,6 +4,7 @@ import (
 	// "errors"
 
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -23,7 +24,7 @@ type Topic struct {
 	SubscriberCount uint64        `json:"sC,omitempty"`
 	Account         AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
-	Agent AddressString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	//
 	Public   *bool `json:"pub,omitempty" gorm:"default:false"`
 	ReadOnly *bool `json:"rO,omitempty" gorm:"default:false"`
@@ -89,6 +90,9 @@ func (p *Topic) IsMember(channel string, sender AddressString) bool {
 }
 
 func (topic Topic) GetHash() ([]byte, error) {
+	if topic.Hash != "" {
+		return hex.DecodeString(topic.Hash)
+	}
 	b, err := topic.EncodeBytes()
 	if err != nil {
 		return []byte(""), err
@@ -106,6 +110,13 @@ func (topic Topic) ToString() string {
 	values = append(values, fmt.Sprintf("%t", topic.Public))
 	// values = append(values, fmt.Sprintf("%s", topic.Signature))
 	return strings.Join(values, ",")
+}
+
+func (topic Topic) GetEvent() (EventPath) {
+	return topic.Event
+}
+func (topic Topic) GetAgent() (DeviceString) {
+	return topic.Agent
 }
 
 func (topic Topic) EncodeBytes() ([]byte, error) {

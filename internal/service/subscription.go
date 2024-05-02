@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 	"strings"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -88,40 +87,15 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
 		var currentStateEvent *models.SubscriptionEvent
-		err := query.GetOne(entities.Event{Hash: currentState.Event.Hash}, &currentStateEvent)
-		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
-			isMoreRecent = true
-		}
-		if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
-			isMoreRecent = false
-		}
-		// if the authorization was created at exactly the same time but their hash is different
-		// use the last 4 digits of their event hash
-		if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
-			// get the event payload of the current state
-
-			if err != nil && err != gorm.ErrRecordNotFound {
-				logger.Fatal("DB error", err)
-			}
-			if currentStateEvent == nil {
-				markAsSynced = false
-			} else {
-				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
-					isMoreRecent = true
-				}
-				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
-					csN := new(big.Int)
-					csN.SetString(currentState.Event.Hash[56:], 16)
-					nsN := new(big.Int)
-					nsN.SetString(event.Hash[56:], 16)
-
-					if csN.Cmp(nsN) < 1 {
-						isMoreRecent = true
-					}
-				}
-			}
-		}
+		query.GetOne(entities.Event{Hash: currentState.Event.Hash}, &currentStateEvent)
+		isMoreRecent, markAsSynced = IsMoreRecent(
+			currentStateEvent.ID,
+			currentState.Event.Hash,
+			currentStateEvent.Payload.Timestamp,
+			event.Hash,
+			event.Payload.Timestamp,
+			markAsSynced,
+		 )
 	}
 
 	if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
@@ -247,7 +221,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	}
 
 	data.Event = *entities.NewEventPath(event.Validator, entities.SubscriptionEventModel, event.Hash)
-	data.Agent = entities.AddressString(agent)
+	data.Agent = entities.AddressFromString(agent).ToDeviceString()
 
 	if markAsSynced && eventError == "" {
 		updateState = true

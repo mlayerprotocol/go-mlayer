@@ -3,11 +3,13 @@ package client
 import (
 	// "errors"
 
+	"context"
 	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
@@ -129,7 +131,7 @@ func GetSubnetEvents() (*[]models.SubnetEvent, error) {
 //			go service.HandleNewPubSubSubnetEvent(event, ctx)
 //		}
 //	}
-func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.AuthorizationState,  ctx *context.Context) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
 	payloadData := entities.Subnet{}
 	d, _ := json.Marshal(payload.Data)
@@ -142,12 +144,13 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	if payload.EventType == uint16(constants.CreateSubnetEvent) {
 		// dont worry validating the AuthHash for Authorization requests
 		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-			return nil, nil, errors.New("Authorization timestamp exceeded")
+			return nil, nil, errors.New("Event timestamp exceeded")
 		}
 
 	}
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
-	currentState, err := service.ValidateSubnetData(&payloadData)
+	currentState, err := service.ValidateSubnetData(&payloadData,  cfg.AddressPrefix)
 	if err != nil {
 		return nil, nil, err
 	}

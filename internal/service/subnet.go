@@ -2,12 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
-	"math/big"
-	"strings"
+	"fmt"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -16,22 +17,73 @@ import (
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
 /*
 Validate an agent authorization
 */
-func ValidateSubnetData(Subnet *entities.Subnet) (currentSubnetState *models.SubnetState, err error) {
+func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentSubnetState *models.SubnetState, err error) {
 	// check fields of Subnet
-	logger.Info("Subnetcc", Subnet.Ref)
-	if len(Subnet.Ref) > 60 {
+	logger.Info("Subnetcc", subnet.Ref)
+	
+	if len(subnet.Ref) > 60 {
 		return nil, apperror.BadRequest("Subnet ref cannont be more than 40 characters")
 	}
-	if len(Subnet.Ref) > 0 && !utils.IsAlphaNumericDot(Subnet.Ref) {
-		return nil, apperror.BadRequest("Ref must be alphanumeric, _ and . but cannot start with a number")
+	if len(subnet.Ref) > 0 &&  !utils.IsAlphaNumericDot(subnet.Ref) {
+		return nil, apperror.BadRequest("Ref must be alpha-numeric, and . but cannot start with a number")
 	}
-	return nil, nil
+	var valid bool
+	b, err := subnet.EncodeBytes()
+	switch subnet.SignatureData.Type {
+		case entities.EthereumPubKey:
+			valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &b, subnet.SignatureData.Signature)
+
+		case entities.TendermintsSecp256k1PubKey:
+
+			decodedSig, err := base64.StdEncoding.DecodeString(subnet.SignatureData.Signature)
+			if err != nil {
+				return nil, err
+			}
+
+			msg, err := subnet.GetHash()
+
+			logger.Info("MSG:: ", msg)
+
+			if err != nil {
+				return nil, err
+			}
+
+			account := entities.AddressFromString(string(subnet.Account))
+			publicKeyBytes, err := base64.RawStdEncoding.DecodeString(subnet.SignatureData.PublicKey)
+
+			if err != nil {
+				return nil, err
+			}
+			// grantor, err := entities.AddressFromString(auth.Grantor)
+
+			// if err != nil {
+			// 	return nil, nil, err
+			// }
+
+			// decoded, err := hex.DecodeString(grantor.Addr)
+			// if err == nil {
+			// 	address = crypto.ToBech32Address(decoded, "cosmos")
+			// }
+
+			authMsg := fmt.Sprintf("Create Subnet %s:%s with ref %s: %s", addressPrefix, subnet.Name, subnet.Ref, encoder.ToBase64Padded(msg))
+			logger.Info("AUTHMESS ", authMsg, " ", subnet.Hash)
+
+			valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
+			if err != nil {
+				return nil, err
+			}
+
+	}
+	if !valid {
+		return nil,  apperror.Unauthorized("Invalid signature signer")
+	}
+	query.GetOne(models.SubnetState{Subnet: entities.Subnet{Ref: subnet.Ref}}, currentSubnetState)
+	return currentSubnetState, nil
 }
 
 func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
@@ -54,10 +106,10 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	data := event.Payload.Data.(*entities.Subnet)
 	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
-	authEventHash := event.AuthEventHash
-	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
+	// authEventHash := event.AuthEventHash
+	// authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
 
-	currentState, err := ValidateSubnetData(data)
+	currentState, err := ValidateSubnetData(data, cfg.AddressPrefix)
 	if err != nil {
 		// penalize node for broadcasting invalid data
 		logger.Infof("Invalid Subnet data %v. Node should be penalized", err)
@@ -66,84 +118,62 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 
 	// check if we are upto date on this event
 	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
-	authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
+	// authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
 		var currentStateEvent = &models.SubnetEvent{}
-		err := query.GetOne(entities.Event{Hash: currentState.Event.Hash}, currentStateEvent)
-		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
-			isMoreRecent = true
-		}
-		if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
-			isMoreRecent = false
-		}
-		// if the authorization was created at exactly the same time but their hash is different
-		// use the last 4 digits of their event hash
-		if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
-			// get the event payload of the current state
+		_ = query.GetOne(entities.Event{Hash: currentState.Event.Hash}, currentStateEvent)
+		isMoreRecent, markAsSynced = IsMoreRecent(
+			currentStateEvent.ID,
+			currentState.Event.Hash,
+			currentStateEvent.Payload.Timestamp,
+			event.Hash,
+			event.Payload.Timestamp,
+			markAsSynced,
+		 )
+		// if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
+		// 	isMoreRecent = true
+		// }
+		// if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
+		// 	isMoreRecent = false
+		// }
+		// // if the authorization was created at exactly the same time but their hash is different
+		// // use the last 4 digits of their event hash
+		// if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
+		// 	// get the event payload of the current state
 
-			if err != nil && err != gorm.ErrRecordNotFound {
-				logger.Error("DB error", err)
-			}
-			if currentStateEvent.ID == "" {
-				markAsSynced = false
-			} else {
-				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
-					isMoreRecent = true
-				}
-				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
-					csN := new(big.Int)
-					csN.SetString(currentState.Event.Hash[56:], 16)
-					nsN := new(big.Int)
-					nsN.SetString(event.Hash[56:], 16)
+		// 	if err != nil && err != gorm.ErrRecordNotFound {
+		// 		logger.Error("DB error", err)
+		// 	}
+		// 	if currentStateEvent.ID == "" {
+		// 		markAsSynced = false
+		// 	} else {
+		// 		// if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
+		// 		// 	isMoreRecent = true
+		// 		// }
+		// 		// if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
+		// 			// logger.Infof("Current state %v", currentStateEvent.Payload)
+		// 			csN := new(big.Int)
+		// 			csN.SetString(currentState.Event.Hash[56:], 16)
+		// 			nsN := new(big.Int)
+		// 			nsN.SetString(event.Hash[56:], 16)
 
-					if csN.Cmp(nsN) < 1 {
-						isMoreRecent = true
-					}
-				}
-			}
-		}
+		// 			if csN.Cmp(nsN) < 1 {
+		// 				isMoreRecent = true
+		// 			}
+		// 		//}
+		// 	}
+		// }
 	}
 
-	if authError != nil {
-		// check if we are upto date. If we are, then the error is an actual one
-		// the error should be attached when saving the event
-		// But if we are not upto date, then we might need to wait for more info from the network
-
-		if prevEventUpToDate && authEventUpToDate {
-			// we are upto date. This is an actual error. No need to expect an update from the network
-			eventError = authError.Error()
-			markAsSynced = true
-		} else {
-			if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
-				if strings.HasPrefix(authError.Error(), constants.ErrorForbidden) || strings.HasPrefix(authError.Error(), constants.ErrorUnauthorized) {
-					markAsSynced = false
-				} else {
-					// entire event can be considered bad since the payload data is bad
-					// this should have been sorted out before broadcasting to the network
-					// TODO penalize the node that broadcasted this
-					eventError = authError.Error()
-					markAsSynced = true
-				}
-
-			} else {
-				// we are upto date. We just need to store this event as well.
-				// No need to update state
-				markAsSynced = true
-				eventError = authError.Error()
-			}
-		}
-
-	}
 
 	// If no error, then we should act accordingly as well
 	// If are upto date, then we should update the state based on if its a recent or old event
 	if len(eventError) == 0 {
-		if prevEventUpToDate && authEventUpToDate { // we are upto date
+		if prevEventUpToDate { // we are upto date
 			if currentState == nil || isMoreRecent {
 				updateState = true
 				markAsSynced = true
@@ -206,16 +236,16 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		}
 	}
 
-	d, err := event.Payload.EncodeBytes()
+	// d, err := event.Payload.EncodeBytes()
 	if err != nil {
 		logger.Errorf("Invalid event payload")
 	}
-	agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
+	// agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
 	if err != nil {
 		logger.Errorf("Invalid event payload")
 	}
 	data.Event = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
-	data.Agent = entities.AddressString(agent)
+	
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
 

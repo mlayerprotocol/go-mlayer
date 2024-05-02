@@ -63,6 +63,12 @@ func (n *MLChainAPI) GetStakeBalance(address entities.AddressString) big.Int {
 	return *bal
 }
 
+func (n *MLChainAPI) GetSubnetBalance(hashOrId string) big.Int {
+	bal := new(big.Int)
+	bal.SetString("100000000000000000000000000", 10)
+	return *bal
+}
+
 func (n *MLChainAPI) GetMinStakeAmountForValidators() big.Int {
 	bal := new(big.Int)
 	bal.SetString("1000000000000000", 10)

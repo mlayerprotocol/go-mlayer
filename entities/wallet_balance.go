@@ -21,6 +21,10 @@ type WalletBalance struct {
 	Account           AddressString `json:"acct"  gorm:"type:varchar(64);index;not null"`
 	Wallet string `json:"wal"  gorm:"type:char(32);index;not null"`
 	Balance             big.Int        `json:"bal" gorm:"index;not null"`
+	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+
+	// Derived
+	Event EventPath `json:"e,omitempty" gorm:"index;not null;varchar;"`
 	Timestamp            uint64                           `json:"ts"`
 }
 
@@ -36,6 +40,13 @@ func (d *WalletBalance) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	
 	return nil
+}
+
+func (entity WalletBalance) GetEvent() (EventPath) {
+	return entity.Event
+}
+func (entity WalletBalance) GetAgent() (DeviceString) {
+	return entity.Agent
 }
 
 // func (e *WalletBalance) Key() string {

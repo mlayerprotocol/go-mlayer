@@ -62,7 +62,7 @@ func (sD *SignatureData) Value() (driver.Value, error) {
 
 type Authorization struct {
 	ID            string                           `json:"id" gorm:"type:uuid;not null;primaryKey"`
-	Agent         string                           `json:"agt" gorm:"index:idx_agent_account,unique"`
+	Agent         DeviceString                           `json:"agt" gorm:"index:idx_agent_account,unique"`
 	Account       AddressString                    `json:"acct" gorm:"varchar(32),index:idx_agent_account,unique"`
 	Grantor       AddressString                    `json:"gr" gorm:"index"`
 	Priviledge    constants.AuthorizationPrivilege `json:"privi"`
@@ -72,7 +72,8 @@ type Authorization struct {
 	SignatureData SignatureData                    `json:"sigD" gorm:"jsonObject;"`
 	Hash          string                           `json:"h" gorm:"unique" `
 	Event         EventPath                        `json:"e,omitempty" gorm:"index;varchar;"`
-	Subnet        string                           `json:"snet"`
+	Subnet        string                           `json:"snet" gorm:"index;varchar(36)"`
+	
 	// AuthorizationEventID string                           `json:"authEventId,omitempty"`
 }
 
@@ -90,6 +91,12 @@ func (g Authorization) GetHash() ([]byte, error) {
 	return bs, nil
 }
 
+func (entity Authorization) GetEvent() (EventPath) {
+	return entity.Event
+}
+func (entity Authorization) GetAgent() (DeviceString) {
+	return entity.Agent
+}
 func (g Authorization) ToJSON() []byte {
 	b, _ := json.Marshal(g)
 	return b
@@ -103,7 +110,7 @@ func (g Authorization) EncodeBytes() ([]byte, error) {
 
 	b, e := encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: string(g.Account)},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: g.Agent},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: AddressFromString(string(g.Agent)).Addr},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.TopicIds},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Priviledge},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Duration},

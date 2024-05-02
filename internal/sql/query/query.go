@@ -142,6 +142,28 @@ func SaveRecord[Model any](where Model, data Model, update bool, DB *gorm.DB) (m
 	return &data, result.RowsAffected > 0, nil
 }
 
+func SaveRecordWithMap[Model any](model *Model, where map[string]interface{}, data map[string]interface{},  update bool, DB *gorm.DB ) (created bool, err error) {
+	tx := DB
+	if DB == nil {
+		tx = db.Db.Begin()
+	}
+	var result *gorm.DB
+	if update {
+		result = tx.Model(model).Where(where).Assign(data).FirstOrCreate(&data)
+	} else {
+	 result = tx.Model(model).Where(where).Create(data)
+	}
+	if result.Error != nil {
+		tx.Rollback()
+
+		return  false, result.Error
+	}
+	if DB == nil {
+		tx.Commit()
+	}
+	return  result.RowsAffected > 0, nil
+}
+
 // func IncrementRecord[Model any](where Model, field string, DB *gorm.DB) (model *Model, created bool, err error) {
 // 	tx := DB
 // 	if DB == nil {

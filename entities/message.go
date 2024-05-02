@@ -122,6 +122,7 @@ type Message struct {
 	Data     string          `json:"d"`
 	Actions  []MessageAction `json:"a" gorm:"json;"`
 	// Length int `json:"len"`
+	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
 	/// DERIVED
 	Event  EventPath              `json:"e,omitempty" gorm:"index;char(64);"`
@@ -167,6 +168,9 @@ func (chatMessage Message) ToString() string {
 }
 
 func (msg Message) GetHash() ([]byte, error) {
+	if msg.Hash != "" {
+		return hex.DecodeString(msg.Hash)
+	}
 	b, err := msg.EncodeBytes()
 	if err != nil {
 		return []byte(""), err
@@ -261,6 +265,13 @@ func (msg *Message) ToJSON() string {
 func (msg *Message) MsgPack() []byte {
 	b, _ := encoder.MsgPackStruct(msg)
 	return b
+}
+
+func (entity Message) GetEvent() (EventPath) {
+	return entity.Event
+}
+func (entity Message) GetAgent() (DeviceString) {
+	return entity.Agent
 }
 
 func MessageFromBytes(b []byte) Message {

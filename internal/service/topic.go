@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 	"strings"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -16,7 +15,6 @@ import (
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
 /*
@@ -77,40 +75,48 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != data.Hash {
 		var currentStateEvent = &models.TopicEvent{}
-		err := query.GetOne(entities.Event{Hash: currentState.Event.Hash}, currentStateEvent)
-		if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
-			isMoreRecent = true
-		}
-		if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
-			isMoreRecent = false
-		}
-		// if the authorization was created at exactly the same time but their hash is different
-		// use the last 4 digits of their event hash
-		if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
-			// get the event payload of the current state
+		query.GetOne(entities.Event{Hash: currentState.Event.Hash}, currentStateEvent)
+		isMoreRecent, markAsSynced = IsMoreRecent(
+			currentStateEvent.ID,
+			currentState.Event.Hash,
+			currentStateEvent.Payload.Timestamp,
+			event.Hash,
+			event.Payload.Timestamp,
+			markAsSynced,
+		 )
+		// if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
+		// 	isMoreRecent = true
+		// }
+		// if uint64(currentStateEvent.Payload.Timestamp) > uint64(event.Payload.Timestamp) {
+		// 	isMoreRecent = false
+		// }
+		// // if the authorization was created at exactly the same time but their hash is different
+		// // use the last 4 digits of their event hash
+		// if uint64(currentStateEvent.Payload.Timestamp) == uint64(event.Payload.Timestamp) {
+		// 	// get the event payload of the current state
 
-			if err != nil && err != gorm.ErrRecordNotFound {
-				logger.Error("DB error", err)
-			}
-			if currentStateEvent.ID == "" {
-				markAsSynced = false
-			} else {
-				if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
-					isMoreRecent = true
-				}
-				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
-					csN := new(big.Int)
-					csN.SetString(currentState.Event.Hash[56:], 16)
-					nsN := new(big.Int)
-					nsN.SetString(event.Hash[56:], 16)
+		// 	if err != nil && err != gorm.ErrRecordNotFound {
+		// 		logger.Error("DB error", err)
+		// 	}
+		// 	if currentStateEvent.ID == "" {
+		// 		markAsSynced = false
+		// 	} else {
+		// 		if currentStateEvent.Payload.Timestamp < event.Payload.Timestamp {
+		// 			isMoreRecent = true
+		// 		}
+		// 		if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
+		// 			// logger.Infof("Current state %v", currentStateEvent.Payload)
+		// 			csN := new(big.Int)
+		// 			csN.SetString(currentState.Event.Hash[56:], 16)
+		// 			nsN := new(big.Int)
+		// 			nsN.SetString(event.Hash[56:], 16)
 
-					if csN.Cmp(nsN) < 1 {
-						isMoreRecent = true
-					}
-				}
-			}
-		}
+		// 			if csN.Cmp(nsN) < 1 {
+		// 				isMoreRecent = true
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 	
 	if authError != nil {
@@ -219,7 +225,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 		logger.Errorf("Invalid event payload")
 	}
 	data.Event = *entities.NewEventPath(event.Validator, entities.TopicEventModel, event.Hash)
-	data.Agent = entities.AddressString(agent)
+	data.Agent = entities.AddressFromString(agent).ToDeviceString()
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
 

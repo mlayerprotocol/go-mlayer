@@ -3,6 +3,7 @@ package entities
 import (
 	// "errors"
 
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 
@@ -18,6 +19,7 @@ type Wallet struct {
 	Subnet    string        `json:"snet" gorm:"type:varchar(32);index;not null" msgpack:",noinline"`
 	Name      string        `json:"n" gorm:"type:char(12);not null"`
 	Timestamp uint64        `json:"ts"`
+	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
 	// Derived
 	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`
@@ -65,11 +67,21 @@ func WalletFromJSON(b []byte) (Event, error) {
 }
 
 func (e Wallet) GetHash() ([]byte, error) {
+	if e.Hash != "" {
+		return hex.DecodeString(e.Hash)
+	}
 	b, err := e.EncodeBytes()
 	if err != nil {
 		return []byte(""), err
 	}
 	return crypto.Keccak256Hash(b), nil
+}
+
+func (entity Wallet) GetEvent() (EventPath) {
+	return entity.Event
+}
+func (entity Wallet) GetAgent() (DeviceString) {
+	return entity.Agent
 }
 
 func (e Wallet) ToString() string {
