@@ -19,7 +19,7 @@ import (
 
 type Subnet struct {
 	ID          string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Name        string        `json:"n,omitempty" binding:"required"`
+	Meta        string        `json:"meta,omitempty" binding:"required"`
 	Ref      	string        `json:"ref,omitempty"  gorm:"unique;type:char(64);default:null"`
 	Categories 	pq.Int32Array `gorm:"type:integer[]"`
 	SignatureData SignatureData                    `json:"sigD" gorm:"jsonObject;"`
@@ -100,7 +100,7 @@ func (item Subnet) GetHash() ([]byte, error) {
 func (item Subnet) ToString() string {
 	values := []string{}
 	values = append(values, item.Hash)
-	values = append(values, item.Name)
+	values = append(values, item.Meta)
 	// values = append(values, fmt.Sprintf("%d", item.Timestamp))
 	// values = append(values, fmt.Sprintf("%d", item.SubscriberCount))
 	values = append(values, string(item.Account))
@@ -125,7 +125,7 @@ func (item Subnet) EncodeBytes() ([]byte, error) {
 		cats = append(cats, b...)
 	}
 	return encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Name},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: cats},
 		

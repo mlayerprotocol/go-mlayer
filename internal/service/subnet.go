@@ -59,18 +59,7 @@ func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentS
 			if err != nil {
 				return nil, err
 			}
-			// grantor, err := entities.AddressFromString(auth.Grantor)
-
-			// if err != nil {
-			// 	return nil, nil, err
-			// }
-
-			// decoded, err := hex.DecodeString(grantor.Addr)
-			// if err == nil {
-			// 	address = crypto.ToBech32Address(decoded, "cosmos")
-			// }
-
-			authMsg := fmt.Sprintf("Create Subnet %s:%s with ref %s: %s", addressPrefix, subnet.Name, subnet.Ref, encoder.ToBase64Padded(msg))
+			authMsg := fmt.Sprintf("Create Subnet %s:%s with ref %s: %s", addressPrefix, subnet.Meta, subnet.Ref, encoder.ToBase64Padded(msg))
 			logger.Info("AUTHMESS ", authMsg, " ", subnet.Hash)
 
 			valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
@@ -108,7 +97,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	data.Hash = hex.EncodeToString(hash)
 	// authEventHash := event.AuthEventHash
 	// authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
-
+	
 	currentState, err := ValidateSubnetData(data, cfg.AddressPrefix)
 	if err != nil {
 		// penalize node for broadcasting invalid data

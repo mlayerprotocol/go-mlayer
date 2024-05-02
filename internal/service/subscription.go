@@ -24,7 +24,7 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 	var currentState *models.SubscriptionState
 
 	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{Account: subscription.Account, Topic: subscription.Topic},
+		Subscription: entities.Subscription{Account: subscription.Account, Subnet: subscription.Subnet, Topic: subscription.Topic},
 	}, &currentState)
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
@@ -67,10 +67,11 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 	var topicData *models.TopicState
 
-	err = query.GetOne(models.TopicState{
-		Topic: entities.Topic{ID: data.Topic},
+	query.GetOne(models.TopicState{
+		Topic: entities.Topic{ID: data.Topic, Subnet: event.Payload.Subnet},
 	}, &topicData)
 
+	data.Subnet = event.Payload.Subnet
 	currentState, authError := ValidateSubscriptionData(data, &event.Payload)
 	prevEventUpToDate := false
 	authEventUpToDate := false
@@ -78,7 +79,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	// check if we are upto date on this event
 	prevEventUpToDate = query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
 
-	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: event.AuthEventHash})
+	authState, _ := query.GetOneAuthorizationState(entities.Authorization{Event: event.AuthEventHash})
 
 	authEventUpToDate = query.EventExist(&event.AuthEventHash) || (authState.ID == "" && event.AuthEventHash.Hash == "") || (authState.ID != "" && authState.Event.Hash == event.AuthEventHash.Hash)
 
@@ -227,9 +228,11 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		updateState = true
 	}
 
+	data.Subnet = event.Payload.Subnet
+
 	if updateState {
 		_, _, err := query.SaveRecord(models.SubscriptionState{
-			Subscription: entities.Subscription{Hash: data.Hash},
+			Subscription: entities.Subscription{ID: data.ID, Subnet: data.Subnet},
 		}, models.SubscriptionState{
 			Subscription: *data,
 		}, true, tx)

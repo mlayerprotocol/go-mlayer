@@ -18,6 +18,8 @@ var logger = &log.Logger
 type Subscription struct {
 	ID        string                         `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
 	Topic     string                         `json:"top"`
+	Ref     string                         `json:"ref" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(100);index"`
+	Subnet     string                         `json:"snet" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(36);index"`
 	Account   AddressString                  `json:"sub"`
 	Timestamp uint64                         `json:"ts"`
 	// Signature string                         `json:"sig"`

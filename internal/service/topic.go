@@ -22,11 +22,11 @@ Validate an agent authorization
 */
 func ValidateTopicData(topic *entities.Topic) (currentTopicState *models.TopicState, err error) {
 	// check fields of topic
-	logger.Info("Topiccc", topic.Handle)
-	if len(topic.Handle) > 40 {
+	logger.Info("Topiccc", topic.Ref)
+	if len(topic.Ref) > 40 {
 		return nil, apperror.BadRequest("Topic handle cannont be more than 40 characters")
 	}
-	if !utils.IsAlphaNumericDot(topic.Handle) {
+	if !utils.IsAlphaNumericDot(topic.Ref) {
 		return nil, apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
 	}
 	return nil, nil

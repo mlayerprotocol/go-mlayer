@@ -93,6 +93,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		eventPayloadType = constants.SubscriptionPayloadType
+		payload.Subnet = payload.Subnet
 		assocPrevEvent, assocAuthEvent, err = ValidateSubscriptionPayload(payload, authState)
 		if err != nil {
 			return nil, err

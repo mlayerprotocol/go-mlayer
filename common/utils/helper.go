@@ -31,7 +31,7 @@ func IsAlphaNumericDotNoNumberPrefix(str string) bool {
 }
 
 func IsAlphaNumericDot(str string) bool {
-	pattern := `[a-zA-Z][a-zA-Z0-9.]*$`
+	pattern := `[a-zA-Z][a-zA-Z0-9_.]*$`
 	matched, _ := regexp.MatchString(pattern, str)
 	return matched
 }

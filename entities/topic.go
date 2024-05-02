@@ -16,10 +16,9 @@ import (
 
 type Topic struct {
 	ID              string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Ref             string        `json:"ref,omitempty"`
-	Name            string        `json:"n,omitempty" binding:"required"`
-	Handle          string        `json:"hand,omitempty" binding:"required" gorm:"unique;type:char(64);default:null"`
-	Description     string        `json:"desc,omitempty"`
+	// Name            string        `json:"n,omitempty" binding:"required"`
+	Ref          string        `json:"ref,omitempty" binding:"required" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(64);default:null"`
+	Meta     string        `json:"meta,omitempty"`
 	ParentTopicHash string        `json:"pTH,omitempty" gorm:"type:char(64)"`
 	SubscriberCount uint64        `json:"sC,omitempty"`
 	Account         AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
@@ -37,7 +36,7 @@ type Topic struct {
 	// Signature   string    `json:"sig,omitempty" binding:"required"  gorm:"non null;"`
 	// Broadcasted   bool      `json:"br,omitempty"  gorm:"default:false;"`
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
-	Subnet    string `json:"snet"`
+	Subnet    string `json:"snet" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(34);"`
 }
 
 func (topic *Topic) Key() string {
@@ -103,7 +102,7 @@ func (topic Topic) GetHash() ([]byte, error) {
 func (topic Topic) ToString() string {
 	values := []string{}
 	values = append(values, topic.Hash)
-	values = append(values, topic.Name)
+	values = append(values, topic.Meta)
 	// values = append(values, fmt.Sprintf("%d", topic.Timestamp))
 	values = append(values, fmt.Sprintf("%d", topic.SubscriberCount))
 	values = append(values, string(topic.Account))
@@ -123,9 +122,7 @@ func (topic Topic) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.ID},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Name},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Handle},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Description},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Meta},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.ParentTopicHash},
 		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: topic.SubscriberCount},
 		// encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Account},
