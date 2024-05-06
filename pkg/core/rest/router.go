@@ -124,6 +124,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
 		}
 		// topic.ID = id
+
 		payload.Data = topic
 		event, err := client.CreateEvent(payload, p.Ctx)
 

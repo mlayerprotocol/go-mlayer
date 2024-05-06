@@ -25,51 +25,53 @@ Validate an agent authorization
 func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentSubnetState *models.SubnetState, err error) {
 	// check fields of Subnet
 	logger.Info("Subnetcc", subnet.Ref)
-	
+
 	if len(subnet.Ref) > 60 {
 		return nil, apperror.BadRequest("Subnet ref cannont be more than 40 characters")
 	}
-	if len(subnet.Ref) > 0 &&  !utils.IsAlphaNumericDot(subnet.Ref) {
+	if len(subnet.Ref) > 0 && !utils.IsAlphaNumericDot(subnet.Ref) {
 		return nil, apperror.BadRequest("Ref must be alpha-numeric, and . but cannot start with a number")
 	}
 	var valid bool
 	b, err := subnet.EncodeBytes()
 	switch subnet.SignatureData.Type {
-		case entities.EthereumPubKey:
-			valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &b, subnet.SignatureData.Signature)
+	case entities.EthereumPubKey:
+		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &b, subnet.SignatureData.Signature)
 
-		case entities.TendermintsSecp256k1PubKey:
+	case entities.TendermintsSecp256k1PubKey:
 
-			decodedSig, err := base64.StdEncoding.DecodeString(subnet.SignatureData.Signature)
-			if err != nil {
-				return nil, err
-			}
+		decodedSig, err := base64.StdEncoding.DecodeString(subnet.SignatureData.Signature)
+		if err != nil {
+			return nil, err
+		}
 
-			msg, err := subnet.GetHash()
+		msg, err := subnet.GetHash()
 
-			logger.Info("MSG:: ", msg)
+		logger.Info("MSG:: ", msg)
 
-			if err != nil {
-				return nil, err
-			}
+		if err != nil {
+			return nil, err
+		}
 
-			account := entities.AddressFromString(string(subnet.Account))
-			publicKeyBytes, err := base64.RawStdEncoding.DecodeString(subnet.SignatureData.PublicKey)
+		account := entities.AddressFromString(string(subnet.Account))
+		publicKeyBytes, err := base64.RawStdEncoding.DecodeString(subnet.SignatureData.PublicKey)
 
-			if err != nil {
-				return nil, err
-			}
-			authMsg := fmt.Sprintf("Create Subnet %s:%s with ref %s: %s", addressPrefix, subnet.Meta, subnet.Ref, encoder.ToBase64Padded(msg))
-			logger.Info("AUTHMESS ", authMsg, " ", subnet.Hash)
+		if err != nil {
+			return nil, err
+		}
+		authMsg := fmt.Sprintf("Create Subnet %s:%s:%s", addressPrefix, subnet.Ref, encoder.ToBase64Padded(msg))
+		logger.Info("AUTHMESS ", authMsg, " ", subnet.Hash)
+		logger.Info("account.Addr ", account.Addr)
+		logger.Info("subnet.SignatureData.PublicKey ", subnet.SignatureData.PublicKey)
 
-			valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
-			if err != nil {
-				return nil, err
-			}
+		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
+		if err != nil {
+			return nil, err
+		}
 
 	}
 	if !valid {
-		return nil,  apperror.Unauthorized("Invalid signature signer")
+		return nil, apperror.Unauthorized("Invalid signature signer")
 	}
 	query.GetOne(models.SubnetState{Subnet: entities.Subnet{Ref: subnet.Ref}}, currentSubnetState)
 	return currentSubnetState, nil
@@ -97,7 +99,10 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	data.Hash = hex.EncodeToString(hash)
 	// authEventHash := event.AuthEventHash
 	// authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
-	
+	logger.Info("data.Meta Ref ", data.Meta, " ", data.Ref)
+	h, _ := data.GetHash()
+	logger.Infof("data.Hash %v", h)
+
 	currentState, err := ValidateSubnetData(data, cfg.AddressPrefix)
 	if err != nil {
 		// penalize node for broadcasting invalid data
@@ -122,7 +127,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 			event.Hash,
 			event.Payload.Timestamp,
 			markAsSynced,
-		 )
+		)
 		// if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
 		// 	isMoreRecent = true
 		// }
@@ -157,7 +162,6 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		// 	}
 		// }
 	}
-
 
 	// If no error, then we should act accordingly as well
 	// If are upto date, then we should update the state based on if its a recent or old event
@@ -234,7 +238,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		logger.Errorf("Invalid event payload")
 	}
 	data.Event = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
-	
+
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
 
