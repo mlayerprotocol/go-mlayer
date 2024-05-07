@@ -104,7 +104,7 @@ func getDSN(cfg *configs.MainConfiguration) string {
 	case "sqlite":
 		err := os.MkdirAll(cfg.SQLDB.DbStoragePath, os.ModePerm)
 		if err != nil {
-			logger.Errorf("Error creating sqlite storage directory at %s", config.Config.SQLDB.DbDialect)
+			logger.Errorf("Error creating sqlite storage directory at %s", config.Config.SQLDB.DbStoragePath)
 			panic(err)
 		}
 		if strings.HasSuffix(cfg.SQLDB.DbStoragePath, "/") {
