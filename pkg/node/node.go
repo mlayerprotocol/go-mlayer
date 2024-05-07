@@ -228,6 +228,13 @@ func Start(mainCtx *context.Context) {
 		defer listener.Close()
 		logger.Infof("RPC server runing on: %+s", host+":"+cfg.RPCPort)
 		go http.Serve(listener, nil)
+		time.Sleep(time.Second) 
+		sendHttp := rpcServer.NewHttpService(&ctx)
+		err = sendHttp.Start(cfg.RPCPort)
+		if err != nil {
+			logger.Fatal("Http error: ", err)
+		}
+		logger.Infof("New http connection")
 		// for {
 		// 	conn, err := listener.Accept()
 		// 	if err != nil {
@@ -240,19 +247,19 @@ func Start(mainCtx *context.Context) {
 
 	}()
 
-	wg.Add(1)
-	go func() {
+	// wg.Add(1)
+	// go func() {
 		
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		defer wg.Done()
-		sendHttp := rpcServer.NewHttpService(&ctx)
-		err := sendHttp.Start(cfg.RPCPort)
-		if err != nil {
-			logger.Fatal("Http error: ", err)
-		}
-		logger.Infof("New http connection")
-	}()
+	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	sendHttp := rpcServer.NewHttpService(&ctx)
+	// 	err := sendHttp.Start(cfg.RPCPort)
+	// 	if err != nil {
+	// 		logger.Fatal("Http error: ", err)
+	// 	}
+	// 	logger.Infof("New http connection")
+	// }()
 
 	wg.Add(1)
 	go func() {

@@ -84,7 +84,7 @@ func (p *HttpService) Start(rpcPort string) error {
 	client, err := rpc.DialHTTP("tcp", hostname+port)
 
 	if err != nil {
-		logger.Errorf("Rpc Error::", err)
+		logger.Errorf("Rpc Error:: %s", err.Error())
 		return err
 	}
 	
