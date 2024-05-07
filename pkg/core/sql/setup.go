@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	config "github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql/migration"
@@ -58,7 +59,7 @@ func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
 func Init() {
 	cfg := config.Config
 	logger.Infof("DB Dialect %v", config.Config.SQLDB)
-	Db, SqlDBErr = InitializeDb(config.Config.SQLDB.DbDialect, getDSN(cfg.SQLDB.DbDialect))
+	Db, SqlDBErr = InitializeDb(config.Config.SQLDB.DbDialect, getDSN(&cfg))
 	if SqlDBErr != nil {
 		panic(SqlDBErr)
 	}
@@ -97,13 +98,13 @@ func logLevel() dbLogger.LogLevel {
 	return dbLogger.Error
 }
 
-func getDSN(dialect string) string {
-	cfg := config.Config
+func getDSN(cfg *configs.MainConfiguration) string {
 	dsn := ""
 	switch strings.ToLower(config.Config.SQLDB.DbDialect) {
 	case "sqlite":
 		err := os.MkdirAll(cfg.SQLDB.DbStoragePath, os.ModePerm)
 		if err != nil {
+			logger.Errorf("Error creating sqlite storage directory at %s", config.Config.SQLDB.DbDialect)
 			panic(err)
 		}
 		if strings.HasSuffix(cfg.SQLDB.DbStoragePath, "/") {

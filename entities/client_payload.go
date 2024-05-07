@@ -39,15 +39,12 @@ type ClientPayload struct {
 	Nonce     uint64        `json:"nonce"`
 	Account   AddressString `json:"acct,omitempty"` // optional public key of sender
 
-	// Authorization *Authorization `json:"auth"`
-	// AuthHash string `json:"auth"` // optional hash of
 	Validator PublicKeyString `json:"val,omitempty"`
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
-	Signature string       `json:"sig"`
-	Hash      string       `json:"h,omitempty"`
-	Agent     DeviceString `json:"-" gorm:"-" `
-	Subnet    string       `json:"snet" gorm:"index;"`
-
+	Signature string `json:"sig"`
+	Hash      string `json:"h,omitempty"`
+	Agent     DeviceString `gorm:"-" json:"agt"`
+	Subnet	  string `json:"snet" gorm:"index;"`
 	Page    uint16 `json:"page,omitempty" gorm:"_"`
 	PerPage uint16 `json:"perPage,omitempty" gorm:"_"`
 }
@@ -142,6 +139,9 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	var params []encoder.EncoderParam
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
+	if msg.Subnet != "" {
+		params = append(params, encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Subnet})
+	}
 	if msg.Account != "" {
 		params = append(params, encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Account})
 	}
