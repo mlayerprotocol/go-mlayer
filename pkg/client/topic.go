@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
@@ -50,6 +51,20 @@ import (
 Validate and Process the topic request
 */
 
+func GetTopic(where models.TopicState) (*models.TopicState, error) {
+	topicState := models.TopicState{}
+
+	err := query.GetOne(where, &topicState)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &topicState, nil
+
+}
+
 func GetTopicById(id string) (*models.TopicState, error) {
 	topicState := models.TopicState{}
 
@@ -83,7 +98,7 @@ func GetTopicByHash(hash string) (*models.TopicState, error) {
 
 func GetTopics() (*[]models.TopicState, error) {
 	var topicStates []models.TopicState
-	order := &map[string]query.Order{"timestamp":query.OrderDec}
+	order := &map[string]query.Order{"timestamp": query.OrderDec}
 	err := query.GetMany(models.TopicState{}, &topicStates, order)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -96,7 +111,7 @@ func GetTopics() (*[]models.TopicState, error) {
 
 func GetTopicEvents() (*[]models.TopicEvent, error) {
 	var topicEvents []models.TopicEvent
-	order := &map[string]query.Order{"timestamp":query.OrderDec}
+	order := &map[string]query.Order{"timestamp": query.OrderDec}
 	err := query.GetMany(models.TopicEvent{
 		Event: entities.Event{
 			BlockNumber: 1,
@@ -137,6 +152,15 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 	if e != nil {
 		logger.Errorf("UnmarshalError %v", e)
 	}
+	if payload.EventType == uint16(constants.CreateTopicEvent) {
+		topic, _ := GetTopic(models.TopicState{
+			Topic: entities.Topic{Ref: payloadData.Ref, Subnet: payloadData.Subnet},
+		})
+		if topic != nil {
+			return nil, nil, apperror.BadRequest("Topic ref already exist")
+
+		}
+	}
 
 	payload.Data = payloadData
 	if payload.EventType == uint16(constants.CreateTopicEvent) {
@@ -158,7 +182,7 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 
 	}
 	if authState != nil {
-		assocAuthEvent =&authState.Event
+		assocAuthEvent = &authState.Event
 	}
 	return assocPrevEvent, assocAuthEvent, nil
 }

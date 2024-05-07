@@ -4,7 +4,6 @@ import (
 	// "errors"
 
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,26 +14,21 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 )
 
-
-
 type Subnet struct {
-	ID          string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Meta        string        `json:"meta,omitempty"`
-	Ref      	string        `json:"ref,omitempty"  gorm:"unique;type:char(64);"`
-	Categories 	pq.Int32Array `gorm:"type:integer[]"`
-	SignatureData SignatureData                    `json:"sigD" gorm:"jsonObject;"`
-	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
+	ID            string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
+	Meta          string        `json:"meta,omitempty"`
+	Ref           string        `json:"ref,omitempty"  gorm:"unique;type:varchar(64);default:null"`
+	Categories    pq.Int32Array `gorm:"type:integer[]"`
+	SignatureData SignatureData `json:"sigD" gorm:"json;"`
+	Timestamp     uint64        `json:"ts,omitempty" binding:"required"`
 
 	// Readonly
-	Account     AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
-	Agent DeviceString `json:"_"  gorm:"_"`
-
+	Account AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Agent   DeviceString  `json:"_"  gorm:"_"`
 
 	// Derived
-	Event   EventPath `json:"e,omitempty" gorm:"index;varchar;"`
-	Hash    string    `json:"h,omitempty" gorm:"type:char(64)"`
-	
-	
+	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`
+	Hash  string    `json:"h,omitempty" gorm:"type:char(64)"`
 }
 
 func (item *Subnet) Key() string {
@@ -87,14 +81,20 @@ func (p *Subnet) IsMember(channel string, sender AddressString) bool {
 }
 
 func (item Subnet) GetHash() ([]byte, error) {
-	if item.Hash != "" {
-		return hex.DecodeString(item.Hash)
-	}
+	logger.Info("GetHash item.Meta : ", item.Meta)
+	logger.Info("GetHash item.Ref : ", item.Ref)
+	logger.Info("GetHash item.Hashh : ", item.Hash)
+	// if item.Hash != "" {
+	// 	dd, _ := hex.DecodeString(item.Hash)
+	// 	logger.Infof("GetHash hex.DecodeString(item.Hash) : %v", dd)
+	// 	return hex.DecodeString(item.Hash)
+	// }
 	b, err := item.EncodeBytes()
 	if err != nil {
 		return []byte(""), err
 	}
-	return crypto.Keccak256Hash(b), nil
+	logger.Infof("GetHash crypto.Sha256(b) : %v", crypto.Sha256(b))
+	return crypto.Sha256(b), nil
 }
 
 func (item Subnet) ToString() string {
@@ -108,10 +108,10 @@ func (item Subnet) ToString() string {
 	return strings.Join(values, ",")
 }
 
-func (entity Subnet) GetEvent() (EventPath) {
+func (entity Subnet) GetEvent() EventPath {
 	return entity.Event
 }
-func (entity Subnet) GetAgent() (DeviceString) {
+func (entity Subnet) GetAgent() DeviceString {
 	return entity.Agent
 }
 
@@ -127,8 +127,8 @@ func (item Subnet) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: cats},
-		
+		// encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: cats},
+
 		// encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: item.InviteOnly},
 	)
 }

@@ -16,7 +16,7 @@ type Payload interface {
 	GetHash() ([]byte, error)
 	ToString() string
 	EncodeBytes() ([]byte, error)
-	GetEvent() (EventPath)
+	GetEvent() EventPath
 }
 
 func GetId(d Payload) (string, error) {
@@ -38,18 +38,15 @@ type ClientPayload struct {
 	EventType uint16        `json:"ty"`
 	Nonce     uint64        `json:"nonce"`
 	Account   AddressString `json:"acct,omitempty"` // optional public key of sender
-	
-	// Authorization *Authorization `json:"auth"`
-	// AuthHash string `json:"auth"` // optional hash of
+
 	Validator PublicKeyString `json:"val,omitempty"`
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
 	Signature string `json:"sig"`
 	Hash      string `json:"h,omitempty"`
 	Agent     DeviceString `gorm:"-" json:"agt"`
 	Subnet	  string `json:"snet" gorm:"index;"`
-
-	Page   uint16 `json:"page,omitempty" gorm:"_"`
-	PerPage   uint16 `json:"perPage,omitempty" gorm:"_"`
+	Page    uint16 `json:"page,omitempty" gorm:"_"`
+	PerPage uint16 `json:"perPage,omitempty" gorm:"_"`
 }
 
 func (msg ClientPayload) ToJSON() []byte {
@@ -104,7 +101,7 @@ func (msg ClientPayload) GetSigner() (DeviceString, error) {
 		if err != nil {
 			return "", err
 		}
-		agent, _ :=  crypto.GetSignerECC(&b, &msg.Signature)
+		agent, _ := crypto.GetSignerECC(&b, &msg.Signature)
 		msg.Agent = AddressFromString(agent).ToDeviceString()
 		return msg.Agent, nil
 	}
@@ -163,9 +160,8 @@ func ClientPayloadFromBytes(b []byte) (ClientPayload, error) {
 	return message, err
 }
 
-
 /** SYNC REQUEST PAYLOAD **/
 type SyncRequest struct {
 	Interval ResponseInterval `json:"inter"`
-	TopicIds string `json:"topIds"`
+	TopicIds string           `json:"topIds"`
 }

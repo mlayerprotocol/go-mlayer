@@ -131,7 +131,7 @@ func GetSubnetEvents() (*[]models.SubnetEvent, error) {
 //			go service.HandleNewPubSubSubnetEvent(event, ctx)
 //		}
 //	}
-func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.AuthorizationState,  ctx *context.Context) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.AuthorizationState, ctx *context.Context) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
 	payloadData := entities.Subnet{}
 	d, _ := json.Marshal(payload.Data)
@@ -150,7 +150,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	}
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
-	currentState, err := service.ValidateSubnetData(&payloadData,  cfg.AddressPrefix)
+	currentState, err := service.ValidateSubnetData(&payloadData, cfg.AddressPrefix)
 	if err != nil {
 		return nil, nil, err
 	}

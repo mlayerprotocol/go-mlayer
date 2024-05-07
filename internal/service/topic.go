@@ -38,7 +38,6 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	updateState := false
 	var eventError string
 	// hash, _ := event.GetHash()
-	
 
 	logger.Infof("Event is a valid event %s", event.PayloadHash)
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
@@ -66,10 +65,10 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	}
 
 	// check if we are upto date on this event
-	
+
 	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
 	authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
-	
+
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
@@ -83,7 +82,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 			event.Hash,
 			event.Payload.Timestamp,
 			markAsSynced,
-		 )
+		)
 		// if uint64(currentStateEvent.Payload.Timestamp) < uint64(event.Payload.Timestamp) {
 		// 	isMoreRecent = true
 		// }
@@ -118,7 +117,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 		// 	}
 		// }
 	}
-	
+
 	if authError != nil {
 		// check if we are upto date. If we are, then the error is an actual one
 		// the error should be attached when saving the event

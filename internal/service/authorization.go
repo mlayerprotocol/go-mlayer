@@ -23,10 +23,12 @@ import (
 )
 
 func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevAuthState *models.AuthorizationState, grantorAuthState *models.AuthorizationState, err error) {
+	logger.Info("auth.EncodeBytes:: ")
 	b, err := auth.EncodeBytes()
 	if err != nil {
 		return nil, nil, err
 	}
+	logger.Info("auth.SignatureData.Signature:: ", auth.SignatureData.Signature)
 	var valid bool
 
 	// if string(auth.Account) == string(auth.Grantor) {
@@ -157,10 +159,10 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
 	if currentState != nil && currentState.Hash != authRequest.Hash {
-			currentStateEvent, err := query.GetOneAuthorizationEvent(entities.Event{Hash: currentState.Event.Hash})
-			if err != nil && err != gorm.ErrRecordNotFound {
-				logger.Fatal("DB error", err)
-			}
+		currentStateEvent, err := query.GetOneAuthorizationEvent(entities.Event{Hash: currentState.Event.Hash})
+		if err != nil && err != gorm.ErrRecordNotFound {
+			logger.Fatal("DB error", err)
+		}
 		isMoreRecent, markAsSynced = IsMoreRecent(
 			currentStateEvent.ID,
 			currentState.Event.Hash,
@@ -168,7 +170,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 			event.Hash,
 			event.Payload.Timestamp,
 			markAsSynced,
-		 )
+		)
 		// if currentState.Timestamp < authRequest.Timestamp {
 		// 	isMoreRecent = true
 		// }
@@ -179,7 +181,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 		// // use the last 4 digits of their event hash
 		// if currentState.Timestamp == authRequest.Timestamp {
 		// 	// get the event payload of the current state
-		
+
 		// 	if currentStateEvent == nil {
 		// 		markAsSynced = false
 		// 	} else {
