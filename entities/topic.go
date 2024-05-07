@@ -4,7 +4,6 @@ import (
 	// "errors"
 
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,10 +14,10 @@ import (
 )
 
 type Topic struct {
-	ID              string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
+	ID string `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	// Name            string        `json:"n,omitempty" binding:"required"`
-	Ref          string        `json:"ref,omitempty" binding:"required" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(64);default:null"`
-	Meta     string        `json:"meta,omitempty"`
+	Ref             string        `json:"ref,omitempty" binding:"required" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(64);default:null"`
+	Meta            string        `json:"meta,omitempty"`
 	ParentTopicHash string        `json:"pTH,omitempty" gorm:"type:char(64)"`
 	SubscriberCount uint64        `json:"sC,omitempty"`
 	Account         AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
@@ -36,7 +35,8 @@ type Topic struct {
 	// Signature   string    `json:"sig,omitempty" binding:"required"  gorm:"non null;"`
 	// Broadcasted   bool      `json:"br,omitempty"  gorm:"default:false;"`
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
-	Subnet    string `json:"snet" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(34);"`
+	Subnet    string `json:"snet" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(36);"`
+	// Subnet string `json:"snet" gorm:"index;varchar(36)"`
 }
 
 func (topic *Topic) Key() string {
@@ -89,14 +89,14 @@ func (p *Topic) IsMember(channel string, sender AddressString) bool {
 }
 
 func (topic Topic) GetHash() ([]byte, error) {
-	if topic.Hash != "" {
-		return hex.DecodeString(topic.Hash)
-	}
+	// if topic.Hash != "" {
+	// 	return hex.DecodeString(topic.Hash)
+	// }
 	b, err := topic.EncodeBytes()
 	if err != nil {
 		return []byte(""), err
 	}
-	return crypto.Keccak256Hash(b), nil
+	return crypto.Sha256(b), nil
 }
 
 func (topic Topic) ToString() string {
@@ -111,10 +111,10 @@ func (topic Topic) ToString() string {
 	return strings.Join(values, ",")
 }
 
-func (topic Topic) GetEvent() (EventPath) {
+func (topic Topic) GetEvent() EventPath {
 	return topic.Event
 }
-func (topic Topic) GetAgent() (DeviceString) {
+func (topic Topic) GetAgent() DeviceString {
 	return topic.Agent
 }
 
@@ -129,6 +129,6 @@ func (topic Topic) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.Public},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.ReadOnly},
 		// encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.InviteOnly},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Subnet},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Subnet},
 	)
 }
