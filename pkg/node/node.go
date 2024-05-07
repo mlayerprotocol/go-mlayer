@@ -222,6 +222,7 @@ func Start(mainCtx *context.Context) {
 			host = "127.0.0.1"
 		}
 		listener, err := net.Listen("tcp", host+":"+cfg.RPCPort)
+		defer listener.Close()
 		if err != nil {
 			logger.Fatal("RPC failed to listen on TCP port: ", err)
 		}
