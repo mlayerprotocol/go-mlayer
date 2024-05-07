@@ -114,7 +114,7 @@ func (g Authorization) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.TopicIds},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Priviledge},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Duration},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: g.Subnet},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.Subnet},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Timestamp},
 	)
 

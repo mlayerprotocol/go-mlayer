@@ -19,8 +19,8 @@ import (
 
 type Subnet struct {
 	ID          string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Meta        string        `json:"meta,omitempty" binding:"required"`
-	Ref      	string        `json:"ref,omitempty"  gorm:"unique;type:char(64);default:null"`
+	Meta        string        `json:"meta,omitempty"`
+	Ref      	string        `json:"ref,omitempty"  gorm:"unique;type:char(64);"`
 	Categories 	pq.Int32Array `gorm:"type:integer[]"`
 	SignatureData SignatureData                    `json:"sigD" gorm:"jsonObject;"`
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`

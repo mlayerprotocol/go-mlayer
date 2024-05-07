@@ -101,7 +101,6 @@ func (sub Subscription) EncodeBytes() ([]byte, error) {
 	// buffer.Write([]byte(sub.Topic))
 	// buffer.Write(encoder.NumberToByte(sub.Timestamp))
 	// buffer.Write(encoder.NumberToByte(uint64(sub.Action)))
-	logger.Info("SUBTOPIC", sub.Topic)
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Topic},
 		// encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: sub.Subscriber},

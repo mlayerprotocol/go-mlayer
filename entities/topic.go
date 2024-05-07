@@ -129,6 +129,6 @@ func (topic Topic) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.Public},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.ReadOnly},
 		// encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: topic.InviteOnly},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.Subnet},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Subnet},
 	)
 }
