@@ -17,12 +17,7 @@ type DeviceString AddressString
 
 func (address *AddressString) ToString() string {
 
-	return fmt.Sprintf("%s", *address)
-}
-
-func (address *AddressString) ToAddressString() AddressString {
-
-	return AddressString(address.ToString())
+	return string(*address)
 }
 
 type Address struct {

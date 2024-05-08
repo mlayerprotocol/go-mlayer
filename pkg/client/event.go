@@ -27,15 +27,14 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
 	// 	return  err
 	// }
-	
 
 	payload.Agent, err = payload.GetSigner()
 	if err != nil {
 		return nil, apperror.Internal(err.Error())
 	}
 	var authState *models.AuthorizationState
-	excludedEvents := []constants.EventType{constants.CreateSubnetEvent, constants.CreateSubnetEvent, constants.DeleteSubnetEvent, constants.AuthorizationEvent}
-	if !slices.Contains(excludedEvents, constants.EventType( payload.EventType))  {
+	excludedEvents := []constants.EventType{constants.CreateSubnetEvent, constants.UpdateSubnetEvent, constants.DeleteSubnetEvent, constants.AuthorizationEvent}
+	if !slices.Contains(excludedEvents, constants.EventType(payload.EventType)) {
 		authState, err := ValidateClientPayload(&payload)
 		if err != nil {
 			return nil, err

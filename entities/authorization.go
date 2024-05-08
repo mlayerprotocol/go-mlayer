@@ -19,8 +19,8 @@ const (
 
 type Authorization struct {
 	ID            string                           `json:"id" gorm:"type:uuid;not null;primaryKey"`
-	Agent         DeviceString                     `json:"agt" gorm:"index:idx_agent_account,unique"`
-	Account       AddressString                    `json:"acct" gorm:"varchar(32),index:idx_agent_account,unique"`
+	Agent         DeviceString                     `json:"agt" gorm:"uniqueIndex:idx_agent_account"`
+	Account       AddressString                    `json:"acct" gorm:"varchar(40),uniqueIndex:idx_agent_account"`
 	Grantor       AddressString                    `json:"gr" gorm:"index"`
 	Priviledge    constants.AuthorizationPrivilege `json:"privi"`
 	TopicIds      string                           `json:"topIds"`
@@ -29,7 +29,7 @@ type Authorization struct {
 	SignatureData SignatureData                    `json:"sigD" gorm:"json;"`
 	Hash          string                           `json:"h" gorm:"unique" `
 	Event         EventPath                        `json:"e,omitempty" gorm:"index;varchar;"`
-	Subnet        string                           `json:"snet" gorm:"index;varchar(36)"`
+	Subnet        string                           `json:"snet" gorm:"index;char(36)"`
 
 	// AuthorizationEventID string                           `json:"authEventId,omitempty"`
 }

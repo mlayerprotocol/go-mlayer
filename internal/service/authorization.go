@@ -66,7 +66,7 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(auth.Grantor)).Addr, &b, auth.SignatureData.Signature)
 		if valid {
 			// check if the grantor is authorized
-			grantorAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: entities.DeviceString(auth.Grantor.ToAddressString())})
+			grantorAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: entities.DeviceString(auth.Grantor)})
 			if err == gorm.ErrRecordNotFound {
 				return nil, nil, apperror.Unauthorized("Grantor not authorized agent")
 			}

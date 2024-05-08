@@ -17,7 +17,8 @@ type Wallet struct {
 	ID        string        `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
 	Account   AddressString `json:"acct"`
 	Subnet    string        `json:"snet" gorm:"type:varchar(32);index;not null" msgpack:",noinline"`
-	Name      string        `json:"n" gorm:"type:char(12);not null"`
+	Name      string        `json:"n" gorm:"type:varchar(12);not null"`
+	Symbol      string        `json:"sym" gorm:"type:varchar(8);not null"`
 	Timestamp uint64        `json:"ts"`
 	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
