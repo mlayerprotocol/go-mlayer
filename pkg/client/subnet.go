@@ -5,9 +5,10 @@ import (
 
 	"context"
 	"encoding/json"
-	"errors"
+	"strings"
 	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -144,9 +145,17 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	if payload.EventType == uint16(constants.CreateSubnetEvent) {
 		// dont worry validating the AuthHash for Authorization requests
 		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-			return nil, nil, errors.New("Event timestamp exceeded")
+			return nil, nil, apperror.BadRequest("Event timestamp exceeded")
+		}
+		if payloadData.ID != "" {
+			return nil, nil, apperror.BadRequest("You cannot set an id when creating a subnet")
 		}
 
+	}
+	if payload.EventType == uint16(constants.UpdateSubnetEvent) {
+		if payloadData.ID == "" {
+			return nil, nil, apperror.BadRequest("Subnet ID must be provided")
+		}
 	}
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
@@ -157,8 +166,10 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 
 	// generate associations
 	if currentState != nil {
+		if strings.EqualFold(currentState.Account.ToString(), payloadData.Account.ToString()) {
+			return nil, nil, apperror.BadRequest("Subnet account do not match")
+		}
 		assocPrevEvent = &currentState.Event
-
 	}
 	if authState != nil {
 		assocAuthEvent = &authState.Event

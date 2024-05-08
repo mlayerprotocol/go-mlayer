@@ -16,7 +16,7 @@ import (
 type Topic struct {
 	ID string `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	// Name            string        `json:"n,omitempty" binding:"required"`
-	Ref             string        `json:"ref,omitempty" binding:"required" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(64);default:null"`
+	Ref             string        `json:"ref,omitempty" binding:"required" gorm:"uniqueIndex:idx_unique_subnet_ref;type:varchar(64);default:null"`
 	Meta            string        `json:"meta,omitempty"`
 	ParentTopicHash string        `json:"pTH,omitempty" gorm:"type:char(64)"`
 	SubscriberCount uint64        `json:"sC,omitempty"`
