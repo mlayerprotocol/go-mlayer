@@ -129,11 +129,11 @@ type Event struct {
 	Associations      []string      `json:"assoc" gorm:"type:text[]"`
 	PreviousEventHash EventPath     `json:"preE" gorm:"type:varchar;default:null"`
 	AuthEventHash     EventPath     `json:"authE" gorm:"type:varchar;default:null"`
-	PayloadHash       string        `json:"pH" gorm:"type:char(64);unique,"`
+	PayloadHash       string        `json:"pH" gorm:"type:char(64);unique"`
 	// StateHash string `json:"sh"`
 	// Secondary
 	Error       string          `json:"err"`
-	Hash        string          `json:"h" gorm:"uniqueIndex:idx_nonce_hash,type:char(64)"`
+	Hash        string          `json:"h" gorm:"uniqueIndex:idx_nonce_hash;type:char(64)"`
 	Signature   string          `json:"sig"`
 	Broadcasted bool            `json:"br"`
 	BlockNumber uint64          `json:"blk"`
@@ -148,10 +148,10 @@ func (d *Event) BeforeCreate(tx *gorm.DB) (err error) {
 	if d.ID == "" {
 		hash, _ := d.GetHash()
 		u, err := uuid.FromBytes(hash[:16])
-	if err != nil {
-		return err
-	}
-	
+		if err != nil {
+			return err
+		}
+
 		d.ID = u.String()
 	}
 	if d.Payload.Nonce > 0 {

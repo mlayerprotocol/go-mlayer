@@ -113,10 +113,10 @@ func (a MessageAction) EncodeBytes() []byte {
 }
 
 type Message struct {
-	ID              string          `json:"id" gorm:"type:uuid;primaryKey;not null"`
+	ID string `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	// Timestamp      uint64   `json:"ts"`
-	TopicId  string `json:"topId,omitempty"`
-	Sender  AddressString   `json:"s"`
+	TopicId string        `json:"topId,omitempty"`
+	Sender  AddressString `json:"s"`
 	// OwnerAddress  string              `json:"oA"`
 	Receiver AddressString   `json:"r,omitempty"`
 	Data     string          `json:"d"`
@@ -125,7 +125,7 @@ type Message struct {
 	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
 	/// DERIVED
-	Event  EventPath              `json:"e,omitempty" gorm:"index;char(64);"`
+	Event       EventPath           `json:"e,omitempty" gorm:"index;char(64);"`
 	Hash        string              `json:"h"`
 	Attachments []MessageAttachment `json:"atts" gorm:"json;"`
 	// Subject     string              `json:"s"`
@@ -267,10 +267,10 @@ func (msg *Message) MsgPack() []byte {
 	return b
 }
 
-func (entity Message) GetEvent() (EventPath) {
+func (entity Message) GetEvent() EventPath {
 	return entity.Event
 }
-func (entity Message) GetAgent() (DeviceString) {
+func (entity Message) GetAgent() DeviceString {
 	return entity.Agent
 }
 

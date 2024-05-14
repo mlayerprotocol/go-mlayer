@@ -35,7 +35,8 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	var authState *models.AuthorizationState
 	excludedEvents := []constants.EventType{constants.CreateSubnetEvent, constants.UpdateSubnetEvent, constants.DeleteSubnetEvent, constants.AuthorizationEvent}
 	if !slices.Contains(excludedEvents, constants.EventType(payload.EventType)) {
-		authState, err := ValidateClientPayload(&payload)
+		authState, err = ValidateClientPayload(&payload)
+		logger.Infof("authState&&&&& 2: %v ", authState)
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
@@ -50,6 +51,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	var eventPayloadType constants.EventPayloadType
 
 	//Perfom checks base on event types
+	logger.Infof("authState****** 2: %v ", authState)
 	switch payload.EventType {
 	case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.UpdateTopicEvent), uint16(constants.LeaveEvent):
 		eventPayloadType = constants.TopicPayloadType
@@ -74,7 +76,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
 		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		// }
-		
+
 		assocPrevEvent, assocAuthEvent, err = ValidateSubnetPayload(payload, authState, ctx)
 		if err != nil {
 			return nil, err
@@ -99,6 +101,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, err
 		}
 	case uint16(constants.SendMessageEvent):
+		logger.Infof("authState 2: %v ", authState)
 		if authState.Authorization.Priviledge < constants.WritePriviledge {
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}
