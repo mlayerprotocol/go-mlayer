@@ -5,6 +5,7 @@ import (
 
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -147,9 +148,18 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
 			return nil, nil, apperror.BadRequest("Event timestamp exceeded")
 		}
+		// if uint64(payloadData.Timestamp) < uint64(time.Now().UnixMilli()) - 15000 {
+		// 	return nil, nil, apperror.BadRequest("Event timestamp exceeded")
+		// }
 		if payloadData.ID != "" {
 			return nil, nil, apperror.BadRequest("You cannot set an id when creating a subnet")
 		}
+		var found []models.SubnetState
+		query.GetMany(&models.SubnetState{Subnet:entities.Subnet{Ref: payloadData.Ref}}, &found, nil)
+		if (len(found) > 0) {
+			return nil, nil, apperror.BadRequest(fmt.Sprintf("Subnet with reference %s already exists", payloadData.Ref))
+		}
+		logger.Info("FOUNDDDDD", found, payloadData.Ref)
 
 	}
 	if payload.EventType == uint16(constants.UpdateSubnetEvent) {

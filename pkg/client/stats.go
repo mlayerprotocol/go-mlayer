@@ -29,7 +29,7 @@ func GetBlockStats() (*[]models.BlockStat, error) {
 func GetMainStats() (*entities.MainStat, error) {
 	// var mainStat []entities.MainStat
 	var accountCount int64
-	var topicBalanceCount int64
+	var topicBalanceTotal int64
 	var messageCount int64
 	
 
@@ -40,7 +40,7 @@ func GetMainStats() (*entities.MainStat, error) {
 		}
 		return nil, err
 	}
-	err = query.GetTx().Model(&models.TopicState{}).Select("sum(balance)").Row().Scan(&topicBalanceCount)
+	err = query.GetTx().Model(&models.SubnetState{}).Select("COALESCE(sum(balance), 0)").Row().Scan(&topicBalanceTotal)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -64,7 +64,7 @@ func GetMainStats() (*entities.MainStat, error) {
 	}
 	return &entities.MainStat{
 		Accounts:     accountCount,
-		TopicBalance: topicBalanceCount,
+		TopicBalance: topicBalanceTotal,
 		Messages:     messageCount,
 		MessageCount: big.NewInt(0).Mul(chain.API.GetCurrentMessageCost(), big.NewInt(messageCount)),
 	}, nil

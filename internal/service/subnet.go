@@ -24,16 +24,16 @@ Validate an agent authorization
 */
 func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentSubnetState *models.SubnetState, err error) {
 	// check fields of Subnet
-	logger.Info("Subnetcc", subnet.Ref)
+	
 
 	if len(subnet.Ref) > 60 {
 		return nil, apperror.BadRequest("Subnet ref cannont be more than 40 characters")
 	}
 	if len(subnet.Ref) > 0 && !utils.IsAlphaNumericDot(subnet.Ref) {
-		return nil, apperror.BadRequest("Ref must be alpha-numeric, and . but cannot start with a number")
+		return nil, apperror.BadRequest("Ref must be alpha-numeric, and .")
 	}
 	var valid bool
-	b, err := subnet.EncodeBytes()
+	b, _ := subnet.EncodeBytes()
 	switch subnet.SignatureData.Type {
 	case entities.EthereumPubKey:
 		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &b, subnet.SignatureData.Signature)
@@ -59,10 +59,7 @@ func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentS
 		if err != nil {
 			return nil, err
 		}
-		authMsg := fmt.Sprintf("Create Subnet %s:%s:%s", addressPrefix, subnet.Ref, encoder.ToBase64Padded(msg))
-		logger.Info("AUTHMESS ", authMsg, " ", subnet.Hash)
-		logger.Info("account.Addr ", account.Addr)
-		logger.Info("subnet.SignatureData.PublicKey ", subnet.SignatureData.PublicKey)
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", addressPrefix, subnet.Ref, encoder.ToBase64Padded(msg), subnet.Timestamp)
 
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
 		if err != nil {
