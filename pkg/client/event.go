@@ -36,7 +36,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	excludedEvents := []constants.EventType{constants.CreateSubnetEvent, constants.UpdateSubnetEvent, constants.DeleteSubnetEvent, constants.AuthorizationEvent}
 	if !slices.Contains(excludedEvents, constants.EventType(payload.EventType)) {
 		authState, err := ValidateClientPayload(&payload)
-		if err != nil {
+		if err != nil && err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
 		if authState == nil && payload.EventType != uint16(constants.AuthorizationEvent) {
@@ -74,6 +74,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		// if authState.Authorization.Priviledge < constants.AdminPriviledge {
 		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		// }
+		
 		assocPrevEvent, assocAuthEvent, err = ValidateSubnetPayload(payload, authState, ctx)
 		if err != nil {
 			return nil, err

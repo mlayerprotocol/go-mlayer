@@ -15,14 +15,14 @@ import (
 )
 
 type Subnet struct {
-	ID            string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
-	Meta          string        `json:"meta,omitempty"`
-	Ref           string        `json:"ref,omitempty"  gorm:"unique;type:varchar(64);default:null"`
-	Categories    pq.Int32Array `gorm:"type:integer[]"`
-	SignatureData SignatureData `json:"sigD" gorm:"json;"`
-	Status        uint8         `json:"st" gorm:"boolean;default:0"`
-	Timestamp     uint64        `json:"ts,omitempty" binding:"required"`
-
+	ID            	string        	`json:"id" gorm:"type:uuid;primaryKey;not null"`
+	Meta          	string        	`json:"meta,omitempty"`
+	Ref           	string        	`json:"ref,omitempty"  gorm:"unique;type:varchar(64);default:null"`
+	Categories    	pq.Int32Array 	`gorm:"type:integer[]"`
+	SignatureData 	SignatureData 	`json:"sigD" gorm:"json;"`
+	Status        	uint8         	`json:"st" gorm:"boolean;default:0"`
+	Timestamp     	uint64        	`json:"ts,omitempty" binding:"required"`
+	Balance			uint64   		`json:"bal" gorm:"default:0"`
 	// Readonly
 	Account AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	Agent   DeviceString  `json:"_"  gorm:"_"`
@@ -82,14 +82,6 @@ func (p *Subnet) IsMember(channel string, sender AddressString) bool {
 }
 
 func (item Subnet) GetHash() ([]byte, error) {
-	logger.Info("GetHash item.Meta : ", item.Meta)
-	logger.Info("GetHash item.Ref : ", item.Ref)
-	logger.Info("GetHash item.Hashh : ", item.Hash)
-	// if item.Hash != "" {
-	// 	dd, _ := hex.DecodeString(item.Hash)
-	// 	logger.Infof("GetHash hex.DecodeString(item.Hash) : %v", dd)
-	// 	return hex.DecodeString(item.Hash)
-	// }
 	b, err := item.EncodeBytes()
 	if err != nil {
 		return []byte(""), err
@@ -129,8 +121,6 @@ func (item Subnet) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Status},
-		// encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: cats},
-
-		// encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: item.InviteOnly},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Timestamp},
 	)
 }

@@ -106,9 +106,8 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 		// if err == nil {
 		// 	address = crypto.ToBech32Address(decoded, "cosmos")
 		// }
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, "AuthorizeAgent", addressPrefix, entities.AddressFromString(string(auth.Agent)).Addr, encoder.ToBase64Padded(msg), auth.Timestamp)
 
-		authMsg := fmt.Sprintf("Approve %s for %s: %s", entities.AddressFromString(string(auth.Agent)).Addr, addressPrefix, encoder.ToBase64Padded(msg))
-		logger.Info("AUTHMESS ", authMsg, " ", auth.Hash)
 
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, grantorAddress.Addr, publicKeyBytes)
 		if err != nil {

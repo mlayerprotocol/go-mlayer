@@ -134,8 +134,9 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 			return []byte(""), err
 		}
 		hashed = crypto.Keccak256Hash(b)
+		logger.Info("ENCODED==== ", hex.EncodeToString(b), " HASHED==== ", hex.EncodeToString(hashed))
 	}
-	// logger.Info("ENCODED==== ", hex.EncodeToString(b), " HASHED==== ", hex.EncodeToString(hashed))
+	
 	var params []encoder.EncoderParam
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
