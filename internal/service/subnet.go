@@ -59,7 +59,7 @@ func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentS
 		if err != nil {
 			return nil, err
 		}
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", addressPrefix, subnet.Ref, encoder.ToBase64Padded(msg), subnet.Timestamp)
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", addressPrefix, subnet.Ref, encoder.ToBase64Padded(msg))
 
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
 		if err != nil {
