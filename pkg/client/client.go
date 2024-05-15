@@ -17,14 +17,14 @@ func ValidateClientPayload(
 	// 	return nil, apperror.Internal(err.Error())
 	// }
 	// logger.Info("ENCODEDBYTESSS"," ", hex.EncodeToString(d), " ", hex.EncodeToString(crypto.Keccak256Hash(d)))
-	
-	agent, err:= payload.GetSigner()
+
+	agent, err := payload.GetSigner()
 	logger.Infof("device %s", agent)
 	if err != nil {
 		return nil, err
 	}
 	if payload.Subnet == "" {
-		return nil,  apperror.Forbidden("Subnet Id is required")
+		return nil, apperror.Forbidden("Subnet Id is required")
 	}
 	// subnet := models.SubnetState{}
 	// err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: payload.Subnet, Account: payload.Account}}, &subnet)
@@ -34,17 +34,17 @@ func ValidateClientPayload(
 	// 	}
 	// 	return nil, apperror.Internal(err.Error())
 	// }
-	
-	
+
 	// check if device is authorized
 	if agent != "" {
-		
+
 		authData := models.AuthorizationState{}
 		err := query.GetOne(models.AuthorizationState{
 			Authorization: entities.Authorization{Account: payload.Account,
 				Subnet: payload.Subnet,
-				Agent: entities.DeviceString(agent)},
+				Agent:  entities.DeviceString(agent)},
 		}, &authData)
+		logger.Infof("authData????????? 2: %v ", authData)
 		if err != nil {
 			// if err == gorm.ErrRecordNotFound {
 			// 	return nil, nil
@@ -57,8 +57,7 @@ func ValidateClientPayload(
 	return nil, apperror.BadRequest("Unable to resolve agent")
 }
 
-
-func SyncRequest(payload *entities.ClientPayload) (entities.SyncResponse) {
+func SyncRequest(payload *entities.ClientPayload) entities.SyncResponse {
 	var response = entities.SyncResponse{}
-	return response 
+	return response
 }
