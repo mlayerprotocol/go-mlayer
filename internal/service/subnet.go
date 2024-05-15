@@ -47,7 +47,7 @@ func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentS
 
 		msg, err := subnet.GetHash()
 
-		logger.Info("MSG:: ", msg)
+		
 
 		if err != nil {
 			return nil, err
@@ -59,8 +59,8 @@ func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentS
 		if err != nil {
 			return nil, err
 		}
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", addressPrefix, subnet.Ref, encoder.ToBase64Padded(msg), subnet.Timestamp)
-
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", addressPrefix, subnet.Ref, encoder.ToBase64Padded(msg))
+		logger.Info("MSG:: ", authMsg)
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
 		if err != nil {
 			return nil, err
@@ -166,7 +166,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		if prevEventUpToDate { // we are upto date
 			if currentState == nil || isMoreRecent {
 				updateState = true
-				markAsSynced = true
+				markAsSynced = trupe
 			} else {
 				// Its an old event
 				markAsSynced = true

@@ -110,7 +110,7 @@ const (
 	CategoryFileSharing SubnetCategory = 11
 )
 
-const SignatureMessageString string = `{"action":"%s","network":"%s","identifier":"%s","hash":"%s","timestamp":"%d"}`
+const SignatureMessageString string = `{"action":"%s","network":"%s","identifier":"%s","hash":"%s"}`
 
 /* KEY MAPS
 Always enter map in sorted order
