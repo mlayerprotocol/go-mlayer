@@ -166,7 +166,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		if prevEventUpToDate { // we are upto date
 			if currentState == nil || isMoreRecent {
 				updateState = true
-				markAsSynced = trupe
+				markAsSynced = true
 			} else {
 				// Its an old event
 				markAsSynced = true
