@@ -57,7 +57,7 @@ func (n *MLChainAPI) Get() big.Int {
 	return *bal
 }
 
-func (n *MLChainAPI) GetStakeBalance(address entities.AddressString) big.Int {
+func (n *MLChainAPI) GetStakeBalance(address entities.DIDString) big.Int {
 	bal := new(big.Int)
 	bal.SetString("100000000000000000000000000", 10)
 	return *bal
@@ -81,7 +81,7 @@ func (n *MLChainAPI) GetCurrentMessageCost() *big.Int {
 	return bal
 }
 
-func (n *MLChainAPI) GetChannelBalance(address entities.AddressString) *big.Int {
+func (n *MLChainAPI) GetChannelBalance(address entities.DIDString) *big.Int {
 	bal := new(big.Int)
 	bal.SetString("100000000000000000000000000", 10)
 	return bal

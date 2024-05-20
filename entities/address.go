@@ -12,22 +12,22 @@ import (
 )
 
 type PublicKeyString string
-type AddressString string
-type DeviceString AddressString
+type DIDString string
+type DeviceString DIDString
 
-func (address *AddressString) ToString() string {
+func (address *DIDString) ToString() string {
 
 	return string(*address)
 }
 
-type Address struct {
+type DID struct {
 	Prefix string `json:"pre"`
 	Addr   string `json:"addr"`
 	// Platform string    `json:"p"`
 	Chain string `json:"ch"`
 }
 
-func (address *Address) ToJSON() []byte {
+func (address *DID) ToJSON() []byte {
 	m, e := json.Marshal(address)
 	if e != nil {
 		logger.Errorf("Unable to parse address to []byte")
@@ -35,32 +35,32 @@ func (address *Address) ToJSON() []byte {
 	return m
 }
 
-func (address *Address) MsgPack() []byte {
+func (address *DID) MsgPack() []byte {
 	b, _ := encoder.MsgPackStruct(address)
 	return b
 }
 
-func (address Address) ToDeviceString() DeviceString {
+func (address DID) ToDeviceString() DeviceString {
 	address.Prefix = "did"
 	return DeviceString(address.ToString())
 }
 
-func AddressFromBytes(b []byte) (Address, error) {
-	var address Address
+func AddressFromBytes(b []byte) (DID, error) {
+	var address DID
 	err := json.Unmarshal(b, &address)
 	return address, err
 }
-func MsgUnpack(b []byte) (Address, error) {
-	var address Address
+func MsgUnpack(b []byte) (DID, error) {
+	var address DID
 	err := encoder.MsgPackUnpackStruct(b, address)
 	return address, err
 }
 
-func (address *Address) GetHash() []byte {
+func (address *DID) GetHash() []byte {
 	return crypto.Keccak256Hash(address.ToBytes())
 }
 
-func (address Address) ToString() AddressString {
+func (address DID) ToString() DIDString {
 	values := []string{}
 	values = append(values, address.Prefix)
 	values = append(values, ":")
@@ -68,10 +68,10 @@ func (address Address) ToString() AddressString {
 	if address.Chain != "" {
 		values = append(values, fmt.Sprintf("#%s", address.Chain))
 	}
-	return AddressString(strings.Join(values, ""))
+	return DIDString(strings.Join(values, ""))
 }
 
-func (address *Address) ToBytes() []byte {
+func (address *DID) ToBytes() []byte {
 	// var buffer bytes.Buffer
 	// // buffer.Write([]byte(address.Platform))
 	// buffer.Write([]byte("did:"))
@@ -91,11 +91,11 @@ func (address *Address) ToBytes() []byte {
 	return []byte(address.ToString())
 }
 
-func AddressFromString(s string) (Address) {
-	addr := Address{Prefix: "mid"}
+func AddressFromString(s string) (DID) {
+	addr := DID{Prefix: "mid"}
 	values := strings.Split(strings.Trim(string(s), " "), ":")
 	if len(values) == 0 {
-		return Address{}
+		return DID{}
 	}
 
 	if len(values) == 1 {

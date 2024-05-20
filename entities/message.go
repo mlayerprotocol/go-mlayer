@@ -22,6 +22,15 @@ const (
 	PlatformSolana          = "solana"
 	PlatformCosmos          = "cosmos"
 )
+type DataType string
+const (
+	DataTypeBinary DataType = "application/octet-stream"
+	DataTypeText DataType = "text/plain"
+	DataTypeJSON DataType = "text/json"
+	DataTypePNG DataType = "image/png"
+	DataTypeJPG DataType = "image/jpg"
+	
+)
 
 var buf bytes.Buffer
 var msgPackEncoder = msgpack.NewEncoder(&buf)
@@ -37,7 +46,7 @@ CHAT MESSAGE
 */
 // type MessageHeader struct {
 // 	Length   int    `json:"l"`
-// 	Sender   AddressString `json:"s"`
+// 	Sender   DIDString `json:"s"`
 // 	Receiver string `json:"r"`
 // 	// ChainId       string `json:"cId"`
 // 	// Platform      string `json:"p"`
@@ -116,10 +125,11 @@ type Message struct {
 	ID string `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	// Timestamp      uint64   `json:"ts"`
 	TopicId string        `json:"topId,omitempty"`
-	Sender  AddressString `json:"s"`
+	Sender  DIDString `json:"s"`
 	// OwnerAddress  string              `json:"oA"`
-	Receiver AddressString   `json:"r,omitempty"`
+	Receiver DIDString   `json:"r,omitempty"`
 	Data     string          `json:"d"`
+	DataType     string          `json:"dTy"`
 	Actions  []MessageAction `json:"a" gorm:"json;"`
 	// Length int `json:"len"`
 	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
@@ -297,7 +307,7 @@ func MessageFromString(msg string) Message {
 // 	// ApprovalExpiry uint64   `json:"apExp"`
 // 	// Channels       []string `json:"c"`
 // 	TopicId  string `json:"topId"`
-// 	Sender  AddressString   `json:"s"`
+// 	Sender  DIDString   `json:"s"`
 // 	// OwnerAddress  string              `json:"oA"`
 // 	Receiver    string              `json:"r"`
 // 	// Platform    string              `json:"p"`

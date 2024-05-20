@@ -56,7 +56,7 @@ const (
 	OnlineState ConnectionState = 1
 )
 type Presence struct {
-	Account AddressString `json:"acct"`
+	Account DIDString `json:"acct"`
 	MetaData json.RawMessage `json:"metaD"`
 	ConnectionState ConnectionState `json:"connS"`
 	ActiveAgo uint64 `json:"actA"`

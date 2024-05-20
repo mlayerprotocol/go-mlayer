@@ -34,7 +34,7 @@ func GetAccountSubscriptions(payload entities.ClientPayload) (*[]models.TopicSta
 	var subTopicStates []models.TopicState
 	var topicStates []models.TopicState
 	order := map[string]query.Order{"timestamp": query.OrderDec, "created_at": query.OrderDec}
-	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Account: payload.Account}},
+	err := query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Subscriber: payload.Account}},
 		&subscriptionStates, &order)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {

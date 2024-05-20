@@ -24,7 +24,7 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 	var currentState *models.SubscriptionState
 
 	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{Account: subscription.Account, Subnet: subscription.Subnet, Topic: subscription.Topic},
+		Subscription: entities.Subscription{Subscriber: subscription.Subscriber, Subnet: subscription.Subnet, Topic: subscription.Topic},
 	}, &currentState)
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {

@@ -24,7 +24,7 @@ type Subnet struct {
 	Timestamp     	uint64        	`json:"ts,omitempty" binding:"required"`
 	Balance			uint64   		`json:"bal" gorm:"default:0"`
 	// Readonly
-	Account AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Account DIDString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	Agent   DeviceString  `json:"_"  gorm:"_"`
 
 	// Derived
@@ -71,12 +71,12 @@ func UnpackSubnet(b []byte) (Subnet, error) {
 	return item, err
 }
 
-func (p *Subnet) CanSend(channel string, sender AddressString) bool {
+func (p *Subnet) CanSend(channel string, sender DIDString) bool {
 	// check if user can send
 	return true
 }
 
-func (p *Subnet) IsMember(channel string, sender AddressString) bool {
+func (p *Subnet) IsMember(channel string, sender DIDString) bool {
 	// check if user can send
 	return true
 }

@@ -115,7 +115,7 @@ func ValidateMessageClient(
 
 	var subscriptionStates []models.SubscriptionState
 	query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{
-		Account: entities.AddressString(clientHandshake.Signer),
+		Subscriber: entities.DIDString(clientHandshake.Signer),
 	}}, &subscriptionStates, nil)
 
 	// VALIDATE AND DISTRIBUTE
@@ -131,13 +131,13 @@ func ValidateMessageClient(
 	for i := 0; i < len(subscriptionStates); i++ {
 		_sub := subscriptionStates[i]
 		_topic := _sub.Subscription.Topic
-		_subscriber := _sub.Account.ToString()
+		_subscriber := _sub.Subscriber.ToString()
 		if (*connectedSubscribers)[_topic] == nil {
 			(*connectedSubscribers)[_topic] = make(map[string][]interface{})
 		}
 		(*connectedSubscribers)[_topic][_subscriber] = append((*connectedSubscribers)[_topic][_subscriber], clientHandshake.ClientSocket)
 	}
-	logger.Infof("results:  %s  \n", subscriptionStates[0])
+	logger.Infof("results:  %v  \n", subscriptionStates[0])
 	return nil
 }
 
@@ -633,7 +633,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 		logger.Errorf("Invalid event payload")
 	}
 	data.Event = *entities.NewEventPath(event.Validator, entities.TopicEventModel, event.Hash)
-	data.Agent = entities.AddressString(agent)
+	data.Agent = entities.DIDString(agent)
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
 

@@ -37,7 +37,7 @@ type ClientPayload struct {
 	Timestamp int           `json:"ts"`
 	EventType uint16        `json:"ty"`
 	Nonce     uint64        `json:"nonce"`
-	Account   AddressString `json:"acct,omitempty"` // optional public key of sender
+	Account   DIDString `json:"acct,omitempty"` // optional public key of sender
 
 	Validator PublicKeyString `json:"val,omitempty"`
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`

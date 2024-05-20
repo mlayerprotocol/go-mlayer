@@ -20,7 +20,7 @@ type Subscription struct {
 	Topic     string                         `json:"top"`
 	Ref     string                         `json:"ref" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(100);index"`
 	Subnet     string                         `json:"snet" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(36);index"`
-	Account   AddressString                  `json:"sub"`
+	Subscriber   DIDString                  `json:"sub"`
 	Timestamp uint64                         `json:"ts"`
 	// Signature string                         `json:"sig"`
 	Hash      string                         `json:"h" gorm:"unique" `
@@ -31,7 +31,7 @@ type Subscription struct {
 }
 
 func (sub *Subscription) Key() string {
-	return fmt.Sprintf("/%s/%s", sub.Account, sub.Topic)
+	return fmt.Sprintf("/%s/%s", sub.Subscriber, sub.Topic)
 }
 
 func (sub Subscription) ToJSON() []byte {
@@ -47,7 +47,7 @@ func (subscription Subscription) ToString() string {
 	values = append(values, subscription.Hash)
 	values = append(values, subscription.ID)
 	// values = append(values, fmt.Sprintf("%d", subscription.Timestamp))
-	values = append(values, string(subscription.Account))
+	values = append(values, string(subscription.Subscriber))
 	values = append(values, fmt.Sprintf("%d", subscription.Timestamp))
 	return strings.Join(values, ",")
 }

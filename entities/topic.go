@@ -20,7 +20,7 @@ type Topic struct {
 	Meta            string        `json:"meta,omitempty"`
 	ParentTopicHash string        `json:"pTH,omitempty" gorm:"type:char(64)"`
 	SubscriberCount uint64        `json:"sC,omitempty"`
-	Account         AddressString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Account         DIDString `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
 	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	//
@@ -77,12 +77,12 @@ func UnpackTopic(b []byte) (Topic, error) {
 	return topic, err
 }
 
-func (p *Topic) CanSend(channel string, sender AddressString) bool {
+func (p *Topic) CanSend(channel string, sender DIDString) bool {
 	// check if user can send
 	return true
 }
 
-func (p *Topic) IsMember(channel string, sender AddressString) bool {
+func (p *Topic) IsMember(channel string, sender DIDString) bool {
 	// check if user can send
 	return true
 }

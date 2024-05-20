@@ -15,7 +15,7 @@ import (
 type Wallet struct {
 	// Primary
 	ID        string        `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
-	Account   AddressString `json:"acct"`
+	Account   DIDString `json:"acct"`
 	Subnet    string        `json:"snet" gorm:"type:varchar(32);index;not null" msgpack:",noinline"`
 	Name      string        `json:"n" gorm:"type:varchar(12);not null"`
 	Symbol      string        `json:"sym" gorm:"type:varchar(8);not null"`

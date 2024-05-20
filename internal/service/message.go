@@ -199,7 +199,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 	//Update message status based on the event type
 
 	data.Event = *entities.NewEventPath(event.Validator, entities.MessageEventModel, event.Hash)
-	// data.Agent = entities.AddressString(agent)
+	// data.Agent = entities.DIDString(agent)
 
 	if markAsSynced && eventError == "" {
 		updateState = true

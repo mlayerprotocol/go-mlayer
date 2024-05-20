@@ -21,8 +21,8 @@ type Authorization struct {
 	ID            string                           `json:"id" gorm:"type:uuid;not null;primaryKey"`
 	Agent         DeviceString                     `json:"agt" gorm:"uniqueIndex:idx_agent_account"`
 	Meta          string                     		`json:"meta,omitempty"`
-	Account       AddressString                    `json:"acct" gorm:"varchar(40),uniqueIndex:idx_agent_account"`
-	Grantor       AddressString                    `json:"gr" gorm:"index"`
+	Account       DIDString                    `json:"acct" gorm:"varchar(40),uniqueIndex:idx_agent_account"`
+	Grantor       DIDString                    `json:"gr" gorm:"index"`
 	Priviledge    constants.AuthorizationPrivilege `json:"privi"`
 	TopicIds      string                           `json:"topIds"`
 	Timestamp     uint64                           `json:"ts"`
