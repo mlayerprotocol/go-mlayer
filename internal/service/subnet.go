@@ -24,7 +24,6 @@ Validate an agent authorization
 */
 func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentSubnetState *models.SubnetState, err error) {
 	// check fields of Subnet
-	
 
 	if len(subnet.Ref) > 60 {
 		return nil, apperror.BadRequest("Subnet ref cannont be more than 40 characters")
@@ -46,8 +45,6 @@ func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentS
 		}
 
 		msg, err := subnet.GetHash()
-
-		
 
 		if err != nil {
 			return nil, err
