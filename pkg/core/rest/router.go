@@ -184,12 +184,15 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		var payload entities.ClientPayload
-		if err := c.BindJSON(&payload); err != nil {
-			logger.Error(err)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
-			return
-		}
+		logger.Infof("subs %v", subs)
+
+		// var payload entities.ClientPayload
+		// if err := c.BindJSON(&payload); err != nil {
+		// 	logger.Error(err)
+		// 	c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+		// 	return
+		// }
+		// logger.Infof("subs %v", subs)
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subs}))
 	})
 

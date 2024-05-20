@@ -41,12 +41,12 @@ type ClientPayload struct {
 
 	Validator PublicKeyString `json:"val,omitempty"`
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
-	Signature string `json:"sig"`
-	Hash      string `json:"h,omitempty"`
+	Signature string       `json:"sig"`
+	Hash      string       `json:"h,omitempty"`
 	Agent     DeviceString `gorm:"-" json:"agt"`
-	Subnet	  string `json:"snet" gorm:"index;"`
-	Page    uint16 `json:"page,omitempty" gorm:"_"`
-	PerPage uint16 `json:"perPage,omitempty" gorm:"_"`
+	Subnet    string       `json:"snet" gorm:"index;"`
+	Page      uint16       `json:"page,omitempty" gorm:"_"`
+	PerPage   uint16       `json:"perPage,omitempty" gorm:"_"`
 }
 
 func (msg ClientPayload) ToJSON() []byte {
@@ -97,7 +97,7 @@ func (msg ClientPayload) GetSigner() (DeviceString, error) {
 
 	if len(msg.Agent) == 0 {
 		b, err := msg.EncodeBytes()
-		logger.Info("ENCODEDBBBBB", " ", hex.EncodeToString(b), " ", hex.EncodeToString(crypto.Keccak256Hash(b)))
+		logger.Info("ENCODEDBBBBB", " ", hex.EncodeToString(b), " ", hex.EncodeToString(crypto.Keccak256Hash(b)), " Err: ", err)
 		if err != nil {
 			return "", err
 		}
@@ -136,7 +136,7 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 		hashed = crypto.Keccak256Hash(b)
 		logger.Info("ENCODED==== ", hex.EncodeToString(b), " HASHED==== ", hex.EncodeToString(hashed))
 	}
-	
+
 	var params []encoder.EncoderParam
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
