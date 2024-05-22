@@ -120,11 +120,11 @@ func (topic Topic) GetAgent() DeviceString {
 func (topic Topic) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.ID},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Meta},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.ParentTopicHash},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.Public},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.ReadOnly},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Subnet},
+		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Subnet},
 	)
 }

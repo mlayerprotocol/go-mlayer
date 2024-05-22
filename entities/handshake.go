@@ -14,7 +14,7 @@ import (
 
 type ClientHandshake struct {
 	Signature string          `json:"sig"`
-	Signer    string          `json:"sigr"`
+	Signer    DIDString          `json:"sigr"`
 	// Message   string          `json:"m"`
 	Protocol  constants.Protocol `json:"proto"`
 	ClientSocket    *interface{} `json:"ws"`

@@ -71,6 +71,8 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		Topic: entities.Topic{ID: data.Topic, Subnet: event.Payload.Subnet},
 	}, &topicData)
 
+	
+
 	data.Subnet = event.Payload.Subnet
 	currentState, authError := ValidateSubscriptionData(data, &event.Payload)
 	prevEventUpToDate := false

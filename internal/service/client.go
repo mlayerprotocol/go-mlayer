@@ -25,12 +25,12 @@ func ConnectClient(message []byte, protocol constants.Protocol, client interface
 	if err != nil {
 		return nil, apperror.Internal("Invalid client handshake")
 	}
-	if crypto.VerifySignatureECC(verifiedRequest.Signer, &vByte, verifiedRequest.Signature) {
+	if crypto.VerifySignatureECC(string(verifiedRequest.Signer), &vByte, verifiedRequest.Signature) {
 		// verifiedConn = append(verifiedConn, c)
 		logger.Debug("Verification was successful: ", verifiedRequest)
 		return &verifiedRequest, nil
 	}
-	return nil, errors.New("Invaliad handshake")
+	return nil, apperror.Forbidden("Invaliad handshake")
 
 }
 
@@ -115,7 +115,7 @@ func ValidateMessageClient(
 
 	var subscriptionStates []models.SubscriptionState
 	query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{
-		Subscriber: entities.DIDString(clientHandshake.Signer),
+		Subscriber: clientHandshake.Signer,
 	}}, &subscriptionStates, nil)
 
 	// VALIDATE AND DISTRIBUTE
@@ -131,7 +131,7 @@ func ValidateMessageClient(
 	for i := 0; i < len(subscriptionStates); i++ {
 		_sub := subscriptionStates[i]
 		_topic := _sub.Subscription.Topic
-		_subscriber := _sub.Subscriber.ToString()
+		_subscriber := string(_sub.Subscriber)
 		if (*connectedSubscribers)[_topic] == nil {
 			(*connectedSubscribers)[_topic] = make(map[string][]interface{})
 		}

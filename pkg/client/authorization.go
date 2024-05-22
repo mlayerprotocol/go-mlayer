@@ -88,11 +88,14 @@ func AuthorizeAgent(
 		// if uint64(payload.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
 		// 	return nil, apperror.BadRequest("Authorization timestamp exceeded")
 		// }
+		if uint64(authData.Timestamp) == 0 || uint64(authData.Timestamp) > uint64(time.Now().UnixMilli())+15000 || uint64(authData.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
+			return nil, apperror.BadRequest("Invalid event timestamp")
+		}
 		if authData.Duration != 0 && uint64(time.Now().UnixMilli()) >
 			(uint64(authData.Timestamp)+uint64(authData.Duration)) {
 			return nil, apperror.BadRequest("Authorization duration exceeded")
 		}
-
+		
 		currentState, grantorAuthState, err := service.ValidateAuthData(&authData, cfg.AddressPrefix)
 		if err != nil {
 			logger.Error(err)

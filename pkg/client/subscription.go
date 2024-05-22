@@ -4,6 +4,7 @@ import (
 	// "errors"
 
 	"encoding/json"
+	"fmt"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -108,17 +109,17 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 	// }
 	payload.Data = payloadData
 
-	topicData, err := GetTopicById(payloadData.Topic)
-	if err != nil {
-		return nil, nil, err
-	}
+	var topicData *models.TopicState
+	query.GetOne(models.TopicState{
+		Topic: entities.Topic{ID: payloadData.Topic, Subnet: payload.Subnet},
+	}, &topicData)
+
 
 	if topicData == nil {
-		return nil, nil, apperror.BadRequest("Invalid topic")
+		return nil, nil, apperror.BadRequest(fmt.Sprintf("Topic %s does not exist in subnet %s", topicData.ID, payload.Subnet))
 	}
 
-	// pool = channelpool.SubscriptionEventPublishC
-
+	
 	currentState, err := service.ValidateSubscriptionData(&payloadData, &payload)
 	if err != nil && (err != gorm.ErrRecordNotFound && payload.EventType == uint16(constants.SubscribeTopicEvent)) {
 		return nil, nil, err
@@ -129,7 +130,7 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 	}
 
 	if currentState != nil && payload.Account == topicData.Account && payload.EventType == uint16(constants.SubscribeTopicEvent) {
-		return nil, nil, apperror.BadRequest("You currently own this topic")
+		return nil, nil, apperror.BadRequest("Topic already owned by account")
 	}
 
 	if currentState != nil && currentState.Status != constants.UnsubscribedSubscriptionStatus && payload.EventType == uint16(constants.SubscribeTopicEvent) {

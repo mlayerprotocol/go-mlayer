@@ -28,22 +28,24 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	// 	return  err
 	// }
 
-	payload.Agent, err = payload.GetSigner()
+	
 	if err != nil {
 		return nil, apperror.Internal(err.Error())
 	}
 	var authState *models.AuthorizationState
+	var agent *entities.DeviceString
 	excludedEvents := []constants.EventType{constants.CreateSubnetEvent, constants.UpdateSubnetEvent, constants.DeleteSubnetEvent, constants.AuthorizationEvent}
 	if !slices.Contains(excludedEvents, constants.EventType(payload.EventType)) {
-		authState, err = ValidateClientPayload(&payload)
-		logger.Infof("authState&&&&& 2: %v ", authState)
+		authState, agent, err = ValidateClientPayload(&payload, true)
+		
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
-		if authState == nil && payload.EventType != uint16(constants.AuthorizationEvent) {
+		if authState == nil {
 			// agent not authorized
 			return nil, apperror.Unauthorized("Agent not authorized to perform this action")
 		}
+		payload.Agent = *agent;
 	}
 
 	var assocPrevEvent *entities.EventPath
@@ -95,13 +97,14 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		eventPayloadType = constants.SubscriptionPayloadType
-		payload.Subnet = payload.Subnet
+		
 		assocPrevEvent, assocAuthEvent, err = ValidateSubscriptionPayload(payload, authState)
 		if err != nil {
 			return nil, err
 		}
 	case uint16(constants.SendMessageEvent):
 		logger.Infof("authState 2: %v ", authState)
+		// 1. Agent message
 		if authState.Authorization.Priviledge < constants.WritePriviledge {
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}

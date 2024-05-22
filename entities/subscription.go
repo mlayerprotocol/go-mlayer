@@ -17,17 +17,22 @@ var logger = &log.Logger
 
 type Subscription struct {
 	ID        string                         `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
-	Topic     string                         `json:"top"`
-	Ref     string                         `json:"ref" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(100);index"`
-	Subnet     string                         `json:"snet" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(36);index"`
-	Subscriber   DIDString                  `json:"sub"`
-	Timestamp uint64                         `json:"ts"`
+	Topic     string                         `json:"top" binding:"required"  gorm:"not null;uniqueIndex:idx_sub_topic;type:char(36);index"`
+	Ref     string                         `json:"ref" gorm:"unique;type:varchar(100)"`
+	Meta     string                         `json:"meta"  gorm:"type:varchar(100);"`
+	Subnet     string                         `json:"snet"  binding:"required" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(36);index"`
+	Subscriber   DIDString                  `json:"sub"  gorm:"not null;uniqueIndex:idx_sub_topic;type:varchar(100);index"`
+	// Device     DeviceString                  `json:"dev,omitempty" binding:"required"  gorm:"not null;uniqueIndex:idx_acct_dev_topic;type:varchar(100);index"`
+	Status    constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:smallint;default:2"`
+	Role      constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
+	
 	// Signature string                         `json:"sig"`
+	Timestamp uint64                         `json:"ts"`
 	Hash      string                         `json:"h" gorm:"unique" `
 	Event     EventPath                      `json:"e" gorm:"index;char(64);"`
 	Agent     DeviceString                  `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
-	Status    constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:smallint;index"`
-	Role      constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
+	
+	
 }
 
 func (sub *Subscription) Key() string {
@@ -87,25 +92,16 @@ func (sub Subscription) GetAgent() (DeviceString) {
 	return sub.Agent
 }
 
-// func (sub *Subscription) ToString() string {
-// 	values := []string{}
-// 	values = append(values, fmt.Sprintf("%s", sub.Topic))
-// 	// values = append(values, fmt.Sprintf("%s", sub.ChannelName))
-// 	values = append(values, fmt.Sprintf("%d", sub.Timestamp))
-// 	values = append(values, fmt.Sprintf("%d", sub.Action))
-// 	return strings.Join(values, "")
-// }
+
 
 func (sub Subscription) EncodeBytes() ([]byte, error) {
-	// var buffer bytes.Buffer
-	// buffer.Write([]byte(sub.Topic))
-	// buffer.Write(encoder.NumberToByte(sub.Timestamp))
-	// buffer.Write(encoder.NumberToByte(uint64(sub.Action)))
 	return encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Topic},
-		// encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: sub.Subscriber},
-		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Event},
-		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: sub.Status},
-		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: sub.Timestamp},
+		
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Meta},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Ref},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: sub.Role},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: sub.Status},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Subscriber.ToString()},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Topic},		
 	)
 }

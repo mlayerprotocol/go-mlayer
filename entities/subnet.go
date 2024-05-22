@@ -19,6 +19,7 @@ type Subnet struct {
 	Meta          string        `json:"meta,omitempty"`
 	Ref           string        `json:"ref,omitempty"  gorm:"unique;type:varchar(64);default:null"`
 	Categories    pq.Int32Array `gorm:"type:integer[]"`
+	Owner         DIDString `json:"own,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	SignatureData SignatureData `json:"sigD" gorm:"json;"`
 	Status        uint8         `json:"st" gorm:"boolean;default:0"`
 	Timestamp     uint64        `json:"ts,omitempty" binding:"required"`
@@ -119,6 +120,7 @@ func (item Subnet) EncodeBytes() ([]byte, error) {
 	}
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Owner},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Status},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Timestamp},
