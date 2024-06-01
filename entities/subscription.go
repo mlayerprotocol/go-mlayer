@@ -26,7 +26,7 @@ type Subscription struct {
 	Status *constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:smallint;default:2"`
 	Role   *constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
 
-	// Signature string                         `json:"sig"`
+	//Signature string                         `json:"sig"`
 	Timestamp uint64       `json:"ts"`
 	Hash      string       `json:"h" gorm:"unique" `
 	Event     EventPath    `json:"e" gorm:"index;char(64);"`
