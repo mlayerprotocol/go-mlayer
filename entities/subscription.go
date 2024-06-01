@@ -16,11 +16,11 @@ import (
 var logger = &log.Logger
 
 type Subscription struct {
-	ID        string                         `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
-	Topic     string                         `json:"top" binding:"required"  gorm:"not null;uniqueIndex:idx_sub_topic;type:char(36);index"`
+	ID        string                         `gorm:"primaryKey;type:char(36);not null"   json:"id,omitempty"`
+	Topic     string                         `json:"top" form:"top"   gorm:"not null;uniqueIndex:idx_sub_topic;type:char(36);index"`
 	Ref     string                         `json:"ref" gorm:"unique;type:varchar(100)"`
 	Meta     string                         `json:"meta"  gorm:"type:varchar(100);"`
-	Subnet     string                         `json:"snet"  binding:"required" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(36);index"`
+	Subnet     string                         `json:"snet"  gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(36);index"`
 	Subscriber   DIDString                  `json:"sub"  gorm:"not null;uniqueIndex:idx_sub_topic;type:varchar(100);index"`
 	// Device     DeviceString                  `json:"dev,omitempty" binding:"required"  gorm:"not null;uniqueIndex:idx_acct_dev_topic;type:varchar(100);index"`
 	Status    constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:smallint;default:2"`
@@ -30,7 +30,7 @@ type Subscription struct {
 	Timestamp uint64                         `json:"ts"`
 	Hash      string                         `json:"h" gorm:"unique" `
 	Event     EventPath                      `json:"e" gorm:"index;char(64);"`
-	Agent     DeviceString                  `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
+	Agent     DeviceString                  `json:"agt,omitempty"   gorm:"not null;type:varchar(100);index"`
 	
 	
 }
