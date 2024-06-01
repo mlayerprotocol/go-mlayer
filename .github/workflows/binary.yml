@@ -28,15 +28,15 @@ jobs:
       - name: Archive binary
         run: |
           tar -czvf go-mlayer.tar.gz build/go-mlayer-linux-amd64
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./go-mlayer.tar.gz
-          asset_name: go-mlayer.tar.gz
-          asset_content_type: application/gzip
+      # - name: Upload Release Asset
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ github.event.release.upload_url }}
+      #     asset_path: ./go-mlayer.tar.gz
+      #     asset_name: go-mlayer.tar.gz
+      #     asset_content_type: application/gzip
 
   create_release:
     runs-on: ubuntu-latest
