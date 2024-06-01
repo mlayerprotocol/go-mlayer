@@ -420,7 +420,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	})
 
-	router.GET("/api/subscription/account", func(c *gin.Context) {
+	router.POST("/api/subscription/account", func(c *gin.Context) {
 
 		_, parseError := utils.ParseQueryString(c)
 		if parseError != nil {
