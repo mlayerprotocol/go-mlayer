@@ -62,8 +62,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{  needs.create_release.outputs.upload_url }}
-          asset_path: ./go-mlayer.tar.gz
-          asset_name: go-mlayer.tar.gz
+          asset_path: build/go-mlayer-linux-amd64.tar.gz
+          asset_name: go-mlayer-linux-amd64.tar.gz
           asset_content_type: application/gzip
 
   
