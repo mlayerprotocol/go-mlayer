@@ -420,29 +420,39 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	})
 
-	router.POST("/api/subscription/account", func(c *gin.Context) {
+	router.GET("/api/subscription/account", func(c *gin.Context) {
 
-		b, parseError := utils.ParseQueryString(c)
+		_, parseError := utils.ParseQueryString(c)
 		if parseError != nil {
 			logger.Error(parseError)
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 			return
 		}
+		
+	subs := entities.Subscription{}
+		// json.Unmarshal(*b, &subs)
+		// rawQuery := c.Request.URL.Query()
+		// err := c.ShouldBind(&subs)
+		// if err != nil {
+		// 	logger.Errorf("SUBSCR: %v",  err)
+		// }
+		logger.Infof("SUBSCR: %s", c.Query("status"))
+		// //
+		// var payload entities.ClientPayload
+		// json.Unmarshal(*b, &payload)
 
-		//
-		var payload entities.ClientPayload
-		json.Unmarshal(*b, &payload)
+		// logger.Infof("Payload %v", payload.Account)
+		// subscriptions, err := client.GetAccountSubscriptions(payload)
 
-		logger.Infof("Payload %v", payload.Account)
-		subscriptions, err := client.GetAccountSubscriptions(payload)
-
-		if err != nil {
-			logger.Error(err)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
-			return
-		}
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
+		// if err != nil {
+		// 	logger.Error(err)
+		// 	c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+		// 	return
+		// }
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subs}))
+		// c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
 	})
+	
 
 	router.GET("/api/subscription/account", func(c *gin.Context) {
 

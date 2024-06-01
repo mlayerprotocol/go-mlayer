@@ -1,0 +1,77 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+  build:
+    runs-on: ubuntu-latest
+    needs: create_release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.x'
+      - name: Install dependencies
+        run: go get .
+      - name: Build
+        run: go build -v -o build/go-mlayer-linux-amd64
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 1
+          CXX: "x86_64-linux-musl-g++"
+      # - name: Test with the Go CLI
+      #   run: go test
+      - name: Archive binary
+        run: cd build && tar -zcvf go-mlayer-linux-amd64.tar.gz go-mlayer-linux-amd64
+      - name: Upload go-mlayer Binary Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          path: |
+            build/go-mlayer-linux-amd64.tar.gz
+      #     badger/badger-linux-amd64.tar.gz
+      # - name: Upload Release Asset
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{  steps.create_release.outputs.upload_url }}
+      #     asset_path: ./go-mlayer.tar.gz
+      #     asset_name: go-mlayer.tar.gz
+      #     asset_content_type: application/gzip
+
+  
+
+    # - name: Upload Release Asset
+    #   uses: actions/upload-release-asset@v1
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #   with:
+    #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+    #     asset_path: build/go-mlayer-linux-amd64.tar.gz
+    #     asset_name: go-mlayer.tar.gz
+    #     asset_content_type: application/gzip

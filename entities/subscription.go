@@ -16,6 +16,7 @@ import (
 var logger = &log.Logger
 
 type Subscription struct {
+
 	ID         string    `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
 	Topic      string    `json:"top" binding:"required"  gorm:"not null;uniqueIndex:idx_sub_topic;type:char(36);index"`
 	Ref        string    `json:"ref" gorm:"unique;type:varchar(100);default:null"`
@@ -31,6 +32,7 @@ type Subscription struct {
 	Hash      string       `json:"h" gorm:"unique" `
 	Event     EventPath    `json:"e" gorm:"index;char(64);"`
 	Agent     DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
+
 }
 
 func (sub *Subscription) Key() string {
