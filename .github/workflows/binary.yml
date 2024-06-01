@@ -27,8 +27,13 @@ jobs:
       # - name: Test with the Go CLI
       #   run: go test
       - name: Archive binary
-        run: |
-          tar -czvf go-mlayer.tar.gz build/go-mlayer-linux-amd64
+        run: cd build && tar -zcvf go-mlayer-linux-amd64.tar.gz go-mlayer-linux-amd64
+      - name: Upload go-mlayer Binary Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          path: |
+            build/go-mlayer-linux-amd64.tar.gz
+      #     badger/badger-linux-amd64.tar.gz
       # - name: Upload Release Asset
       #   uses: actions/upload-release-asset@v1
       #   env:
@@ -64,6 +69,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: go-mlayer.tar.gz
+        asset_path: build/go-mlayer-linux-amd64.tar.gz
         asset_name: go-mlayer.tar.gz
         asset_content_type: application/gzip
