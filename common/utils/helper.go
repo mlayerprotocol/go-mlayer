@@ -58,17 +58,18 @@ func IfThenElse[T any](condition bool, a T, b T) T {
 
 func ParseQueryString(c *gin.Context) (*[]byte, error) {
 	rawQuery := c.Request.URL.Query()
-	var query map[string]string = map[string]string{}
+	logger.Info("rawQuery:: ", rawQuery)
+	var query map[string]any = map[string]any{}
 	for key, v := range rawQuery {
 		if len(v) > 0 {
 			query[key] = v[0]
 		}
 
 	}
+	logger.Info("query:: ", query)
 	b, requestErr := json.Marshal(query)
 	if requestErr != nil {
 		return nil, requestErr
 	}
 	return &b, nil
 }
-

@@ -54,7 +54,7 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 		return nil, nil, apperror.Forbidden("Subnet is required")
 	}
 	subnet := models.SubnetState{}
-	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: auth.Subnet, Account: auth.Account}}, &subnet)
+	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: auth.Subnet}}, &subnet)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil, apperror.Forbidden("Invalid subnet id")
@@ -108,7 +108,6 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 		// }
 		authMsg := fmt.Sprintf(constants.SignatureMessageString, "AuthorizeAgent", addressPrefix, entities.AddressFromString(string(auth.Agent)).Addr, encoder.ToBase64Padded(msg))
 
-
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, grantorAddress.Addr, publicKeyBytes)
 		if err != nil {
 			return nil, nil, err
@@ -116,7 +115,7 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 
 	}
 
-	prevAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: auth.Agent})
+	prevAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: auth.Agent, Subnet: auth.Subnet})
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, nil, err
 	}

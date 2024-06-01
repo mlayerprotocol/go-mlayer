@@ -29,6 +29,7 @@ func GetManyTx[T any](item T) *gorm.DB {
 }
 
 type Order string
+
 const (
 	OrderDec Order = "desc"
 	OrderAsc Order = "asc"
@@ -38,11 +39,11 @@ func GetMany[T any, U any](item T, data *U, order *map[string]Order) error {
 	tx := GetManyTx(item)
 	if order != nil {
 		logger.Infof("ORDER BY")
-		for k := range(*order) {
-			logger.Infof("%s %s",  k, (*order)[k])
+		for k := range *order {
+			logger.Infof("%s %s", k, (*order)[k])
 			tx = tx.Order(fmt.Sprintf("%s %s", k, (*order)[k]))
 		}
-	}	
+	}
 	err := tx.Find(data).Error
 	if err != nil {
 		return err
@@ -142,7 +143,7 @@ func SaveRecord[Model any](where Model, data Model, update bool, DB *gorm.DB) (m
 	return &data, result.RowsAffected > 0, nil
 }
 
-func SaveRecordWithMap[Model any](model *Model, where map[string]interface{}, data map[string]interface{},  update bool, DB *gorm.DB ) (created bool, err error) {
+func SaveRecordWithMap[Model any](model *Model, where map[string]interface{}, data map[string]interface{}, update bool, DB *gorm.DB) (created bool, err error) {
 	tx := DB
 	if DB == nil {
 		tx = db.Db.Begin()
@@ -151,17 +152,17 @@ func SaveRecordWithMap[Model any](model *Model, where map[string]interface{}, da
 	if update {
 		result = tx.Model(model).Where(where).Assign(data).FirstOrCreate(&data)
 	} else {
-	 result = tx.Model(model).Where(where).Create(data)
+		result = tx.Model(model).Where(where).Create(data)
 	}
 	if result.Error != nil {
 		tx.Rollback()
 
-		return  false, result.Error
+		return false, result.Error
 	}
 	if DB == nil {
 		tx.Commit()
 	}
-	return  result.RowsAffected > 0, nil
+	return result.RowsAffected > 0, nil
 }
 
 // func IncrementRecord[Model any](where Model, field string, DB *gorm.DB) (model *Model, created bool, err error) {

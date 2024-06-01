@@ -30,12 +30,12 @@ const (
 type EventPayloadType string
 
 const (
-	AuthorizationPayloadType        EventPayloadType = "authorization"
-	TopicPayloadType        EventPayloadType = "topic"
-	SubscriptionPayloadType EventPayloadType = "subscription"
-	MessagePayloadType      EventPayloadType = "message"
-	SubnetPayloadType       EventPayloadType = "sub_network"
-	WalletPayloadType       EventPayloadType = "wallet"
+	AuthorizationPayloadType EventPayloadType = "authorization"
+	TopicPayloadType         EventPayloadType = "topic"
+	SubscriptionPayloadType  EventPayloadType = "subscription"
+	MessagePayloadType       EventPayloadType = "message"
+	SubnetPayloadType        EventPayloadType = "sub_network"
+	WalletPayloadType        EventPayloadType = "wallet"
 )
 
 type EventType uint16
@@ -81,7 +81,7 @@ const (
 
 type SubscriberPrivilege uint8
 
-const (
+var (
 	MemberSubPriviledge SubscriberPrivilege = 0
 	AdminSubPriviledge  SubscriberPrivilege = 1
 )

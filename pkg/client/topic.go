@@ -96,10 +96,12 @@ func GetTopicByHash(hash string) (*models.TopicState, error) {
 
 }
 
-func GetTopics() (*[]models.TopicState, error) {
+func GetTopics(subTopic entities.Topic) (*[]models.TopicState, error) {
 	var topicStates []models.TopicState
 	order := &map[string]query.Order{"timestamp": query.OrderDec}
-	err := query.GetMany(models.TopicState{}, &topicStates, order)
+	err := query.GetMany(models.TopicState{
+		Topic: subTopic,
+	}, &topicStates, order)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil

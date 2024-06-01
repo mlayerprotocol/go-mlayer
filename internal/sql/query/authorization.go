@@ -10,16 +10,14 @@ import (
 	"gorm.io/gorm"
 )
 
-
-
 func GetOneAuthorizationState(auth entities.Authorization) (*models.AuthorizationState, error) {
 
 	data := models.AuthorizationState{}
 	err := db.Db.Where(&models.AuthorizationState{
 		Authorization: auth,
-		}).First(&data).Error
+	}).First(&data).Error
 	if err != nil {
-		
+
 		return nil, err
 	}
 	return &data, nil
@@ -68,20 +66,21 @@ func GetDependentEvents(event entities.Event) (*[]entities.Event, error) {
 
 // Save authorization only when it doesnt exist
 func SaveAuthorizationState(auth *entities.Authorization, DB *gorm.DB) (*models.AuthorizationState, error) {
-	
+
 	data := models.AuthorizationState{
 		// Privilege 	: auth.Priviledge,
 		Authorization: *auth,
-}
+	}
 	tx := DB
 	if DB == nil {
 		tx = db.Db.Begin()
 	}
 	err := tx.Where(models.AuthorizationState{
 		Authorization: entities.Authorization{Grantor: auth.Grantor,
-			Agent: auth.Agent,},
-			
-			}).Assign(data).FirstOrCreate(&data).Error
+			Agent:  auth.Agent,
+			Subnet: auth.Subnet,
+		},
+	}).Assign(data).FirstOrCreate(&data).Error
 	if err != nil {
 		return nil, err
 	}
@@ -111,13 +110,13 @@ func SaveAuthorizationEvent(event *entities.Event, update bool, DB *gorm.DB) (mo
 	if update {
 		result = tx.Where(models.AuthorizationEvent{
 			Event: entities.Event{Hash: event.Hash},
-				}).Assign(data).FirstOrCreate(&data)
+		}).Assign(data).FirstOrCreate(&data)
 	} else {
 		result = tx.Where(models.AuthorizationEvent{
 			Event: entities.Event{PayloadHash: event.PayloadHash},
-				}).FirstOrCreate(&data)
+		}).FirstOrCreate(&data)
 	}
-	if result.Error != nil {  
+	if result.Error != nil {
 		tx.Rollback()
 		logger.Errorf("SQL: %v", result.Error)
 		return nil, false, result.Error
@@ -125,10 +124,10 @@ func SaveAuthorizationEvent(event *entities.Event, update bool, DB *gorm.DB) (mo
 	if DB == nil {
 		tx.Commit()
 	}
-	return &data, result.RowsAffected > 0,  nil
+	return &data, result.RowsAffected > 0, nil
 }
 
-func UpdateAuthorizationEvent(where entities.Event, updateFields entities.Event, DB *gorm.DB) (model *models.AuthorizationEvent,  err error) {
+func UpdateAuthorizationEvent(where entities.Event, updateFields entities.Event, DB *gorm.DB) (model *models.AuthorizationEvent, err error) {
 	tx := DB
 	if DB == nil {
 		tx = db.Db.Begin()
@@ -137,14 +136,14 @@ func UpdateAuthorizationEvent(where entities.Event, updateFields entities.Event,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	result := tx.Where(models.AuthorizationEvent{
-			Event: where,
-				}).Updates(models.AuthorizationEvent{
-					Event: updateFields,
-						}).First(&model)
-	
-	if result.Error != nil {  
+		Event: where,
+	}).Updates(models.AuthorizationEvent{
+		Event: updateFields,
+	}).First(&model)
+
+	if result.Error != nil {
 		tx.Rollback()
 		logger.Errorf("SQL: %v", result.Error)
 		return nil, result.Error
@@ -152,21 +151,20 @@ func UpdateAuthorizationEvent(where entities.Event, updateFields entities.Event,
 	if DB == nil {
 		tx.Commit()
 	}
-	return model,  nil
+	return model, nil
 }
 
-
-func SaveAuthorizationStateAndEvent(authEvent *entities.Event, tx *gorm.DB) (*models.AuthorizationState, *models.AuthorizationEvent,  error) {
+func SaveAuthorizationStateAndEvent(authEvent *entities.Event, tx *gorm.DB) (*models.AuthorizationState, *models.AuthorizationEvent, error) {
 	if tx == nil {
 		tx = db.Db.Begin()
 	}
-	
+
 	auth := (*authEvent).Payload.Data.(entities.Authorization)
-	
+
 	hash, _ := auth.GetHash()
 	auth.Hash = hex.EncodeToString(hash)
 	auth.Event = *entities.NewEventPath(authEvent.Validator, entities.AuthEventModel, authEvent.Hash)
-	event , created, err := SaveAuthorizationEvent(authEvent, false, tx)
+	event, created, err := SaveAuthorizationEvent(authEvent, false, tx)
 	if err != nil {
 		logger.Errorf("SQL: %v", err)
 		return nil, nil, err
@@ -191,6 +189,5 @@ func SaveAuthorizationStateAndEvent(authEvent *entities.Event, tx *gorm.DB) (*mo
 		tx.Commit()
 		return state, event, nil
 	}
-	
-	
+
 }

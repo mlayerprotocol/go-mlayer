@@ -28,29 +28,30 @@ const (
 )
 
 type DataStore string
+
 const (
 	UnprocessedClientPayloadStore DataStore = "unprocessed-client-payload-store"
-	ValidMessageStore          DataStore   		 = "valid-messages"
-	UnsentMessageStore                   = "unsent-messages"
-	SentMessageStore                     = "sent-messages"
-	NewTopicSubscriptionStore            = "new-topic-subscription"
-	TopicSubscriptionStore               = "top-subscriptions"
-	TopicSubscriptionCountStore          = "topic-subscription-count"
-	DeliveryProofStore                   = "delivery-proof-store"
-	UnconfirmedDeliveryProofStore        = "unconfirmed-delivery-proof-store"
-	DeliveryProofBlockStateStore         = "delivery-proof-block-state-store"
-	SubscriptionBlockStateStore          = "subscription-block-state-store"
-	DeliveryProofBlockStore              = "dp-block-store"
-	SubscriptionBlockStore               = "sub-block-store"
+	ValidMessageStore             DataStore = "valid-messages"
+	UnsentMessageStore                      = "unsent-messages"
+	SentMessageStore                        = "sent-messages"
+	NewTopicSubscriptionStore               = "new-topic-subscription"
+	TopicSubscriptionStore                  = "top-subscriptions"
+	TopicSubscriptionCountStore             = "topic-subscription-count"
+	DeliveryProofStore                      = "delivery-proof-store"
+	UnconfirmedDeliveryProofStore           = "unconfirmed-delivery-proof-store"
+	DeliveryProofBlockStateStore            = "delivery-proof-block-state-store"
+	SubscriptionBlockStateStore             = "subscription-block-state-store"
+	DeliveryProofBlockStore                 = "dp-block-store"
+	SubscriptionBlockStore                  = "sub-block-store"
 	ConnectedSubscribersMap                 = "connected-subscribers-map"
 )
 
 // Channel Ids within main context
 const (
 	ConfigKey                       string = "Config"
-	BroadcastAuthorizationEventChId    string    = "BroadcastAuthorizationEventChannel"
+	BroadcastAuthorizationEventChId string = "BroadcastAuthorizationEventChannel"
 	BroadcastTopicEventChId                = "BroadcastTopicEventChannel"
-	BroadcastSubnetEventChId           = "BroadcastSubnetEventChannel"
+	BroadcastSubnetEventChId               = "BroadcastSubnetEventChannel"
 	// IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
 	IncomingTopicEventChId = "IncomingTopicEventChannel"
 
@@ -86,7 +87,7 @@ const (
 
 type SubscriptionStatuses int16
 
-const (
+var (
 	UnsubscribedSubscriptionStatus SubscriptionStatuses = 0
 	PendingSubscriptionStatus      SubscriptionStatuses = 1
 	SubscribedSubscriptionStatus   SubscriptionStatuses = 2
@@ -96,18 +97,19 @@ const (
 )
 
 type SubnetCategory int16
+
 const (
-	CategoryGeneral SubnetCategory = 1
-	CategoryMobility SubnetCategory = 2
-	CategoryEnergy SubnetCategory = 3
+	CategoryGeneral       SubnetCategory = 1
+	CategoryMobility      SubnetCategory = 2
+	CategoryEnergy        SubnetCategory = 3
 	CategoryEnvironmental SubnetCategory = 4
-	CategoryHealthcare SubnetCategory = 5
-	CategorySmartCity SubnetCategory = 6
-	CategorySmartHome SubnetCategory = 7
-	CategoryGeoLocation SubnetCategory = 8
-	CategoryP2PMessaging SubnetCategory = 9
+	CategoryHealthcare    SubnetCategory = 5
+	CategorySmartCity     SubnetCategory = 6
+	CategorySmartHome     SubnetCategory = 7
+	CategoryGeoLocation   SubnetCategory = 8
+	CategoryP2PMessaging  SubnetCategory = 9
 	CategorySharedCompute SubnetCategory = 10
-	CategoryFileSharing SubnetCategory = 11
+	CategoryFileSharing   SubnetCategory = 11
 )
 
 const SignatureMessageString string = `{"action":"%s","network":"%s","identifier":"%s","hash":"%s"}`

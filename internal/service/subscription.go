@@ -27,12 +27,18 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 		Subscription: entities.Subscription{Subscriber: subscription.Subscriber, Subnet: subscription.Subnet, Topic: subscription.Topic},
 	}, &currentState)
 	if err != nil {
+		logger.Errorf("Invalid event payload %e ", err)
+
 		if err != gorm.ErrRecordNotFound {
 			//return nil, nil, apperror.Unauthorized("Not a subscriber")
 			// } else {
 			return nil, err
+		} else {
+			logger.Errorf("gorm.ErrRecordNotFound %e ", gorm.ErrRecordNotFound)
+			return nil, nil
 		}
 	}
+
 	return currentState, err
 }
 
@@ -71,9 +77,8 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		Topic: entities.Topic{ID: data.Topic, Subnet: event.Payload.Subnet},
 	}, &topicData)
 
-	
-
 	data.Subnet = event.Payload.Subnet
+	logger.Infof("ValidateSubscriptionData %v", data)
 	currentState, authError := ValidateSubscriptionData(data, &event.Payload)
 	prevEventUpToDate := false
 	authEventUpToDate := false
@@ -98,7 +103,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 			event.Hash,
 			event.Payload.Timestamp,
 			markAsSynced,
-		 )
+		)
 	}
 
 	if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
@@ -176,7 +181,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		}, false, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Fatal("5000: Db Error", err)
+			logger.Error("5000: Db Error", err)
 			return
 		}
 	} else {
@@ -187,7 +192,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
 			}, true, tx)
 			if err != nil {
-				logger.Fatal("DB error", err)
+				logger.Error("DB error", err)
 			}
 		} else {
 			// mark as broadcasted
@@ -198,27 +203,27 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 					Event: entities.Event{Broadcasted: true},
 				}, true, tx)
 			if err != nil {
-				logger.Fatal("DB error", err)
+				logger.Error("DB error", err)
 			}
 		}
 	}
 
 	//Update subscription status based on the event type
 	switch event.Payload.EventType {
-	case uint16(constants.SubscribeTopicEvent):
-		if *topicData.Public {
-			data.Status = constants.SubscribedSubscriptionStatus
-		} else {
-			data.Status = constants.PendingSubscriptionStatus
-		}
+	// case uint16(constants.SubscribeTopicEvent):
+	// 	if *topicData.Public {
+	// 		data.Status = &constants.SubscribedSubscriptionStatus
+	// 	} else {
+	// 		data.Status = &constants.PendingSubscriptionStatus
+	// 	}
 	case uint16(constants.LeaveEvent):
-		data.Status = constants.UnsubscribedSubscriptionStatus
+		data.Status = &constants.UnsubscribedSubscriptionStatus
 	case uint16(constants.ApprovedEvent):
-		data.Status = constants.SubscribedSubscriptionStatus
+		data.Status = &constants.SubscribedSubscriptionStatus
 	case uint16(constants.BanMemberEvent):
-		data.Status = constants.BannedSubscriptionStatus
+		data.Status = &constants.BannedSubscriptionStatus
 	case uint16(constants.UnbanMemberEvent):
-		data.Status = constants.SubscribedSubscriptionStatus
+		data.Status = &constants.SubscribedSubscriptionStatus
 	default:
 
 	}
@@ -233,14 +238,15 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	data.Subnet = event.Payload.Subnet
 
 	if updateState {
+		logger.Infof("data.ID++++ %v", data.ID)
 		_, _, err := query.SaveRecord(models.SubscriptionState{
-			Subscription: entities.Subscription{ID: data.ID, Subnet: data.Subnet},
+			Subscription: entities.Subscription{ID: data.ID, Subnet: data.Subnet, Subscriber: data.Subscriber, Topic: data.Topic},
 		}, models.SubscriptionState{
 			Subscription: *data,
 		}, true, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Fatal("5000: Db Error", err)
+			logger.Error("5000: Db Error", err)
 			return
 		}
 	}

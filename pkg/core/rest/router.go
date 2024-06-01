@@ -140,7 +140,20 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.GET("/api/topics", func(c *gin.Context) {
-		topics, err := client.GetTopics()
+
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+			return
+		}
+
+		var topicPayload entities.Topic
+		json.Unmarshal(*b, &topicPayload)
+
+		logger.Infof("Payload %v", topicPayload.Agent)
+
+		topics, err := client.GetTopics(topicPayload)
 
 		if err != nil {
 			logger.Error(err)
@@ -175,7 +188,19 @@ func (p *RestService) Initialize() *gin.Engine {
 		var subPayload entities.Subscription
 		json.Unmarshal(*b, &subPayload)
 
-		logger.Infof("Payload %v", subPayload.Topic)
+		status := c.Query("st")
+		if status != "" {
+			iStatus, parseError := strconv.Atoi(status)
+			if parseError != nil {
+				logger.Error(parseError)
+				c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+				return
+			}
+			statusConst := constants.SubscriptionStatuses(iStatus)
+			subPayload.Status = &statusConst
+		}
+
+		// logger.Infof("Payload %v", subPayload.Topic)
 
 		subs, err := client.GetSubscriptions(subPayload)
 
@@ -184,7 +209,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		logger.Infof("subs %v", subs)
+		// logger.Infof("subs %v", subs)
 
 		// var payload entities.ClientPayload
 		// if err := c.BindJSON(&payload); err != nil {
@@ -429,6 +454,42 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 	
 
+	router.GET("/api/subscription/account", func(c *gin.Context) {
+
+		b, parseError := utils.ParseQueryString(c)
+		if parseError != nil {
+			logger.Error(parseError)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+			return
+		}
+
+		//
+		var payload entities.Subscription
+		json.Unmarshal(*b, &payload)
+		status := c.Query("status")
+		if status != "" {
+			iStatus, parseError := strconv.Atoi(status)
+			if parseError != nil {
+				logger.Error(parseError)
+				c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+				return
+			}
+			statusConst := constants.SubscriptionStatuses(iStatus)
+			payload.Status = &statusConst
+		}
+
+		//
+
+		subscriptions, err := client.GetAccountSubscriptionsV2(payload)
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
+	})
+
 	router.GET("/api/sync", func(c *gin.Context) {
 		b, parseError := utils.ParseQueryString(c)
 		if parseError != nil {
@@ -636,4 +697,8 @@ type BlockStat struct {
 	Events   int `json:"events"`
 	Topics   int `json:"topics"`
 	Messages int `json:"messages"`
+}
+type SubscriptionAS struct {
+	Subscriber string                         `json:"sub" `
+	Status     constants.SubscriptionStatuses `json:"st"  `
 }
