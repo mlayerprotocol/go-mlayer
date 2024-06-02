@@ -98,6 +98,44 @@ func GetSubnets(item models.SubnetState) (*[]models.SubnetState, error) {
 	return &SubnetStates, nil
 }
 
+func GetSubscribedSubnets(item models.SubnetState) (*[]models.SubnetState, error) {
+
+	var SubnetStates []models.SubnetState
+
+	err := query.GetMany(item, &SubnetStates, nil)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var subscriptionStates []models.SubscriptionState
+	err = query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{Subscriber: item.Account}},
+		&subscriptionStates, nil)
+
+	if err != nil {
+
+		return nil, err
+	}
+	var subnetIds = []string{}
+
+	for _, sub := range subscriptionStates {
+		subnetIds = append(subnetIds, sub.Subnet)
+	}
+	var subSubnetStates []models.SubnetState
+	if len(subnetIds) > 0 {
+		subSubnetErr := query.GetWithIN(models.SubnetState{}, &subSubnetStates, subnetIds)
+		if subSubnetErr != nil {
+			return nil, err
+		}
+	}
+
+	SubnetStates = append(SubnetStates, subSubnetStates...)
+
+	return &SubnetStates, nil
+}
+
 func GetSubnetEvents() (*[]models.SubnetEvent, error) {
 	var SubnetEvents []models.SubnetEvent
 
@@ -143,7 +181,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	}
 
 	payload.Data = payloadData
-	
+
 	if uint64(payloadData.Timestamp) == 0 || uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 || uint64(payloadData.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
 		return nil, nil, apperror.BadRequest("Invalid event timestamp")
 	}
@@ -152,14 +190,13 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 		if entities.AddressFromString(payloadData.Owner.ToString()).Addr == "" {
 			return nil, nil, apperror.BadRequest("You must specify the owner of the subnet")
 		}
-		
-		
+
 		if payloadData.ID != "" {
 			return nil, nil, apperror.BadRequest("You cannot set an id when creating a subnet")
 		}
 		var found []models.SubnetState
-		query.GetMany(&models.SubnetState{Subnet:entities.Subnet{Ref: payloadData.Ref}}, &found, nil)
-		if (len(found) > 0) {
+		query.GetMany(&models.SubnetState{Subnet: entities.Subnet{Ref: payloadData.Ref}}, &found, nil)
+		if len(found) > 0 {
 			return nil, nil, apperror.BadRequest(fmt.Sprintf("Subnet with reference %s already exists", payloadData.Ref))
 		}
 		logger.Info("FOUNDDDDD", found, payloadData.Ref)
