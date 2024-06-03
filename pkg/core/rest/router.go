@@ -597,7 +597,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		json.Unmarshal(*b, &subnetState)
 
-		subnets, err := client.GetSubnets(subnetState)
+		subnets, err := client.GetSubscribedSubnets(subnetState)
 
 		if err != nil {
 			logger.Error(err)
