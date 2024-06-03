@@ -12,6 +12,7 @@
 SERVICE_NAME=goml.service
 SERVICE_FILE_LOCAL="./scripts/service/$SERVICE_NAME"
 WORKING_DIRECTORY="/etc/mlayer"
+CONFIG_FILE="./scripts/config"
 EXECUTABLE_PATH=$WORKING_DIRECTORY/goml
 USERNAME=$(whoami)
 
@@ -37,6 +38,7 @@ replace_placeholders() {
 }
 
 cp -n  $SERVICE_FILE_LOCAL /etc/systemd/system/
+yes | cp $CONFIG_FILE $WORKING_DIRECTORY
 # # Download the service file
 # curl -o $SERVICE_FILE_LOCAL $SERVICE_FILE_REMOTE
 
