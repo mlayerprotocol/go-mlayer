@@ -31,9 +31,9 @@ env GOOS=linux GOARCH=amd64 CGO_ENABLED=1  CXX="x86_64-linux-musl-g++" go build 
 
 # Function to replace placeholders in the service file
 replace_placeholders() {
-    sed -i "s|/path/to/executable|$EXECUTABLE_PATH|g" /etc/systemd/system/$SERVICE_NAME
-    sed -i "s|/path/to/workingdir|$WORKING_DIRECTORY|g" /etc/systemd/system/$SERVICE_NAME
-    sed -i "s|username|$USERNAME|g" /etc/systemd/system/$SERVICE_NAME
+    sed -i "s#/path/to/executable#$EXECUTABLE_PATH#g" /etc/systemd/system/$SERVICE_NAME
+    sed -i "s#/path/to/workingdir#$WORKING_DIRECTORY#g" /etc/systemd/system/$SERVICE_NAME
+    sed -i "s#username#$USERNAME#g" /etc/systemd/system/$SERVICE_NAME
 }
 
 cp -n  $SERVICE_FILE_LOCAL /etc/systemd/system/
