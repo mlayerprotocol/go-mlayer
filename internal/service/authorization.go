@@ -70,7 +70,7 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 			if err == gorm.ErrRecordNotFound {
 				return nil, nil, apperror.Unauthorized("Grantor not authorized agent")
 			}
-			if grantorAuthState.Authorization.Priviledge != constants.AdminPriviledge {
+			if *grantorAuthState.Authorization.Priviledge != constants.AdminPriviledge {
 				return nil, grantorAuthState, apperror.Forbidden(" Grantor does not have enough permission")
 			}
 		}

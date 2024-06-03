@@ -18,19 +18,19 @@ const (
 )
 
 type Authorization struct {
-	ID            string                           `json:"id" gorm:"type:uuid;not null;primaryKey"`
-	Agent         DeviceString                     `json:"agt" gorm:"uniqueIndex:idx_agent_account_subnet;index:idx_authorization_states_agent"`
-	Meta          string                           `json:"meta,omitempty"`
-	Account       DIDString                        `json:"acct" gorm:"varchar(40);uniqueIndex:idx_agent_account_subnet"`
-	Grantor       DIDString                        `json:"gr" gorm:"index"`
-	Priviledge    constants.AuthorizationPrivilege `json:"privi"`
-	TopicIds      string                           `json:"topIds"`
+	ID            string                           	`json:"id" gorm:"type:uuid;not null;primaryKey"`
+	Agent         DeviceString                    	`json:"agt" gorm:"uniqueIndex:idx_agent_account_subnet;index:idx_authorization_states_agent"`
+	Meta          string                           	`json:"meta,omitempty"`
+	Account       DIDString                        	`json:"acct" gorm:"varchar(40);uniqueIndex:idx_agent_account_subnet"`
+	Grantor       DIDString                        	`json:"gr" gorm:"index"`
+	Priviledge    *constants.AuthorizationPrivilege	`json:"privi"`
+	TopicIds      string                           	`json:"topIds"`
 	Timestamp     *uint64                           `json:"ts"`
 	Duration      *uint64                           `json:"du"`
-	SignatureData SignatureData                    `json:"sigD" gorm:"json;"`
-	Hash          string                           `json:"h" gorm:"unique" `
-	Event         EventPath                        `json:"e,omitempty" gorm:"index;varchar;"`
-	Subnet        string                           `json:"snet" gorm:"uniqueIndex:idx_agent_account_subnet;char(36)"`
+	SignatureData SignatureData                    	`json:"sigD" gorm:"json;"`
+	Hash          string                           	`json:"h" gorm:"unique" `
+	Event         EventPath                        	`json:"e,omitempty" gorm:"index;varchar;"`
+	Subnet        string                           	`json:"snet" gorm:"uniqueIndex:idx_agent_account_subnet;char(36)"`
 
 	// AuthorizationEventID string                           `json:"authEventId,omitempty"`
 }
@@ -71,10 +71,10 @@ func (g Authorization) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: AddressFromString(string(g.Agent)).Addr},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.TopicIds},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Priviledge},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Duration},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *g.Priviledge},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *g.Duration},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.Subnet},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: g.Timestamp},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *g.Timestamp},
 	)
 
 	return b, e
