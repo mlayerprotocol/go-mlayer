@@ -34,6 +34,7 @@ replace_placeholders() {
     sed -i "s|username|$USERNAME|g" $SERVICE_FILE_LOCAL
 }
 
+cp -n  $SERVICE_FILE_LOCAL /etc/systemd/system/
 # # Download the service file
 # curl -o $SERVICE_FILE_LOCAL $SERVICE_FILE_REMOTE
 
