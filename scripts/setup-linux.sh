@@ -15,6 +15,8 @@ WORKING_DIRECTORY="/etc/mlayer/"
 EXECUTABLE_PATH=$WORKING_DIRECTORY/goml
 USERNAME=$(whoami)
 
+cp -n  $SERVICE_FILE_LOCAL /etc/systemd/system/$SERVICE_NAME
+
 # Check if the working directory exists, if not create it
 if [ ! -d "$WORKING_DIRECTORY" ]; then
     echo "Creating working directory: $WORKING_DIRECTORY"
@@ -29,9 +31,9 @@ env GOOS=linux GOARCH=amd64 CGO_ENABLED=1  CXX="x86_64-linux-musl-g++" go build 
 
 # Function to replace placeholders in the service file
 replace_placeholders() {
-    sed -i "s|/path/to/executable|$EXECUTABLE_PATH|g" $SERVICE_FILE_LOCAL
-    sed -i "s|/path/to/working_dir|$WORKING_DIRECTORY|g" $SERVICE_FILE_LOCAL
-    sed -i "s|username|$USERNAME|g" $SERVICE_FILE_LOCAL
+    sed -i "s|/path/to/executable|$EXECUTABLE_PATH|g" /etc/systemd/system/$SERVICE_NAME
+    sed -i "s|/path/to/working_dir|$WORKING_DIRECTORY|g"/etc/systemd/system/$SERVICE_NAME
+    sed -i "s|username|$USERNAME|g" /etc/systemd/system/$SERVICE_NAME
 }
 
 cp -n  $SERVICE_FILE_LOCAL /etc/systemd/system/
