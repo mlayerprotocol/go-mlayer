@@ -456,7 +456,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	router.GET("/api/subscription/account", func(c *gin.Context) {
 
-		b, parseErd enror := utils.ParseQueryString(c)
+		b, parseError := utils.ParseQueryString(c)
 		if parseError != nil {
 			logger.Error(parseError)
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
@@ -464,7 +464,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 
 		//
-		var payloatities.Subscription
+		var payload entities.Subscription
 		json.Unmarshal(*b, &payload)
 		status := c.Query("status")
 		if status != "" {
