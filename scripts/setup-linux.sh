@@ -38,7 +38,7 @@ replace_placeholders() {
 }
 
 cp -n  $SERVICE_FILE_LOCAL /etc/systemd/system/
-yes | cp $CONFIG_FILE $WORKING_DIRECTORY
+cp -n $CONFIG_FILE $WORKING_DIRECTORY
 # # Download the service file
 # curl -o $SERVICE_FILE_LOCAL $SERVICE_FILE_REMOTE
 
