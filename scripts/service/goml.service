@@ -8,7 +8,7 @@ ExecStart=/path/to/executable daemon --network-private-key 7059081c481c28ecffd10
 Restart=always
 RestartSec=5
 User=username
-WorkingDirectory=/path/to/working_dir
+WorkingDirectory=/path/to/workingdir
 
 [Install]
 WantedBy=multi-user.target
