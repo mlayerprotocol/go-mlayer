@@ -25,8 +25,8 @@ type Authorization struct {
 	Grantor       DIDString                        `json:"gr" gorm:"index"`
 	Priviledge    constants.AuthorizationPrivilege `json:"privi"`
 	TopicIds      string                           `json:"topIds"`
-	Timestamp     uint64                           `json:"ts"`
-	Duration      uint64                           `json:"du"`
+	Timestamp     *uint64                           `json:"ts"`
+	Duration      *uint64                           `json:"du"`
 	SignatureData SignatureData                    `json:"sigD" gorm:"json;"`
 	Hash          string                           `json:"h" gorm:"unique" `
 	Event         EventPath                        `json:"e,omitempty" gorm:"index;varchar;"`
