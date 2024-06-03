@@ -56,7 +56,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable $SERVICE_NAME
 
 # Start the service
-sudo systemctl start $SERVICE_NAME
+if systemctl is-active --quiet $SERVICE_NAME; then
+    echo "Service is already running. Attempting to restart the service..."
+    sudo systemctl restart $SERVICE_NAME
+else
+    echo "Starting the service..."
+    sudo systemctl start $SERVICE_NAME
+fi
 
 # Check the status of the service
 sudo systemctl status $SERVICE_NAME
