@@ -1,0 +1,56 @@
+
+# All configuration vars can be loading as environment variables.
+# Example variable: ICM_PRIVATEKEY, ICM_IPFS_URL, ICM_IPFS_USERNAME
+#node_private_key="0x307702010104203970bd030e115997a0a12b075dfdf3bd03592fa83e07381b61f31befeca187b5a00a06082a8648ce3d030107a14403420004eebddbfb8a6a126e6e99fdd4b9d85bd693039157c57a0264753edd9ef9a91cc7dbc94a8895860aa180637b2680dc1a5bcc9e23311c3f83af1111f32341af4169"
+
+
+# your network private key
+#network_private_key="baf1c6a3ba1c7ba08bcf89d70866ba0b609667fc8f079b9f7cdbc596a903b12c"
+
+#log_level options: "panic", "fatal", "error", "warn", "warning", "info", "debug", "trace"
+# Default value: "info"
+address_prefix="mldev"
+log_level = "info"
+data_dir="./data/store/kvs/"
+validator=true
+stake_contract="0xffa1cD6b443b5c3bC2e1B602B1f67B9480Ea10cF"
+evm_rpc_http="https://data-seed-prebsc-1-s1.binance.org:8545"
+evm_rpc_wss="wss://snowy-serene-liquid.bsc-testnet.quiknode.pro/d05b063355318ad79fc93249b3725f186951e78b/"
+token_address="0x1a35503467a5D35B7c00D0927B38AC50E99BEF57"
+chain_id=97
+listeners= [
+    "/ip4/127.0.0.1/tcp/5000/ws",
+	"/ip4/127.0.0.1/tcp/5001"
+    ]
+bootstrap_peers = [
+  "/ip4/134.122.63.5/tcp/4001/p2p/Qmcnp7TikHX5dR3iN3AGsGx8yXUnXZk84eJkqzaT2DcQaA",
+]
+bootstrap_node = false
+
+mlayer_api_url=""
+
+[ipfs]
+ipfs_url="https://ipfs.infura.io:5001"
+ipfs_username="27AKQHk7nfsQ9EZWpF8qpIG5PVT"
+ipfs_password="821ebab4eb806fee0fe1a9eb052d2f28"
+
+[bsc]
+bsc_registry="0xB6ad15Ab08B6E5B37Ef7f80E025345EdB4875354"
+bsc_chain_id=97
+bsc_rpc_url="https://data-seed-prebsc-1-s1.binance.org:8545"
+
+
+
+[sql]
+db_dialect="sqlite"
+db_storage_dir="./data/store/sql/"
+db_host="134.122.63.5"
+db_port=5432
+db_sslmode="disable"
+db_timezone="America/Chicago"
+db_database="mlayer"
+db_user="dev2"
+db_password="passwordpassword"
+db_max_open_conns=100
+db_max_idle_conns=10
+db_max_conn_lifetime_seconds=3600
