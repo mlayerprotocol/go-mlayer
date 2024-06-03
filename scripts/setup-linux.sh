@@ -15,7 +15,7 @@ WORKING_DIRECTORY="/etc/mlayer"
 EXECUTABLE_PATH=$WORKING_DIRECTORY/goml
 USERNAME=$(whoami)
 
-cp -n  $SERVICE_FILE_LOCAL /etc/systemd/system/$SERVICE_NAME
+yes | cp -rf  $SERVICE_FILE_LOCAL /etc/systemd/system/$SERVICE_NAME
 
 # Check if the working directory exists, if not create it
 if [ ! -d "$WORKING_DIRECTORY" ]; then
