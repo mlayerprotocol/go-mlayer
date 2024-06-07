@@ -154,6 +154,10 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 	if e != nil {
 		logger.Errorf("UnmarshalError %v", e)
 	}
+	if payloadData.Subnet == "" {
+		return nil, nil, apperror.Forbidden("Subnet is required")
+	}
+	
 	if payload.EventType == uint16(constants.CreateTopicEvent) {
 		topic, _ := GetTopic(models.TopicState{
 			Topic: entities.Topic{Ref: payloadData.Ref, Subnet: payloadData.Subnet},
@@ -173,7 +177,7 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 
 	}
 
-	currentState, err := service.ValidateTopicData(&payloadData)
+	currentState, err := service.ValidateTopicData(&payloadData, authState)
 	if err != nil {
 		return nil, nil, err
 	}

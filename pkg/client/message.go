@@ -113,10 +113,27 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 	// pool = channelpool.SubscriptionEventPublishC
 
 	var subscription models.SubscriptionState
-	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{Subscriber: payload.Account, Topic: topicData.ID},
-	}, &subscription)
-	logger.Info()
+	// err = query.GetOne(models.SubscriptionState{
+	// 	Subscription: entities.Subscription{Subscriber: payload.Account, Topic: topicData.ID},
+	// }, &subscription)
+	subsribers := []entities.DIDString{entities.DIDString(payload.Agent), entities.DIDString(payload.Account.ToString())}
+	subscriptions, err := query.GetSubscriptionStateBySuscriber(payload.Subnet, payloadData.TopicId, subsribers, nil)
+	if len(*subscriptions) > 0 {
+		if  len(*subscriptions) > 1 {
+			// if string(payload.Account)  != "" && (*subscriptions)[0].Subscription.Subscriber.ToString() == string(payload.Account) {
+			// 	subscription = (*subscriptions)[0]
+			// } else {
+			// 	subscription = (*subscriptions)[1]
+			// }
+			if  *((*subscriptions)[0].Subscription.Role) > *((*subscriptions)[1].Subscription.Role) {
+				subscription = (*subscriptions)[0]
+			} else {
+				subscription = (*subscriptions)[1]
+			}
+		} else {
+			subscription = (*subscriptions)[0]
+		}
+	}
 	if err != nil && payload.Account != topicData.Account {
 		if err != gorm.ErrRecordNotFound {
 			if payload.Account != topicData.Account {
@@ -125,7 +142,10 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 		}
 		return nil, &currentAuthState.Event, apperror.Internal(err.Error())
 	}
-	if *topicData.ReadOnly && payload.Account != topicData.Account && subscription.Role != &constants.AdminSubPriviledge {
+	if *topicData.ReadOnly && payload.Account != topicData.Account && *subscription.Role < constants.TopicManagerPriviledge {
+		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
+	}
+	if payload.Account != topicData.Account && *subscription.Role < constants.TopicWriterPriviledge {
 		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
 	}
 

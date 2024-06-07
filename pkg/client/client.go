@@ -39,7 +39,7 @@ func ValidateClientPayload(
 		return nil, nil, apperror.Internal(err.Error())
 	}
 
-	if subnet.Status ==  0 {
+	if *subnet.Status ==  0 {
 		return nil, nil, apperror.Forbidden("Subnet is disabled")
 	}
 

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
+	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -19,9 +20,10 @@ import (
 /*
 Validate an agent authorization
 */
-func ValidateSubscriptionData(subscription *entities.Subscription, payload *entities.ClientPayload) (currentSubscriptionState *models.SubscriptionState, err error) {
+func ValidateSubscriptionData(subscription *entities.Subscription, payload *entities.ClientPayload, topic *entities.Topic) (currentSubscriptionState *models.SubscriptionState, err error) {
 	// check fields of subscription
 	var currentState *models.SubscriptionState
+	
 
 	err = query.GetOne(models.SubscriptionState{
 		Subscription: entities.Subscription{Subscriber: subscription.Subscriber, Subnet: subscription.Subnet, Topic: subscription.Topic},
@@ -36,6 +38,29 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 		} else {
 			logger.Errorf("gorm.ErrRecordNotFound %e ", gorm.ErrRecordNotFound)
 			return nil, nil
+		}
+	}
+	if payload.EventType == uint16(constants.SubscribeTopicEvent) { 
+		// someone inviting someone else
+		if subscription.Subscriber != payload.Account && subscription.Agent != payload.Agent {
+			if subscription.Status != &constants.InvitedSubscriptionStatus {
+				return nil, apperror.Forbidden("Subscription status must be invited")
+			}
+		}
+	} else {
+		// subscribing oneself
+		// if the topic is not public, you have to have been invited
+		if !(*topic.Public) && currentState == nil {
+			return nil, apperror.Forbidden("Must be invited first")
+		}
+		if  currentState != nil && *currentState.Status == constants.BannedSubscriptionStatus {
+			return nil, apperror.Forbidden("Banned subscriber")
+		}
+		if *subscription.Role > *topic.DefaultSubscriberPrivilege {
+			return nil, apperror.Forbidden("Invalid role selected")
+		}
+		if *subscription.Status == constants.InvitedSubscriptionStatus || *subscription.Status ==  constants.PendingSubscriptionStatus {
+			return nil, apperror.Forbidden("Invalid status selected")
 		}
 	}
 
@@ -79,7 +104,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 	data.Subnet = event.Payload.Subnet
 	logger.Infof("ValidateSubscriptionData %v", data)
-	currentState, authError := ValidateSubscriptionData(data, &event.Payload)
+	currentState, authError := ValidateSubscriptionData(data, &event.Payload, &topicData.Topic)
 	prevEventUpToDate := false
 	authEventUpToDate := false
 

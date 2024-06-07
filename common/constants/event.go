@@ -19,13 +19,7 @@ package constants
 // m.room.third_party_invite: Represents an invitation to the room via a third-party service.
 // m.room.pinned_events: Indicates messages that are pinned in the room.
 
-type AuthorizationPrivilege uint8
 
-const (
-	ReadPriviledge  AuthorizationPrivilege = 0
-	WritePriviledge AuthorizationPrivilege = 1
-	AdminPriviledge AuthorizationPrivilege = 2
-)
 
 type EventPayloadType string
 
@@ -37,6 +31,8 @@ const (
 	SubnetPayloadType        EventPayloadType = "sub_network"
 	WalletPayloadType        EventPayloadType = "wallet"
 )
+
+
 
 type EventType uint16
 
@@ -79,12 +75,6 @@ const (
 	// IsTypingEvent       EventType = 1203
 )
 
-type SubscriberPrivilege uint8
-
-var (
-	MemberSubPriviledge SubscriberPrivilege = 0
-	AdminSubPriviledge  SubscriberPrivilege = 1
-)
 
 // Administrative Subnet Actions
 const (

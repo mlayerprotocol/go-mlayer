@@ -20,6 +20,7 @@ func GetOne[T any, U any](filter T, data *U) error {
 	}
 	return nil
 }
+
 func GetTx() *gorm.DB {
 	return db.Db
 }

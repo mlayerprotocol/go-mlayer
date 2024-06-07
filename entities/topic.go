@@ -10,6 +10,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 )
 
@@ -25,6 +26,9 @@ type Topic struct {
 	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	//
 	Public   *bool `json:"pub,omitempty" gorm:"default:false"`
+
+	DefaultSubscriberPrivilege   *constants.SubscriberPrivilege `json:"dSubPriv,omitempty"`
+
 	ReadOnly *bool `json:"rO,omitempty" gorm:"default:false"`
 	// InviteOnly bool `json:"invO" gorm:"default:false"`
 
@@ -125,6 +129,8 @@ func (topic Topic) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.Public},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},
 		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.ReadOnly},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *topic.DefaultSubscriberPrivilege},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *topic.DefaultSubscriptionStatus},
 		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Subnet},
 	)
 }

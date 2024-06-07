@@ -23,7 +23,7 @@ type Authorization struct {
 	Meta          string                           	`json:"meta,omitempty"`
 	Account       DIDString                        	`json:"acct" gorm:"varchar(40);uniqueIndex:idx_agent_account_subnet"`
 	Grantor       DIDString                        	`json:"gr" gorm:"index"`
-	Priviledge    *constants.AuthorizationPrivilege	`json:"privi"`
+	Priviledge    *constants.AuthorizationPrivilege	`json:"privi"  gorm:""`
 	TopicIds      string                           	`json:"topIds"`
 	Timestamp     *uint64                           `json:"ts"`
 	Duration      *uint64                           `json:"du"`

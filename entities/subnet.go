@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 )
 
@@ -21,12 +22,15 @@ type Subnet struct {
 	Categories    pq.Int32Array `gorm:"type:integer[]"`
 	Owner         DIDString     `json:"own,omitempty" binding:"required"  gorm:"not null;type:varchar(100);default:did"`
 	SignatureData SignatureData `json:"sigD" gorm:"json;"`
-	Status        uint8         `json:"st" gorm:"boolean;default:0"`
+	Status        *uint8         `json:"st" gorm:"boolean;default:0"`
 	Timestamp     uint64        `json:"ts,omitempty" binding:"required"`
 	Balance       uint64        `json:"bal" gorm:"default:0"`
 	// Readonly
 	Account DIDString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	Agent   DeviceString `json:"_"  gorm:"_"`
+
+	CreateTopicPrivilege   *constants.AuthorizationPrivilege `json:"cTopPerm"` // 
+	DefaultAuthPrivilege   *constants.AuthorizationPrivilege `json:"dAuthPerm"` // privilege for external users who joins the subnet. 0 indicates people cant join
 
 	// Derived
 	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`
@@ -122,7 +126,9 @@ func (item Subnet) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Owner},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Status},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.Status},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.DefaultAuthPrivilege},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.CreateTopicPrivilege},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Timestamp},
 	)
 }
