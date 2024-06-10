@@ -29,8 +29,8 @@ type Subnet struct {
 	Account DIDString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	Agent   DeviceString `json:"_"  gorm:"_"`
 
-	CreateTopicPrivilege   *constants.AuthorizationPrivilege `json:"cTopPerm"` // 
-	DefaultAuthPrivilege   *constants.AuthorizationPrivilege `json:"dAuthPerm"` // privilege for external users who joins the subnet. 0 indicates people cant join
+	// CreateTopicPrivilege   *constants.AuthorizationPrivilege `json:"cTopPriv"` // 
+	DefaultAuthPrivilege   *constants.AuthorizationPrivilege `json:"dAuthPriv"` // privilege for external users who joins the subnet. 0 indicates people cant join
 
 	// Derived
 	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`
@@ -123,12 +123,12 @@ func (item Subnet) EncodeBytes() ([]byte, error) {
 		cats = append(cats, b...)
 	}
 	return encoder.EncodeBytes(
+
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.DefaultAuthPrivilege},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Owner},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.Status},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.DefaultAuthPrivilege},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.CreateTopicPrivilege},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Timestamp},
 	)
 }

@@ -32,11 +32,10 @@ func ValidateTopicData(topic *entities.Topic, authState *models.AuthorizationSta
 		}
 		return nil, apperror.Internal(err.Error())
 	}
-	if *subnet.CreateTopicPrivilege > *authState.Priviledge {
+	if  *authState.Priviledge < constants.StandardPriviledge {
 		return nil, apperror.Forbidden("Not enough permission to create topics")
 	}
-	// check fields of topic
-	logger.Info("Topiccc", topic.Ref)
+	
 	if len(topic.Ref) > 40 {
 		return nil, apperror.BadRequest("Topic handle cannont be more than 40 characters")
 	}

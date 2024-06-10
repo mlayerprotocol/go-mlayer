@@ -5,7 +5,6 @@ import (
 
 	"encoding/json"
 	"fmt"
-	"slices"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -165,7 +164,7 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 		return nil, nil, apperror.BadRequest(fmt.Sprintf("Topic %s does not exist in subnet %s", topicData.ID, payload.Subnet))
 	}
 
-	currentState, err := service.ValidateSubscriptionData(&payloadData, &payload)
+	currentState, err := service.ValidateSubscriptionData(&payloadData, &payload, &topicData.Topic)
 	if err != nil && (err != gorm.ErrRecordNotFound && payload.EventType == uint16(constants.SubscribeTopicEvent)) {
 		return nil, nil, err
 	}
@@ -174,13 +173,13 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 		return nil, nil, apperror.BadRequest("Account not subscribed")
 	}
 
-	if payload.EventType == uint16(constants.SubscribeTopicEvent) && payload.Account == topicData.Account && !slices.Contains([]constants.SubscriptionStatuses{1, 3}, *payloadData.Status) {
-		return nil, nil, apperror.BadRequest("Invalid Subscription Status")
-	}
+	// if payload.EventType == uint16(constants.SubscribeTopicEvent) && payload.Account == topicData.Account && !slices.Contains([]constants.SubscriptionStatus{1, 3}, *payloadData.Status) {
+	// 	return nil, nil, apperror.BadRequest("Invalid Subscription Status")
+	// }
 
-	if payload.EventType == uint16(constants.SubscribeTopicEvent) && payload.Account != topicData.Account && slices.Contains([]constants.SubscriptionStatuses{3}, *payloadData.Status) {
-		return nil, nil, apperror.BadRequest("Invalid Subscription Status 01")
-	}
+	// if payload.EventType == uint16(constants.SubscribeTopicEvent) && payload.Account != topicData.Account && slices.Contains([]constants.SubscriptionStatus{3}, *payloadData.Status) {
+	// 	return nil, nil, apperror.BadRequest("Invalid Subscription Status 01")
+	// }
 
 	if currentState != nil && payloadData.Subscriber == topicData.Account && payload.EventType == uint16(constants.SubscribeTopicEvent) {
 		return nil, nil, apperror.BadRequest("Topic already owned by account")

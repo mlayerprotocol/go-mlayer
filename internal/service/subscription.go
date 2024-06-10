@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/hex"
+	"slices"
 	"strings"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -43,8 +44,8 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 	if payload.EventType == uint16(constants.SubscribeTopicEvent) { 
 		// someone inviting someone else
 		if subscription.Subscriber != payload.Account && subscription.Agent != payload.Agent {
-			if subscription.Status != &constants.InvitedSubscriptionStatus {
-				return nil, apperror.Forbidden("Subscription status must be invited")
+			if !slices.Contains([]constants.SubscriptionStatus{constants.InvitedSubscriptionStatus, constants.BannedSubscriptionStatus}, *subscription.Status) {
+				return nil, apperror.Forbidden("Subscription status must be Invited or Banned")
 			}
 		}
 	} else {
@@ -56,11 +57,11 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 		if  currentState != nil && *currentState.Status == constants.BannedSubscriptionStatus {
 			return nil, apperror.Forbidden("Banned subscriber")
 		}
-		if *subscription.Role > *topic.DefaultSubscriberPrivilege {
+		if (currentState != nil && *currentState.Role != *subscription.Role) || (currentState == nil && *subscription.Role > *topic.DefaultSubscriberRole) {
 			return nil, apperror.Forbidden("Invalid role selected")
 		}
-		if *subscription.Status == constants.InvitedSubscriptionStatus || *subscription.Status ==  constants.PendingSubscriptionStatus {
-			return nil, apperror.Forbidden("Invalid status selected")
+		if !slices.Contains([]constants.SubscriptionStatus{constants.UnsubscribedSubscriptionStatus, constants.SubscribedSubscriptionStatus}, *subscription.Status) {
+			return nil, apperror.Forbidden("Subscription status must be Subscribed or Unsubscribed")
 		}
 	}
 
@@ -131,8 +132,12 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		)
 	}
 
-	if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
+	if currentState == nil || isMoreRecent { // it is a morer ecent event
 		markAsSynced = true
+	}
+
+	if currentState != nil && data.Subscriber == topicData.Account && event.EventType == uint16(constants.SubscribeTopicEvent) {
+		authError =  apperror.BadRequest("Topic already owned by account")
 	}
 
 	if event.Payload.EventType != uint16(constants.SubscribeTopicEvent) {
@@ -146,7 +151,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 				eventError = authError.Error()
 				markAsSynced = true
 			} else {
-				if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
+				if currentState == nil || isMoreRecent { // it is a morer ecent event
 					if strings.HasPrefix(authError.Error(), constants.ErrorForbidden) || strings.HasPrefix(authError.Error(), constants.ErrorUnauthorized) {
 						markAsSynced = false
 					} else {
@@ -171,7 +176,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		// If are upto date, then we should update the state based on if its a recent or old event
 		if len(eventError) == 0 {
 			if prevEventUpToDate && authEventUpToDate { // we are upto date
-				if currentState == nil || (currentState != nil && isMoreRecent) {
+				if currentState == nil ||  isMoreRecent {
 					updateState = true
 					markAsSynced = true
 				} else {

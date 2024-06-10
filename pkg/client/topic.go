@@ -13,7 +13,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
-	"gorm.io/gorm"
 )
 
 // type TopicService struct {
@@ -51,83 +50,6 @@ import (
 Validate and Process the topic request
 */
 
-func GetTopic(where models.TopicState) (*models.TopicState, error) {
-	topicState := models.TopicState{}
-
-	err := query.GetOne(where, &topicState)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &topicState, nil
-
-}
-
-func GetTopicById(id string) (*models.TopicState, error) {
-	topicState := models.TopicState{}
-
-	err := query.GetOne(models.TopicState{
-		Topic: entities.Topic{ID: id},
-	}, &topicState)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &topicState, nil
-
-}
-func GetTopicByHash(hash string) (*models.TopicState, error) {
-	topicState := models.TopicState{}
-
-	err := query.GetOne(models.TopicState{
-		Topic: entities.Topic{Hash: hash},
-	}, &topicState)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &topicState, nil
-
-}
-
-func GetTopics(subTopic entities.Topic) (*[]models.TopicState, error) {
-	var topicStates []models.TopicState
-	order := &map[string]query.Order{"timestamp": query.OrderDec}
-	err := query.GetMany(models.TopicState{
-		Topic: subTopic,
-	}, &topicStates, order)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &topicStates, nil
-}
-
-func GetTopicEvents() (*[]models.TopicEvent, error) {
-	var topicEvents []models.TopicEvent
-	order := &map[string]query.Order{"timestamp": query.OrderDec}
-	err := query.GetMany(models.TopicEvent{
-		Event: entities.Event{
-			BlockNumber: 1,
-		},
-	}, &topicEvents, order)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &topicEvents, nil
-}
-
 // func ListenForNewTopicEventFromPubSub (mainCtx *context.Context) {
 // 	ctx, cancel := context.WithCancel(*mainCtx)
 // 	defer cancel()
@@ -159,7 +81,7 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 	}
 	
 	if payload.EventType == uint16(constants.CreateTopicEvent) {
-		topic, _ := GetTopic(models.TopicState{
+		topic, _ := query.GetTopic(models.TopicState{
 			Topic: entities.Topic{Ref: payloadData.Ref, Subnet: payloadData.Subnet},
 		})
 		if topic != nil {
