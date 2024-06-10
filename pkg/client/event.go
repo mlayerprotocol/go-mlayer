@@ -43,7 +43,12 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		}
 		if authState == nil || *authState.Authorization.Priviledge == constants.UnauthorizedPriviledge {
 			// agent not authorized
-			return nil, apperror.Unauthorized("Agent not authorized to perform this action")
+			return nil, apperror.Unauthorized("Agent unauthorized")
+		}
+
+		if *authState.Duration != 0 && uint64(time.Now().UnixMilli()) >
+			(uint64(*authState.Timestamp)+uint64(*authState.Duration)) {
+			return nil, apperror.Unauthorized("Agent authorization expired")
 		}
 		payload.Agent = *agent;
 	}
