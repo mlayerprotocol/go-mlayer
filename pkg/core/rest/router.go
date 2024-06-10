@@ -420,29 +420,29 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	})
 
-	router.POST("/api/subscription/account", func(c *gin.Context) {
+	// router.POST("/api/subscription/account", func(c *gin.Context) {
 
-		b, parseError := utils.ParseQueryString(c)
-		if parseError != nil {
-			logger.Error(parseError)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
-			return
-		}
+	// 	b, parseError := utils.ParseQueryString(c)
+	// 	if parseError != nil {
+	// 		logger.Error(parseError)
+	// 		c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
+	// 		return
+	// 	}
 
-		//
-		var payload entities.ClientPayload
-		json.Unmarshal(*b, &payload)
+	// 	//
+	// 	var payload entities.ClientPayload
+	// 	json.Unmarshal(*b, &payload)
 
-		logger.Infof("Payload %v", payload.Account)
-		subscriptions, err := client.GetAccountSubscriptions(payload)
+	// 	logger.Infof("Payload %v", payload.Account)
+	// 	subscriptions, err := client.GetAccountSubscriptions(payload)
 
-		if err != nil {
-			logger.Error(err)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
-			return
-		}
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
-	})
+	// 	if err != nil {
+	// 		logger.Error(err)
+	// 		c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+	// 		return
+	// 	}
+	// 	c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
+	// })
 
 	router.GET("/api/subscription/account", func(c *gin.Context) {
 
