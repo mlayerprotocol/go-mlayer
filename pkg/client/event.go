@@ -41,7 +41,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
-		if authState == nil {
+		if authState == nil || *authState.Authorization.Priviledge == constants.UnauthorizedPriviledge {
 			// agent not authorized
 			return nil, apperror.Unauthorized("Agent not authorized to perform this action")
 		}
@@ -108,9 +108,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	case uint16(constants.SendMessageEvent):
 		logger.Infof("authState 2: %d ", *authState.Authorization.Priviledge)
 		// 1. Agent message
-		if *authState.Authorization.Priviledge < constants.StandardPriviledge {
-			return nil, apperror.Forbidden("Agent not authorized to perform this action")
-		}
+		// if *authState.Authorization.Priviledge < constants.StandardPriviledge {
+		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
+		// }
 		eventPayloadType = constants.MessagePayloadType
 		assocPrevEvent, assocAuthEvent, err = ValidateMessagePayload(payload, authState)
 		if err != nil {
