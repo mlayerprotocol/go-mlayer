@@ -24,8 +24,8 @@ type Subscription struct {
 	Subnet     string    `json:"snet"  binding:"required" gorm:"not null;type:varchar(36)"`
 	Subscriber DIDString `json:"sub"  gorm:"not null;uniqueIndex:idx_sub_topic;type:varchar(100);index"`
 	// Device     DeviceString                  `json:"dev,omitempty" binding:"required"  gorm:"not null;uniqueIndex:idx_acct_dev_topic;type:varchar(100);index"`
-	Status *constants.SubscriptionStatuses `json:"st"  gorm:"not null;type:smallint;default:2"`
-	Role   *constants.SubscriberPrivilege  `json:"rol" gorm:"default:0"`
+	Status *constants.SubscriptionStatus `json:"st"  gorm:"not null;type:smallint;default:2"`
+	Role   *constants.SubscriberRole  `json:"rol" gorm:"default:0"`
 
 	//Signature string                         `json:"sig"`
 	Timestamp uint64       `json:"ts"`

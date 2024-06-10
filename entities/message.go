@@ -199,15 +199,14 @@ func (msg Message) EncodeBytes() ([]byte, error) {
 		actions = append(actions, ac.EncodeBytes()...)
 	}
 
-	logger.Info("Mesage....", string(msg.Data))
 	dataByte, _ := hex.DecodeString(msg.Data)
 	return encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.TopicId},
-		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Sender},
-		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Receiver},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: crypto.Keccak256Hash(dataByte)},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: attachments},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: actions},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: attachments},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: crypto.Keccak256Hash(dataByte)},
+		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Receiver},
+		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Sender},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.TopicId},
 	)
 }
 

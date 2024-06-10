@@ -15,14 +15,27 @@ import (
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 /*
 Validate an agent authorization
 */
-func ValidateTopicData(topic *entities.Topic) (currentTopicState *models.TopicState, err error) {
-	// check fields of topic
-	logger.Info("Topiccc", topic.Ref)
+func ValidateTopicData(topic *entities.Topic, authState *models.AuthorizationState) (currentTopicState *models.TopicState, err error) {
+	subnet := models.SubnetState{}
+
+	// TODO state might have changed befor receiving event, so we need to find state that is relevant to this event.
+	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: topic.Subnet}}, &subnet)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, apperror.Forbidden("Invalid subnet id")
+		}
+		return nil, apperror.Internal(err.Error())
+	}
+	if  *authState.Priviledge < constants.StandardPriviledge {
+		return nil, apperror.Forbidden("Not enough permission to create topics")
+	}
+	
 	if len(topic.Ref) > 40 {
 		return nil, apperror.BadRequest("Topic handle cannont be more than 40 characters")
 	}
@@ -57,7 +70,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	authEventHash := event.AuthEventHash
 	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
 
-	currentState, err := ValidateTopicData(data)
+	currentState, err := ValidateTopicData(data, authState)
 	if err != nil {
 		// penalize node for broadcasting invalid data
 		logger.Infof("Invalid topic data %v. Node should be penalized", err)

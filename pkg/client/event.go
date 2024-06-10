@@ -64,6 +64,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		if err != nil {
 			return nil, err
 		}
+		if *authState.Authorization.Priviledge < constants.StandardPriviledge {
+			return nil, apperror.Forbidden("Agent not authorized to perform this action")
+		}
 		// case uint16(constants.SubscribeTopicEvent):
 		// 	if authState.Authorization.Priviledge < constants.AdminPriviledge {
 		// 		return nil, apperror.Forbidden("Agent not authorized to perform this action")
@@ -93,7 +96,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, err
 		}
 	case uint16(constants.SubscribeTopicEvent), uint16(constants.ApprovedEvent), uint16(constants.BanMemberEvent), uint16(constants.UnbanMemberEvent):
-		if authState.Authorization.Priviledge < constants.WritePriviledge {
+		if *authState.Authorization.Priviledge < constants.StandardPriviledge {
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		eventPayloadType = constants.SubscriptionPayloadType
@@ -103,9 +106,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, err
 		}
 	case uint16(constants.SendMessageEvent):
-		logger.Infof("authState 2: %v ", authState)
+		logger.Infof("authState 2: %d ", *authState.Authorization.Priviledge)
 		// 1. Agent message
-		if authState.Authorization.Priviledge < constants.WritePriviledge {
+		if *authState.Authorization.Priviledge < constants.StandardPriviledge {
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		eventPayloadType = constants.MessagePayloadType

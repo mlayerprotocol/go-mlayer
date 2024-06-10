@@ -13,6 +13,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/client"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/sirupsen/logrus"
@@ -153,7 +154,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 		logger.Infof("Payload %v", topicPayload.Agent)
 
-		topics, err := client.GetTopics(topicPayload)
+		topics, err := query.GetTopics(topicPayload)
 
 		if err != nil {
 			logger.Error(err)
@@ -196,7 +197,7 @@ func (p *RestService) Initialize() *gin.Engine {
 				c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 				return
 			}
-			statusConst := constants.SubscriptionStatuses(iStatus)
+			statusConst := constants.SubscriptionStatus(iStatus)
 			subPayload.Status = &statusConst
 		}
 
@@ -235,7 +236,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	router.GET("/api/topics/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		topic, err := client.GetTopicById(id)
+		topic, err := query.GetTopicById(id)
 
 		if err != nil {
 			logger.Error(err)
@@ -474,7 +475,7 @@ func (p *RestService) Initialize() *gin.Engine {
 				c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 				return
 			}
-			statusConst := constants.SubscriptionStatuses(iStatus)
+			statusConst := constants.SubscriptionStatus(iStatus)
 			payload.Status = &statusConst
 		}
 
@@ -697,8 +698,4 @@ type BlockStat struct {
 	Events   int `json:"events"`
 	Topics   int `json:"topics"`
 	Messages int `json:"messages"`
-}
-type SubscriptionAS struct {
-	Subscriber string                         `json:"sub" `
-	Status     constants.SubscriptionStatuses `json:"st"  `
 }

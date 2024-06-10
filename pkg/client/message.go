@@ -101,7 +101,7 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 	}
 	payload.Data = payloadData
 
-	topicData, err := GetTopicById(payloadData.TopicId)
+	topicData, err := query.GetTopicById(payloadData.TopicId)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -112,12 +112,14 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 
 	// pool = channelpool.SubscriptionEventPublishC
 
-	var subscription models.SubscriptionState
-	err = query.GetOne(models.SubscriptionState{
-		Subscription: entities.Subscription{Subscriber: payload.Account, Topic: topicData.ID},
-	}, &subscription)
-	logger.Info()
-	if err != nil && payload.Account != topicData.Account {
+	
+	
+
+
+	_, subscription, err := service.ValidateMessageData(&payloadData, &payload, &topicData.Topic)
+	
+
+	if  payload.Account != topicData.Account {
 		if err != gorm.ErrRecordNotFound {
 			if payload.Account != topicData.Account {
 				return nil, &currentAuthState.Event, apperror.Forbidden("Now subscribed to topic")
@@ -125,11 +127,6 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 		}
 		return nil, &currentAuthState.Event, apperror.Internal(err.Error())
 	}
-	if *topicData.ReadOnly && payload.Account != topicData.Account && subscription.Role != &constants.AdminSubPriviledge {
-		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
-	}
-
-	_, err = service.ValidateMessageData(&payloadData, &payload)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -140,7 +137,25 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 	// }
 
 	// generate associations
-	assocPrevEvent = &subscription.Event
+		if subscription != nil  {
+			assocPrevEvent = &subscription.Event
+		} else {
+			if payload.Account == topicData.Account {
+				assocPrevEvent = &topicData.Event
+			} else {
+				var subnet models.SubnetState;
+				err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: topicData.Subnet}}, &subnet)
+				if err != nil {
+					if err == gorm.ErrRecordNotFound {
+						return nil, nil, apperror.Forbidden("Invalid subnet id")
+					}
+					return nil, nil, apperror.Internal(err.Error())
+				}
+				assocPrevEvent = &subnet.Event
+			
+			}
+
+	}
 
 	if currentAuthState != nil {
 		assocAuthEvent = &currentAuthState.Event

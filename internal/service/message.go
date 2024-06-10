@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
+	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -17,7 +18,7 @@ import (
 /*
 Validate an agent authorization
 */
-func ValidateMessageData(message *entities.Message, payload *entities.ClientPayload) (currentMessageState *models.MessageState, err error) {
+func ValidateMessageData(message *entities.Message, payload *entities.ClientPayload, topic *entities.Topic) (currentMessageState *models.MessageState, subscriptionState *models.SubscriptionState, err error) {
 	// check fields of message
 	// var currentState *models.MessageState
 
@@ -31,7 +32,36 @@ func ValidateMessageData(message *entities.Message, payload *entities.ClientPayl
 	// 		return nil, err
 	// 	}
 	// }
-	return nil, nil
+	var subscription models.SubscriptionState
+	// err = query.GetOne(models.SubscriptionState{
+	// 	Subscription: entities.Subscription{Subscriber: payload.Account, Topic: topicData.ID},
+	// }, &subscription)
+	subsribers := []entities.DIDString{entities.DIDString(payload.Agent), entities.DIDString(payload.Account.ToString())}
+	subscriptions, err := query.GetSubscriptionStateBySuscriber(payload.Subnet, message.TopicId, subsribers, nil)
+	if len(*subscriptions) > 0 {
+		if  len(*subscriptions) > 1 {
+			// if string(payload.Account)  != "" && (*subscriptions)[0].Subscription.Subscriber.ToString() == string(payload.Account) {
+			// 	subscription = (*subscriptions)[0]
+			// } else {
+			// 	subscription = (*subscriptions)[1]
+			// }
+			if  *((*subscriptions)[0].Subscription.Role) > *((*subscriptions)[1].Subscription.Role) {
+				subscription = (*subscriptions)[0]
+			} else {
+				subscription = (*subscriptions)[1]
+			}
+		} else {
+			subscription = (*subscriptions)[0]
+		}
+	}
+	
+	if *topic.ReadOnly && payload.Account != topic.Account && *subscription.Role < constants.TopicManagerRole {
+		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
+	}
+	if payload.Account != topic.Account && *subscription.Role < constants.TopicWriterRole {
+		return nil, nil, apperror.Unauthorized("Not allowed to post to this topic")
+	}
+	return nil,  subscriptionState, nil
 }
 
 func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
@@ -62,14 +92,19 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 	data := event.Payload.Data.(*entities.Message)
 	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
+	data.Agent = event.Payload.Agent
 
-	// var topicData *models.TopicState
+	topicData, err := query.GetTopicById(data.TopicId)
+	if err != nil {
+		eventError = err.Error()
+	}
 
-	// err = query.GetOne(models.TopicState{
-	// 	Topic: entities.Topic{ID: data.TopicId},
-	// }, &topicData)
+	if topicData == nil {
+		eventError = "Invalid topic id"
+	}
 
-	currentState, _ := ValidateMessageData(data, &event.Payload)
+
+	currentState, _, _ := ValidateMessageData(data, &event.Payload, &topicData.Topic)
 	prevEventUpToDate := false
 	authEventUpToDate := false
 

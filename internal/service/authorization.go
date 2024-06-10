@@ -54,6 +54,8 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 		return nil, nil, apperror.Forbidden("Subnet is required")
 	}
 	subnet := models.SubnetState{}
+
+	// TODO find subnets state prior to the current state
 	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: auth.Subnet}}, &subnet)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -61,6 +63,11 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 		}
 		return nil, nil, apperror.Internal(err.Error())
 	}
+
+	if auth.Account != subnet.Account && *auth.Priviledge > *subnet.DefaultAuthPrivilege {
+		return nil, nil, apperror.Internal("Invalid auth priviledge. Cannot be higher than subnets default")
+	}
+
 	switch auth.SignatureData.Type {
 	case entities.EthereumPubKey:
 		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(auth.Grantor)).Addr, &b, auth.SignatureData.Signature)
@@ -70,7 +77,7 @@ func ValidateAuthData(auth *entities.Authorization, addressPrefix string) (prevA
 			if err == gorm.ErrRecordNotFound {
 				return nil, nil, apperror.Unauthorized("Grantor not authorized agent")
 			}
-			if grantorAuthState.Authorization.Priviledge != constants.AdminPriviledge {
+			if *grantorAuthState.Authorization.Priviledge != constants.AdminPriviledge {
 				return nil, grantorAuthState, apperror.Forbidden(" Grantor does not have enough permission")
 			}
 		}
