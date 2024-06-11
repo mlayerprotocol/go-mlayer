@@ -33,11 +33,11 @@ func ValidateTopicData(topic *entities.Topic, authState *models.AuthorizationSta
 		return nil, apperror.Internal(err.Error())
 	}
 	if  *authState.Priviledge < constants.StandardPriviledge {
-		return nil, apperror.Forbidden("Not enough permission to create topics")
+		return nil, apperror.Forbidden("Agent does not have enough permission to create topics")
 	}
 	
 	if len(topic.Ref) > 40 {
-		return nil, apperror.BadRequest("Topic handle cannont be more than 40 characters")
+		return nil, apperror.BadRequest("Topic handle can not be more than 40 characters")
 	}
 	if !utils.IsAlphaNumericDot(topic.Ref) {
 		return nil, apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
