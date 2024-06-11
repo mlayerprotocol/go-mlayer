@@ -27,7 +27,6 @@ if [ ! -d "$WORKING_DIRECTORY" ]; then
         exit 1
     fi
 fi
-
 env GOOS=linux GOARCH=amd64 CGO_ENABLED=1  CXX="x86_64-linux-musl-g++" /usr/local/go/bin/go build -v -o $EXECUTABLE_PATH  .
 
 # Function to replace placeholders in the service file
