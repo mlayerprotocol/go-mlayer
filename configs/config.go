@@ -47,7 +47,7 @@ type MainConfiguration struct {
 	EVMRPCUrl                string         `mapstructure:"evm_rpc_url"` // deprecated
 	EVMRPCHttp               string         `mapstructure:"evm_rpc_http"`
 	EVMRPCWss                string         `mapstructure:"evm_rpc_wss"`
-	Network                  string         `mapstructure:"network"`
+	ProtocolVersion          string         `mapstructure:"protocol_version"`
 	ChannelMessageBufferSize uint           `mapstructure:"channel_message_buffer_size"`
 	Ipfs                     IpfsConfig     `mapstructure:"ipfs"`
 	Bsc                      EthChainConfig `mapstructure:"bsc"`

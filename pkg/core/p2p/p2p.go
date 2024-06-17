@@ -50,7 +50,8 @@ var logger = &log.Logger
 var protocolId string
 var privKey crypto.PrivKey
 
-const DiscoveryServiceTag = "ml-network"
+
+
 const (
 	AuthorizationChannel string = "ml-authorization-channel"
 	TopicChannel         string = "ml-topic-channel"
@@ -143,7 +144,7 @@ func Run(mainCtx *context.Context) {
 
 	}
 
-	protocolId = config.Network
+	protocolId = config.ProtocolVersion
 
 	// incomingAuthorizationC, ok := ctx.Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
 	// if !ok {
@@ -272,7 +273,7 @@ func Run(mainCtx *context.Context) {
 					handleConnect(&h, pi)
 				}
 			}
-			go Discover(ctx, h, kdht, fmt.Sprintf("ml:%s", config.Network), config)
+			go Discover(ctx, h, kdht,  fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.AddressPrefix), config)
 
 			// routingOptions := routing.Options{
 			// 	Expired: true,
@@ -315,7 +316,7 @@ func Run(mainCtx *context.Context) {
 		panic(err)
 	}
 	// setup local mDNS discovery
-	err = setupDiscovery(ctx, h)
+	err = setupDiscovery(ctx, h, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.AddressPrefix))
 	if err != nil {
 		panic(err)
 	}
@@ -634,11 +635,11 @@ func disconnect(h host.Host, id peer.ID) {
 
 // setupDiscovery creates an mDNS discovery service and attaches it to the libp2p Host.
 // This lets us automatically discover peers on the same LAN and connect to them.
-func setupDiscovery(ctx context.Context, h host.Host) error {
+func setupDiscovery(ctx context.Context, h host.Host, serviceName string) error {
 	n := discoveryNotifee{h: h}
 	// n.h = make(chan peer.AddrInfo)
 	// setup mDNS discovery to find local peers
-	disc := mdns.NewMdnsService(h, DiscoveryServiceTag, &n)
+	disc := mdns.NewMdnsService(h, serviceName, &n)
 	// if err := disc.Start(); err != nil {
 	// 	panic(err)
 	// }

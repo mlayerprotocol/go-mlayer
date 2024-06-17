@@ -3,8 +3,14 @@ package constants
 import "html/template"
 
 const (
+	NETWORK_NAME = "mlayer" // time interval within which to accept a handshake
+)
+
+const (
 	VALID_HANDSHAKE_SECONDS = 15 // time interval within which to accept a handshake
 )
+
+var VALID_PROTOCOLS = []string{"/proto/1.0.0"}
 
 const (
 	DefaultRPCPort            string = "9525"
@@ -12,7 +18,7 @@ const (
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data/store"
 	DefaultMLBlockchainAPIUrl string = ":9520"
-	DefaultNetwork            string = "mainnet"
+	DefaultProtocolVersion           string = "/proto/1.0.0"
 )
 const (
 	RelayNodeType     uint = 0

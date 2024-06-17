@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"encoding/hex"
+	"slices"
 
 	"sync"
 
@@ -26,17 +27,14 @@ import (
 
 var logger = &log.Logger
 
-const (
-	TESTNET string = "/mlayer/testing"
-	MAINNET        = "/mlayer/mainnet"
-)
+
 
 type Flag string
 
 const (
 	NETWORK_PRIVATE_KEY Flag = "network-private-key"
 	NODE_PRIVATE_KEY    Flag = "node-private-key"
-	NETWORK                  = "network"
+	PROTOCOL_VERSION    Flag  = "protocol-version"
 	RPC_PORT            Flag = "rpc-port"
 	WS_ADDRESS          Flag = "ws-address"
 	REST_ADDRESS        Flag = "rest-address"
@@ -69,7 +67,7 @@ func init() {
 	rootCmd.AddCommand(daemonCmd)
 	daemonCmd.Flags().StringP(string(NETWORK_PRIVATE_KEY), "e", "", "The network private key. This is the key used to sign handshakes and messages")
 	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
-	daemonCmd.Flags().StringP(string(NETWORK), "m", MAINNET, "Network mode")
+	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "v", constants.DefaultProtocolVersion, "Protocol version")
 	daemonCmd.Flags().StringP(string(RPC_PORT), "p", constants.DefaultRPCPort, "RPC server port")
 	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", constants.DefaultWebSocketAddress, "ws service address")
 	daemonCmd.Flags().StringP(string(REST_ADDRESS), "r", constants.DefaultRestAddress, "rest api service address")
@@ -112,21 +110,21 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 		cfg.RestAddress = restAddress
 	}
 
-	dataDir, err := cmd.Flags().GetString(string(DATA_DIR))
+	dataDir, _ := cmd.Flags().GetString(string(DATA_DIR))
 	if len(dataDir) > 0 {
 		cfg.DataDir = dataDir
 	}
-	network, err := cmd.Flags().GetString(string(NETWORK))
-	if err != nil || len(network) == 0 {
-		if len(cfg.Network) == 0 {
-			panic("Network required")
-		}
+	protocolVersion, _ := cmd.Flags().GetString(string(PROTOCOL_VERSION))
+	
+	if len(protocolVersion) > 0 && protocolVersion != constants.DefaultProtocolVersion  {
+		cfg.ProtocolVersion = protocolVersion
 	}
-	if len(network) > 0 {
-		cfg.Network = network
+	if len(cfg.ProtocolVersion) == 0 {
+		cfg.ProtocolVersion = constants.DefaultProtocolVersion
 	}
-	if len(cfg.Network) == 0 {
-		cfg.Network = constants.DefaultNetwork
+
+	if !slices.Contains(constants.VALID_PROTOCOLS, cfg.ProtocolVersion) {
+		panic("Invalid protocol version provided")
 	}
 
 	if rpcPort == constants.DefaultRPCPort && len(cfg.RPCPort) > 0 {
