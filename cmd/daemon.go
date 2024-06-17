@@ -32,6 +32,7 @@ var logger = &log.Logger
 type Flag string
 
 const (
+	NETWORK_ADDRESS_PRFIX Flag = "network-address-prefix"
 	NETWORK_PRIVATE_KEY Flag = "network-private-key"
 	NODE_PRIVATE_KEY    Flag = "node-private-key"
 	PROTOCOL_VERSION    Flag  = "protocol-version"
@@ -65,6 +66,7 @@ var daemonCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(daemonCmd)
+	daemonCmd.Flags().StringP(string(NETWORK_ADDRESS_PRFIX), "a", "", "The network address prefix. This is determines the primary network e.g. ml=>mainnet, mldev=>devnet,mltest=>testnet")
 	daemonCmd.Flags().StringP(string(NETWORK_PRIVATE_KEY), "e", "", "The network private key. This is the key used to sign handshakes and messages")
 	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
 	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "v", constants.DefaultProtocolVersion, "Protocol version")
@@ -89,9 +91,16 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	if err != nil || len(networkPrivateKey) == 0 {
 		panic("network_private_key is required. Use --network-private-key flag or environment var ML_NETWORK_PRIVATE_KEY")
 	}
+
+
 	if len(cfg.AddressPrefix) == 0 {
 		cfg.AddressPrefix = "ml"
 	}
+	prefix, _ := cmd.Flags().GetString(string(NETWORK_ADDRESS_PRFIX))
+	if len(prefix) > 0 {
+		cfg.AddressPrefix = prefix
+	}
+	
 	if len(networkPrivateKey) > 0 {
 		cfg.NetworkPrivateKey = networkPrivateKey
 		cfg.NetworkPublicKey = crypto.GetPublicKeyEDD(networkPrivateKey)

@@ -9,7 +9,8 @@
 
 #log_level options: "panic", "fatal", "error", "warn", "warning", "info", "debug", "trace"
 # Default value: "info"
-address_prefix="mldev"
+network_address_prefix="mldev"
+protocol_version="/proto/1.0.0"
 log_level = "info"
 data_dir="./data/store/kvs/"
 validator=true

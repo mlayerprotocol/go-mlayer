@@ -5,7 +5,7 @@ StartLimitBurst=5
 StartLimitIntervalSec=33
 
 [Service]
-ExecStart=/path/to/executable daemon --network-private-key your_pkey
+ExecStart=/path/to/executable daemon --network-private-key your_pkey --network-address-prefix address_prefix
 Restart=always
 RestartSec=5
 User=username
