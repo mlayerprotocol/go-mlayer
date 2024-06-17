@@ -9,11 +9,11 @@
 
 # Variables
 #SERVICE_FILE_REMOTE="$1"
-SERVICE_NAME=goml.service
-SERVICE_FILE_LOCAL="./scripts/service/$SERVICE_NAME"
-WORKING_DIRECTORY="/etc/mlayer/goml"
-CONFIG_FILE="./scripts/config.dev"
-EXECUTABLE_PATH=$WORKING_DIRECTORY/goml
+# SERVICE_NAME=goml.service
+# SERVICE_FILE_LOCAL="./scripts/service/$SERVICE_NAME"
+# WORKING_DIRECTORY="/etc/mlayer/goml"
+# CONFIG_FILE="./scripts/config.dev"
+# EXECUTABLE_PATH=$WORKING_DIRECTORY/goml
 USERNAME=$(whoami)
 
 yes | cp -rf  $SERVICE_FILE_LOCAL /etc/systemd/system/$SERVICE_NAME
