@@ -55,6 +55,12 @@ func IfThenElse[T any](condition bool, a T, b T) T {
 	}
 	return b
 }
+func SafePointerValue[T any](b *T, defaultValue T) T {
+	if b == nil {
+		return defaultValue
+	}
+	return *b
+}
 
 func ParseQueryString(c *gin.Context) (*[]byte, error) {
 	rawQuery := c.Request.URL.Query()

@@ -21,7 +21,7 @@ func New(mainCtx *context.Context, keyStore string) *Datastore {
 	if !ok {
 
 	}
-	dir := filepath.Join(cfg.DataDir, keyStore)
+	dir := filepath.Join(cfg.DataDir, "kv", keyStore)
 	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		panic(err)

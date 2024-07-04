@@ -187,7 +187,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		event.IsValid = markAsSynced && len(eventError) == 0.
 		event.Synced = markAsSynced
 		event.Broadcasted = true
-		_, _, err := query.SaveRecord(models.SubnetEvent{
+		_, _, err = query.SaveRecord(models.SubnetEvent{
 			Event: entities.Event{
 				PayloadHash: event.PayloadHash,
 			},
@@ -201,7 +201,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		}
 	} else {
 		if markAsSynced {
-			_, _, err := query.SaveRecord(models.SubnetEvent{
+			_, _, err = query.SaveRecord(models.SubnetEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash},
 			}, models.SubnetEvent{
 				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
@@ -211,7 +211,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 			}
 		} else {
 			// mark as broadcasted
-			_, _, err := query.SaveRecord(models.SubnetEvent{
+			_, _, err = query.SaveRecord(models.SubnetEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
 			},
 				models.SubnetEvent{
@@ -223,11 +223,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		}
 	}
 
-	// d, err := event.Payload.EncodeBytes()
-	if err != nil {
-		logger.Errorf("Invalid event payload")
-	}
-	// agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
+	
 	if err != nil {
 		logger.Errorf("Invalid event payload")
 	}
@@ -235,9 +231,9 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
-
+	var newState *models.SubnetState
 	if updateState {
-		_, _, err := query.SaveRecord(models.SubnetState{
+		newState, _, err = query.SaveRecord(models.SubnetState{
 			Subnet: entities.Subnet{ID: data.ID},
 		}, models.SubnetState{
 			Subnet: *data,
@@ -249,7 +245,9 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		}
 	}
 	tx.Commit()
-
+	if markAsSynced {
+		go OnFinishProcessingEvent(ctx, &data.Event, utils.IfThenElse(newState!=nil, &newState.ID, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
+	}
 	if string(event.Validator) != (*cfg).NetworkPublicKey {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {

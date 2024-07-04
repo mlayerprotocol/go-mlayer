@@ -33,47 +33,10 @@ const (
 	ErrorForbidden    = "4003"
 )
 
-type DataStore string
-
-const (
-	UnprocessedClientPayloadStore DataStore = "unprocessed-client-payload-store"
-	ValidMessageStore             DataStore = "valid-messages"
-	UnsentMessageStore                      = "unsent-messages"
-	SentMessageStore                        = "sent-messages"
-	NewTopicSubscriptionStore               = "new-topic-subscription"
-	TopicSubscriptionStore                  = "top-subscriptions"
-	TopicSubscriptionCountStore             = "topic-subscription-count"
-	DeliveryProofStore                      = "delivery-proof-store"
-	UnconfirmedDeliveryProofStore           = "unconfirmed-delivery-proof-store"
-	DeliveryProofBlockStateStore            = "delivery-proof-block-state-store"
-	SubscriptionBlockStateStore             = "subscription-block-state-store"
-	DeliveryProofBlockStore                 = "dp-block-store"
-	SubscriptionBlockStore                  = "sub-block-store"
-	ConnectedSubscribersMap                 = "connected-subscribers-map"
-)
 
 // Channel Ids within main context
 const (
 	ConfigKey                       string = "Config"
-	BroadcastAuthorizationEventChId string = "BroadcastAuthorizationEventChannel"
-	BroadcastTopicEventChId                = "BroadcastTopicEventChannel"
-	BroadcastSubnetEventChId               = "BroadcastSubnetEventChannel"
-	// IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
-	IncomingTopicEventChId = "IncomingTopicEventChannel"
-
-	OutgoingMessageChId     = "OutgoingMessageChannel"
-	OutgoingMessageDP2PChId = "OutgoingMessageDP2PChannel"
-	IncomingMessageChId     = "IncomingMessageChannel"
-
-	PublishMessageChId              = "PublishMessageChannel"
-	SubscribeChId                   = "SubscribeChannel"
-	SubscriptionDP2PChId            = "SubscriptionDP2PChannel"
-	ClientHandShackChId             = "ClientHandshakeChannel"
-	OutgoingDeliveryProof_BlockChId = "OutgoingDeliveryProofBlockChannel"
-	OutgoingDeliveryProofChId       = "OutgoinDeliveryProofChannel"
-	PubSubBlockChId                 = "PubSubBlockChannel"
-	PubsubDeliverProofChId          = "PubsubProofChannel"
-	PublishedSubChId                = "PublishedSubChannel"
 	SQLDB                           = "sqldb"
 )
 

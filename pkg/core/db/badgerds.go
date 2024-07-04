@@ -9,25 +9,28 @@ import (
 	"sync"
 	"time"
 
-	badger "github.com/dgraph-io/badger"
-	options "github.com/dgraph-io/badger/options"
+	badger "github.com/dgraph-io/badger/v4"
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
-	logger "github.com/ipfs/go-log/v2"
+	ipfsLogger "github.com/ipfs/go-log/v2"
 	goprocess "github.com/jbenet/goprocess"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	mlLog "github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
 // badgerLog is a local wrapper for go-log to make the interface
 // compatible with badger.Logger (namely, aliasing Warnf to Warningf)
+var logger = &mlLog.Logger
+
 type badgerLog struct {
-	logger.ZapEventLogger
+	ipfsLogger.ZapEventLogger
 }
 
 func (b *badgerLog) Warningf(format string, args ...interface{}) {
 	b.Warnf(format, args...)
 }
 
-var log = logger.Logger("badger")
+ var log = ipfsLogger.Logger("badger")
 
 var ErrClosed = errors.New("datastore closed")
 
@@ -98,23 +101,6 @@ func init() {
 	// stop isn't nice.
 	DefaultOptions.Options.CompactL0OnClose = false
 
-	// The alternative is "crash on start and tell the user to fix it". This
-	// will truncate corrupt and unsynced data, which we don't guarantee to
-	// persist anyways.
-	DefaultOptions.Options.Truncate = true
-
-	// Uses less memory, is no slower when writing, and is faster when
-	// reading (in some tests).
-	DefaultOptions.Options.ValueLogLoadingMode = options.FileIO
-
-	// Explicitly set this to mmap. This doesn't use much memory anyways.
-	DefaultOptions.Options.TableLoadingMode = options.MemoryMap
-
-	// Reduce this from 64MiB to 16MiB. That means badger will hold on to
-	// 20MiB by default instead of 80MiB.
-	//
-	// This does not appear to have a significant performance hit.
-	DefaultOptions.Options.MaxTableSize = 16 << 20
 }
 
 var _ ds.Datastore = (*Datastore)(nil)
@@ -133,7 +119,7 @@ func NewDatastore(path string, options *Options) (*Datastore, error) {
 	var gcSleep time.Duration
 	var gcInterval time.Duration
 	if options == nil {
-		opt = badger.DefaultOptions("")
+		opt = badger.DefaultOptions(path).WithInMemory(false)
 		gcDiscardRatio = DefaultOptions.GcDiscardRatio
 		gcSleep = DefaultOptions.GcSleep
 		gcInterval = DefaultOptions.GcInterval
@@ -229,26 +215,34 @@ func (d *Datastore) newImplicitTransaction(readOnly bool) *txn {
 }
 
 func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
-	d.closeLk.RLock()
-	defer d.closeLk.RUnlock()
-	if d.closed {
-		return ErrClosed
-	}
+	logger.Infof("KEYYYYY %s value %d vvv %v", string(key.Bytes()), encoder.NumberFromByte(value), value)
+	return d.DB.Update(func(txn *badger.Txn) error {
+		return txn.Set(key.Bytes(), value)
+	})
+	
+	// d.closeLk.RLock()
+	// defer d.closeLk.RUnlock()
+	// if d.closed {
+	// 	return ErrClosed
+	// }
 
-	txn := d.newImplicitTransaction(false)
-	defer txn.discard()
+	// txn := d.newImplicitTransaction(false)
+	// defer txn.discard()
 
-	if err := txn.put(key, value); err != nil {
-		return err
-	}
+	// if err := txn.put(key, value); err != nil {
+	// 	return err
+	// }
 
-	return txn.commit()
+	// return txn.commit()
 }
 
 func (d *Datastore) Set(ctx context.Context, key ds.Key, value []byte, replace bool) error {
+	log.Infof("ERRORCLOSED:::: %s %T", key, replace)
 	d.closeLk.RLock()
 	defer d.closeLk.RUnlock()
+	
 	if d.closed {
+		
 		return ErrClosed
 	}
 
@@ -256,11 +250,12 @@ func (d *Datastore) Set(ctx context.Context, key ds.Key, value []byte, replace b
 	defer txn.discard()
 	if !replace {
 		has, err := txn.has(key)
+		log.Infof("REPLACING.... %v", err)
 		if has && err == nil {
 			return errors.New("Key already exists")
 		}
 	}
-
+	
 	if err := txn.put(key, value); err != nil {
 		return err
 	}
@@ -330,16 +325,24 @@ func (d *Datastore) GetExpiration(ctx context.Context, key ds.Key) (time.Time, e
 }
 
 func (d *Datastore) Get(ctx context.Context, key ds.Key) (value []byte, err error) {
-	d.closeLk.RLock()
-	defer d.closeLk.RUnlock()
-	if d.closed {
-		return nil, ErrClosed
-	}
-
-	txn := d.newImplicitTransaction(true)
-	defer txn.discard()
-
-	return txn.get(key)
+	
+	err = d.DB.View(func(txn *badger.Txn) error {
+		
+        item, err := txn.Get(key.Bytes())
+		logger.Infof("KEYYYYY ONLY %s %v", string(key.Bytes()), err)
+        if err != nil {
+            return err
+        }
+		
+        err = item.Value(func(val []byte) error {
+            // Copying the value to retrievedValue
+            value = append([]byte{}, val...)
+			logger.Infof("KEYYYYY %s value %d vvv %v", string(key.Bytes()), encoder.NumberFromByte(value), value)
+            return nil
+        })
+        return err
+    })
+	return value, err
 }
 
 func (d *Datastore) Has(ctx context.Context, key ds.Key) (bool, error) {

@@ -3,18 +3,26 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
+	"github.com/dgraph-io/badger"
+	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
 var logger = &log.Logger
+var	eventCounterStore *db.Datastore
 
 func ConnectClient(message []byte, protocol constants.Protocol, client interface{}) (*entities.ClientHandshake, error) {
 	verifiedRequest, _ := entities.UnpackClientHandshake(message)
@@ -139,6 +147,88 @@ func ValidateMessageClient(
 	}
 	logger.Infof("results:  %v  \n", subscriptionStates[0])
 	return nil
+}
+
+
+func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPath, stateId *string, err error) {
+	
+	event, err := query.GetEventFromPath(eventPath)
+	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+	if !ok {
+		panic("Unable to connect to counter data store")
+	}
+	if err == nil || event != nil {
+		// increment count
+		currentSubnetCount := uint64(0);
+		currentCycleCount := uint64(0);
+		subnetCycleUnclaimed := uint64(0);
+		batch, err :=	eventCounterStore.Batch(*ctx)
+		if err != nil {
+			panic(err)
+		}
+		
+		subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
+		subnetClaimStatusKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s/claimed", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
+		cycleKey :=  datastore.NewKey(fmt.Sprintf("%s/%d", event.Payload.Validator, chain.GetCycle(event.BlockNumber)))
+		val, err := eventCounterStore.Get(*ctx, subnetKey)
+		
+		if err != nil  {
+			if err != badger.ErrKeyNotFound {
+				logger.Error(err)
+				return;
+			}
+		} else {
+			currentSubnetCount = encoder.NumberFromByte(val)
+		}
+		
+		cycleCount, err := eventCounterStore.Get(*ctx, cycleKey)
+		logger.Infof("CURRENTCYCLE %d", cycleCount)
+		if err != nil  {
+			if err != badger.ErrKeyNotFound {
+				logger.Error(err)
+				return;
+			}
+		} else {
+			currentCycleCount = encoder.NumberFromByte(cycleCount)
+		}
+
+		claimStatus, err := eventCounterStore.Get(*ctx, subnetClaimStatusKey)
+		logger.Infof("CURRENTCYCLECLAIM %d", claimStatus)
+		if err != nil  {
+			if err != badger.ErrKeyNotFound {
+				logger.Error(err)
+				return;
+			}
+			subnetCycleUnclaimed = uint64(1);
+		} else {
+			subnetCycleUnclaimed = encoder.NumberFromByte(claimStatus)
+		}
+
+		err = batch.Put(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount))
+		if err != nil {
+			panic(err)
+		}
+		err = batch.Put(*ctx, cycleKey, encoder.NumberToByte(1+currentCycleCount))
+		if err != nil {
+			panic(err)
+		}
+
+		if subnetCycleUnclaimed == 0 {
+			err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(1))
+			if err != nil {
+				panic(err)
+			}	
+		}
+		// err = eventCounterStore.Set(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount), true)
+		err = batch.Commit(*ctx)
+		if err != nil {
+			panic(err)
+		}
+		
+	} else {
+		logger.Error(err)
+	}
+
 }
 
 // func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,

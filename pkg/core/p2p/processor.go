@@ -26,6 +26,9 @@ func isChannelClosed(ch interface{}) bool {
 	return !ok
 }
 
+
+
+
 /***
 Publish Events to a specified p2p broadcast channel
 *****/
@@ -157,6 +160,7 @@ func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, 
 	// time.Sleep(5 * time.Second)
 	
 	_, cancel := context.WithCancel(*mainCtx)
+	
 	defer cancel()
 	for {
 		message, ok := <-fromPubSubChannel.Messages
@@ -204,6 +208,7 @@ func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, 
 		// logger.Infof("ADEDEEDDD %v", b)
 		// logger.Infof("Event Received ----===> %v", event.GetValidator())
 		// toGoChannel <- event
+		
 		go process(event, mainCtx)
 	}
 	// for {

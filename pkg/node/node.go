@@ -27,7 +27,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
-	"github.com/mlayerprotocol/go-mlayer/internal/message"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
@@ -67,18 +66,22 @@ func Start(mainCtx *context.Context) {
 
 	// stores messages that have been validated
 	// validMessagesStore := db.New(&ctx, constants.ValidMessageStore)
-	unProcessedClientPayloadStore := db.New(&ctx, fmt.Sprintf("%s", constants.UnprocessedClientPayloadStore))
-	unsentMessageP2pStore := db.New(&ctx, constants.UnsentMessageStore)
+	// unProcessedClientPayloadStore := db.New(&ctx, fmt.Sprintf("%s", constants.UnprocessedClientPayloadStore))
+	// unsentMessageP2pStore := db.New(&ctx, constants.UnsentMessageStore)
 	// topicSubscriptionStore := db.New(&ctx, constants.TopicSubscriptionStore)
-	newTopicSubscriptionStore := db.New(&ctx, constants.NewTopicSubscriptionStore)
+	// newTopicSubscriptionStore := db.New(&ctx, constants.NewTopicSubscriptionStore)
 	// topicSubscriptionCountStore := db.New(&ctx, constants.TopicSubscriptionCountStore)
 	// sentMessageStore := db.Db(&ctx, constants.SentMessageStore)
 	// deliveryProofStore := db.New(&ctx, constants.DeliveryProofStore)
 	// localDPBlockStore := db.New(&ctx, constants.DeliveryProofBlockStore)
 	// unconfirmedBlockStore := db.New(&ctx, constants.UnconfirmedDeliveryProofStore)
+	eventCountStore := db.New(&ctx,   string(constants.EventCountStore))
+	ctx = context.WithValue(ctx, constants.EventCountStore, eventCountStore)
 
-	ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
-	ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
+	claimedRewardStore := db.New(&ctx,   string(constants.ClaimedRewardStore))
+	ctx = context.WithValue(ctx, constants.ClaimedRewardStore, claimedRewardStore)
+	// ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
+	// ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
 	ctx = context.WithValue(ctx, constants.ConnectedSubscribersMap, connectedSubscribers)
 
 	defer wg.Wait()
@@ -143,13 +146,13 @@ func Start(mainCtx *context.Context) {
 	// 		&wg)
 	// }()
 
-	wg.Add(1)
-	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		defer wg.Done()
-		message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
-	}()
+	// wg.Add(1)
+	// go func() {
+	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
+	// }()
 
 	wg.Add(1)
 	go func() {

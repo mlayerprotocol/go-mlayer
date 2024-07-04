@@ -8,6 +8,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
@@ -266,10 +267,9 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	}
 
 	data.Subnet = event.Payload.Subnet
-
+	var newState *models.SubscriptionState
 	if updateState {
-		logger.Infof("data.ID++++ %v", data.ID)
-		_, _, err := query.SaveRecord(models.SubscriptionState{
+		newState, _, err = query.SaveRecord(models.SubscriptionState{
 			Subscription: entities.Subscription{ID: data.ID, Subnet: data.Subnet, Subscriber: data.Subscriber, Topic: data.Topic},
 		}, models.SubscriptionState{
 			Subscription: *data,
@@ -281,7 +281,9 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		}
 	}
 	tx.Commit()
-
+	if markAsSynced {
+		go OnFinishProcessingEvent(ctx, &data.Event, utils.IfThenElse(newState!=nil, &newState.ID, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
+	}
 	if string(event.Validator) != (*cfg).NetworkPublicKey {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {

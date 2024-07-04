@@ -8,7 +8,7 @@ import (
 	// "github.com/gin-gonic/gin"
 	"io/ioutil"
 
-	badger "github.com/dgraph-io/badger"
+	badger "github.com/dgraph-io/badger/v4"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 		panic(err)
 	}
 	//defer ioutil.removeDir(dir)
-	db, err := badger.Open(badger.DefaultOptions(dir))
+	db, err := badger.Open(badger.DefaultOptions(dir).WithInMemory(false))
 	if err != nil {
 		panic(err)
 	}

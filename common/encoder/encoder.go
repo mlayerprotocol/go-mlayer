@@ -35,18 +35,22 @@ func MsgPackUnpackStruct(b []byte, message interface{}) error {
 	return err
 }
 
-func EncodeNumber(b []byte, message interface{}) error {
-	buf := bytes.NewBuffer(b)
-	dec := msgpack.NewDecoder(buf)
-	dec.SetCustomStructTag("json")
-	err := dec.Decode(&message)
-	return err
-}
+// func EncodeNumber(b []byte, message interface{}) error {
+// 	buf := bytes.NewBuffer(b)
+// 	dec := msgpack.NewDecoder(buf)
+// 	dec.SetCustomStructTag("json")
+// 	err := dec.Decode(&message)
+// 	return err
+// }
 
 func NumberToByte(i uint64) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
 	return b
+}
+
+func NumberFromByte(buf []byte) uint64 {
+	return (binary.BigEndian.Uint64(buf))
 }
 
 type EncoderDataType string

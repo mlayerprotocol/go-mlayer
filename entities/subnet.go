@@ -13,6 +13,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 )
 
 type Subnet struct {
@@ -124,11 +125,11 @@ func (item Subnet) EncodeBytes() ([]byte, error) {
 	}
 	return encoder.EncodeBytes(
 
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.DefaultAuthPrivilege},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(item.DefaultAuthPrivilege, 0)},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Owner},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.Status},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(item.Status, 0)},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Timestamp},
 	)
 }

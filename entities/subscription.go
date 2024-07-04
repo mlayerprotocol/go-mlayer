@@ -9,6 +9,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
@@ -97,8 +98,8 @@ func (sub Subscription) EncodeBytes() ([]byte, error) {
 
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Ref},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *sub.Role},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *sub.Status},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(sub.Role, 0)},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(sub.Status, 0)},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Subscriber.ToString()},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Topic},
 	)

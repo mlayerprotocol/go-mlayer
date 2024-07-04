@@ -240,9 +240,9 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	data.Agent = entities.AddressFromString(agent).ToDeviceString()
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
-
+	var newState *models.TopicState
 	if updateState {
-		_, _, err := query.SaveRecord(models.TopicState{
+		newState, _, err = query.SaveRecord(models.TopicState{
 			Topic: entities.Topic{ID: data.ID},
 		}, models.TopicState{
 			Topic: *data,
@@ -254,6 +254,9 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 		}
 	}
 	tx.Commit()
+	if markAsSynced {
+		go OnFinishProcessingEvent(ctx, &data.Event, utils.IfThenElse(newState!=nil, &newState.ID, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
+	}
 
 	if string(event.Validator) != (*cfg).NetworkPublicKey {
 		dependent, err := query.GetDependentEvents(*event)

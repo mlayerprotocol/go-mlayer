@@ -11,6 +11,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
@@ -291,8 +292,9 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 		}
 	}
 	authRequest.Event = *entities.NewEventPath(event.Validator, entities.AuthEventModel, event.Hash)
+	var newState *models.AuthorizationState
 	if updateState {
-		_, err := query.SaveAuthorizationState(authRequest, tx)
+		newState, err = query.SaveAuthorizationState(authRequest, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Fatal("5000: Db Error", err)
@@ -300,7 +302,14 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 		}
 	}
 	tx.Commit()
-
+	if markAsSynced {
+		go OnFinishProcessingEvent(ctx,
+			&authRequest.Event,
+			utils.IfThenElse(newState!=nil,
+				&newState.ID, nil), utils.IfThenElse(event.Error!="",
+				apperror.Internal(event.Error),
+				nil))
+	}
 	if string(event.Validator) != (*cfg).NetworkPublicKey {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {

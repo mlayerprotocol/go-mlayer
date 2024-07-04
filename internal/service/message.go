@@ -7,6 +7,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
@@ -240,8 +241,9 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 		updateState = true
 	}
 	logger.Infof("Lst Event is a valid event %t --- %s", markAsSynced, eventError)
+	var newState *models.MessageState
 	if updateState {
-		_, _, err := query.SaveRecord(models.MessageState{
+		newState, _, err = query.SaveRecord(models.MessageState{
 			Message: entities.Message{Hash: data.Hash},
 		}, models.MessageState{
 			Message: *data,
@@ -253,6 +255,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 		}
 	}
 	tx.Commit()
+	go OnFinishProcessingEvent(ctx, &data.Event, utils.IfThenElse(newState!=nil, &newState.ID, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
 
 	if string(event.Validator) != (*cfg).NetworkPublicKey {
 		dependent, err := query.GetDependentEvents(*event)

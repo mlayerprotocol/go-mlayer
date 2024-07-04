@@ -363,6 +363,10 @@ func Run(mainCtx *context.Context) {
 		panic(err)
 	}
 
+
+
+	
+
 	// unsubscribePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
@@ -373,6 +377,8 @@ func Run(mainCtx *context.Context) {
 	// 	panic(err)
 	// }
 
+
+	
 	// Publishers
 	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
 	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
@@ -384,6 +390,7 @@ func Run(mainCtx *context.Context) {
 	// go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
 	// Subscribers
+	
 
 	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
 	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx, service.HandleNewPubSubTopicEvent)
