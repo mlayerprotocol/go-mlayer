@@ -429,8 +429,8 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 			return
 		}
-		
-	subs := entities.Subscription{}
+
+		subs := entities.Subscription{}
 		// json.Unmarshal(*b, &subs)
 		// rawQuery := c.Request.URL.Query()
 		// err := c.ShouldBind(&subs)
@@ -453,7 +453,6 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subs}))
 		// c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
 	})
-	
 
 	router.GET("/api/subscription/account", func(c *gin.Context) {
 
@@ -533,6 +532,22 @@ func (p *RestService) Initialize() *gin.Engine {
 			return
 		}
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: mainStats}))
+	})
+
+	router.GET("/api/event-path/:hash/:type/:id", func(c *gin.Context) {
+		hash := c.Param("hash")
+		logger.Info("hash", hash)
+		typeParam := c.Param("type")
+		typeParamInt := client.GetEventFromType(entities.EventModel(typeParam))
+
+		topic, err := client.GetEventByHash(hash, int(typeParamInt))
+
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
 	})
 
 	router.GET("/api/event/:type/:id", func(c *gin.Context) {

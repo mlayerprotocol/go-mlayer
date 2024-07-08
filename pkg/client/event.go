@@ -28,7 +28,6 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	// 	return  err
 	// }
 
-	
 	if err != nil {
 		return nil, apperror.Internal(err.Error())
 	}
@@ -37,7 +36,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	excludedEvents := []constants.EventType{constants.CreateSubnetEvent, constants.UpdateSubnetEvent, constants.DeleteSubnetEvent, constants.AuthorizationEvent}
 	if !slices.Contains(excludedEvents, constants.EventType(payload.EventType)) {
 		authState, agent, err = ValidateClientPayload(&payload, true)
-		
+
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
@@ -50,7 +49,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			(uint64(*authState.Timestamp)+uint64(*authState.Duration)) {
 			return nil, apperror.Unauthorized("Agent authorization expired")
 		}
-		payload.Agent = *agent;
+		payload.Agent = *agent
 	}
 
 	var assocPrevEvent *entities.EventPath
@@ -105,7 +104,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		eventPayloadType = constants.SubscriptionPayloadType
-		
+
 		assocPrevEvent, assocAuthEvent, err = ValidateSubscriptionPayload(payload, authState)
 		if err != nil {
 			return nil, err
@@ -267,6 +266,40 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 
 }
 
+func GetEventFromType(eventType entities.EventModel) constants.EventType {
+	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+
+	// check if client payload is valid
+	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
+	// 	return  err
+	// }
+
+	//Perfom checks base on event types
+	switch eventType {
+	case entities.AuthEventModel:
+
+		return constants.AuthorizationEvent
+
+	case entities.TopicEventModel:
+		return constants.CreateTopicEvent
+
+	case entities.SubscriptionEventModel:
+		return constants.SubscribeTopicEvent
+
+	case entities.MessageEventModel:
+		return constants.SendMessageEvent
+
+	case entities.SubnetEventModel:
+		return constants.CreateSubnetEvent
+
+	case entities.WalletEventModel:
+		return constants.CreateWalletEvent
+	}
+
+	return 0
+
+}
+
 func GetEvent(eventId string, eventType int) (model interface{}, err error) {
 	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
@@ -327,11 +360,87 @@ func GetEvent(eventId string, eventType int) (model interface{}, err error) {
 
 }
 
+func GetEventByHash(eventHash string, eventType int) (model interface{}, err error) {
+	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+
+	// check if client payload is valid
+	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
+	// 	return  err
+	// }
+
+	//Perfom checks base on event types
+	switch uint16(eventType) {
+	case uint16(constants.CreateTopicEvent), uint16(constants.UpdateNameEvent), uint16(constants.UpdateTopicEvent), uint16(constants.LeaveEvent):
+		topic, err1 := GetTopicEventByHash(eventHash)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+
+	case uint16(constants.CreateSubnetEvent):
+		topic, err1 := GetSubnetEventByHash(eventHash)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+
+	case uint16(constants.SubscribeTopicEvent), uint16(constants.ApprovedEvent), uint16(constants.BanMemberEvent), uint16(constants.UnbanMemberEvent):
+		topic, err1 := GetSubEventByHash(eventHash)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+	case uint16(constants.SendMessageEvent), uint16(constants.DeleteMessageEvent):
+		topic, err1 := GetMessageEventByHash(eventHash)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+
+	case uint16(constants.AuthorizationEvent), uint16(constants.UnauthorizationEvent):
+		topic, err1 := GetAuthorizationEventByHash(eventHash)
+
+		if err1 != nil {
+			logger.Error(err)
+			return nil, err1
+		}
+		return topic, nil
+	default:
+	}
+
+	return model, nil
+
+}
+
 func GetTopicEventById(id string) (*models.TopicEvent, error) {
 	nEvent := models.TopicEvent{}
 
 	err := query.GetOne(models.TopicEvent{
 		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+
+}
+
+func GetTopicEventByHash(hash string) (*models.TopicEvent, error) {
+	nEvent := models.TopicEvent{}
+
+	err := query.GetOne(models.TopicEvent{
+		Event: entities.Event{Hash: hash},
 	}, &nEvent)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -359,11 +468,42 @@ func GetSubnetEventById(id string) (*models.SubnetEvent, error) {
 
 }
 
+func GetSubnetEventByHash(hash string) (*models.SubnetEvent, error) {
+	nEvent := models.SubnetEvent{}
+
+	err := query.GetOne(models.SubnetEvent{
+		Event: entities.Event{Hash: hash},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+
+}
+
 func GetSubEventById(id string) (*models.SubscriptionEvent, error) {
 	nEvent := models.SubscriptionEvent{}
 
 	err := query.GetOne(models.SubscriptionEvent{
 		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+}
+
+func GetSubEventByHash(hash string) (*models.SubscriptionEvent, error) {
+	nEvent := models.SubscriptionEvent{}
+
+	err := query.GetOne(models.SubscriptionEvent{
+		Event: entities.Event{Hash: hash},
 	}, &nEvent)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -389,11 +529,41 @@ func GetMessageEventById(id string) (*models.MessageEvent, error) {
 	return &nEvent, nil
 }
 
+func GetMessageEventByHash(hash string) (*models.MessageEvent, error) {
+	nEvent := models.MessageEvent{}
+
+	err := query.GetOne(models.MessageEvent{
+		Event: entities.Event{Hash: hash},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+}
+
 func GetAuthorizationEventById(id string) (*models.AuthorizationEvent, error) {
 	nEvent := models.AuthorizationEvent{}
 
 	err := query.GetOne(models.AuthorizationEvent{
 		Event: entities.Event{ID: id},
+	}, &nEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &nEvent, nil
+}
+
+func GetAuthorizationEventByHash(hash string) (*models.AuthorizationEvent, error) {
+	nEvent := models.AuthorizationEvent{}
+
+	err := query.GetOne(models.AuthorizationEvent{
+		Event: entities.Event{Hash: hash},
 	}, &nEvent)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
