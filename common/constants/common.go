@@ -13,12 +13,15 @@ const (
 var VALID_PROTOCOLS = []string{"/proto/1.0.0"}
 
 const (
+	DefaultPKeyPath string = "./data/.local.key"
+)
+const (
 	DefaultRPCPort            string = "9525"
 	DefaultWebSocketAddress   string = "127.0.0.1:8088"
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data/store"
 	DefaultMLBlockchainAPIUrl string = ":9520"
-	DefaultProtocolVersion           string = "/proto/1.0.0"
+	DefaultProtocolVersion    string = "/proto/1.0.0"
 )
 const (
 	RelayNodeType     uint = 0
@@ -90,7 +93,6 @@ const (
 	MQTT Protocol = "mqtt"
 	RPC  Protocol = "rpc"
 )
-
 
 type SubnetCategory int16
 
