@@ -3,6 +3,7 @@ package query
 import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+	"gorm.io/gorm"
 )
 
 // func GetManyWithEvent[T any, U any](filter T, event entities.Event, data *U) error {
@@ -48,6 +49,8 @@ import (
 // 	tx.Commit()
 // 	return &data, nil
 // }
+
+var ErrorNotFound = gorm.ErrRecordNotFound
 
 func EventExist(ePath *entities.EventPath) bool {
 	if ePath.Hash == "" {

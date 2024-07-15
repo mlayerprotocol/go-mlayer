@@ -186,7 +186,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).OperatorPublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -258,7 +258,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 		go OnFinishProcessingEvent(ctx, &data.Event, utils.IfThenElse(newState!=nil, &newState.ID, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
 	}
 
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).OperatorPublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)

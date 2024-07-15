@@ -3,13 +3,22 @@ package utils
 import (
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
 var logger = &log.Logger
+
+func lcg(seed uint64)  (uint64) {
+    a := uint64(1664525)
+    c := uint64(1013904223)
+    m := uint64(1 << 32)
+    return ((a * seed + c) % m)
+}
 
 func Contains(s []string, str string) bool {
 	for _, v := range s {
@@ -19,9 +28,17 @@ func Contains(s []string, str string) bool {
 	}
 	return false
 }
-
+func RandomString(length int) string {
+	str, _ := gonanoid.Generate("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-_", length)
+	return str
+}
 func TimestampMilli() uint64 {
 	return uint64(time.Now().UnixNano() / 1e6)
+}
+
+func IsNumericInt(s string) bool {
+    _, err := strconv.Atoi(s)
+    return err == nil
 }
 
 func IsAlphaNumericDotNoNumberPrefix(str string) bool {

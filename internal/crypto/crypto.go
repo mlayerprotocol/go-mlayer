@@ -44,7 +44,7 @@ func GetPublicKeyEDD(privKey string) string {
 	return privKey[64:]
 }
 
-func NetworkPrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
+func PrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
 		logger.Fatalf("Invalid private key %o", err)
@@ -80,6 +80,7 @@ func SignEDD(message []byte, privKey string) ([]byte, string) {
 	if err != nil {
 		logger.Fatalf("Invalid private key string %o", err)
 	}
+	
 	pKey := ed25519.PrivateKey(key)
 	hash := Sha256(message)
 	// logger.WithFields(logrus.Fields{"action": "crypto.Sign", "message": message}).Infof("Message hash: %s", hash.Hex())
@@ -91,7 +92,7 @@ func SignEDD(message []byte, privKey string) ([]byte, string) {
 	return signature, hex.EncodeToString(signature)
 }
 
-func SignSECP(message []byte, privKey string) ([]byte, string) {
+func SignSECP(message []byte, privKey string) (signatureByte []byte, signatureString string) {
 	privateKeyByte, err := hex.DecodeString(privKey)
 	if err != nil {
 		logger.Fatalf("Invalid private key %o",  err)
@@ -171,7 +172,7 @@ func VerifySignatureSECP(publicKeyBytes []byte, message []byte, signatureByte []
 	msg := Sha256(message)
 	// v, _ := hex.DecodeString(fmt.Sprintf("%s%s",  parsedSign.R.Text(16), parsedSign.S.Text(16)))
 	// sig := encoder.ToBase64Padded(v)
-	print("HASSEHD ", parsedSign.R.Text(16), parsedSign.S.Text(16))
+	
 	return parsedSign.Verify(msg[:], pubKey), nil
 }
 

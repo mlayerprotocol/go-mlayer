@@ -10,7 +10,7 @@ const (
 	VALID_HANDSHAKE_SECONDS = 15 // time interval within which to accept a handshake
 )
 
-var VALID_PROTOCOLS = []string{"/proto/1.0.0"}
+var VALID_PROTOCOLS = []string{"/mlayer/1.0.0"}
 
 const (
 	DefaultRPCPort            string = "9525"
@@ -18,11 +18,13 @@ const (
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data/store"
 	DefaultMLBlockchainAPIUrl string = ":9520"
-	DefaultProtocolVersion           string = "/proto/1.0.0"
+	DefaultProtocolVersion           string = "/mlayer/1.0.0"
 )
+
+type NodeType uint
 const (
-	RelayNodeType     uint = 0
-	ValidatorNodeType uint = 1
+	RelayNodeType     NodeType = 0
+	ValidatorNodeType NodeType = 1
 )
 
 const MaxBlockSize = 1000
@@ -125,7 +127,7 @@ MessageHash     = mH
 MessageSender   = mS
 Name            = nm
 Node            = n
-NodeAddress     = nA
+OperatorAddress     = nA
 NodeHeight      = nH
 NodeSignature   = nS
 NodeType        = nT

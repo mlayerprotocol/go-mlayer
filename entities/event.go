@@ -54,6 +54,17 @@ func NewEventPath(validator PublicKeyString, model EventModel, hash string) *Eve
 	return &EventPath{Model: model, Hash: hash, Validator: validator}
 }
 
+func (e *EventPath) MsgPack() ([]byte) {
+	b, _ := encoder.MsgPackStruct(e)
+	return b
+}
+
+func UnpackEventPath(b []byte) (EventPath, error) {
+	var p EventPath
+	err := encoder.MsgPackUnpackStruct(b, p)
+	return p, err
+}
+
 func EventPathFromString(path string) *EventPath {
 	parts := strings.Split(path, "/")
 	// assoc, err := strconv.Atoi(parts[0])
@@ -123,7 +134,7 @@ type Event struct {
 	ID string `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
 
 	Payload           ClientPayload `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
-	Nonce             string        `json:"nonce" gorm:"type:varchar(80);uniqueIndex:idx_nonce_hash;default:null" msgpack:",noinline"`
+	Nonce             string        `json:"nonce" gorm:"type:varchar(80);default:null" msgpack:",noinline"`
 	Timestamp         uint64        `json:"ts"`
 	EventType         uint16        `json:"t"`
 	Associations      []string      `json:"assoc" gorm:"type:text[]"`
@@ -133,7 +144,7 @@ type Event struct {
 	// StateHash string `json:"sh"`
 	// Secondary
 	Error       string          `json:"err"`
-	Hash        string          `json:"h" gorm:"uniqueIndex:idx_nonce_hash;type:char(64)"`
+	Hash        string          `json:"h" gorm:"type:char(64)"`
 	Signature   string          `json:"sig"`
 	Broadcasted bool            `json:"br"`
 	BlockNumber uint64          `json:"blk"`

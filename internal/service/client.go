@@ -154,6 +154,7 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 	
 	event, err := query.GetEventFromPath(eventPath)
 	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		panic("Unable to connect to counter data store")
 	}
@@ -161,14 +162,13 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 		// increment count
 		currentSubnetCount := uint64(0);
 		currentCycleCount := uint64(0);
-		subnetCycleUnclaimed := uint64(0);
+		
 		batch, err :=	eventCounterStore.Batch(*ctx)
 		if err != nil {
 			panic(err)
 		}
 		
 		subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
-		subnetClaimStatusKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s/claimed", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
 		cycleKey :=  datastore.NewKey(fmt.Sprintf("%s/%d", event.Payload.Validator, chain.GetCycle(event.BlockNumber)))
 		val, err := eventCounterStore.Get(*ctx, subnetKey)
 		
@@ -192,17 +192,33 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 			currentCycleCount = encoder.NumberFromByte(cycleCount)
 		}
 
-		claimStatus, err := eventCounterStore.Get(*ctx, subnetClaimStatusKey)
-		logger.Infof("CURRENTCYCLECLAIM %d", claimStatus)
-		if err != nil  {
-			if err != badger.ErrKeyNotFound {
-				logger.Error(err)
-				return;
-			}
-			subnetCycleUnclaimed = uint64(1);
-		} else {
-			subnetCycleUnclaimed = encoder.NumberFromByte(claimStatus)
-		}
+		// if event.Payload.Validator == entities.PublicKeyString(cfg.NetworkPublicKey) {
+		// 	subnetCycleClaimed := uint64(0);
+		// 	subnetClaimStatusKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s/claimed", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
+		// 	claimStatus, err := eventCounterStore.Get(*ctx, subnetClaimStatusKey)
+		// 	logger.Infof("CURRENTCYCLECLAIM %d", claimStatus)
+		// 	if err != nil  {
+		// 		if err != badger.ErrKeyNotFound {
+		// 			logger.Error(err)
+		// 			return;
+		// 		} else {
+		// 			err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(0))
+		// 			if err != nil {
+		// 				panic(err)
+		// 			}	
+		// 		}
+		// 	} else {
+		// 		subnetCycleClaimed = encoder.NumberFromByte(claimStatus)
+		// 	}
+		// 	if subnetCycleClaimed == 0 {
+		// 		err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(1))
+		// 		if err != nil {
+		// 			panic(err)
+		// 		}	
+		// 	}
+		// }
+
+		
 
 		err = batch.Put(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount))
 		if err != nil {
@@ -213,12 +229,7 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 			panic(err)
 		}
 
-		if subnetCycleUnclaimed == 0 {
-			err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(1))
-			if err != nil {
-				panic(err)
-			}	
-		}
+		
 		// err = eventCounterStore.Set(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount), true)
 		err = batch.Commit(*ctx)
 		if err != nil {
@@ -420,7 +431,7 @@ func FinalizeEvent [ T entities.Payload, State any] (
 	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).OperatorPublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -498,7 +509,7 @@ func FinalizeEvent [ T entities.Payload, State any] (
 	}
 	tx.Commit()
 
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).OperatorPublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)
@@ -672,7 +683,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).OperatorPublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -741,7 +752,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	}
 	tx.Commit()
 
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).OperatorPublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)

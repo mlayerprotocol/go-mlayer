@@ -62,10 +62,11 @@ func GetMainStats() (*entities.MainStat, error) {
 		}
 		return nil, err
 	}
+	msgCost, _ := chain.API.GetCurrentMessageCost()
 	return &entities.MainStat{
 		Accounts:     accountCount,
 		TopicBalance: topicBalanceTotal,
 		Messages:     messageCount,
-		MessageCount: big.NewInt(0).Mul(chain.API.GetCurrentMessageCost(), big.NewInt(messageCount)),
+		MessageCount: big.NewInt(1).Mul(msgCost, big.NewInt(messageCount)),
 	}, nil
 }

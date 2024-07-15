@@ -55,8 +55,12 @@ func IncrementBlockStat(blockNumber uint64, eventType *constants.EventType ) (mo
 	cycle := chain.GetCycle(blockNumber)
 	
 	
-
-	tx.Exec(fmt.Sprintf("UPDATE %s SET event_count = event_count + 1, %s = %s + %d, message_cost = %s, cycle = %d, epoch = %d WHERE block_number = ?", GetTableName(models.BlockStat{}), fieldName, fieldName, increment, chain.API.GetCurrentMessageCost(), cycle, epoch),  blockNumber)
+	 v, err :=  chain.API.GetCurrentMessageCost()
+	 if err != nil {
+		logger.Error(err)
+		return
+	 }
+	tx.Exec(fmt.Sprintf("UPDATE %s SET event_count = event_count + 1, %s = %s + %d, message_cost = %s, cycle = %d, epoch = %d WHERE block_number = ?", GetTableName(models.BlockStat{}), fieldName, fieldName, increment,v, cycle, epoch),  blockNumber)
 	
 	// data.EventCount = data.EventCount + 1
 	// tx.Save(&data)

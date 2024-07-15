@@ -136,7 +136,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
 		BlockNumber:       chain.API.GetCurrentBlockNumber(),
-		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
+		Validator:         entities.PublicKeyString(cfg.ValidatorPublicKey),
 	}
 
 	logger.Infof("NewEvent: %v", event)
@@ -148,7 +148,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	logger.Infof("eventPayloadType 2: %s", eventPayloadType)
 
 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
-	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
+	_, event.Signature = crypto.SignEDD(b, cfg.PrivateKey)
 
 	switch eventPayloadType {
 	case constants.TopicPayloadType:

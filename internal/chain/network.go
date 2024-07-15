@@ -75,10 +75,16 @@ func (n *MLChainAPI) GetMinStakeAmountForValidators() big.Int {
 	return *bal
 }
 
-func (n *MLChainAPI) GetCurrentMessageCost() *big.Int {
+func (n *MLChainAPI) GetCurrentMessageCost() (*big.Int, error) {
 	bal := new(big.Int)
 	bal.SetString("10000000", 10)
-	return bal
+	return bal, nil
+}
+
+func (n *MLChainAPI) GetMessageCost(cycle uint64) (*big.Int, error) {
+	bal := new(big.Int)
+	bal.SetString("10000000", 10)
+	return bal, nil
 }
 
 func (n *MLChainAPI) GetChannelBalance(address entities.DIDString) *big.Int {

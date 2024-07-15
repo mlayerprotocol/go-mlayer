@@ -32,13 +32,13 @@ type Flag string
 
 const (
 	NETWORK_ADDRESS_PRFIX Flag = "network-address-prefix"
-	NETWORK_PRIVATE_KEY Flag = "network-private-key"
-	NODE_PRIVATE_KEY    Flag = "node-private-key"
+	PRIVATE_KEY Flag = "private-key"
 	PROTOCOL_VERSION    Flag  = "protocol-version"
 	RPC_PORT            Flag = "rpc-port"
 	WS_ADDRESS          Flag = "ws-address"
 	REST_ADDRESS        Flag = "rest-address"
 	DATA_DIR            Flag = "data-dir"
+	LISTENERS            Flag = "listen"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -65,18 +65,18 @@ var daemonCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(daemonCmd)
-	daemonCmd.Flags().StringP(string(NETWORK_ADDRESS_PRFIX), "a", "", "The network address prefix. This is determines the primary network e.g. ml=>mainnet, mldev=>devnet,mltest=>testnet")
-	daemonCmd.Flags().StringP(string(NETWORK_PRIVATE_KEY), "e", "", "The network private key. This is the key used to sign handshakes and messages")
-	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
+	daemonCmd.Flags().StringP(string(NETWORK_ADDRESS_PRFIX), "p", "", "The network address prefix. This determines the operational network e.g. ml=>mainnet, mldev=>devnet,mltest=>testnet")
+	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "k", "", "The deligated operators private key. This is the key used to sign handshakes and messages. The coresponding public key must be assigned to the validator")
 	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "v", constants.DefaultProtocolVersion, "Protocol version")
-	daemonCmd.Flags().StringP(string(RPC_PORT), "p", constants.DefaultRPCPort, "RPC server port")
+	daemonCmd.Flags().StringP(string(RPC_PORT), "r", constants.DefaultRPCPort, "RPC server port")
 	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", constants.DefaultWebSocketAddress, "ws service address")
-	daemonCmd.Flags().StringP(string(REST_ADDRESS), "r", constants.DefaultRestAddress, "rest api service address")
-	daemonCmd.Flags().StringP(string(DATA_DIR), "d", constants.DefaultDataDir, "data directory")
+	daemonCmd.Flags().StringP(string(REST_ADDRESS), "R", constants.DefaultRestAddress, "rest api service address")
+	daemonCmd.Flags().StringP(string(DATA_DIR), "d", constants.DefaultDataDir, "data storage directory")
+	daemonCmd.Flags().StringSliceP(string(LISTENERS), "l", []string{}, "libp2p multiaddress array eg. [\"/ip4/127.0.0.1/tcp/5000/ws\", \"/ip4/127.0.0.1/tcp/5001\"]")
 
 }
 
-func daemonFunc(cmd *cobra.Command, args []string) {
+func daemonFunc(cmd *cobra.Command, _ []string) {
 	cfg := configs.Config
 	ctx := context.Background()
 
@@ -85,10 +85,11 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	rpcPort, _ := cmd.Flags().GetString(string(RPC_PORT))
 	wsAddress, _ := cmd.Flags().GetString(string(WS_ADDRESS))
 	restAddress, _ := cmd.Flags().GetString(string(REST_ADDRESS))
+	listeners, _ := cmd.Flags().GetStringSlice(string(LISTENERS))
 
-	networkPrivateKey, err := cmd.Flags().GetString(string(NETWORK_PRIVATE_KEY))
+	networkPrivateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
 	if err != nil || len(networkPrivateKey) == 0 {
-		panic("network_private_key is required. Use --network-private-key flag or environment var ML_NETWORK_PRIVATE_KEY")
+		panic("operators private_key is required. Use --private-key flag or environment var ML_PRIVATE_KEY")
 	}
 
 
@@ -101,13 +102,13 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}
 	
 	if len(networkPrivateKey) > 0 {
-		cfg.NetworkPrivateKey = networkPrivateKey
-		cfg.NetworkPublicKey = crypto.GetPublicKeyEDD(networkPrivateKey)
-		key, err := hex.DecodeString(cfg.NetworkPublicKey)
+		cfg.PrivateKey = networkPrivateKey
+		cfg.OperatorPublicKey  = crypto.GetPublicKeySECP(networkPrivateKey)
+		key, err := hex.DecodeString(cfg.OperatorPublicKey)
 		if err != nil {
 			panic(err)
 		}
-		cfg.NetworkKeyAddress = crypto.ToBech32Address(key, cfg.AddressPrefix)
+		cfg.OperatorAddress = crypto.ToBech32Address(key, cfg.AddressPrefix)
 	}
 
 	if len(wsAddress) > 0 {
@@ -143,6 +144,10 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	}
 	if len(cfg.RPCPort) == 0 {
 		cfg.RPCPort = constants.DefaultRPCPort
+	}
+	logger.Infof("LISTENERSSSSS %v", cfg.StakeContract)
+	if len(listeners) > 0 {
+		cfg.ListenerAdresses = listeners
 	}
 
 	chain.Init(&cfg)

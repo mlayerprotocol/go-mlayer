@@ -61,14 +61,14 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 }
 
 // func (p *MessageService) Send(chatMsg entities.Message, senderSignature string) (*entities.Event, error) {
-// 	// if strings.ToLower(chatMsg.Validator) != strings.ToLower(crypto.GetPublicKeyEDD(p.Cfg.NetworkPrivateKey)) {
+// 	// if strings.ToLower(chatMsg.Validator) != strings.ToLower(crypto.GetPublicKeyEDD(p.Cfg.PrivateKey)) {
 // 	// 	return nil, errors.New("Invalid Origin node address: " + chatMsg.Validator + " is not")
 // 	// }
 // 	if service.IsValidMessage(chatMsg, senderSignature) {
 
 // 		//if utils.Contains(chatMsg.Header.Channels, "*") || utils.Contains(chatMsg.Header.Channels, strings.ToLower(channel[0])) {
 
-// 			privateKey := p.Cfg.NetworkPrivateKey
+// 			privateKey := p.Cfg.PrivateKey
 
 // 			// TODO:
 // 			// if its an array check the channels .. if its * allow

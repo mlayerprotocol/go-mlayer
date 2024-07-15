@@ -3,6 +3,8 @@ package configs
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/spf13/viper"
 )
 
@@ -39,8 +41,6 @@ type MLChainAPI struct {
 
 type MainConfiguration struct {
 	AddressPrefix		 	 string 		`mapstructure:"network_address_prefix"`
-	NodePrivateKey           string         `mapstructure:"node_private_key"`
-	NetworkPrivateKey        string         `mapstructure:"network_private_key"`      
 	StakeContract            string         `mapstructure:"stake_contract"`
 	ChainId                  uint           `mapstructure:"chain_id"`
 	Token                    string         `mapstructure:"token_address"`
@@ -53,7 +53,7 @@ type MainConfiguration struct {
 	Bsc                      EthChainConfig `mapstructure:"bsc"`
 	LogLevel                 string         `mapstructure:"log_level"`
 	BootstrapPeers           []string       `mapstructure:"bootstrap_peers"`
-	Listeners                []string       `mapstructure:"listeners"`
+	ListenerAdresses                []string       `mapstructure:"listener_addresses"`
 	RPCHost                  string         `mapstructure:"rpc_host"`
 	WSAddress                string         `mapstructure:"ws_address"`
 	RestAddress                string         `mapstructure:"rest_address"`
@@ -64,8 +64,10 @@ type MainConfiguration struct {
 	DataDir                  string         `mapstructure:"data_dir"`
 	SQLDB                    SqlConfig     	`mapstructure:"sql"`
 	MLBlockchainAPIUrl		 string			`mapstructure:"mlayer_api_url"`
-	NetworkPublicKey      	 string  
-	NetworkKeyAddress		 string 
+	PrivateKey        		string          `mapstructure:"private_key"`
+	OperatorPublicKey       	string  
+	OperatorAddress		 		string 
+	ValidatorPublicKey		string
 }
 
 var (
@@ -104,17 +106,17 @@ func LoadMainConfig() *MainConfiguration {
 	if err := v.Unmarshal(&c); err != nil {
 		fmt.Printf("Fatal: Couldn't read config: %s \n", err.Error())
 	}
-	c.NetworkPrivateKey = v.GetString("network_private_key") // needed to load from environment var
-	if len(c.NetworkPrivateKey) == 0 {
-		c.NetworkPrivateKey = v.GetString("network_private_key") // needed to load from environment var
+	log.Infof("Loaded configuration from: %s", v.ConfigFileUsed())
+	c.PrivateKey = v.GetString("private_key") // needed to load from environment var
+	if len(c.PrivateKey) == 0 {
+		c.PrivateKey = v.GetString("private_key") // needed to load from environment var
 	}
-	if len(c.NodePrivateKey) == 0 {
-		c.NodePrivateKey = v.GetString("node_private_key") // needed to load from environment var
-	}
+	
 
 	c.DataDir = v.GetString("data_dir") // needed to load from environment var
 	if len(c.DataDir) == 0 {
 		c.DataDir = v.GetString("data_dir") // needed to load from environment var
 	}
+	
 	return &c
 }

@@ -68,7 +68,7 @@ func AuthorizeAgent(
 
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
-	if string(payload.Validator) != cfg.NetworkPublicKey {
+	if string(payload.Validator) != cfg.OperatorPublicKey  {
 		return nil, apperror.Forbidden("Validator not authorized to procces this request")
 	}
 
@@ -137,7 +137,7 @@ func AuthorizeAgent(
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
 		BlockNumber:       chain.API.GetCurrentBlockNumber(),
-		Validator:         entities.PublicKeyString(cfg.NetworkPublicKey),
+		Validator:         entities.PublicKeyString(cfg.OperatorPublicKey),
 	}
 
 	b, err := event.EncodeBytes()
@@ -146,7 +146,7 @@ func AuthorizeAgent(
 	}
 
 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
-	_, event.Signature = crypto.SignEDD(b, cfg.NetworkPrivateKey)
+	_, event.Signature = crypto.SignEDD(b, cfg.PrivateKey)
 
 	eModel, created, err := query.SaveAuthorizationEvent(&event, false, nil)
 	if err != nil {

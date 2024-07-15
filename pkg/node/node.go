@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"strings"
@@ -76,13 +75,19 @@ func Start(mainCtx *context.Context) {
 	// localDPBlockStore := db.New(&ctx, constants.DeliveryProofBlockStore)
 	// unconfirmedBlockStore := db.New(&ctx, constants.UnconfirmedDeliveryProofStore)
 	eventCountStore := db.New(&ctx,   string(constants.EventCountStore))
+	defer eventCountStore.Close()
 	ctx = context.WithValue(ctx, constants.EventCountStore, eventCountStore)
 
 	claimedRewardStore := db.New(&ctx,   string(constants.ClaimedRewardStore))
+	defer claimedRewardStore.Close()
 	ctx = context.WithValue(ctx, constants.ClaimedRewardStore, claimedRewardStore)
 	// ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
 	// ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
 	ctx = context.WithValue(ctx, constants.ConnectedSubscribersMap, connectedSubscribers)
+
+	// p2pDataStore := db.New(&ctx,   string(constants.P2PDataStore))
+	// defer p2pDataStore.Close()
+	// ctx = context.WithValue(ctx, constants.P2PDataStore, p2pDataStore)
 
 	defer wg.Wait()
 
@@ -281,9 +286,9 @@ func parserEvent(vLog types.Log, eventName string) {
 		logger.Fatal("_err :  ", _err)
 	}
 
-	fmt.Println(event.Account) // foo
-	fmt.Println(event.Amount)
-	fmt.Println(event.Timestamp)
+	logger.Infof("Event Account: %s", event.Account) // foo
+	logger.Infof("Event Amount: %d", event.Amount)
+	logger.Infof("Event Timestamp: %d",event.Timestamp)
 }
 
 // var lobbyConn = []*websocket.Conn{}

@@ -119,7 +119,7 @@ func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 	// 				logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
 	// 				return
 	// 			}
-	// 			err := messagePubSub.Publish(entities.NewPubSubMessage(outMessage.MsgPack(), cfg.NetworkPrivateKey))
+	// 			err := messagePubSub.Publish(entities.NewPubSubMessage(outMessage.MsgPack(), cfg.PrivateKey))
 	// 			if err != nil {
 	// 				logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
 	// 				return
@@ -133,7 +133,7 @@ func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 	// 			}
 	// 			logger.Info("subscription channel:::", subscription.TopicId)
 
-	// 			err := subscriptionPubSub.Publish(entities.NewPubSubMessage(subscription.MsgPack(), cfg.NetworkPrivateKey))
+	// 			err := subscriptionPubSub.Publish(entities.NewPubSubMessage(subscription.MsgPack(), cfg.PrivateKey))
 	// 			if err != nil {
 	// 				logger.Errorf("Failed to publish subscription.")
 	// 				return
@@ -146,7 +146,7 @@ func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 	// 				return
 	// 			}
 	// 			logger.Info("subscription channel:::", block.BlockId)
-	// 			err := batchPubSub.Publish(entities.NewPubSubMessage(block.MsgPack(), cfg.NetworkPrivateKey))
+	// 			err := batchPubSub.Publish(entities.NewPubSubMessage(block.MsgPack(), cfg.PrivateKey))
 	// 			if err != nil {
 	// 				logger.Errorf("Failed to publish subscription.")
 	// 				return

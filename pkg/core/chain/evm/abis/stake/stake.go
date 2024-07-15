@@ -30,7 +30,7 @@ var (
 
 // StakeMetaData contains all meta data concerning the Stake contract.
 var StakeMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"node\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"buyer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"token\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"messages\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"nonce\",\"type\":\"bytes32\"}],\"name\":\"MessagePurchase\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"node\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"MessageTokenRate\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"StakeEvent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"UnStakeEvent\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nodeAddresses\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokens\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"nonce\",\"type\":\"bytes32\"}],\"name\":\"buyMessages\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"name\":\"enableWithdrawal\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nodeAddresses\",\"type\":\"address\"}],\"name\":\"getNodeLevel\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"locked\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"nodeAddresses\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"nodeTokenPerMessage\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"orders\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"buyer\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"messageAmount\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"registerNodeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"setMinStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"setTokenPerMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"stake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"stakeAddresses\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"stakeBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"userMessages\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawalEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"node\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"buyer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"token\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"messages\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"nonce\",\"type\":\"bytes32\"}],\"name\":\"MessagePurchase\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"node\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"MessageTokenRate\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"StakeEvent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"UnStakeEvent\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_OperatorAddresses\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokens\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"nonce\",\"type\":\"bytes32\"}],\"name\":\"buyMessages\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_enabled\",\"type\":\"bool\"}],\"name\":\"enableWithdrawal\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_OperatorAddresses\",\"type\":\"address\"}],\"name\":\"getNodeLevel\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"locked\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"OperatorAddresses\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"nodeTokenPerMessage\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"orders\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"OperatorAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"buyer\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"messageAmount\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"OperatorAddress\",\"type\":\"address\"}],\"name\":\"registerNodeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"setMinStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"setTokenPerMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"stake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"stakeAddresses\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"stakeBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unStake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"userMessages\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawalEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // StakeABI is the input ABI used to generate the binding from.
@@ -181,10 +181,10 @@ func (_Stake *StakeTransactorRaw) Transact(opts *bind.TransactOpts, method strin
 
 // GetNodeLevel is a free data retrieval call binding the contract method 0x295b87a8.
 //
-// Solidity: function getNodeLevel(address _nodeAddresses) view returns(uint256)
-func (_Stake *StakeCaller) GetNodeLevel(opts *bind.CallOpts, _nodeAddresses common.Address) (*big.Int, error) {
+// Solidity: function getNodeLevel(address _OperatorAddresses) view returns(uint256)
+func (_Stake *StakeCaller) GetNodeLevel(opts *bind.CallOpts, _OperatorAddresses common.Address) (*big.Int, error) {
 	var out []interface{}
-	err := _Stake.contract.Call(opts, &out, "getNodeLevel", _nodeAddresses)
+	err := _Stake.contract.Call(opts, &out, "getNodeLevel", _OperatorAddresses)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -198,16 +198,16 @@ func (_Stake *StakeCaller) GetNodeLevel(opts *bind.CallOpts, _nodeAddresses comm
 
 // GetNodeLevel is a free data retrieval call binding the contract method 0x295b87a8.
 //
-// Solidity: function getNodeLevel(address _nodeAddresses) view returns(uint256)
-func (_Stake *StakeSession) GetNodeLevel(_nodeAddresses common.Address) (*big.Int, error) {
-	return _Stake.Contract.GetNodeLevel(&_Stake.CallOpts, _nodeAddresses)
+// Solidity: function getNodeLevel(address _OperatorAddresses) view returns(uint256)
+func (_Stake *StakeSession) GetNodeLevel(_OperatorAddresses common.Address) (*big.Int, error) {
+	return _Stake.Contract.GetNodeLevel(&_Stake.CallOpts, _OperatorAddresses)
 }
 
 // GetNodeLevel is a free data retrieval call binding the contract method 0x295b87a8.
 //
-// Solidity: function getNodeLevel(address _nodeAddresses) view returns(uint256)
-func (_Stake *StakeCallerSession) GetNodeLevel(_nodeAddresses common.Address) (*big.Int, error) {
-	return _Stake.Contract.GetNodeLevel(&_Stake.CallOpts, _nodeAddresses)
+// Solidity: function getNodeLevel(address _OperatorAddresses) view returns(uint256)
+func (_Stake *StakeCallerSession) GetNodeLevel(_OperatorAddresses common.Address) (*big.Int, error) {
+	return _Stake.Contract.GetNodeLevel(&_Stake.CallOpts, _OperatorAddresses)
 }
 
 // Locked is a free data retrieval call binding the contract method 0xcf309012.
@@ -272,12 +272,12 @@ func (_Stake *StakeCallerSession) MinStake() (*big.Int, error) {
 	return _Stake.Contract.MinStake(&_Stake.CallOpts)
 }
 
-// NodeAddresses is a free data retrieval call binding the contract method 0xb58a76c0.
+// OperatorAddresses is a free data retrieval call binding the contract method 0xb58a76c0.
 //
-// Solidity: function nodeAddresses(address ) view returns(address)
-func (_Stake *StakeCaller) NodeAddresses(opts *bind.CallOpts, arg0 common.Address) (common.Address, error) {
+// Solidity: function OperatorAddresses(address ) view returns(address)
+func (_Stake *StakeCaller) OperatorAddresses(opts *bind.CallOpts, arg0 common.Address) (common.Address, error) {
 	var out []interface{}
-	err := _Stake.contract.Call(opts, &out, "nodeAddresses", arg0)
+	err := _Stake.contract.Call(opts, &out, "OperatorAddresses", arg0)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -289,18 +289,18 @@ func (_Stake *StakeCaller) NodeAddresses(opts *bind.CallOpts, arg0 common.Addres
 
 }
 
-// NodeAddresses is a free data retrieval call binding the contract method 0xb58a76c0.
+// OperatorAddresses is a free data retrieval call binding the contract method 0xb58a76c0.
 //
-// Solidity: function nodeAddresses(address ) view returns(address)
-func (_Stake *StakeSession) NodeAddresses(arg0 common.Address) (common.Address, error) {
-	return _Stake.Contract.NodeAddresses(&_Stake.CallOpts, arg0)
+// Solidity: function OperatorAddresses(address ) view returns(address)
+func (_Stake *StakeSession) OperatorAddresses(arg0 common.Address) (common.Address, error) {
+	return _Stake.Contract.OperatorAddresses(&_Stake.CallOpts, arg0)
 }
 
-// NodeAddresses is a free data retrieval call binding the contract method 0xb58a76c0.
+// OperatorAddresses is a free data retrieval call binding the contract method 0xb58a76c0.
 //
-// Solidity: function nodeAddresses(address ) view returns(address)
-func (_Stake *StakeCallerSession) NodeAddresses(arg0 common.Address) (common.Address, error) {
-	return _Stake.Contract.NodeAddresses(&_Stake.CallOpts, arg0)
+// Solidity: function OperatorAddresses(address ) view returns(address)
+func (_Stake *StakeCallerSession) OperatorAddresses(arg0 common.Address) (common.Address, error) {
+	return _Stake.Contract.OperatorAddresses(&_Stake.CallOpts, arg0)
 }
 
 // NodeTokenPerMessage is a free data retrieval call binding the contract method 0x76be2d21.
@@ -336,9 +336,9 @@ func (_Stake *StakeCallerSession) NodeTokenPerMessage(arg0 common.Address) (*big
 
 // Orders is a free data retrieval call binding the contract method 0x9c3f1e90.
 //
-// Solidity: function orders(bytes32 ) view returns(address nodeAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
+// Solidity: function orders(bytes32 ) view returns(address OperatorAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
 func (_Stake *StakeCaller) Orders(opts *bind.CallOpts, arg0 [32]byte) (struct {
-	NodeAddress   common.Address
+	OperatorAddress   common.Address
 	Buyer         common.Address
 	TokenAmount   *big.Int
 	MessageAmount *big.Int
@@ -347,7 +347,7 @@ func (_Stake *StakeCaller) Orders(opts *bind.CallOpts, arg0 [32]byte) (struct {
 	err := _Stake.contract.Call(opts, &out, "orders", arg0)
 
 	outstruct := new(struct {
-		NodeAddress   common.Address
+		OperatorAddress   common.Address
 		Buyer         common.Address
 		TokenAmount   *big.Int
 		MessageAmount *big.Int
@@ -356,7 +356,7 @@ func (_Stake *StakeCaller) Orders(opts *bind.CallOpts, arg0 [32]byte) (struct {
 		return *outstruct, err
 	}
 
-	outstruct.NodeAddress = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.OperatorAddress = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 	outstruct.Buyer = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 	outstruct.TokenAmount = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 	outstruct.MessageAmount = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
@@ -367,9 +367,9 @@ func (_Stake *StakeCaller) Orders(opts *bind.CallOpts, arg0 [32]byte) (struct {
 
 // Orders is a free data retrieval call binding the contract method 0x9c3f1e90.
 //
-// Solidity: function orders(bytes32 ) view returns(address nodeAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
+// Solidity: function orders(bytes32 ) view returns(address OperatorAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
 func (_Stake *StakeSession) Orders(arg0 [32]byte) (struct {
-	NodeAddress   common.Address
+	OperatorAddress   common.Address
 	Buyer         common.Address
 	TokenAmount   *big.Int
 	MessageAmount *big.Int
@@ -379,9 +379,9 @@ func (_Stake *StakeSession) Orders(arg0 [32]byte) (struct {
 
 // Orders is a free data retrieval call binding the contract method 0x9c3f1e90.
 //
-// Solidity: function orders(bytes32 ) view returns(address nodeAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
+// Solidity: function orders(bytes32 ) view returns(address OperatorAddress, address buyer, uint256 tokenAmount, uint256 messageAmount)
 func (_Stake *StakeCallerSession) Orders(arg0 [32]byte) (struct {
-	NodeAddress   common.Address
+	OperatorAddress   common.Address
 	Buyer         common.Address
 	TokenAmount   *big.Int
 	MessageAmount *big.Int
@@ -546,23 +546,23 @@ func (_Stake *StakeCallerSession) WithdrawalEnabled() (bool, error) {
 
 // BuyMessages is a paid mutator transaction binding the contract method 0xe26074f7.
 //
-// Solidity: function buyMessages(address _nodeAddresses, uint256 tokens, bytes32 nonce) returns()
-func (_Stake *StakeTransactor) BuyMessages(opts *bind.TransactOpts, _nodeAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
-	return _Stake.contract.Transact(opts, "buyMessages", _nodeAddresses, tokens, nonce)
+// Solidity: function buyMessages(address _OperatorAddresses, uint256 tokens, bytes32 nonce) returns()
+func (_Stake *StakeTransactor) BuyMessages(opts *bind.TransactOpts, _OperatorAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
+	return _Stake.contract.Transact(opts, "buyMessages", _OperatorAddresses, tokens, nonce)
 }
 
 // BuyMessages is a paid mutator transaction binding the contract method 0xe26074f7.
 //
-// Solidity: function buyMessages(address _nodeAddresses, uint256 tokens, bytes32 nonce) returns()
-func (_Stake *StakeSession) BuyMessages(_nodeAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
-	return _Stake.Contract.BuyMessages(&_Stake.TransactOpts, _nodeAddresses, tokens, nonce)
+// Solidity: function buyMessages(address _OperatorAddresses, uint256 tokens, bytes32 nonce) returns()
+func (_Stake *StakeSession) BuyMessages(_OperatorAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
+	return _Stake.Contract.BuyMessages(&_Stake.TransactOpts, _OperatorAddresses, tokens, nonce)
 }
 
 // BuyMessages is a paid mutator transaction binding the contract method 0xe26074f7.
 //
-// Solidity: function buyMessages(address _nodeAddresses, uint256 tokens, bytes32 nonce) returns()
-func (_Stake *StakeTransactorSession) BuyMessages(_nodeAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
-	return _Stake.Contract.BuyMessages(&_Stake.TransactOpts, _nodeAddresses, tokens, nonce)
+// Solidity: function buyMessages(address _OperatorAddresses, uint256 tokens, bytes32 nonce) returns()
+func (_Stake *StakeTransactorSession) BuyMessages(_OperatorAddresses common.Address, tokens *big.Int, nonce [32]byte) (*types.Transaction, error) {
+	return _Stake.Contract.BuyMessages(&_Stake.TransactOpts, _OperatorAddresses, tokens, nonce)
 }
 
 // EnableWithdrawal is a paid mutator transaction binding the contract method 0x5636548f.
@@ -609,23 +609,23 @@ func (_Stake *StakeTransactorSession) Initialize(_address common.Address) (*type
 
 // RegisterNodeAccount is a paid mutator transaction binding the contract method 0x433eeb98.
 //
-// Solidity: function registerNodeAccount(address nodeAddress) returns()
-func (_Stake *StakeTransactor) RegisterNodeAccount(opts *bind.TransactOpts, nodeAddress common.Address) (*types.Transaction, error) {
-	return _Stake.contract.Transact(opts, "registerNodeAccount", nodeAddress)
+// Solidity: function registerNodeAccount(address OperatorAddress) returns()
+func (_Stake *StakeTransactor) RegisterNodeAccount(opts *bind.TransactOpts, OperatorAddress common.Address) (*types.Transaction, error) {
+	return _Stake.contract.Transact(opts, "registerNodeAccount", OperatorAddress)
 }
 
 // RegisterNodeAccount is a paid mutator transaction binding the contract method 0x433eeb98.
 //
-// Solidity: function registerNodeAccount(address nodeAddress) returns()
-func (_Stake *StakeSession) RegisterNodeAccount(nodeAddress common.Address) (*types.Transaction, error) {
-	return _Stake.Contract.RegisterNodeAccount(&_Stake.TransactOpts, nodeAddress)
+// Solidity: function registerNodeAccount(address OperatorAddress) returns()
+func (_Stake *StakeSession) RegisterNodeAccount(OperatorAddress common.Address) (*types.Transaction, error) {
+	return _Stake.Contract.RegisterNodeAccount(&_Stake.TransactOpts, OperatorAddress)
 }
 
 // RegisterNodeAccount is a paid mutator transaction binding the contract method 0x433eeb98.
 //
-// Solidity: function registerNodeAccount(address nodeAddress) returns()
-func (_Stake *StakeTransactorSession) RegisterNodeAccount(nodeAddress common.Address) (*types.Transaction, error) {
-	return _Stake.Contract.RegisterNodeAccount(&_Stake.TransactOpts, nodeAddress)
+// Solidity: function registerNodeAccount(address OperatorAddress) returns()
+func (_Stake *StakeTransactorSession) RegisterNodeAccount(OperatorAddress common.Address) (*types.Transaction, error) {
+	return _Stake.Contract.RegisterNodeAccount(&_Stake.TransactOpts, OperatorAddress)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.

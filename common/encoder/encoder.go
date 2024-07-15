@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -67,7 +68,7 @@ const (
 
 type EncoderParam struct {
 	Type  EncoderDataType
-	Value interface{}
+	Value any
 }
 
 func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
@@ -83,7 +84,12 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 	for i, arg := range args {
 		index = append(index, i)
 		if arg.Type == ByteEncoderDataType {
-			m[i] = arg.Value.([]byte)
+			if _, ok := arg.Value.(json.RawMessage); ok {
+				m[i] = []byte(arg.Value.(json.RawMessage))
+			} else {
+				m[i] = (arg.Value.([]byte))
+		
+			}
 		}
 		if arg.Type == StringEncoderDataType {
 			m[i] = []byte(fmt.Sprintf("%v", arg.Value))
@@ -94,7 +100,6 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 				return []byte(""), err
 			}
 			m[i] = []byte(NumberToByte(num))
-			logger.Infof("TYPEEEE: %s", hex.EncodeToString(m[i]))
 		}
 		if arg.Type == BoolEncoderDataType {
 			val := 0

@@ -14,7 +14,6 @@ import (
 	dsq "github.com/ipfs/go-datastore/query"
 	ipfsLogger "github.com/ipfs/go-log/v2"
 	goprocess "github.com/jbenet/goprocess"
-	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	mlLog "github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
@@ -214,30 +213,44 @@ func (d *Datastore) newImplicitTransaction(readOnly bool) *txn {
 	return &txn{d, d.DB.NewTransaction(!readOnly), true}
 }
 
+
+
+func (d *Datastore) Get(ctx context.Context, key ds.Key) (value []byte, err error) {
+	
+	d.closeLk.RLock()
+	defer d.closeLk.RUnlock()
+	if d.closed {
+		return nil, ErrClosed
+	}
+	txn := d.newImplicitTransaction(false)
+	defer txn.discard()
+	val, err := txn.get(key)
+	
+	return val, err
+	
+}
+
 func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
-	logger.Infof("KEYYYYY %s value %d vvv %v", string(key.Bytes()), encoder.NumberFromByte(value), value)
+	logger.Infof("Putting key: %s with value: %s", string(key.Bytes()), string(value))
 	return d.DB.Update(func(txn *badger.Txn) error {
 		return txn.Set(key.Bytes(), value)
 	})
 	
-	// d.closeLk.RLock()
-	// defer d.closeLk.RUnlock()
-	// if d.closed {
-	// 	return ErrClosed
-	// }
+// 	 d.closeLk.RLock()
+// 	defer d.closeLk.RUnlock()
+// 	if d.closed {
+// 		return ErrClosed
+// 	}
 
-	// txn := d.newImplicitTransaction(false)
-	// defer txn.discard()
+// 	txn := d.newImplicitTransaction(false)
+// 	defer txn.discard()
 
-	// if err := txn.put(key, value); err != nil {
-	// 	return err
-	// }
-
-	// return txn.commit()
+// 	if err := txn.Set(ctx, key, value, true); err != nil {
+// 		return err
+// 	}
 }
 
 func (d *Datastore) Set(ctx context.Context, key ds.Key, value []byte, replace bool) error {
-	log.Infof("ERRORCLOSED:::: %s %T", key, replace)
 	d.closeLk.RLock()
 	defer d.closeLk.RUnlock()
 	
@@ -324,26 +337,6 @@ func (d *Datastore) GetExpiration(ctx context.Context, key ds.Key) (time.Time, e
 	return txn.getExpiration(key)
 }
 
-func (d *Datastore) Get(ctx context.Context, key ds.Key) (value []byte, err error) {
-	
-	err = d.DB.View(func(txn *badger.Txn) error {
-		
-        item, err := txn.Get(key.Bytes())
-		logger.Infof("KEYYYYY ONLY %s %v", string(key.Bytes()), err)
-        if err != nil {
-            return err
-        }
-		
-        err = item.Value(func(val []byte) error {
-            // Copying the value to retrievedValue
-            value = append([]byte{}, val...)
-			logger.Infof("KEYYYYY %s value %d vvv %v", string(key.Bytes()), encoder.NumberFromByte(value), value)
-            return nil
-        })
-        return err
-    })
-	return value, err
-}
 
 func (d *Datastore) Has(ctx context.Context, key ds.Key) (bool, error) {
 	d.closeLk.RLock()
@@ -478,7 +471,7 @@ func (b *batch) Put(ctx context.Context, key ds.Key, value []byte) error {
 	if b.ds.closed {
 		return ErrClosed
 	}
-	return b.put(key, value)
+	return b.ds.Set(ctx, key, value, true)
 }
 
 func (b *batch) put(key ds.Key, value []byte) error {
@@ -545,7 +538,7 @@ func (t *txn) Put(ctx context.Context, key ds.Key, value []byte) error {
 	if t.ds.closed {
 		return ErrClosed
 	}
-	return t.put(key, value)
+	return t.Set(ctx, key, value, true)
 }
 
 func (t *txn) Set(ctx context.Context, key ds.Key, value []byte, replace bool) error {
