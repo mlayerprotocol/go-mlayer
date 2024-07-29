@@ -21,7 +21,7 @@ func (address *DIDString) ToString() string {
 }
 
 type DID struct {
-	Prefix string `json:"pre"`
+	Prefix string  `json:"pre"`
 	Addr   string `json:"addr"`
 	// Platform string    `json:"p"`
 	Chain string `json:"ch"`
@@ -43,6 +43,10 @@ func (address *DID) MsgPack() []byte {
 func (address DID) ToDeviceString() DeviceString {
 	address.Prefix = "did"
 	return DeviceString(address.ToString())
+}
+
+func StringToDeviceString(str string) (DeviceString) {
+	return AddressFromString(str).ToDeviceString()
 }
 
 func AddressFromBytes(b []byte) (DID, error) {

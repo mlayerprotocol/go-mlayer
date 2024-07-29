@@ -27,21 +27,19 @@ func GetPublicKeyECC(privKey string) string {
 	return crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
 }
 
-func GetPublicKeySECP(privKey string) string {
-	privateKey, err := hex.DecodeString(privKey)
-	if err != nil  {
-		logger.Errorf("Invlaid node network key %v", err)
-	}
+func GetPublicKeySECP(privateKey []byte) string {
 	_, pub := btcec.PrivKeyFromBytes(btcec.S256(), privateKey)
+	
+	// logger.Infof("PUBKEY %d %d %d", pub.X, pub.Y)
 	
 	return hex.EncodeToString(pub.SerializeCompressed())
 }
 
-func GetPublicKeyEDD(privKey string) string {
-	if len(privKey) != 128{
-		logger.Fatal("Invalid private key length")
-    }
-	return privKey[64:]
+func GetPublicKeyEDD(privKey [64]byte) [32]byte {
+	// if len(privKey) != 128{
+	// 	logger.Fatal("Invalid private key length")
+    // }
+	return [32]byte(privKey[32:])
 }
 
 func PrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
@@ -75,28 +73,18 @@ func SignECC(message []byte, privKey string) ([]byte, string) {
 	return signature, hexutil.Encode(signature)
 }
 
-func SignEDD(message []byte, privKey string) ([]byte, string) {
-	key, err := hex.DecodeString(privKey)
-	if err != nil {
-		logger.Fatalf("Invalid private key string %o", err)
-	}
+func SignEDD(message []byte, privKey []byte) ([]byte, string) {
 	
-	pKey := ed25519.PrivateKey(key)
+	pKey := ed25519.PrivateKey(privKey)
 	hash := Sha256(message)
 	// logger.WithFields(logrus.Fields{"action": "crypto.Sign", "message": message}).Infof("Message hash: %s", hash.Hex())
 	signature := ed25519.Sign(pKey, hash)
-	if err != nil {
-		logger.Fatal(err)
-	}
+	
 	// signer, err := crypto.Ecrecover(hash.Bytes(), signature[:len(signature)-1])
 	return signature, hex.EncodeToString(signature)
 }
 
-func SignSECP(message []byte, privKey string) (signatureByte []byte, signatureString string) {
-	privateKeyByte, err := hex.DecodeString(privKey)
-	if err != nil {
-		logger.Fatalf("Invalid private key %o",  err)
-	}
+func SignSECP(message []byte, privateKeyByte []byte) (signatureByte []byte, signatureString string) {
 	privateKey, _ := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyByte)
 	signature, err := privateKey.Sign(Sha256(message)[:])
     if err != nil {
@@ -141,7 +129,6 @@ func VerifySignatureECC(signer string, message *[]byte, signature string) bool {
 }
 
 func VerifySignatureEDD(signer string, message *[]byte, signature string) (bool, error) {
-	logger.Infof("NODESIGNER %s; Signature: %s; message: %s", signer, signature, hex.EncodeToString(*message))
 	signatureByte, err := hex.DecodeString(signature)
 	if err != nil {
 		logger.WithFields(logrus.Fields{"signature": signature}).Infof("Unable to decode signature %v", err)
@@ -176,9 +163,9 @@ func VerifySignatureSECP(publicKeyBytes []byte, message []byte, signatureByte []
 	return parsedSign.Verify(msg[:], pubKey), nil
 }
 
-func Bech32AddressFromPrivateKeyEDD(privateKey string) string {
-	decoded, _ := hex.DecodeString(GetPublicKeyEDD(privateKey))
-	return ToBech32Address(decoded, "ml")
+func Bech32AddressFromPrivateKeyEDD(privateKey [64]byte) string {
+	decoded := GetPublicKeyEDD(privateKey)
+	return ToBech32Address(decoded[:], "ml")
 }
 /*
 {

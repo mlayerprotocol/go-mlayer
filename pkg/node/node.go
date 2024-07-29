@@ -26,6 +26,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
@@ -70,7 +71,7 @@ func Start(mainCtx *context.Context) {
 	// topicSubscriptionStore := db.New(&ctx, constants.TopicSubscriptionStore)
 	// newTopicSubscriptionStore := db.New(&ctx, constants.NewTopicSubscriptionStore)
 	// topicSubscriptionCountStore := db.New(&ctx, constants.TopicSubscriptionCountStore)
-	// sentMessageStore := db.Db(&ctx, constants.SentMessageStore)
+	// sentMessageStore := db.SqlDb(&ctx, constants.SentMessageStore)
 	// deliveryProofStore := db.New(&ctx, constants.DeliveryProofStore)
 	// localDPBlockStore := db.New(&ctx, constants.DeliveryProofBlockStore)
 	// unconfirmedBlockStore := db.New(&ctx, constants.UnconfirmedDeliveryProofStore)
@@ -168,6 +169,14 @@ func Start(mainCtx *context.Context) {
 		// 	errc <- fmt.Errorf("P2P error: %g", err)
 		// }
 		// }()
+		
+		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, &entities.AuthorizationPubSub, &ctx, service.HandleNewPubSubAuthEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, &entities.TopicPubSub, &ctx, service.HandleNewPubSubTopicEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Subnet{}, &entities.SubnetPubSub, &ctx, service.HandleNewPubSubSubnetEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Wallet{}, &entities.WalletPubSub, &ctx, service.HandleNewPubSubWalletEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, &entities.SubscriptionPubSub, &ctx, service.HandleNewPubSubSubscriptionEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Message{}, &entities.MessagePubSub, &ctx, service.HandleNewPubSubMessageEvent)
+		
 
 		p2p.Run(&ctx)
 		// if err != nil {

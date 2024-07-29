@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"gorm.io/gorm"
 )
@@ -19,6 +20,11 @@ func (d *SubnetState) BeforeCreate(tx *gorm.DB) (err error) {
 		d.ID = hash
 	}
 	return nil
+}
+
+func (d SubnetState) MsgPack() []byte {
+	b, _ := encoder.MsgPackStruct(&d.Subnet)
+	return b
 }
 
 type SubnetEvent struct {

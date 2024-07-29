@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
@@ -130,11 +131,11 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	}
 
 	// Save stuff permanently
-	tx := sql.Db.Begin()
+	tx := sql.SqlDb.Begin()
 	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -144,9 +145,9 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 			Event: entities.Event{
 				PayloadHash: event.PayloadHash,
 			},
-		}, models.WalletEvent{
+		}, &models.WalletEvent{
 			Event: *event,
-		}, false, tx)
+		}, nil, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("1000: Db Error", err)
@@ -156,9 +157,13 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 		if markAsSynced {
 			_, _, err := query.SaveRecord(models.WalletEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash},
-			}, models.WalletEvent{
+			}, 
+			&models.WalletEvent{
+				Event: *event,
+			},
+			&models.WalletEvent{
 				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
-			}, true, tx)
+			}, tx)
 			if err != nil {
 				logger.Error("DB error", err)
 			}
@@ -167,9 +172,12 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 			_, _, err := query.SaveRecord(models.WalletEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
 			},
-				models.WalletEvent{
+			&models.WalletEvent{
+				Event: *event,
+			}, 
+				&models.WalletEvent{
 					Event: entities.Event{Broadcasted: true},
-				}, true, tx)
+				}, tx)
 			if err != nil {
 				logger.Error("DB error", err)
 			}
@@ -184,7 +192,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	// if err != nil {
 	// 	logger.Errorf("Invalid event payload")
 	// }
-	data.Event = *entities.NewEventPath(event.Validator, entities.WalletEventModel, event.Hash)
+	data.Event = *entities.NewEventPath(event.Validator, entities.WalletModel, event.Hash)
 	// data.Agent = entities.DIDString(agent)
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
@@ -192,9 +200,11 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	if updateState {
 		_, _, err := query.SaveRecord(models.WalletState{
 			Wallet: entities.Wallet{ID: data.ID},
-		}, models.WalletState{
+		}, &models.WalletState{
 			Wallet: *data,
-		}, event.EventType == uint16(constants.UpdateWalletEvent), tx)
+		}, utils.IfThenElse(event.EventType == uint16(constants.UpdateWalletEvent), &models.WalletState{
+			Wallet: *data,
+		}, nil ), tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("7000: Db Error", err)
@@ -203,7 +213,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	}
 	tx.Commit()
 
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)

@@ -135,3 +135,4 @@ func (topic Topic) EncodeBytes() ([]byte, error) {
 		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Subnet},
 	)
 }
+

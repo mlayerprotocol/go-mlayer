@@ -231,7 +231,6 @@ func (d *Datastore) Get(ctx context.Context, key ds.Key) (value []byte, err erro
 }
 
 func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
-	logger.Infof("Putting key: %s with value: %s", string(key.Bytes()), string(value))
 	return d.DB.Update(func(txn *badger.Txn) error {
 		return txn.Set(key.Bytes(), value)
 	})

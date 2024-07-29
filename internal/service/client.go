@@ -88,6 +88,32 @@ func IsMoreRecent(
 		return isMoreRecent, markAsSynced
 }
 
+func IsMoreRecentEvent(
+	eventHash string,
+	eventTimestamp int,
+	event2Hash string,
+	event2Timestamp int,
+	) (bool) {
+	
+		if eventTimestamp < event2Timestamp {
+			return true
+		}
+		if eventTimestamp  > event2Timestamp {
+			return false
+		}
+		// if the authorization was created at exactly the same time but their hash is different
+		// use the last 4 digits of their event hash
+		csN := new(big.Int)
+		csN.SetString(eventHash[50:], 16)
+		nsN := new(big.Int)
+		nsN.SetString(eventHash[50:], 16)
+
+		if csN.Cmp(nsN) < 1 {
+			return true
+		}
+		return false
+}
+
 func ValidateEvent(event interface{}) error {
 	e := event.(entities.Event)
 	b, err := e.EncodeBytes()
@@ -95,7 +121,7 @@ func ValidateEvent(event interface{}) error {
 		logger.Errorf("Invalid Encoding %v", err)
 		return err
 	}
-	// logger.Errorf("Payload Validator: %s; Event Signer: %s; PublicKey: %s", e.Payload.Validator, e.Validator, )
+	logger.Infof("Payload Validator: %s; Event Signer: %s;", e.Payload.Validator, e.GetValidator(), )
 	if e.GetValidator() != e.Payload.Validator {
 		return apperror.Forbidden("Payload validator does not match event validator")
 	}
@@ -431,7 +457,7 @@ func FinalizeEvent [ T entities.Payload, State any] (
 	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -488,10 +514,10 @@ func FinalizeEvent [ T entities.Payload, State any] (
 	// if err != nil {
 	// 	logger.Errorf("Invalid event payload")
 	// }
-	//data.Event = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
-	//state["event"] = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
+	//data.Event = *entities.NewEventPath(event.Validator, entities.SubnetModel, event.Hash)
+	//state["event"] = *entities.NewEventPath(event.Validator, entities.SubnetModel, event.Hash)
 	//data.Account = event.Payload.Account
-	//state["account"] = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
+	//state["account"] = *entities.NewEventPath(event.Validator, entities.SubnetModel, event.Hash)
 	// logger.Error("data.Public ", data.Public)
 
 	if updateState {
@@ -509,7 +535,7 @@ func FinalizeEvent [ T entities.Payload, State any] (
 	}
 	tx.Commit()
 
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)
@@ -683,7 +709,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -733,7 +759,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	if err != nil {
 		logger.Errorf("Invalid event payload")
 	}
-	data.Event = *entities.NewEventPath(event.Validator, entities.TopicEventModel, event.Hash)
+	data.Event = *entities.NewEventPath(event.Validator, entities.TopicModel, event.Hash)
 	data.Agent = entities.DIDString(agent)
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
@@ -752,7 +778,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	}
 	tx.Commit()
 
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)

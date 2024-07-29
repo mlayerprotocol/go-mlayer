@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 )
 
@@ -38,6 +39,7 @@ type ClientPayload struct {
 	EventType uint16        `json:"ty"`
 	Nonce     uint64        `json:"nonce"`
 	Account   DIDString `json:"acct,omitempty"` // optional public key of sender
+	ChainId   configs.ChainId `json:"chid"` // optional public key of sender
 
 	Validator PublicKeyString `json:"val,omitempty"`
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
@@ -138,6 +140,7 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	}
 
 	var params []encoder.EncoderParam
+	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()})
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
 	if msg.Subnet != "" {

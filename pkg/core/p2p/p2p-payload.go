@@ -1,0 +1,253 @@
+package p2p
+
+import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"math"
+	"time"
+
+	"github.com/mlayerprotocol/go-mlayer/common/apperror"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
+	"github.com/mlayerprotocol/go-mlayer/configs"
+	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/multiformats/go-multiaddr"
+	"github.com/sirupsen/logrus"
+)
+type P2pAction int8
+
+type P2pEventResponse struct {
+	Event json.RawMessage `json:"e"`
+	States []json.RawMessage `json:"s"`
+}
+
+func (hs *P2pEventResponse) MsgPack() []byte {
+	b, _ := encoder.MsgPackStruct(hs)
+	return b
+}
+
+func (hs P2pEventResponse) Unpack(b []byte) (error) {
+	return encoder.MsgPackUnpackStruct(b, &hs)
+}
+
+func UnpackP2pEventResponse(b []byte) ( P2pEventResponse, error) {
+	var message  P2pEventResponse
+	err := encoder.MsgPackUnpackStruct(b, &message)
+	return message, err
+}
+
+
+const (
+	P2pActionResponse P2pAction = 0
+	P2pActionGetEvent P2pAction = 1
+	P2pActionGetCommitment P2pAction = 2
+	P2pActionGetSentryProof P2pAction = 3
+	P2pActionGetTokenProof P2pAction = 4
+	P2pActionGetState P2pAction = 5
+	
+	
+)
+type P2pPayload struct {
+	// Messages is a channel of messages received from other peers in the chat channel
+	Id string `json:"id"`
+	Data json.RawMessage `json:"d"`
+	ChainId configs.ChainId `json:"pre"`
+	Timestamp uint64 `json:"ts"`
+	Action P2pAction `json:"ac"`
+	ResponseCode apperror.ErrorCode `json:"resp"`
+	Error string `json:"err"`
+	Signature json.RawMessage  `json:"sig"`
+	Signer string  `json:"sign"`
+	config *configs.MainConfiguration `json:"-" msgpack:"-"`
+}
+
+func (hs *P2pPayload) MsgPack() []byte {
+	b, _ := encoder.MsgPackStruct(hs)
+	return b
+}
+
+func (hsd P2pPayload) EncodeBytes() ([]byte, error) {
+    return encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: hsd.Action},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hsd.Data},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: hsd.Id},
+        encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hsd.ChainId.Bytes()},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: hsd.ResponseCode},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: hsd.Timestamp},
+	)
+}
+func (nma * P2pPayload) IsValid(chainId configs.ChainId) bool {
+	// Important security update. Do not remove. 
+	// Prevents cross chain replay attack
+	nma.ChainId = chainId  // Important security update. Do not remove
+	//
+	if math.Abs(float64(uint64(time.Now().UnixMilli()) - nma.Timestamp)) > float64(15 * time.Second.Milliseconds()) {
+		logger.WithFields(logrus.Fields{"data": nma}).Warnf("P2pPayload: Expired -> %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
+		return false
+	}
+	signer, err := hex.DecodeString(string(nma.Signer));
+	if err != nil {
+		logger.Error("Unable to decode signer")
+		return false
+	}
+	
+	data, err := nma.EncodeBytes()
+	if err != nil {
+		logger.Error("Unable to decode signer")
+		return false
+	}
+
+	isValid, err := crypto.VerifySignatureSECP(signer, data, nma.Signature)
+	if err != nil {
+		logger.Error(err)
+		return false
+	}
+	
+	if !isValid {
+		logger.WithFields(logrus.Fields{"address": nma.Signer, "signature": hex.EncodeToString(nma.Signature)}).Warnf("Invalid signer %s", nma.Signer)
+		return false
+	}
+	return true
+}
+func (p *P2pPayload) SendRequest(privateKey []byte, receiverPublicKey string) (*P2pPayload, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from panic:", r)
+		}
+	}()
+	address, err := GetNodeAddress(p.config.Context, receiverPublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("p2p.GetNodeAddress: %v", err)
+	}
+	return p.SendRequestToAddress(privateKey, address)
+}
+func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.Multiaddr) (*P2pPayload, error) {
+	// if len(p.Signature) == 0 {
+	// 	return nil, fmt.Errorf("P2pPayload: Payload not signed")
+	// }
+	
+	
+	p.Sign(privateKey)
+	logger.Infof("Preparing to send data to peer: %s", address)
+  	peer,  stream, err := connectToNode(address, p.Id, *p.config.Context)
+	if err != nil {
+		return nil, fmt.Errorf("P2pPayload: %v", err)
+	}
+	
+	if stream != nil {
+		// handlePayload(*stream)
+		s := (*stream)
+		defer s.Close()
+		_, err = s.Write(append(p.MsgPack(), Delimiter...))
+		if err != nil {
+			logger.Error(err)
+			return nil, err
+		}
+		s.SetReadDeadline(time.Now().Add(60 * time.Second))
+		var payloadBuf bytes.Buffer
+		bufferLen := 1024
+		buf := make([]byte, bufferLen)
+		for {
+			n, err := s.Read(buf)
+			
+			if n > 0 {
+				payloadBuf.Write(buf[:n])
+			}
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return nil, err
+			}
+			if n < bufferLen {
+				break;
+			}
+		}
+		resp, err := UnpackP2pPayload(payloadBuf.Bytes())
+		if err != nil {
+			return resp, err
+		}
+		if !resp.IsValid(p.ChainId) {
+			return nil, apperror.Unauthorized("response is invalid")
+		}
+		return resp, nil	
+	}
+	return nil, fmt.Errorf("P2pPayload: connection failed %s", peer.ID)
+}
+
+func NewP2pPayload(config *configs.MainConfiguration, action P2pAction, data []byte) (*P2pPayload) {
+	pl := P2pPayload{Action: action, Data: data,  Id: utils.RandomString(12), ChainId: config.ChainId}
+	pl.config = config
+	return &pl
+}
+
+func GetState(config *configs.MainConfiguration, path entities.EntityPath, result any) (*P2pEventResponse, error) {
+	
+	pl := P2pPayload{Action: P2pActionGetState, Data: path.MsgPack(),  Id: utils.RandomString(12), ChainId: config.ChainId}
+	pl.config = config
+	resp, err := (&pl).SendRequest(config.PrivateKeyBytes, string(path.Validator))
+	if err != nil {
+		return nil, err
+	}
+	
+	if resp == nil {
+		return nil, apperror.Internal("timedout")
+	}
+	data, err := UnpackP2pEventResponse(resp.Data)
+	
+	if err != nil {
+		return nil, err
+	}
+	if len(data.States) == 0 {
+		return nil, apperror.NotFound("subnet not found")
+	}
+	return &data, encoder.MsgPackUnpackStruct(data.States[0], result)
+}
+
+func GetEvent(config *configs.MainConfiguration, eventPath entities.EventPath, validator *entities.PublicKeyString) (*entities.Event, *P2pEventResponse, error) {
+	pl := P2pPayload{Action: P2pActionGetEvent, Data: eventPath.MsgPack(),  Id: utils.RandomString(12), ChainId: config.ChainId}
+	pl.config = config
+	if validator == nil {
+		validator = &eventPath.Validator
+	}
+	resp, err := (&pl).SendRequest(config.PrivateKeyBytes, string(*validator))
+	if err != nil {
+		return nil, nil, err
+	}
+	if resp == nil {
+		return nil, nil, apperror.Internal("timedout")
+	}
+	data, err := UnpackP2pEventResponse(resp.Data)
+	
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(data.Event) == 0 {
+		return nil, nil, apperror.NotFound("subnet not found")
+	}
+	event := entities.GetEventEntityFromModel(eventPath.Model)
+	err = encoder.MsgPackUnpackStruct(data.States[0], event)
+	return event, &data, err
+}
+
+func (p *P2pPayload) Sign (privateKey []byte) (error) {
+	p.Timestamp = uint64(time.Now().UnixMilli())
+	b, err := p.EncodeBytes();
+	if(err != nil) {
+		return err
+	}
+	p.Signature, _  = crypto.SignSECP(b, privateKey)
+    p.Signer = crypto.GetPublicKeySECP(privateKey)
+	return nil
+}
+
+
+func UnpackP2pPayload(b []byte) (*P2pPayload, error) {
+	var message  P2pPayload
+	err := encoder.MsgPackUnpackStruct(b, &message)
+	return &message, err
+}

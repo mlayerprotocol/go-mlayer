@@ -27,7 +27,7 @@ func GetTopicEvents() (*[]models.TopicEvent, error) {
 func GetTopic(where models.TopicState) (*models.TopicState, error) {
 	topicState := models.TopicState{}
 
-	err := GetOne(where, &topicState)
+	err := GetOne(&where, &topicState)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -92,7 +92,7 @@ func UpdateTopicState(topic *entities.Topic, DB *gorm.DB) (*models.TopicState, e
 }
 	tx := DB
 	if DB == nil {
-		tx = db.Db.Begin()
+		tx = db.SqlDb
 	}
 	err := tx.Where(models.TopicState{
 		Topic: entities.Topic{Hash: topic.Hash,
@@ -101,8 +101,6 @@ func UpdateTopicState(topic *entities.Topic, DB *gorm.DB) (*models.TopicState, e
 	if err != nil {
 		return nil, err
 	}
-	if DB == nil {
-		tx.Commit()
-	}
+	
 	return &data, nil
 }

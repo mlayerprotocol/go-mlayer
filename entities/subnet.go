@@ -55,6 +55,9 @@ func (item *Subnet) MsgPack() []byte {
 	return b
 }
 
+
+
+
 func SubnetToByte(i uint64) []byte {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, i)
@@ -73,7 +76,7 @@ func SubnetFromBytes(b []byte) (Subnet, error) {
 }
 func UnpackSubnet(b []byte) (Subnet, error) {
 	var item Subnet
-	err := encoder.MsgPackUnpackStruct(b, item)
+	err := encoder.MsgPackUnpackStruct(b, &item)
 	return item, err
 }
 

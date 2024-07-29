@@ -68,7 +68,7 @@ func AuthorizeAgent(
 
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
-	if string(payload.Validator) != cfg.OperatorPublicKey  {
+	if string(payload.Validator) != cfg.PublicKey  {
 		return nil, apperror.Forbidden("Validator not authorized to procces this request")
 	}
 
@@ -96,7 +96,9 @@ func AuthorizeAgent(
 			return nil, apperror.BadRequest("Authorization duration exceeded")
 		}
 		
-		currentState, grantorAuthState, err := service.ValidateAuthData(&authData, cfg.AddressPrefix)
+		currentState, grantorAuthState, subnet, err := service.ValidateAuthPayloadData(&authData, cfg.ChainId)
+		logger.Debugf("CurrentState %v, %v", currentState, subnet)
+		// TODO If error is because the subnet was not found, check the dht for the subnet
 		if err != nil {
 			logger.Error(err)
 			return nil, err
@@ -104,12 +106,16 @@ func AuthorizeAgent(
 
 		// generate associations
 		if currentState != nil {
+			
 			assocPrevEvent = &currentState.Event
 			// assocPrevEvent = entities.EventPath{
 			// 	Relationship: entities.PreviousEventAssoc,
 			// 	Hash: currentState.Event,
 			// 	Model: entities.AuthorizationEventModel,
 			// }.ToString()
+		} else {
+			// Get the subnets state event
+
 		}
 		if grantorAuthState != nil {
 			assocAuthEvent = &grantorAuthState.Event
@@ -137,7 +143,7 @@ func AuthorizeAgent(
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
 		BlockNumber:       chain.API.GetCurrentBlockNumber(),
-		Validator:         entities.PublicKeyString(cfg.OperatorPublicKey),
+		Validator:         entities.PublicKeyString(cfg.PublicKey),
 	}
 
 	b, err := event.EncodeBytes()
@@ -146,14 +152,14 @@ func AuthorizeAgent(
 	}
 
 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
-	_, event.Signature = crypto.SignEDD(b, cfg.PrivateKey)
+	_, event.Signature = crypto.SignEDD(b, cfg.PrivateKeyBytes)
 
 	eModel, created, err := query.SaveAuthorizationEvent(&event, false, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	channelpool.AuthorizationEventPublishC <- &(eModel.Event)
+	// channelpool.AuthorizationEventPublishC <- &(eModel.Event)
 	if created {
 		channelpool.AuthorizationEventPublishC <- &(eModel.Event)
 	}

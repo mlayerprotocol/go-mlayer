@@ -3,7 +3,6 @@ package query
 import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
-	db "github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"gorm.io/gorm"
 )
 
@@ -11,9 +10,9 @@ import (
 func GetSubscriptionStateBySuscriber(subnet string, topic string, subscribers []entities.DIDString, DB *gorm.DB) (*[]models.SubscriptionState, error) {
 	data := []models.SubscriptionState{}
 	tx := DB
-	if DB == nil {
-		tx = db.Db.Begin()
-	}
+	// if DB == nil {
+	// 	tx = db.SqlDb.Begin()
+	// }
 	subsc := []entities.DIDString{}
 	for _, sub := range subscribers {
 		if sub == "" {
@@ -27,8 +26,8 @@ func GetSubscriptionStateBySuscriber(subnet string, topic string, subscribers []
 	if err != nil {
 		return nil, err
 	}
-	if DB == nil {
-		tx.Commit()
-	}
+	// if DB == nil {
+	// 	tx.Commit()
+	// }
 	return &data, nil
 }

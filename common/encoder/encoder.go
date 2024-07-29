@@ -45,9 +45,9 @@ func MsgPackUnpackStruct(b []byte, message interface{}) error {
 // }
 
 func NumberToByte(i uint64) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, i)
-	return b
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, i)
+	return buf.Bytes()
 }
 
 func NumberFromByte(buf []byte) uint64 {
@@ -99,7 +99,7 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 			if err != nil {
 				return []byte(""), err
 			}
-			m[i] = []byte(NumberToByte(num))
+			m[i] = NumberToByte(num)
 		}
 		if arg.Type == BoolEncoderDataType {
 			val := 0

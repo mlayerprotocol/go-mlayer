@@ -48,7 +48,7 @@ CHAT MESSAGE
 // 	Length   int    `json:"l"`
 // 	Sender   DIDString `json:"s"`
 // 	Receiver string `json:"r"`
-// 	// ChainId       string `json:"cId"`
+// 	// ChainId configs.ChainId      string `json:"cId"`
 // 	// Platform      string `json:"p"`
 // 	Timestamp      uint64 `json:"ts"`
 // 	// ApprovalExpiry uint64 `json:"apExp"`
@@ -310,7 +310,7 @@ func MessageFromString(msg string) Message {
 // 	// OwnerAddress  string              `json:"oA"`
 // 	Receiver    string              `json:"r"`
 // 	// Platform    string              `json:"p"`
-// 	// ChainId     string              `json:"cI"`
+// 	// ChainId configs.ChainId    string              `json:"cI"`
 // 	Type        string              `json:"t"`
 // 	Data    []byte 				`json:"d"`
 // 	// Subject     string              `json:"s"`

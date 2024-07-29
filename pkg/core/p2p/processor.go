@@ -4,11 +4,22 @@ import (
 
 	// "github.com/gin-gonic/gin"
 	"context"
+	"encoding/json"
+	"fmt"
 	"reflect"
+	"time"
 
+	"github.com/btcsuite/btcd/btcec/v2"
+	dsQuery "github.com/ipfs/go-datastore/query"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto/schnorr"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	// rest "messagingprotocol/pkg/core/rest"
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
@@ -16,23 +27,20 @@ import (
 /**
 
 **/
-func isChannelClosed(ch interface{}) bool {
-	// Reflect on the channel to check its state
-	c := reflect.ValueOf(ch)
-	if c.Kind() != reflect.Chan {
-		return false
-	}
-	_, ok := c.TryRecv()
-	return !ok
-}
-
-
-
+// func isChannelClosed(ch interface{}) bool {
+// 	// Reflect on the channel to check its state
+// 	c := reflect.ValueOf(ch)
+// 	if c.Kind() != reflect.Chan {
+// 		return false
+// 	}
+// 	_, ok := c.TryRecv()
+// 	return !ok
+// }
 
 /***
 Publish Events to a specified p2p broadcast channel
 *****/
-func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChannel *Channel, mainCtx *context.Context) {
+func publishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChannel *entities.Channel, mainCtx *context.Context) {
 	_, cancel := context.WithCancel(*mainCtx)
 	cfg, ok := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	
@@ -42,6 +50,9 @@ func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 		return
 	}
 	for {
+		if pubsubChannel == nil {
+			continue
+		}
 			event, ok := <-channelPool
 			
 			
@@ -89,7 +100,7 @@ func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 			// 		logger.Errorf("Failed to ENCODE %v", err)
 			// 		continue
 			// 	}
-			// 	logger.Infof("ADEDEEDDD %v", b)
+			
 				err := pubsubChannel.Publish(entities.NewPubSubMessage(pack))
 				
 				if err != nil {
@@ -99,78 +110,32 @@ func PublishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 				
 			}
 	}
-	// for {
-	// 	select {
-	// 	case outAuthorization, ok := <-channelpool.AuthorizationEvent_SubscriptionC:
-	// 		if cfg.Validator {
-	// 			if !ok {
-	// 				logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
-	// 				return
-	// 			}
-	// 			err := pubsubChannel.Publish(entities.NewPubSubMessage(outAuthorization.MsgPack()))
-	// 			if err != nil {
-	// 				logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
-	// 				return
-	// 			}
-	// 		}
-	// 	case outMessage, ok := <-channelpool.NewPayload_Cli_D_C:
-	// 		if cfg.Validator {
-	// 			if !ok {
-	// 				logger.Errorf("Outgoing channel closed. Please restart server to try or adjust buffer size in config")
-	// 				return
-	// 			}
-	// 			err := messagePubSub.Publish(entities.NewPubSubMessage(outMessage.MsgPack(), cfg.PrivateKey))
-	// 			if err != nil {
-	// 				logger.Errorf("Failed to publish message. Please restart server to try or adjust buffer size in config")
-	// 				return
-	// 			}
-	// 		}
-	// 	case subscription, ok := <-*subscriptionC:
-	// 		if cfg.Validator {
-	// 			if !ok {
-	// 				logger.Errorf("Subscription channel not found in the context")
-	// 				return
-	// 			}
-	// 			logger.Info("subscription channel:::", subscription.TopicId)
-
-	// 			err := subscriptionPubSub.Publish(entities.NewPubSubMessage(subscription.MsgPack(), cfg.PrivateKey))
-	// 			if err != nil {
-	// 				logger.Errorf("Failed to publish subscription.")
-	// 				return
-	// 			}
-	// 		}
-	// 	case block, ok := <-*outgoingDPBlockCh:
-	// 		if cfg.Validator {
-	// 			if !ok {
-	// 				logger.Errorf("Subscription channel not found in the context")
-	// 				return
-	// 			}
-	// 			logger.Info("subscription channel:::", block.BlockId)
-	// 			err := batchPubSub.Publish(entities.NewPubSubMessage(block.MsgPack(), cfg.PrivateKey))
-	// 			if err != nil {
-	// 				logger.Errorf("Failed to publish subscription.")
-	// 				return
-	// 			}
-	// 		}
-	// 	}
-	// }
+	
 }
 
-func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, fromPubSubChannel *Channel, mainCtx *context.Context, process func(event *entities.Event, ctx *context.Context)) {
+func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, fromPubSubChannel *entities.Channel, mainCtx *context.Context, process func(event *entities.Event, ctx *context.Context)) {
 	// time.Sleep(5 * time.Second)
 	
 	_, cancel := context.WithCancel(*mainCtx)
 	
 	defer cancel()
+	
 	for {
-		message, ok := <-fromPubSubChannel.Messages
+		if fromPubSubChannel == nil || fromPubSubChannel.Messages == nil {
+			logger.Info("Channel is nil")
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		logger.Info("Channel no more nil")
 		
+		message, ok := <-fromPubSubChannel.Messages
 		if !ok {
 			logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
 			return
 		}
 		
-		event, errT := entities.UnpackEvent(message.Data,  payload)
+		event, errT := entities.UnpackEvent(message.Data,  *payload)
+		logger.Infof("UNPASCKEDEVENT %s  %s, %v", event.PreviousEventHash, event.PayloadHash,  event.Payload.Data)
 		
 		if errT != nil {
 			logger.Errorf("Error receiving event  %v\n", errT)
@@ -274,4 +239,152 @@ func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, 
 	// 		*publishedSubscriptionC <- &cm
 	// 	}
 	// }
+}
+
+type IState interface {
+	MsgPack() []byte
+}
+
+//process the payload based on the type of request
+func processP2pPayload(ctx *context.Context, config *configs.MainConfiguration, payload *P2pPayload) (response *P2pPayload, err error) {
+	response = NewP2pPayload(config, P2pActionResponse, []byte{})
+	response.Id = payload.Id
+	switch(payload.Action) {
+	case P2pActionGetEvent:
+			eventPath, err := entities.UnpackEventPath(payload.Data)
+			if err != nil {
+				response.ResponseCode = 500
+				response.Error = "Invalid payload data"
+				logger.Infof("processP2pPayload: %v", err)
+			}
+			event, err := query.GetEventFromPath(eventPath)
+			if err != nil {
+				if err == query.ErrorNotFound {
+					response.ResponseCode = 404
+					response.Error = "Event not found"
+				} else {
+				response.ResponseCode = 500
+				response.Error = err.Error()
+				}
+			} else {
+				d := models.GetModelFromModelType(eventPath.Model)
+				result := []IState{}
+				states := []json.RawMessage{}
+				// states := query.GetMany(d, &result)
+				sql.SqlDb.Model(d).Where("event = ?", eventPath.ToString(), &result)
+				for _, st := range result {
+					states = append(states, st.MsgPack())
+				}
+				if err == nil {
+					data := P2pEventResponse{Event: event.MsgPack(), States: states}
+					response.Data = (&data).MsgPack()
+				}
+			}
+		case P2pActionGetState:
+			ePath, err := entities.UnpackEntityPath(payload.Data)
+			if err != nil {
+				response.ResponseCode = 500
+				response.Error = "Invalid payload data"
+				logger.Infof("processP2pPayload: %v", err)
+			}
+			state, err := query.GetStateFromPath(ePath)
+			if err != nil {
+				if err == query.ErrorNotFound {
+					response.ResponseCode = 404
+					response.Error = "Event not found"
+				} else {
+				response.ResponseCode = 500
+				response.Error = err.Error()
+				}
+			} else {
+				d := reflect.ValueOf(state).Elem()
+				eventPath := fmt.Sprint(d.FieldByName("Event").Interface())
+				pathFromString := entities.EventPathFromString(eventPath)
+				event, err := query.GetEventFromPath(pathFromString)
+				states := []json.RawMessage{}
+				states = append(states, state.(IState).MsgPack())
+				if err == nil {
+					data := P2pEventResponse{Event: event.MsgPack(), States: states}
+					response.Data = (&data).MsgPack()
+				}
+			}
+
+		case P2pActionGetCommitment:
+			
+			eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+			if !ok {
+				panic("Unable to load eventCounterStore")
+			}
+			realBatch, err := entities.UnpackRewardBatch(payload.Data)
+			batch := realBatch
+			if err != nil {
+				response.ResponseCode = 500
+				response.Error = err.Error()
+			}
+			cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)
+	
+			subnetList, err := eventCounterStore.Query(*ctx, dsQuery.Query{
+				Prefix: cycleKey,
+			})
+			defer subnetList.Close()
+			i := uint64(0)
+			start := batch.Index * 100
+			for  rsl := range subnetList.Next() {
+				if start  == i {
+					if rsl.Key != batch.DataBoundary[0].Subnet {
+						response.ResponseCode = 500
+						response.Error = err.Error()
+						break
+					}
+					batch.Append(entities.SubnetCount{
+						Subnet: rsl.Key,
+						EventCount: encoder.NumberFromByte(rsl.Value),
+					})
+					
+				}
+				if i > start + 99 {
+					break
+				}
+				i++
+			}
+			claimHash := [32]byte{}
+			if len(batch.Data) > 0 && len(response.Error) == 0  {
+				claimHash, err = batch.GetHash(config.ChainId)
+				if err != nil {
+					response.ResponseCode = 500
+					response.Error = err.Error()
+				}
+				if [32]byte(batch.DataHash) != [32]byte(realBatch.DataHash) {
+					response.ResponseCode = 400
+					response.Error = "Invalid batch hash"
+				}
+			} else {
+				response.ResponseCode = 400
+				response.Error = "Invalid batch hash"
+			}
+
+			if response.ResponseCode == 0 {
+				pk, _ := btcec.PrivKeyFromBytes(config.PrivateKeyBytes)
+				_, noncePublicKey := schnorr.ComputeNonce(pk, claimHash)
+				response.Data = noncePublicKey.SerializeCompressed()
+				/// TODO save the nonepublickey with the claimhash in badger
+			}
+			
+
+			// if err != nil {
+			// 	response.ResponseCode = 500
+			// 	response.Error = "Invalid payload data"
+			// 	logger.Infof("processP2pPayload: %v", err)
+			// }
+			
+			// 1. Get the reward batch data
+			// 2. Loop through the Data field and check your /validator/cycle/subnetId/{batchId} to get the last time a proof was requested
+			// 3. If this is less than 10 minutes ago, respond with error - proof requested too early
+			// 4. If non exists or most recent is more than 10 minutes
+			
+			
+			
+	}
+	response.Sign(config.PrivateKeyBytes)
+	return response, err
 }

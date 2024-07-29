@@ -34,7 +34,11 @@ require (
 	gorm.io/gorm v1.25.5
 )
 
-require github.com/decred/dcrd/crypto/blake256 v1.0.1 // indirect
+require (
+	github.com/BurntSushi/toml v1.4.0 // indirect
+	github.com/alecthomas/kong v0.9.0 // indirect
+	github.com/decred/dcrd/crypto/blake256 v1.0.1 // indirect
+)
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect

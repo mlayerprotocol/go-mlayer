@@ -37,9 +37,10 @@ const (
 
 
 // Channel Ids within main context
+type ChannelId string
 const (
-	ConfigKey                       string = "Config"
-	SQLDB                           = "sqldb"
+	ConfigKey                       ChannelId = "Config"
+	SQLDB                         ChannelId  = "sqldb"
 )
 
 // State store key

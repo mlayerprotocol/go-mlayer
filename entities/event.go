@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -20,15 +21,15 @@ import (
 
 var synced = "sync"
 
-type EventModel string
+type EntityModel string
 
 const (
-	AuthEventModel         EventModel = "auth"
-	TopicEventModel        EventModel = "top"
-	SubscriptionEventModel EventModel = "sub"
-	MessageEventModel      EventModel = "msg"
-	SubnetEventModel       EventModel = "subnet"
-	WalletEventModel       EventModel = "wal"
+	AuthModel         EntityModel = "auth"
+	TopicModel        EntityModel = "top"
+	SubscriptionModel EntityModel = "sub"
+	MessageModel      EntityModel = "msg"
+	SubnetModel       EntityModel = "snet"
+	WalletModel       EntityModel = "wal"
 )
 
 /*
@@ -37,35 +38,47 @@ Event paths define the unique path to an event and its relation to the entitie
 
 *
 */
-type EventPath struct {
-	Model     EventModel      `json:"mod"`
+type EntityPath struct {
+	Model     EntityModel      `json:"mod"`
 	Hash      string          `json:"h"`
 	Validator PublicKeyString `json:"val"`
 }
 
-func (e *EventPath) ToString() string {
+type EventPath struct {
+	EntityPath
+}
+
+func (e *EntityPath) ToString() string {
 	if e == nil || e.Hash == "" {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s/%s", e.Validator, e.Model, e.Hash)
 }
 
-func NewEventPath(validator PublicKeyString, model EventModel, hash string) *EventPath {
-	return &EventPath{Model: model, Hash: hash, Validator: validator}
+func NewEntityPath(validator PublicKeyString, model EntityModel, hash string) *EntityPath {
+	return &EntityPath{Model: model, Hash: hash, Validator: validator}
+}
+func NewEventPath(validator PublicKeyString, model EntityModel, hash string) *EventPath {
+	return &EventPath{EntityPath{Model: model, Hash: hash, Validator: validator}}
 }
 
-func (e *EventPath) MsgPack() ([]byte) {
+func (e *EntityPath) MsgPack() ([]byte) {
 	b, _ := encoder.MsgPackStruct(e)
 	return b
 }
 
-func UnpackEventPath(b []byte) (EventPath, error) {
+func UnpackEntityPath(b []byte) (*EntityPath, error) {
+	var p EntityPath
+	err := encoder.MsgPackUnpackStruct(b, &p)
+	return &p, err
+}
+func UnpackEventPath(b []byte) (*EventPath, error) {
 	var p EventPath
-	err := encoder.MsgPackUnpackStruct(b, p)
-	return p, err
+	err := encoder.MsgPackUnpackStruct(b, &p.EntityPath)
+	return &p, err
 }
 
-func EventPathFromString(path string) *EventPath {
+func EntityPathFromString(path string) *EntityPath {
 	parts := strings.Split(path, "/")
 	// assoc, err := strconv.Atoi(parts[0])
 	// if err != nil {
@@ -73,33 +86,36 @@ func EventPathFromString(path string) *EventPath {
 	// }
 	switch len(parts) {
 	case 0:
-		return &EventPath{}
+		return &EntityPath{}
 	case 1:
-		return &EventPath{
+		return &EntityPath{
 			//Relationship: EventAssoc(assoc),
-			Model: EventModel(""),
+			Model: EntityModel(""),
 			Hash:  parts[0],
 		}
 	case 2:
-		return &EventPath{
+		return &EntityPath{
 			//Relationship: EventAssoc(assoc),
-			Model:     EventModel(""),
+			Model:     EntityModel(""),
 			Hash:      parts[1],
 			Validator: PublicKeyString(parts[0]),
 		}
 	default:
-		return &EventPath{
+		return &EntityPath{
 			Validator: PublicKeyString(parts[0]),
-			Model:     EventModel(parts[1]),
+			Model:     EntityModel(parts[1]),
 			Hash:      parts[2],
 		}
 	}
 }
-
-func (eP EventPath) GormDataType() string {
+func EventPathFromString(path string) *EventPath {
+	b := EntityPathFromString(path)
+	return &EventPath{EntityPath: *b}
+}
+func (eP EntityPath) GormDataType() string {
 	return "varchar"
 }
-func (eP EventPath) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+func (eP EntityPath) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 
 	asString := eP.ToString()
 	return clause.Expr{
@@ -109,17 +125,17 @@ func (eP EventPath) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	}
 }
 
-func (sD *EventPath) Scan(value interface{}) error {
+func (sD *EntityPath) Scan(value interface{}) error {
 	data, ok := value.(string)
 	if !ok {
 		return errors.New(fmt.Sprint("Value not instance of string:", value))
 	}
 
-	*sD = *EventPathFromString(data)
+	*sD = *EntityPathFromString(data)
 	return nil
 }
 
-func (sD *EventPath) Value() (driver.Value, error) {
+func (sD *EntityPath) Value() (driver.Value, error) {
 	return sD.ToString(), nil
 }
 
@@ -127,6 +143,7 @@ type EventInterface interface {
 	EncodeBytes() ([]byte, error)
 	GetValidator() PublicKeyString
 	GetSignature() string
+	ValidateData(config *configs.MainConfiguration)  (authState any, err error)
 }
 
 type Event struct {
@@ -188,7 +205,7 @@ func (e *Event) MsgPack() []byte {
 	return b
 }
 
-func UnpackEvent[DataType any](b []byte, data *DataType) (*Event, error) {
+func UnpackEvent[DataType any](b []byte, data DataType) (*Event, error) {
 	// e.Payload = payload
 	e := Event{}
 	err := encoder.MsgPackUnpackStruct(b, &e)
@@ -197,25 +214,32 @@ func UnpackEvent[DataType any](b []byte, data *DataType) (*Event, error) {
 		return nil, err
 	}
 
-	pl := &ClientPayload{
+	pl := ClientPayload{
 		Data: data,
 	}
 	err = json.Unmarshal(c, &pl)
 	if err != nil {
 		logger.Errorf("UnmarshalError:: %o", err)
 	}
-	_, err2 := pl.EncodeBytes()
+	dBytes, err := json.Marshal(pl.Data)
+	var d DataType
+	json.Unmarshal(dBytes, &d)
+	
+	pl.Data = d
+	_, err2 := (&pl).EncodeBytes()
 	if err2 != nil {
 		logger.Errorf("EncodeBytesError:: %o", err)
 	}
 	copier.Copy(e.Payload, &pl)
 	newEvent := Event{
-		Payload: *pl,
+		Payload: pl,
 	}
 	copier.Copy(&e.Payload, &newEvent.Payload)
 
 	return &e, err
 }
+
+
 
 func EventFromJSON(b []byte) (Event, error) {
 	var e Event
@@ -270,4 +294,39 @@ func (e Event) GetValidator() PublicKeyString {
 }
 func (e Event) GetSignature() string {
 	return e.Signature
+}
+
+
+func GetEventEntityFromModel(eventType EntityModel) *Event {
+	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+
+	// check if client payload is valid
+	// if err := payload.Validate(PublicKeyString(cfg.NetworkPublicKey)); err != nil {
+	// 	return  err
+	// }
+
+	//Perfom checks base on event types
+	event := &Event{Payload: ClientPayload{}}
+	switch eventType {
+	case AuthModel:
+		event.Payload.Data = Authorization{}
+
+	case TopicModel:
+		event.Payload.Data = Topic{}
+
+	case SubscriptionModel:
+		event.Payload.Data = Subscription{}
+
+	case MessageModel:
+		event.Payload.Data = Message{}
+
+	case SubnetModel:
+		event.Payload.Data = Subnet{}
+
+	case WalletModel:
+		event.Payload.Data = Wallet{}
+	}
+
+	return event
+
 }

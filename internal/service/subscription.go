@@ -194,10 +194,10 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	}
 
 	// Save stuff permanently
-	tx := sql.Db.Begin()
+	tx := sql.SqlDb.Begin()
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -207,9 +207,9 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 			Event: entities.Event{
 				PayloadHash: event.PayloadHash,
 			},
-		}, models.SubscriptionEvent{
+		}, &models.SubscriptionEvent{
 			Event: *event,
-		}, false, tx)
+		}, nil, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("5000: Db Error", err)
@@ -219,9 +219,13 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		if markAsSynced {
 			_, _, err := query.SaveRecord(models.SubscriptionEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash},
-			}, models.SubscriptionEvent{
+			}, 
+			&models.SubscriptionEvent{
+				Event: *event,
+			},
+			&models.SubscriptionEvent{
 				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
-			}, true, tx)
+			}, tx)
 			if err != nil {
 				logger.Error("DB error", err)
 			}
@@ -230,9 +234,13 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 			_, _, err := query.SaveRecord(models.SubscriptionEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
 			},
-				models.SubscriptionEvent{
+			&models.SubscriptionEvent{
+				Event: *event,
+			},
+				&models.SubscriptionEvent{
 					Event: entities.Event{Broadcasted: true},
-				}, true, tx)
+				},
+			tx)
 			if err != nil {
 				logger.Error("DB error", err)
 			}
@@ -259,7 +267,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 	}
 
-	data.Event = *entities.NewEventPath(event.Validator, entities.SubscriptionEventModel, event.Hash)
+	data.Event = *entities.NewEventPath(event.Validator, entities.SubscriptionModel, event.Hash)
 	data.Agent = entities.AddressFromString(agent).ToDeviceString()
 
 	if markAsSynced && eventError == "" {
@@ -271,9 +279,11 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	if updateState {
 		newState, _, err = query.SaveRecord(models.SubscriptionState{
 			Subscription: entities.Subscription{ID: data.ID, Subnet: data.Subnet, Subscriber: data.Subscriber, Topic: data.Topic},
-		}, models.SubscriptionState{
+		}, &models.SubscriptionState{
 			Subscription: *data,
-		}, true, tx)
+		}, &models.SubscriptionState{
+			Subscription: *data,
+		}, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("5000: Db Error", err)
@@ -284,7 +294,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	if markAsSynced {
 		go OnFinishProcessingEvent(ctx, &data.Event, utils.IfThenElse(newState!=nil, &newState.ID, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
 	}
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)

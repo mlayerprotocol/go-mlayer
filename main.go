@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-	// c := configs.LoadMainConfig()
 
 	cmd.Execute()
 }

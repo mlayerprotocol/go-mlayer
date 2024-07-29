@@ -187,10 +187,10 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 	}
 
 	// Save stuff permanently
-	tx := sql.Db.Begin()
+	tx := sql.SqlDb.Begin()
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -200,9 +200,9 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 			Event: entities.Event{
 				PayloadHash: event.PayloadHash,
 			},
-		}, models.MessageEvent{
+		}, &models.MessageEvent{
 			Event: *event,
-		}, false, tx)
+		}, nil, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Fatal("5000: Db Error", err)
@@ -212,9 +212,13 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 		if markAsSynced {
 			_, _, err := query.SaveRecord(models.MessageEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash},
-			}, models.MessageEvent{
+			}, 
+			&models.MessageEvent{
+				Event: *event,
+			},
+			&models.MessageEvent{
 				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
-			}, true, tx)
+			}, tx)
 			if err != nil {
 				logger.Fatal("DB error", err)
 			}
@@ -223,9 +227,12 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 			_, _, err := query.SaveRecord(models.MessageEvent{
 				Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
 			},
-				models.MessageEvent{
+			&models.MessageEvent{
+				Event: *event,
+			},
+				&models.MessageEvent{
 					Event: entities.Event{Broadcasted: true},
-				}, true, tx)
+				}, tx)
 			if err != nil {
 				logger.Fatal("DB error", err)
 			}
@@ -234,7 +241,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 
 	//Update message status based on the event type
 
-	data.Event = *entities.NewEventPath(event.Validator, entities.MessageEventModel, event.Hash)
+	data.Event = *entities.NewEventPath(event.Validator, entities.MessageModel, event.Hash)
 	// data.Agent = entities.DIDString(agent)
 
 	if markAsSynced && eventError == "" {
@@ -245,9 +252,12 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 	if updateState {
 		newState, _, err = query.SaveRecord(models.MessageState{
 			Message: entities.Message{Hash: data.Hash},
-		}, models.MessageState{
+		}, &models.MessageState{
 			Message: *data,
-		}, true, tx)
+		},
+		&models.MessageState{
+			Message: *data,
+		}, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Fatal("5000: Db Error", err)
@@ -257,7 +267,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 	tx.Commit()
 	go OnFinishProcessingEvent(ctx, &data.Event, utils.IfThenElse(newState!=nil, &newState.ID, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
 
-	if string(event.Validator) != (*cfg).OperatorPublicKey  {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)

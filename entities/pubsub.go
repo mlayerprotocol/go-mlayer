@@ -1,17 +1,23 @@
-package p2p
+package entities
 
 import (
 	"context"
 
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/mlayerprotocol/go-mlayer/entities"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
+var AuthorizationPubSub Channel
+var TopicPubSub Channel
+var SubnetPubSub Channel
+var MessagePubSub Channel
+var SubscriptionPubSub Channel
+var WalletPubSub Channel
+
 type Channel struct {
 	// Messages is a channel of messages received from other peers in the chat channel
-	Messages chan entities.PubSubMessage
+	Messages chan PubSubMessage
 
 	Ctx   context.Context
 	ps    *pubsub.PubSub
@@ -46,7 +52,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 		ID:          selfID,
 		Wallet:      walletAddress,
 		ChannelName: channelName,
-		Messages:    make(chan entities.PubSubMessage, channelBufferSize),
+		Messages:    make(chan PubSubMessage, channelBufferSize),
 	}
 
 	// start reading messages from the subscription in a loop
@@ -55,7 +61,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 }
 
 // Publish sends a message to the pubsub topic.
-func (cr *Channel) Publish(m entities.PubSubMessage) error {
+func (cr *Channel) Publish(m PubSubMessage) error {
 	return cr.Topic.Publish(cr.Ctx, m.MsgPack())
 }
 
@@ -75,7 +81,7 @@ func (cr *Channel) readLoop() {
 		// if msg.ReceivedFrom == cr.ID {
 		// 	continue
 		// }
-		pmsg, err := entities.UnpackPubSubMessage(msg.Data)
+		pmsg, err := UnpackPubSubMessage(msg.Data)
 		
 		if err != nil {
 			logger.Errorf("Invalid pubsub message received: %v", err)
@@ -102,5 +108,5 @@ func (cr *Channel) readLoop() {
 }
 
 func topicName(channelName string) string {
-	return "icm-channel:" + channelName
+	return "ml-channel:" + channelName
 }

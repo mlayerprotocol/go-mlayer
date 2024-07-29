@@ -5,13 +5,16 @@ package cmd
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/hex"
+	"fmt"
 	"slices"
 
 	"sync"
 
 	// "net/rpc/jsonrpc"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
@@ -32,6 +35,7 @@ type Flag string
 
 const (
 	NETWORK_ADDRESS_PRFIX Flag = "network-address-prefix"
+	CHAIN_ID Flag = "chain-id"
 	PRIVATE_KEY Flag = "private-key"
 	PROTOCOL_VERSION    Flag  = "protocol-version"
 	RPC_PORT            Flag = "rpc-port"
@@ -79,37 +83,70 @@ func init() {
 func daemonFunc(cmd *cobra.Command, _ []string) {
 	cfg := configs.Config
 	ctx := context.Background()
+	defer chain.Init(&cfg)
+	defer node.Start(&ctx)
+	defer sql.Init(&cfg)
+	
 
-	sql.Init()
+	
 
 	rpcPort, _ := cmd.Flags().GetString(string(RPC_PORT))
 	wsAddress, _ := cmd.Flags().GetString(string(WS_ADDRESS))
 	restAddress, _ := cmd.Flags().GetString(string(REST_ADDRESS))
 	listeners, _ := cmd.Flags().GetStringSlice(string(LISTENERS))
 
-	networkPrivateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
-	if err != nil || len(networkPrivateKey) == 0 {
-		panic("operators private_key is required. Use --private-key flag or environment var ML_PRIVATE_KEY")
+	
+	cfg.Context = &ctx
+
+	if len(cfg.ChainId) == 0 {
+		cfg.ChainId = "ml"
+	}
+	chainId, _ := cmd.Flags().GetString(string(CHAIN_ID))
+	if len(chainId) > 0 {
+		cfg.ChainId = configs.ChainId(chainId)
 	}
 
-
-	if len(cfg.AddressPrefix) == 0 {
-		cfg.AddressPrefix = "ml"
+	if len(cfg.ChainId) == 0 {
+		cfg.ChainId = "ml"
 	}
 	prefix, _ := cmd.Flags().GetString(string(NETWORK_ADDRESS_PRFIX))
 	if len(prefix) > 0 {
 		cfg.AddressPrefix = prefix
 	}
-	
-	if len(networkPrivateKey) > 0 {
-		cfg.PrivateKey = networkPrivateKey
-		cfg.OperatorPublicKey  = crypto.GetPublicKeySECP(networkPrivateKey)
-		key, err := hex.DecodeString(cfg.OperatorPublicKey)
-		if err != nil {
-			panic(err)
-		}
-		cfg.OperatorAddress = crypto.ToBech32Address(key, cfg.AddressPrefix)
+
+	operatorPrivateKey, err := cmd.Flags().GetString(string(PRIVATE_KEY))
+	if err != nil || len(operatorPrivateKey) == 0 {
+		panic("operators private_key is required. Use --private-key flag or environment var ML_PRIVATE_KEY")
 	}
+	pkFlagLen := len(operatorPrivateKey)
+	if pkFlagLen > 0 {
+		cfg.PrivateKey = operatorPrivateKey
+	}
+	if  len(cfg.PrivateKey) != 64 {
+		panic("--private-key must be 32 bytes long")
+	}
+	
+
+	// conver private key to edd
+	pk, err :=  hex.DecodeString(cfg.PrivateKey)
+	if err != nil {
+		panic( err)
+	}
+
+	// switch private key
+	cfg.PrivateKeySECP = pk
+	_, pubKey := btcec.PrivKeyFromBytes(cfg.PrivateKeyBytes)
+	cfg.PublicKeySECP = pubKey.SerializeCompressed()
+	
+	cfg.PrivateKeyBytes = ed25519.NewKeyFromSeed(pk)
+	cfg.PrivateKey = hex.EncodeToString(cfg.PrivateKeyBytes)
+	cfg.PublicKeyBytes = cfg.PrivateKeyBytes[32:]
+	
+	
+	
+	cfg.PublicKey = hex.EncodeToString(cfg.PublicKeyBytes)
+	cfg.OperatorAddress = crypto.ToBech32Address(cfg.PublicKeySECP, string(cfg.AddressPrefix))
+
 
 	if len(wsAddress) > 0 {
 		cfg.WSAddress = wsAddress
@@ -123,6 +160,12 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	if len(dataDir) > 0 {
 		cfg.DataDir = dataDir
 	}
+
+	if len(cfg.SQLDB.DbStoragePath) == 0 {
+		cfg.SQLDB.DbStoragePath = fmt.Sprintf("%s/sql", cfg.DataDir)
+	}
+
+
 	protocolVersion, _ := cmd.Flags().GetString(string(PROTOCOL_VERSION))
 	
 	if len(protocolVersion) > 0 && protocolVersion != constants.DefaultProtocolVersion  {
@@ -145,12 +188,12 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	if len(cfg.RPCPort) == 0 {
 		cfg.RPCPort = constants.DefaultRPCPort
 	}
-	logger.Infof("LISTENERSSSSS %v", cfg.StakeContract)
+	
 	if len(listeners) > 0 {
 		cfg.ListenerAdresses = listeners
 	}
 
-	chain.Init(&cfg)
+	
 
 	// ****** INITIALIZE CONTEXT ****** //
 
@@ -181,58 +224,18 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	// // receiving subscription from other nodes channel
 	// ctx = context.WithValue(ctx, constants.PublishedSubChId, &channelpool.PublishedSubC)
 
-	ctx = context.WithValue(ctx, constants.SQLDB, &sql.Db)
+	ctx = context.WithValue(ctx, constants.SQLDB, &sql.SqlDb)
+	// regData := entities.RegisterationData{ChainId: "31337"}
+	// regData.Timestamp = 1721333362786
+	// pkBig, ok := new(big.Int).SetString("72899163643598738277738319679191588732231853444529124907544445648379905735121", 10)
+	// if !ok {
+	// 	panic("Unable to generate big number")
+	// }
+	// dHash := regData.GetHash()
+	// logger.Infof("DATAHHASH %s %s", hex.EncodeToString(dHash), hex.EncodeToString(pkBig.Bytes()))
+	// // pk, _ := hex.DecodeString(cfg.PrivateKey)
+	// signature, commitment, _ := regData.Sign(cfg.PrivateKey)
+	// logger.Infof("RegData %s, %s, %s, %d, %s", hex.EncodeToString(signature),cfg.PrivateKey, hex.EncodeToString(commitment), regData.Timestamp, cfg.PublicKey)
+	
 
-	node.Start(&ctx)
 }
-
-// func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
-
-// 	c, err := upgrader.Upgrade(w, r, nil)
-// 	logger.Print("New ServeWebSocket c : ", c.RemoteAddr())
-
-// 	if err != nil {
-// 		logger.Print("upgrade:", err)
-// 		return
-// 	}
-// 	defer c.Close()
-// 	hasVerifed := false
-// 	time.AfterFunc(5000*time.Millisecond, func() {
-
-// 		if !hasVerifed {
-// 			c.Close()
-// 		}
-// 	})
-// 	_close := func(code int, t string) error {
-// 		logger.Infof("code: %d, t: %s \n", code, t)
-// 		return errors.New("Closed ")
-// 	}
-// 	c.SetCloseHandler(_close)
-// 	for {
-// 		mt, message, err := c.ReadMessage()
-// 		if err != nil {
-// 			logger.Println("read:", err)
-// 			break
-
-// 		} else {
-// 			err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
-// 			if err != nil {
-// 				logger.Println("Error:", err)
-// 			} else {
-// 				// signature := string(message)
-// 				verifiedRequest, _ := entities.UnpackVerificationRequest(message)
-// 				logger.Println("verifiedRequest.Message: ", verifiedRequest.Message)
-
-// 				if constants.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
-// 					verifiedConn = append(verifiedConn, c)
-// 					hasVerifed = true
-// 					logger.Println("Verification was successful: ", verifiedRequest)
-// 				}
-// 				logger.Println("message:", string(message))
-// 				logger.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
-// 			}
-
-// 		}
-// 	}
-
-// }

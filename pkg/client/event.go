@@ -17,6 +17,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"gorm.io/gorm"
 )
 
@@ -135,7 +136,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		PayloadHash:       hex.EncodeToString(payloadHash),
 		Broadcasted:       false,
 		BlockNumber:       chain.API.GetCurrentBlockNumber(),
-		Validator:         entities.PublicKeyString(cfg.ValidatorPublicKey),
+		Validator:         entities.PublicKeyString(cfg.PublicKey),
 	}
 
 	logger.Infof("NewEvent: %v", event)
@@ -147,7 +148,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	logger.Infof("eventPayloadType 2: %s", eventPayloadType)
 
 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
-	_, event.Signature = crypto.SignEDD(b, cfg.PrivateKey)
+	_, event.Signature = crypto.SignEDD(b, cfg.PrivateKeyBytes)
 
 	switch eventPayloadType {
 	case constants.TopicPayloadType:
@@ -155,9 +156,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			models.TopicEvent{
 				Event: entities.Event{Hash: event.Hash},
 			},
-			models.TopicEvent{
+			&models.TopicEvent{
 				Event: event,
-			}, false, nil)
+			}, nil, nil)
 
 		if err != nil {
 			return nil, err
@@ -166,7 +167,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		// channelpool.TopicEventPublishC <- &(eModel.Event)
 
 		if created {
-			channelpool.TopicEventPublishC <- &(eModel.Event)
+			// channelpool.TopicEventPublishC <- &(eModel.Event)
 		}
 		var returnModel = models.EventInterface(*eModel)
 		model = &returnModel
@@ -175,9 +176,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			models.SubnetEvent{
 				Event: entities.Event{Hash: event.Hash},
 			},
-			models.SubnetEvent{
+			&models.SubnetEvent{
 				Event: event,
-			}, false, nil)
+			}, nil, nil)
 
 		if err != nil {
 			return nil, err
@@ -196,9 +197,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			models.WalletEvent{
 				Event: entities.Event{Hash: event.Hash},
 			},
-			models.WalletEvent{
+			&models.WalletEvent{
 				Event: event,
-			}, false, nil)
+			}, nil, nil)
 
 		if err != nil {
 			return nil, err
@@ -217,9 +218,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			models.SubscriptionEvent{
 				Event: entities.Event{Hash: event.Hash},
 			},
-			models.SubscriptionEvent{
+			&models.SubscriptionEvent{
 				Event: event,
-			}, false, nil)
+			}, nil, nil)
 
 		if err != nil {
 			return nil, err
@@ -238,9 +239,9 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			models.MessageEvent{
 				Event: entities.Event{Hash: event.Hash},
 			},
-			models.MessageEvent{
+			&models.MessageEvent{
 				Event: event,
-			}, false, nil)
+			}, nil, nil)
 
 		if err != nil {
 			return nil, err
@@ -255,18 +256,19 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		model = &returnModel
 
 	}
+	logger.Info("DONEEEEEE %v", model)
 	//query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType) )
-	_, _, blockStatErr := query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType))
+	//_, _, blockStatErr := query.IncrementBlockStat(event.BlockNumber, (*constants.EventType)(&event.EventType))
 
-	if blockStatErr != nil {
-		return nil, blockStatErr
-	}
+	// if blockStatErr != nil {
+	// 	return nil, blockStatErr
+	// }
 
 	return model, nil
 
 }
 
-func GetEventFromType(eventType entities.EventModel) constants.EventType {
+func GetEventTypeFromModel(eventType entities.EntityModel) constants.EventType {
 	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// check if client payload is valid
@@ -276,29 +278,31 @@ func GetEventFromType(eventType entities.EventModel) constants.EventType {
 
 	//Perfom checks base on event types
 	switch eventType {
-	case entities.AuthEventModel:
+	case entities.AuthModel:
 
 		return constants.AuthorizationEvent
 
-	case entities.TopicEventModel:
+	case entities.TopicModel:
 		return constants.CreateTopicEvent
 
-	case entities.SubscriptionEventModel:
+	case entities.SubscriptionModel:
 		return constants.SubscribeTopicEvent
 
-	case entities.MessageEventModel:
+	case entities.MessageModel:
 		return constants.SendMessageEvent
 
-	case entities.SubnetEventModel:
+	case entities.SubnetModel:
 		return constants.CreateSubnetEvent
 
-	case entities.WalletEventModel:
+	case entities.WalletModel:
 		return constants.CreateWalletEvent
 	}
 
 	return 0
 
 }
+
+
 
 func GetEvent(eventId string, eventType int) (model interface{}, err error) {
 	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
@@ -423,9 +427,12 @@ func GetEventByHash(eventHash string, eventType int) (model interface{}, err err
 func GetTopicEventById(id string) (*models.TopicEvent, error) {
 	nEvent := models.TopicEvent{}
 
-	err := query.GetOne(models.TopicEvent{
-		Event: entities.Event{ID: id},
-	}, &nEvent)
+	// err := query.GetOne(&models.TopicEvent{
+	// 	Event: entities.Event{ID: id},
+	// }, &nEvent)
+	err := sql.SqlDb.Where(&models.TopicEvent{
+			Event: entities.Event{ID: id},
+		}).Take(&nEvent).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -573,3 +580,5 @@ func GetAuthorizationEventByHash(hash string) (*models.AuthorizationEvent, error
 	}
 	return &nEvent, nil
 }
+
+
