@@ -214,7 +214,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	tx.Commit()
 
 	if string(event.Validator) != (*cfg).PublicKey  {
-		dependent, err := query.GetDependentEvents(*event)
+		dependent, err := query.GetDependentEvents(event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)
 		}

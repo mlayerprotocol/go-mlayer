@@ -268,7 +268,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 	go OnFinishProcessingEvent(ctx, &data.Event, utils.IfThenElse(newState!=nil, &newState.ID, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
 
 	if string(event.Validator) != (*cfg).PublicKey  {
-		dependent, err := query.GetDependentEvents(*event)
+		dependent, err := query.GetDependentEvents(event)
 		if err != nil {
 			logger.Info("Unable to get dependent events", err)
 		}

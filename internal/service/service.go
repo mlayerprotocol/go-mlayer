@@ -461,7 +461,7 @@ func HandleNewPubSubEventOld(eventPayloadDataType any, event *entities.Event, ct
 		}
 
 		if string(event.Validator) != cfg.PublicKey {
-			dependent, err := query.GetDependentEvents(*event)
+			dependent, err := query.GetDependentEvents(event)
 			if err != nil {
 				logger.Info("Unable to get dependent events", err)
 			}
