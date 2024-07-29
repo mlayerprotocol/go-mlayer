@@ -167,8 +167,8 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		} else {
 			// TODO if event is older than our state, just save it and mark it as synced
 			
-			saveSubnetEvent(entities.Event{Hash: event.Hash}, nil, &entities.Event{IsValid: true, Synced: true}, tx );
-			if eventIsMoreRecent {
+			savedEvent, err := saveSubnetEvent(entities.Event{Hash: event.Hash}, nil, &entities.Event{IsValid: true, Synced: true}, tx );
+			if eventIsMoreRecent && err != nil {
 				// update state
 				_, _, err := query.SaveRecord(models.SubnetState{
 					Subnet: entities.Subnet{ID: id},
@@ -181,6 +181,21 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 					// tx.Rollback()
 					logger.Errorf("SaveStateError %v", err)
 					return
+				}
+				
+			}
+			if err == nil {
+				go OnFinishProcessingEvent(ctx, entities.NewEventPath(event.Validator, entities.SubnetModel, event.Hash), &savedEvent.ID, err)
+			}
+			
+	
+			if string(event.Validator) != cfg.PublicKey {
+				dependent, err := query.GetDependentEvents(event)
+				if err != nil {
+					logger.Info("Unable to get dependent events", err)
+				}
+				for _, dep := range *dependent {
+					HandleNewPubSubEvent(&dep, ctx)
 				}
 			}
 		}

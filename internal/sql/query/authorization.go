@@ -50,27 +50,7 @@ func GetManyAuthorizationEvents(event entities.Event) (*models.AuthorizationEven
 	}
 	return &data, nil
 }
-func GetDependentEvents(event entities.Event) (*[]entities.Event, error) {
 
-	data := []entities.Event{}
-	// err := db.SqlDb.Where(
-	// 	&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: *entities.NewEventPath(entities.AuthModel, event.Hash)}},
-	// ).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: *entities.NewEventPath(entities.AuthModel, event.Hash)}},
-	// // ).Or("? LIKE ANY (associations)", fmt.Sprintf("%%%s%%", event.Hash)
-	// ).Find(&data).Error
-	// if err != nil {
-	// 	return nil, err
-	// }
-	prevEvent, _ := GetEventFromPath(&event.PreviousEventHash)
-	if prevEvent != nil {
-		data = append(data, *prevEvent)
-	}
-	authEvent, _ := GetEventFromPath(&event.AuthEventHash)
-	if prevEvent != nil {
-		data = append(data, *authEvent)
-	}
-	return &data, nil
-}
 
 // Save authorization only when it doesnt exist
 func SaveAuthorizationState(auth *entities.Authorization, DB *gorm.DB) (*models.AuthorizationState, *gorm.DB) {

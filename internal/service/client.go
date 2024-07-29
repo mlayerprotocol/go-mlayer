@@ -175,8 +175,23 @@ func ValidateMessageClient(
 	return nil
 }
 
+func HandleNewPubSubEvent (event *entities.Event, ctx *context.Context) {
+	switch val := event.Payload.Data.(type) {
+	case entities.Subnet:
+		logger.Debug(val)
+		HandleNewPubSubSubnetEvent(event, ctx)
+	case entities.Authorization:
+		HandleNewPubSubAuthEvent(event, ctx)
+	case entities.Topic:
+		HandleNewPubSubTopicEvent(event, ctx)
+	case entities.Subscription:
+		HandleNewPubSubSubscriptionEvent(event, ctx)
+	case entities.Message:
+		HandleNewPubSubMessageEvent(event, ctx)
+	}
+}
 
-func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPath, stateId *string, err error) {
+func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPath, subnetId *string, err error) {
 	
 	event, err := query.GetEventFromPath(eventPath)
 	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
@@ -194,7 +209,7 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 			panic(err)
 		}
 		
-		subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
+		subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *subnetId, event.Payload.Subnet)))
 		cycleKey :=  datastore.NewKey(fmt.Sprintf("%s/%d", event.Payload.Validator, chain.GetCycle(event.BlockNumber)))
 		val, err := eventCounterStore.Get(*ctx, subnetKey)
 		

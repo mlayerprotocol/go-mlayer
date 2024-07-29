@@ -197,6 +197,28 @@ func SaveRecordWithMap[Model any](model *Model, where map[string]interface{}, da
 	return result.RowsAffected > 0, nil
 }
 
+func GetDependentEvents(event *entities.Event) (*[]entities.Event, error) {
+
+	data := []entities.Event{}
+	// err := db.SqlDb.Where(
+	// 	&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: *entities.NewEventPath(entities.AuthModel, event.Hash)}},
+	// ).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: *entities.NewEventPath(entities.AuthModel, event.Hash)}},
+	// // ).Or("? LIKE ANY (associations)", fmt.Sprintf("%%%s%%", event.Hash)
+	// ).Find(&data).Error
+	// if err != nil {
+	// 	return nil, err
+	// }
+	prevEvent, _ := GetEventFromPath(&(event.PreviousEventHash))
+	if prevEvent != nil {
+		data = append(data, *prevEvent)
+	}
+	authEvent, _ := GetEventFromPath(&(event.AuthEventHash))
+	if prevEvent != nil {
+		data = append(data, *authEvent)
+	}
+	return &data, nil
+}
+
 // func IncrementRecord[Model any](where Model, field string, DB *gorm.DB) (model *Model, created bool, err error) {
 // 	tx := DB
 // 	if DB == nil {

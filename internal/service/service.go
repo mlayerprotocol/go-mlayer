@@ -62,7 +62,7 @@ type CurrentState struct {
 	Event     entities.EventPath
 }
 
-func HandleNewPubSubEvent(eventPayloadDataType any, event *entities.Event, ctx *context.Context) {
+func HandleNewPubSubEventOld(eventPayloadDataType any, event *entities.Event, ctx *context.Context) {
 	
 	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	logger.WithFields(logrus.Fields{"event": eventPayloadDataType}).Debug("New topic event from pubsub channel")
