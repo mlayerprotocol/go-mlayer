@@ -22,15 +22,15 @@ type Subnet struct {
 	Categories    pq.Int32Array `gorm:"type:integer[]"`
 	Owner         DIDString     `json:"own,omitempty" binding:"required"  gorm:"not null;type:varchar(100);default:did"`
 	SignatureData SignatureData `json:"sigD" gorm:"json;"`
-	Status        *uint8         `json:"st" gorm:"boolean;default:0"`
+	Status        *uint8        `json:"st" gorm:"boolean;default:0"`
 	Timestamp     uint64        `json:"ts,omitempty" binding:"required"`
 	Balance       uint64        `json:"bal" gorm:"default:0"`
 	// Readonly
 	Account DIDString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	Agent   DeviceString `json:"_"  gorm:"_"`
 
-	// CreateTopicPrivilege   *constants.AuthorizationPrivilege `json:"cTopPriv"` // 
-	DefaultAuthPrivilege   *constants.AuthorizationPrivilege `json:"dAuthPriv"` // privilege for external users who joins the subnet. 0 indicates people cant join
+	// CreateTopicPrivilege   *constants.AuthorizationPrivilege `json:"cTopPriv"` //
+	DefaultAuthPrivilege *constants.AuthorizationPrivilege `json:"dAuthPriv"` // privilege for external users who joins the subnet. 0 indicates people cant join
 
 	// Derived
 	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`

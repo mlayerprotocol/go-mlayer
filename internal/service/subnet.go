@@ -32,10 +32,18 @@ func ValidateSubnetData(subnet *entities.Subnet, addressPrefix string) (currentS
 		return nil, apperror.BadRequest("Ref must be alpha-numeric, and .")
 	}
 	var valid bool
-	b, _ := subnet.EncodeBytes()
+	// b, _ := subnet.EncodeBytes()
 	switch subnet.SignatureData.Type {
 	case entities.EthereumPubKey:
-		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &b, subnet.SignatureData.Signature)
+		msg, err := subnet.GetHash()
+		if err != nil {
+			return nil, err
+		}
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", addressPrefix, subnet.Ref, encoder.ToBase64Padded(msg))
+		logger.Info("MSG:: ", authMsg)
+		msgByte := crypto.EthMessage([]byte(authMsg))
+
+		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &msgByte, subnet.SignatureData.Signature)
 
 	case entities.TendermintsSecp256k1PubKey:
 

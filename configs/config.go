@@ -19,28 +19,28 @@ type EthChainConfig struct {
 }
 
 type SqlConfig struct {
-	DbDialect                  string         `mapstructure:"db_dialect"`
-	DbHost                 string         `mapstructure:"db_host"`
-	DbStoragePath                string         `mapstructure:"db_storage_dir"`
-	DbPort					uint  `mapstructure:"db_port"`
-	DbDatabase				string  `mapstructure:"db_database"`
-	DbUser				string  `mapstructure:"db_user"`
-	DbPassword 				string `mapstructure:"db_password"`
-	DbSSLMode string `mapstructure:"db_sslmode"`
-	DbTimezone string `mapstructure:"db_timezone"`
-	DbMaxOpenConns int `mapstructure:"db_max_open_conns"`
-	DbMaxIdleConns int `mapstructure:"db_max_idle_conns"`
-	DbMaxConnLifetime int `mapstructure:"db_max_conn_lifetime_seconds"`
+	DbDialect         string `mapstructure:"db_dialect"`
+	DbHost            string `mapstructure:"db_host"`
+	DbStoragePath     string `mapstructure:"db_storage_dir"`
+	DbPort            uint   `mapstructure:"db_port"`
+	DbDatabase        string `mapstructure:"db_database"`
+	DbUser            string `mapstructure:"db_user"`
+	DbPassword        string `mapstructure:"db_password"`
+	DbSSLMode         string `mapstructure:"db_sslmode"`
+	DbTimezone        string `mapstructure:"db_timezone"`
+	DbMaxOpenConns    int    `mapstructure:"db_max_open_conns"`
+	DbMaxIdleConns    int    `mapstructure:"db_max_idle_conns"`
+	DbMaxConnLifetime int    `mapstructure:"db_max_conn_lifetime_seconds"`
 }
 
 type MLChainAPI struct {
-	url string  `mapstructure:"ml_api_url"`
+	url string `mapstructure:"ml_api_url"`
 }
 
 type MainConfiguration struct {
-	AddressPrefix		 	 string 		`mapstructure:"network_address_prefix"`
+	AddressPrefix            string         `mapstructure:"address_prefix"`
 	NodePrivateKey           string         `mapstructure:"node_private_key"`
-	NetworkPrivateKey        string         `mapstructure:"network_private_key"`      
+	NetworkPrivateKey        string         `mapstructure:"network_private_key"`
 	StakeContract            string         `mapstructure:"stake_contract"`
 	ChainId                  uint           `mapstructure:"chain_id"`
 	Token                    string         `mapstructure:"token_address"`
@@ -56,16 +56,16 @@ type MainConfiguration struct {
 	Listeners                []string       `mapstructure:"listeners"`
 	RPCHost                  string         `mapstructure:"rpc_host"`
 	WSAddress                string         `mapstructure:"ws_address"`
-	RestAddress                string         `mapstructure:"rest_address"`
+	RestAddress              string         `mapstructure:"rest_address"`
 	RPCPort                  string         `mapstructure:"rpc_port"`
 	RPCHttpPort              string         `mapstructure:"rpc_http_port"`
 	Validator                bool           `mapstructure:"validator"`
 	BootstrapNode            bool           `mapstructure:"bootstrap_node"`
 	DataDir                  string         `mapstructure:"data_dir"`
-	SQLDB                    SqlConfig     	`mapstructure:"sql"`
-	MLBlockchainAPIUrl		 string			`mapstructure:"mlayer_api_url"`
-	NetworkPublicKey      	 string  
-	NetworkKeyAddress		 string 
+	SQLDB                    SqlConfig      `mapstructure:"sql"`
+	MLBlockchainAPIUrl       string         `mapstructure:"mlayer_api_url"`
+	NetworkPublicKey         string
+	NetworkKeyAddress        string
 }
 
 var (
@@ -88,9 +88,9 @@ func Init() *viper.Viper {
 	}
 	v.SetDefault("log_level", "info")
 	v.SetDefault("channel_message_buffer_size", 128)
-	v.SetDefault("db_max_open_conns",10)
-	v.SetDefault("db_max_idle_conns",2)
-	v.SetDefault("db_max_conn_lifetime_seconds",120)
+	v.SetDefault("db_max_open_conns", 10)
+	v.SetDefault("db_max_idle_conns", 2)
+	v.SetDefault("db_max_conn_lifetime_seconds", 120)
 	return v
 }
 func init() {
