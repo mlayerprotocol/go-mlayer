@@ -70,7 +70,7 @@ func (handshake *NodeHandshake) IsValid(chainId configs.ChainId) bool {
 	handshake.ChainId = chainId // Important security update. Do not remove
 	//
 	if math.Abs(float64(uint64(time.Now().UnixMilli()) - handshake.Timestamp)) > constants.VALID_HANDSHAKE_SECONDS {
-		logger.WithFields(logrus.Fields{"data": handshake}).Warnf("Hanshake Expired: %d", uint64(time.Now().UnixMilli()) - handshake.Timestamp)
+		logger.WithFields(logrus.Fields{"data": handshake}).Warnf("Node Handshake Expired: %d", uint64(time.Now().UnixMilli()) - handshake.Timestamp)
 		return false
 	}
 	signer, err := hex.DecodeString(string(handshake.Signer));

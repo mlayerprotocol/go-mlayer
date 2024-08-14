@@ -41,6 +41,9 @@ type Topic struct {
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
 	Subnet    string `json:"snet" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(36);"`
 	// Subnet string `json:"snet" gorm:"index;varchar(36)"`
+	BlockNumber uint64          `json:"blk"`
+	Cycle   	uint64			`json:"cy"`
+	Epoch		uint64			`json:"ep"`
 }
 
 func (topic *Topic) Key() string {
@@ -78,7 +81,7 @@ func TopicFromBytes(b []byte) (Topic, error) {
 }
 func UnpackTopic(b []byte) (Topic, error) {
 	var topic Topic
-	err := encoder.MsgPackUnpackStruct(b, topic)
+	err := encoder.MsgPackUnpackStruct(b, &topic)
 	return topic, err
 }
 

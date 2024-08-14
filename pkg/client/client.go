@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
@@ -11,8 +12,9 @@ import (
 func ValidateClientPayload(
 	payload *entities.ClientPayload,
 	strictAuth bool,
+	chainId configs.ChainId,
 ) (*models.AuthorizationState, *entities.DeviceString, error) {
-	logger.Info("PAYLOAD", string(payload.ToJSON()))
+	
 	// _, err := payload.EncodeBytes()
 	// if err != nil {
 	// 	logger.Error(err)
@@ -23,13 +25,20 @@ func ValidateClientPayload(
 	if payload.Subnet == "" {
 		return nil, nil, apperror.Forbidden("Subnet Id is required")
 	}
-
+	if string(payload.ChainId) != string(chainId) {
+		return nil, nil, apperror.Forbidden("Invalid chain Id")
+	}
+	// payload.ChainId = chainId
 	agent, err := payload.GetSigner()
 	
 	if err != nil {
 		return nil, nil, err
 	}
 	
+	// if agent != payload.Agent {
+	// 	return nil, nil, apperror.BadRequest("Agent is required")
+	// }
+	// logger.Infof("AGENTTTT %s", agent)
 	subnet := models.SubnetState{}
 	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: payload.Subnet}}, &subnet)
 	if err != nil {
@@ -38,7 +47,6 @@ func ValidateClientPayload(
 		}
 		return nil, nil, apperror.Internal(err.Error())
 	}
-
 	if *subnet.Status ==  0 {
 		return nil, nil, apperror.Forbidden("Subnet is disabled")
 	}

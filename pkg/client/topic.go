@@ -96,6 +96,7 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
 			return nil, nil, errors.New("Authorization timestamp exceeded")
 		}
+		
 
 	}
 

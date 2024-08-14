@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -24,20 +25,51 @@ Validate an agent authorization
 func ValidateSubnetData(subnet *entities.Subnet, chainID configs.ChainId) (currentSubnetState *models.SubnetState, err error) {
 	// check fields of Subnet
 
-	if len(subnet.Ref) > 60 {
-		return nil, apperror.BadRequest("Subnet ref cannont be more than 40 characters")
+	agent := entities.AddressFromString(string(subnet.Agent))
+	account := entities.AddressFromString(string(subnet.Account))
+	
+	if len(subnet.Agent) > 0 && subnet.ID != "" {
+		
+		// TODO Check that this agent is an admin of subnet. Return error if not
+		priv := constants.AdminPriviledge
+		var auth models.AuthorizationState
+		err := query.GetOne(models.AuthorizationState{Authorization: entities.Authorization{
+			Agent: agent.ToDeviceString(),
+			Subnet: subnet.ID,
+			Priviledge: &priv,
+			Account: account.ToString(),
+		}}, &auth)
+		if err != nil  {
+			if  err == query.ErrorNotFound {
+				return nil,  apperror.Unauthorized("agent not authorized")
+			}
+			return nil,  apperror.Internal("internal database error")
+		}
+		
+	}
+
+	// TODO if agent is specified, ensure agent is allowed to sign on behalf of Owner
+
+	if len(subnet.Ref) > 64 {
+		return nil, apperror.BadRequest("Subnet ref cannont be more than 64 characters")
 	}
 	if len(subnet.Ref) > 0 && !utils.IsAlphaNumericDot(subnet.Ref) {
-		return nil, apperror.BadRequest("Ref must be alpha-numeric, and .")
+		return nil, apperror.BadRequest("Ref can only include alpha-numerics, and .")
 	}
 	var valid bool
 	b, _ := subnet.EncodeBytes()
 	switch subnet.SignatureData.Type {
 	case entities.EthereumPubKey:
-		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &b, subnet.SignatureData.Signature)
+		var signer entities.DeviceString
+		if len(subnet.Agent) > 0 {
+			signer = subnet.Agent
+		} else {
+			signer = entities.DeviceString(subnet.Account)
+		}
+		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(signer)).Addr, &b, subnet.SignatureData.Signature)
 
 	case entities.TendermintsSecp256k1PubKey:
-
+		
 		decodedSig, err := base64.StdEncoding.DecodeString(subnet.SignatureData.Signature)
 		if err != nil {
 			return nil, err
@@ -49,7 +81,7 @@ func ValidateSubnetData(subnet *entities.Subnet, chainID configs.ChainId) (curre
 			return nil, err
 		}
 
-		account := entities.AddressFromString(string(subnet.Account))
+		// account := entities.AddressFromString(string(subnet.Account))
 		publicKeyBytes, err := base64.RawStdEncoding.DecodeString(subnet.SignatureData.PublicKey)
 
 		if err != nil {
@@ -66,14 +98,20 @@ func ValidateSubnetData(subnet *entities.Subnet, chainID configs.ChainId) (curre
 	if !valid {
 		return nil, apperror.Unauthorized("Invalid subnet data signature")
 	}
-	query.GetOne(models.SubnetState{Subnet: entities.Subnet{Ref: subnet.Ref}}, currentSubnetState)
+	
+	if subnet.ID != "" {
+		curSt := models.SubnetState{}
+		query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: subnet.ID}}, &curSt)
+		currentSubnetState = &curSt
+	}
+	
 	return currentSubnetState, nil
 }
 
 func saveSubnetEvent(where entities.Event, createData *entities.Event, updateData *entities.Event, tx *gorm.DB) (*entities.Event, error) {
 	var createModel *models.SubnetEvent
 	if createData != nil {
-		createModel = &models.SubnetEvent{Event: entities.Event{}}
+		createModel = &models.SubnetEvent{Event: *createData}
 	} else {
 		createModel = &models.SubnetEvent{}
 	}
@@ -95,7 +133,18 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	if !ok {
 		panic("Unable to load config from context")
 	}
+	
 	data := event.Payload.Data.(entities.Subnet)
+	data.Event = *event.GetPath()
+	data.BlockNumber = event.BlockNumber
+	data.Cycle = event.Cycle
+	data.Epoch = event.Epoch
+	hash, err := data.GetHash()
+	if err != nil {
+		return
+	}
+	data.Hash = hex.EncodeToString(hash)
+	
 	var id = data.ID
 	if len(data.ID) == 0 {
 		id, _ = entities.GetId(data)
@@ -105,14 +154,14 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	
 	var localState models.SubnetState
 	// err := query.GetOne(&models.TopicState{Topic: entities.Topic{ID: id}}, &localTopicState)
-	err := sql.SqlDb.Where(&models.SubnetState{Subnet: entities.Subnet{ID: id}}).Take(&localState).Error
+	err = sql.SqlDb.Where(&models.SubnetState{Subnet: entities.Subnet{ID: id}}).Take(&localState).Error
 	if err != nil {
 		logger.Error(err)
 	}
 	
 	
 	var localDataState *LocalDataState
-	if localState.ID == "" {
+	if localState.ID != "" {
 		localDataState = &LocalDataState{
 			ID: localState.ID,
 			Hash: localState.Hash,
@@ -167,16 +216,20 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 		} else {
 			// TODO if event is older than our state, just save it and mark it as synced
 			
-			savedEvent, err := saveSubnetEvent(entities.Event{Hash: event.Hash}, nil, &entities.Event{IsValid: true, Synced: true}, tx );
-			if eventIsMoreRecent && err != nil {
+			savedEvent, err := saveSubnetEvent(entities.Event{Hash: event.Hash}, nil, &entities.Event{IsValid: true, Subnet: event.Subnet, Synced: true}, tx );
+			if eventIsMoreRecent && err == nil {
 				// update state
-				_, _, err := query.SaveRecord(models.SubnetState{
-					Subnet: entities.Subnet{ID: id},
-				}, &models.SubnetState{
-					Subnet: data,
-				}, utils.IfThenElse(event.EventType == uint16(constants.UpdateSubnetEvent), &models.SubnetState{
-					Subnet: data,
-				}, &models.SubnetState{}) , tx)
+				if data.ID != "" {
+					_, _, err = query.SaveRecord(models.SubnetState{
+						Subnet: entities.Subnet{ID: data.ID},
+					}, &models.SubnetState{
+						Subnet: data,
+					}, utils.IfThenElse(event.EventType == uint16(constants.UpdateSubnetEvent), &models.SubnetState{
+						Subnet: data,
+					}, &models.SubnetState{}) , tx)
+				} else {
+					err = tx.Create(&models.SubnetState{Subnet: data}).Error
+				}
 				if err != nil {
 					// tx.Rollback()
 					logger.Errorf("SaveStateError %v", err)
@@ -185,11 +238,12 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 				
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, entities.NewEventPath(event.Validator, entities.SubnetModel, event.Hash), &savedEvent.ID, err)
+				go OnFinishProcessingEvent(ctx, event.GetPath(), &savedEvent.ID, err)
 			}
 			
-	
+			
 			if string(event.Validator) != cfg.PublicKey {
+				go func () {
 				dependent, err := query.GetDependentEvents(event)
 				if err != nil {
 					logger.Info("Unable to get dependent events", err)
@@ -197,7 +251,9 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 				for _, dep := range *dependent {
 					HandleNewPubSubEvent(&dep, ctx)
 				}
+				}()
 			}
+			
 		}
 
 
@@ -410,3 +466,4 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	// TODO Broadcast the updated state
 }
 }
+

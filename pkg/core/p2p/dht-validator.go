@@ -1,8 +1,10 @@
 package p2p
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"slices"
 	"sort"
 	"strings"
@@ -75,12 +77,13 @@ func (v *DhtValidator) validateValidatorListKey(parts []string, value []byte ) e
     if err != nil {
         return fmt.Errorf("DhtValidator: Invalid validator multiaddress data - %v", err)
     }
+    
     if !addresses.IsValid(v.config.ChainId) {
         return errors.New("DhtValidator: Invalid validator address signature")
     }
    
-    if parts[3] != addresses.Signer {
-        return errors.New("DhtValidator: Signer does not match key public key")
+    if parts[3] != hex.EncodeToString(addresses.Signer) && parts[3] != hex.EncodeToString(addresses.PubKeySecp) {
+        return errors.New("DhtValidator: Signer and PubKeySecp does not match key public key")
     }
     
     // if chain.HasValidStake(addresses.Signer, &v.config) {
@@ -99,10 +102,13 @@ func (v *DhtValidator) selectFromValidatorList(parts []string, value [][]byte ) 
         if err != nil {
             continue
         }
+        if len(d.Signer) != 32 {
+            continue
+        }
         if !d.IsValid(config.ChainId) {
            continue
         }
-        if parts[3] != d.Signer {
+        if parts[3] != hex.EncodeToString(d.Signer) && parts[3] != hex.EncodeToString(d.PubKeySecp) {
             continue
         }
         result = append(result, NodeMultiAddressDataIndexed{Data: d, Index: idx})
@@ -127,7 +133,8 @@ func (v *DhtValidator) validatePriceKey(parts []string, value []byte ) error {
     if err != nil {
         return fmt.Errorf("DhtValidator: Invalid price data - %v", err)
     }
-    if parts[3] != fmt.Sprintf("%d", priceData.Cycle) {
+    logger.Infof("PRICE_KEY %s, %d", parts[3], new(big.Int).SetBytes(priceData.Cycle))
+    if parts[3] != fmt.Sprintf("%d", new(big.Int).SetBytes(priceData.Cycle)) {
         return errors.New("DhtValidator: price data cycle does not match key cycle")
     }
     if !priceData.IsValid(config.ChainId) {

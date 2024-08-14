@@ -4,13 +4,15 @@ import (
 
 	// "github.com/gin-gonic/gin"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"reflect"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
-	dsQuery "github.com/ipfs/go-datastore/query"
+	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/configs"
@@ -113,7 +115,7 @@ func publishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 	
 }
 
-func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, fromPubSubChannel *entities.Channel, mainCtx *context.Context, process func(event *entities.Event, ctx *context.Context)) {
+func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPubSubChannel *entities.Channel, mainCtx *context.Context, process func(event *entities.Event, ctx *context.Context)) {
 	// time.Sleep(5 * time.Second)
 	
 	_, cancel := context.WithCancel(*mainCtx)
@@ -134,7 +136,7 @@ func ProcessEventsReceivedFromOtherNodes[PayloadData any](payload *PayloadData, 
 			return
 		}
 		
-		event, errT := entities.UnpackEvent(message.Data,  *payload)
+		event, errT := entities.UnpackEvent(message.Data,  modelType)
 		logger.Infof("UNPASCKEDEVENT %s  %s, %v", event.PreviousEventHash, event.PayloadHash,  event.Payload.Data)
 		
 		if errT != nil {
@@ -246,9 +248,19 @@ type IState interface {
 }
 
 //process the payload based on the type of request
-func processP2pPayload(ctx *context.Context, config *configs.MainConfiguration, payload *P2pPayload) (response *P2pPayload, err error) {
+func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (response *P2pPayload, err error) {
+	ctx := MainContext
+	
 	response = NewP2pPayload(config, P2pActionResponse, []byte{})
 	response.Id = payload.Id
+	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	if !ok {
+		response.ResponseCode = 500
+		response.Error = "Internal error"
+		logger.Infof("CommitmentRequest: Error get claim reward store from context")
+		response.Sign(config.PrivateKeyBytes)
+		return response, err
+	}
 	switch(payload.Action) {
 	case P2pActionGetEvent:
 			eventPath, err := entities.UnpackEventPath(payload.Data)
@@ -259,6 +271,7 @@ func processP2pPayload(ctx *context.Context, config *configs.MainConfiguration, 
 			}
 			event, err := query.GetEventFromPath(eventPath)
 			if err != nil {
+				logger.Errorf("EventFromPathError: %v,%v", err, eventPath)
 				if err == query.ErrorNotFound {
 					response.ResponseCode = 404
 					response.Error = "Event not found"
@@ -271,12 +284,17 @@ func processP2pPayload(ctx *context.Context, config *configs.MainConfiguration, 
 				result := []IState{}
 				states := []json.RawMessage{}
 				// states := query.GetMany(d, &result)
-				sql.SqlDb.Model(d).Where("event = ?", eventPath.ToString(), &result)
-				for _, st := range result {
-					states = append(states, st.MsgPack())
+				err = sql.SqlDb.Model(d).Where("event = ?", eventPath.ToString(), &result).Error
+
+				if err != nil {
+					logger.Errorf("EventReseponse: %v", err)
 				}
 				if err == nil {
+					for _, st := range result {
+						states = append(states, st.MsgPack())
+					}
 					data := P2pEventResponse{Event: event.MsgPack(), States: states}
+					logger.Infof("EventReseponse: %v", (&data).MsgPack())
 					response.Data = (&data).MsgPack()
 				}
 			}
@@ -298,58 +316,106 @@ func processP2pPayload(ctx *context.Context, config *configs.MainConfiguration, 
 				}
 			} else {
 				d := reflect.ValueOf(state).Elem()
-				eventPath := fmt.Sprint(d.FieldByName("Event").Interface())
-				pathFromString := entities.EventPathFromString(eventPath)
-				event, err := query.GetEventFromPath(pathFromString)
-				states := []json.RawMessage{}
-				states = append(states, state.(IState).MsgPack())
+				eventPath := d.FieldByName("Event").Interface()
+				// := entities.EventPathFromString(eventPath)
+				path := eventPath.(entities.EventPath)
+				event, err := query.GetEventFromPath(&path)
+				logger.Infof("STATESEVENNNT %v, %v", event, eventPath)
 				if err == nil {
+					states := []json.RawMessage{}
+					states = append(states, state.(IState).MsgPack())
 					data := P2pEventResponse{Event: event.MsgPack(), States: states}
 					response.Data = (&data).MsgPack()
-				}
-			}
+				} else {
 
-		case P2pActionGetCommitment:
+				}
+				
 			
-			eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
-			if !ok {
-				panic("Unable to load eventCounterStore")
+				
+				
 			}
+		case P2pActionSyncCycles:
+			// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+			// if !ok {
+			// 	panic("Unable to load eventCounterStore")
+			// }
+			cycles := []uint64{}
+			encoder.MsgPackUnpackStruct(payload.Data, &cycles)
+			// cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)
+	
+			// subnetList, err := eventCounterStore.Query(*ctx, dsQuery.Query{
+			// 	Prefix: cycleKey,
+			// })
+			for _, cycle := range cycles {
+				// get events from each cycle
+				path, err := query.GenerateImportScript(sql.SqlDb, models.AuthorizationEvent{Event: entities.Event{Cycle: cycle}}, payload.Id, config )
+				if err != nil {
+					logger.Infof("SQLFILEERROR: %v", err)
+				}
+				logger.Infof("FILEPATH: %s", path)
+			}
+		case P2pActionGetCommitment:
+			// logger.Info("ReceivedCommitmentRequest")
+			// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+			// if !ok {
+			// 	panic("Unable to load eventCounterStore")
+			// }
+			// TODO check if you own any of the next 20? licenses that should validate this, if you dont, no need to commit
+			
 			realBatch, err := entities.UnpackRewardBatch(payload.Data)
-			batch := realBatch
+			batchCopy := *realBatch
+			batch := &batchCopy
+			batch.Clear()
 			if err != nil {
 				response.ResponseCode = 500
 				response.Error = err.Error()
 			}
-			cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)
-	
-			subnetList, err := eventCounterStore.Query(*ctx, dsQuery.Query{
-				Prefix: cycleKey,
-			})
-			defer subnetList.Close()
-			i := uint64(0)
-			start := batch.Index * 100
-			for  rsl := range subnetList.Next() {
-				if start  == i {
-					if rsl.Key != batch.DataBoundary[0].Subnet {
-						response.ResponseCode = 500
-						response.Error = err.Error()
-						break
-					}
+			//  cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)
+			subnetList := []models.EventCounter{}
+			claimed := false
+			err = query.GetManyWithLimit(models.EventCounter{Cycle: batch.Cycle, Validator: entities.PublicKeyString(hex.EncodeToString(payload.Signer)), Claimed: &claimed }, &subnetList, &map[string]query.Order{"count": query.OrderDec}, entities.MaxBatchSize,  batch.Index * entities.MaxBatchSize)
+			if err != nil {
+				return nil, err
+			}
+			if len(subnetList) == 0 {
+				response.ResponseCode = 500
+				response.Error = "empty list"
+				break
+			}
+			if subnetList[0].Subnet != realBatch.DataBoundary[0].Subnet {
+				response.ResponseCode = 500
+				response.Error = "upper data boundary dont match"
+				break
+			}
+			if subnetList[len(subnetList)-1].Subnet != realBatch.DataBoundary[1].Subnet {
+				response.ResponseCode = 500
+				response.Error = "lower data boundary dont match"
+				break
+			}
+			
+			for  _, rsl := range subnetList {
+				// if start  == i {
+					// if rsl.Subnet != batch.DataBoundary[0].Subnet {
+					// 	response.ResponseCode = 500
+					// 	response.Error = "data boundary dont match"
+					// 	break
+					// }
 					batch.Append(entities.SubnetCount{
-						Subnet: rsl.Key,
-						EventCount: encoder.NumberFromByte(rsl.Value),
+						Subnet: rsl.Subnet,
+						EventCount: rsl.Count,
 					})
 					
-				}
-				if i > start + 99 {
-					break
-				}
-				i++
+				// }
+				// if i > start + 99 {
+				// 	break
+				// }
+				// i++
 			}
+			
 			claimHash := [32]byte{}
 			if len(batch.Data) > 0 && len(response.Error) == 0  {
-				claimHash, err = batch.GetHash(config.ChainId)
+				claimHash, err = realBatch.GetProofData(config.ChainId).GetHash()
+				logger.Infof("ValidDataHash %v, %v",[32]byte(batch.DataHash) == [32]byte(realBatch.DataHash), realBatch )
 				if err != nil {
 					response.ResponseCode = 500
 					response.Error = err.Error()
@@ -363,13 +429,69 @@ func processP2pPayload(ctx *context.Context, config *configs.MainConfiguration, 
 				response.Error = "Invalid batch hash"
 			}
 
+			
+			validCommitmentKey :=  datastore.NewKey(fmt.Sprintf("commitment/%s",  hex.EncodeToString(claimHash[:])))
+			logger.Infof("CommitmentKey1: %s", validCommitmentKey.String())
+
 			if response.ResponseCode == 0 {
 				pk, _ := btcec.PrivKeyFromBytes(config.PrivateKeyBytes)
-				_, noncePublicKey := schnorr.ComputeNonce(pk, claimHash)
-				response.Data = noncePublicKey.SerializeCompressed()
-				/// TODO save the nonepublickey with the claimhash in badger
+				nonce, noncePublicKey := schnorr.ComputeNonce(pk, claimHash)
+				err = claimedRewardStore.Put(*ctx, validCommitmentKey, nonce.Bytes())
+				if err != nil {
+					logger.Errorf("FailedStoringComittemnt: %v", err)
+					response.ResponseCode = 500
+					response.Error = "Internal error"
+				} else{ 
+					response.Data = noncePublicKey.SerializeCompressed()
+				}
+				logger.Infof("NoncePubKey %s", hex.EncodeToString(noncePublicKey.SerializeCompressed()))
+			}
+		
+
+			// if err != nil {
+			// 	response.ResponseCode = 500
+			// 	response.Error = "Invalid payload data"
+			// 	logger.Infof("processP2pPayload: %v", err)
+			// }
+			
+			// 1. Get the reward batch data
+			// 2. Loop through the Data field and check your /validator/cycle/subnetId/{batchId} to get the last time a proof was requested
+			// 3. If this is less than 10 minutes ago, respond with error - proof requested too early
+			// 4. If non exists or most recent is more than 10 minutes
+		case P2pActionGetSentryProof:
+			logger.Info("ReceivedProoftRequest")
+			// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+			// if !ok {
+			// 	panic("Unable to load eventCounterStore")
+			// }
+			
+			sigData, err := entities.UnpackSignatureRequestData(payload.Data)
+			
+			if err != nil {
+				response.ResponseCode = 500
+				response.Error = err.Error()
 			}
 			
+			validCommitmentKey :=  datastore.NewKey(fmt.Sprintf("commitment/%s",  hex.EncodeToString(sigData.ProofHash)))
+			logger.Infof("CommitmentKey2: %s", validCommitmentKey.String())
+			
+			nonce, err := claimedRewardStore.Get(*ctx, validCommitmentKey)
+			if err != nil {
+				response.ResponseCode = 500
+				response.Error = "Internal error"
+				logger.Infof("Error getting commitment from store")
+			} 
+			if err == nil && response.ResponseCode == 0 {
+
+				pk, _ := btcec.PrivKeyFromBytes(config.PrivateKeyBytes)
+				// nonce, _ := schnorr.ComputeNonce(pk, [32]byte(sigData.BatchHash))
+				sig := schnorr.ComputeSignature(pk, new(big.Int).SetBytes(nonce), sigData.Challenge)
+				//  cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)
+				response.Data = sig
+				/// TODO save the nonepublickey with the claimhash in badger
+				logger.Infof("NoncePubKey %s", hex.EncodeToString(sig))
+			}
+		
 
 			// if err != nil {
 			// 	response.ResponseCode = 500
@@ -382,9 +504,15 @@ func processP2pPayload(ctx *context.Context, config *configs.MainConfiguration, 
 			// 3. If this is less than 10 minutes ago, respond with error - proof requested too early
 			// 4. If non exists or most recent is more than 10 minutes
 			
-			
+		default:
+			response.Error = "invalid action type"
+			response.ResponseCode = 400
 			
 	}
 	response.Sign(config.PrivateKeyBytes)
 	return response, err
 }
+
+//  &{96d19ac93d8745d0baa19d18bc359f0f 0 [{3fafe8ae-9a4f-c926-476f-4a62c47c0d88 3} {8c85a7bf-072f-68d2-0784-9513cde56d26 3} {e5b7c3c4-9041-a3f6-5d1c-06a8a61c75c8 2}] [{3fafe8ae-9a4f-c926-476f-4a62c47c0d88 3} {e5b7c3c4-9041-a3f6-5d1c-06a8a61c75c8 2}] [38 221 143 142 149 249 191 167 38 218 134 253 86 242 234 74 9 57 1 105 24 81 77 6 187 72 245 190 91 97 202 6] 31337 true 197 [152 150 128] [8] {[] [] []} 1723581121351 0xc000424300 3}
+
+//  &{96d19ac93d8745d0baa19d18bc359f0f 0 [{3fafe8ae-9a4f-c926-476f-4a62c47c0d88 3} {8c85a7bf-072f-68d2-0784-9513cde56d26 3} {e5b7c3c4-9041-a3f6-5d1c-06a8a61c75c8 2}] [{3fafe8ae-9a4f-c926-476f-4a62c47c0d88 3} {e5b7c3c4-9041-a3f6-5d1c-06a8a61c75c8 2}] [151 123 97 24 99 31 188 30 110 177 189 239 187 34 47 27 127 20 21 105 163 224 144 63 67 9 205 2 127 115 138 241] 31337 true 197 [152 150 128] [8] {[] [] []} 1723581121351 <nil> 0} 

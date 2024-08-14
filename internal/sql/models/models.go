@@ -33,6 +33,6 @@ var Models = []interface{}{
 
 	WalletState{},
 	WalletEvent{},
-
+	EventCounter{},
 	MigrationState{},
 }

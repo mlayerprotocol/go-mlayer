@@ -27,12 +27,12 @@ func MsgPackStruct(msg interface{}) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func MsgPackUnpackStruct(b []byte, message interface{}) error {
+func MsgPackUnpackStruct[T interface{}](b []byte, message *T) error {
 	buf := bytes.NewBuffer(b)
 	dec := msgpack.NewDecoder(buf)
 	// dec.UseLooseInterfaceDecoding(true)
 	dec.SetCustomStructTag("json")
-	err := dec.Decode(&message)
+	err := dec.Decode(message)
 	return err
 }
 

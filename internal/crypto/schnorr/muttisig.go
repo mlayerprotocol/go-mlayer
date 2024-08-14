@@ -15,6 +15,8 @@ const ADDRESS_MASK = "000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 
 type EthAddress []byte
 
+
+
 func toAddress(point *btcec.PublicKey) EthAddress {
 	// Serialize the X and Y coordinates of the point.
 	// serialized := append(point.X().Bytes(), point.Y().Bytes()...)

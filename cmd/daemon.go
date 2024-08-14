@@ -17,6 +17,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain/api"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 
 	// "github.com/mlayerprotocol/go-mlayer/entities"
@@ -83,8 +84,19 @@ func init() {
 func daemonFunc(cmd *cobra.Command, _ []string) {
 	cfg := configs.Config
 	ctx := context.Background()
-	defer chain.Init(&cfg)
+
+	
 	defer node.Start(&ctx)
+	defer func () {
+		// chain.Network = chain.Init(&cfg)
+		chain.RegisterProvider(
+			"31337", api.NewGenericAPI(),
+		)
+		chain.RegisterProvider(
+			"84532", api.EthereumAPI{},
+		)
+		// chain.DefaultProvider = chain.Network.Default()
+	}()
 	defer sql.Init(&cfg)
 	
 
@@ -133,11 +145,12 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		panic( err)
 	}
 
-	// switch private key
+	// SECP KEYS
 	cfg.PrivateKeySECP = pk
-	_, pubKey := btcec.PrivKeyFromBytes(cfg.PrivateKeyBytes)
+	_, pubKey := btcec.PrivKeyFromBytes(pk)
 	cfg.PublicKeySECP = pubKey.SerializeCompressed()
 	
+	// EDD KEYS
 	cfg.PrivateKeyBytes = ed25519.NewKeyFromSeed(pk)
 	cfg.PrivateKey = hex.EncodeToString(cfg.PrivateKeyBytes)
 	cfg.PublicKeyBytes = cfg.PrivateKeyBytes[32:]
@@ -225,6 +238,8 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	// ctx = context.WithValue(ctx, constants.PublishedSubChId, &channelpool.PublishedSubC)
 
 	ctx = context.WithValue(ctx, constants.SQLDB, &sql.SqlDb)
+
+	
 	// regData := entities.RegisterationData{ChainId: "31337"}
 	// regData.Timestamp = 1721333362786
 	// pkBig, ok := new(big.Int).SetString("72899163643598738277738319679191588732231853444529124907544445648379905735121", 10)

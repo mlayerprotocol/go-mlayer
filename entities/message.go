@@ -11,26 +11,19 @@ import (
 
 	cryptoEth "github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
-	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 const (
 	PlatformEthereum string = "ethereum"
-	PlatformBitcoin         = "bitcoin"
+	PlatformBitcoin string = "bitcoin"
 	PlatformSolana          = "solana"
 	PlatformCosmos          = "cosmos"
 )
-type DataType string
-const (
-	DataTypeBinary DataType = "application/octet-stream"
-	DataTypeText DataType = "text/plain"
-	DataTypeJSON DataType = "text/json"
-	DataTypePNG DataType = "image/png"
-	DataTypeJPG DataType = "image/jpg"
-	
-)
+
 
 var buf bytes.Buffer
 var msgPackEncoder = msgpack.NewEncoder(&buf)
@@ -124,25 +117,29 @@ func (a MessageAction) EncodeBytes() []byte {
 type Message struct {
 	ID string `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	// Timestamp      uint64   `json:"ts"`
-	TopicId string        `json:"topId,omitempty"`
+	Topic string        `json:"top,omitempty"`
 	Sender  DIDString `json:"s"`
 	// OwnerAddress  string              `json:"oA"`
 	Receiver DIDString   `json:"r,omitempty"`
 	Data     string          `json:"d"`
-	DataType     string          `json:"dTy"`
+	DataType     constants.DataType      `json:"dTy"`
 	Actions  []MessageAction `json:"a" gorm:"json;"`
 	// Length int `json:"len"`
 	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Nonce uint64 `json:"nonce,omitempty" binding:"required"`
 
 	/// DERIVED
 	Event       EventPath           `json:"e,omitempty" gorm:"index;char(64);"`
 	Hash        string              `json:"h"`
-	Attachments []MessageAttachment `json:"atts" gorm:"json;"`
+	// Attachments []MessageAttachment `json:"atts" gorm:"json;"`
 	// Subject     string              `json:"s"`
 	Signature string `json:"sig"`
 	// Origin      string              `json:"o"`
 	DataHash string `json:"dH"`
 	Url      string `json:"url"`
+	BlockNumber uint64          `json:"blk"`
+	Cycle   	uint64			`json:"cy"`
+	Epoch		uint64			`json:"ep"`
 }
 
 func (chatMessage Message) ToString() string {
@@ -189,24 +186,27 @@ func (msg Message) GetHash() ([]byte, error) {
 }
 
 func (msg Message) EncodeBytes() ([]byte, error) {
-	var attachments []byte
+	// var attachments []byte
 	var actions []byte
 
-	for _, at := range msg.Actions {
-		attachments = append(actions, at.EncodeBytes()...)
-	}
+	// for _, at := range msg.Actions {
+	// 	attachments = append(actions, at.EncodeBytes()...)
+	// }
 	for _, ac := range msg.Actions {
 		actions = append(actions, ac.EncodeBytes()...)
 	}
 
 	dataByte, _ := hex.DecodeString(msg.Data)
+	logger.Infof("DataBytes: %s %s %s %s", dataByte, msg.DataType, msg.Receiver, hex.EncodeToString(utils.UuidToBytes(msg.Topic)))
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: actions},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: attachments},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: crypto.Keccak256Hash(dataByte)},
+		// encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: attachments},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: dataByte},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.DataType},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Nonce},
 		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Receiver},
 		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Sender},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.TopicId},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(msg.Topic)},
 	)
 }
 
@@ -249,6 +249,12 @@ func ReturnError(msg string, code int) *ErrorResponse {
 	e := ErrorResponse{statusCode: code}
 	e.meta = meta
 	return &e
+}
+
+func UnpackMessage(b []byte) (Message, error) {
+	var item Message
+	err := encoder.MsgPackUnpackStruct(b, &item)
+	return item, err
 }
 
 // func JsonMessageFromBytes(b []byte) (MessageJsonInput, error) {
@@ -294,128 +300,3 @@ func MessageFromBytes(b []byte) Message {
 func MessageFromString(msg string) Message {
 	return MessageFromBytes([]byte(msg))
 }
-
-// type MessageJsonInputAttachments struct {
-// 	File []json.RawMessage `json:"f"`
-// 	Type string `json:"ty"`
-// }
-
-// type MessageJsonInput struct {
-// 	Timestamp      uint64   `json:"ts"`
-// 	// Approval       string   `json:"ap"`
-// 	// ApprovalExpiry uint64   `json:"apExp"`
-// 	// Channels       []string `json:"c"`
-// 	TopicId  string `json:"topId"`
-// 	Sender  DIDString   `json:"s"`
-// 	// OwnerAddress  string              `json:"oA"`
-// 	Receiver    string              `json:"r"`
-// 	// Platform    string              `json:"p"`
-// 	// ChainId configs.ChainId    string              `json:"cI"`
-// 	Type        string              `json:"t"`
-// 	Data    []byte 				`json:"d"`
-// 	// Subject     string              `json:"s"`
-// 	Signature   string              `json:"sig"`
-// 	Actions     []MessageAction `json:"a"`
-// 	// Origin      string              `json:"o"`
-// 	DataHash string              `json:"dH"`
-// 	Url string              `json:"url"`
-// 	Length int `json:"len"`
-// 	Attachments []MessageJsonInputAttachments `json:"atts"`
-// }
-
-// PubSubMessage
-// type PubSubMessage struct {
-// 	Data msgpack.RawMessage `json:"d"`
-// 	// Timestamp uint64          `json:"ts"`
-// 	// Signature string          `json:"sig"`
-// }
-
-// func (msg *PubSubMessage) ToJSON() []byte {
-// 	m, _ := json.Marshal(msg)
-// 	return m
-// }
-
-// func (msg *PubSubMessage) MsgPack() []byte {
-// 	b, _ := encoder.MsgPackStruct(msg)
-// 	return b
-// }
-
-// func (msg *PubSubMessage) ToString() string {
-// 	values := []string{}
-// 	values = append(values, fmt.Sprintf("Data:%s", string(msg.Data)))
-// 	//values = append(values, fmt.Sprintf("Timestmap%d", msg.Timestamp))
-// 	return strings.Join(values, "")
-// }
-
-// func (msg *PubSubMessage) EncodeBytes() ([]byte, error) {
-// 	return encoder.EncodeBytes(
-// 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: []byte(msg.Data)},
-// 		//encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Timestamp},
-// 	)
-// }
-
-// func NewPubSubMessage(data []byte) PubSubMessage {
-// 	message := PubSubMessage{Data: data}
-// 	return message
-// }
-// func PubSubMessageFromBytes(b []byte) (PubSubMessage, error) {
-// 	var message PubSubMessage
-// 	err := json.Unmarshal(b, &message)
-// 	return message, err
-// }
-
-// func UnpackPubSubMessage(b []byte) (PubSubMessage, error) {
-// 	var message PubSubMessage
-// 	err := encoder.MsgPackUnpackStruct(b, &message)
-// 	return message, err
-// }
-
-// func IsValidSubscription(
-// 	subscription Subscription,
-// 	verifyTimestamp bool,
-// ) bool {
-// 	if verifyTimestamp {
-// 		if math.Abs(float64(int(subscription.Timestamp)-int(time.Now().UnixMilli()))) > constants.VALID_HANDSHAKE_SECONDS {
-// 			logger.Info("Invalid Subscription, invalid handshake duration")
-// 			return false
-// 		}
-// 	}
-// 	b, err := subscription.EncodeBytes()
-// 	if err != nil {
-// 		return false
-// 	}
-// 	return crypto.VerifySignatureECC(string(subscription.Subscriber), &b, subscription.Signature)
-// }
-
-// func (msg MessageJsonInput) ToMessage() (*Message, error) {
-
-// 	if len(msg.Data) > 0 {
-// 		msgHash := hexutil.Encode(crypto.Keccak256Hash(msg.Data))
-// 		if msg.DataHash != msgHash {
-// 			return nil, errors.New("INVALID MESSAGE")
-// 		}
-// 	}
-// 	// if len(msg.Subject) > 0 {
-// 	// 	subHash := hexutil.Encode(crypto.Keccak256Hash([]byte(msg.Subject)))
-// 	// 	if msg.SubjectHash != subHash {
-// 	// 		return Message{}, errors.New("Invalid Subject")
-// 	// 	}
-// 	// }
-// 	chatMessage := MessageHeader{
-// 		Timestamp: uint64(msg.Timestamp),
-// 		Receiver:  msg.Receiver,
-// 		// ChainId:       msg.ChainId,
-// 		// Platform:      msg.Platform,
-// 		Length:         msg.Length,
-// 		Sender:  msg.Sender,
-// 		// OwnerAddress:  msg.OwnerAddress,
-// 	}
-
-// 	bodyMessage := MessageBody{
-// 		DataHash: msg.DataHash,
-// 		Data: msg.Data,
-// 		Url: msg.Url,
-// 	}
-// 	_chatMessage := Message{Header: chatMessage, Body: bodyMessage, Actions: msg.Actions,}
-// 	return &_chatMessage, nil
-// }

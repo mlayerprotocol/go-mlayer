@@ -26,6 +26,9 @@ type WalletBalance struct {
 	// Derived
 	Event EventPath `json:"e,omitempty" gorm:"index;not null;varchar;"`
 	Timestamp            uint64                           `json:"ts"`
+	BlockNumber uint64          `json:"blk"`
+	Cycle   	uint64			`json:"cy"`
+	Epoch		uint64			`json:"ep"`
 }
 
 func (d *WalletBalance) BeforeCreate(tx *gorm.DB) (err error) {

@@ -11,32 +11,27 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	"github.com/mlayerprotocol/go-mlayer/internal/crypto/schnorr"
 )
 
 type SubnetCount struct {
 	Subnet     string `json:"sNet"`
 	EventCount uint64 `json:"eC"`
 }
+const MaxBatchSize = 100
 
 func (msg *SubnetCount) EncodeBytes() ([]byte, error) {
-	d, _ := utils.UuidToBytes(msg.Subnet)
+	d := utils.UuidToBytes(msg.Subnet)
 	return encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: d[len(d)-6:]},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: d[:6]},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventCount},
 	)
 }
 
-type Proof struct {
-	Signature json.RawMessage   `json:"sig"`
-	Signers   []json.RawMessage `json:"signers"`
-	Commitment   json.RawMessage `json:"comm"`
-}
 
 // RewardBatch
 type RewardBatch struct {
 	Id           string          `json:"id"`
-	Index        uint64           `json:"idx"`
+	Index        int           `json:"idx"`
 	Data         []SubnetCount   `json:"d"`
 	DataBoundary [2]SubnetCount  `json:"dBound"`
 	DataHash     json.RawMessage `json:"dH"`
@@ -45,11 +40,13 @@ type RewardBatch struct {
 	Cycle        uint64          `json:"nh"`
 	MessageCost  json.RawMessage `json:"cost"`
 	TotalValue   json.RawMessage `json:"tv"`
-	Proofs       Proof           `json:"proof"`
+	// Proofs       Proof           `json:"proof"`
 	Timestamp    uint64          `json:"ts"`
+	Validator  json.RawMessage          `json:"val"`
 	// Signature    json.RawMessage `json:"sig"`
 	// Signer       string          `json:"sign"`
 	config       *configs.MainConfiguration  `msgpack:"_"`
+	cycleSize	int `msgpack:"_"`
 	// sync.Mutex
 }
 
@@ -67,6 +64,7 @@ func (msg *RewardBatch) Append(subnetCount SubnetCount) {
 	if err != nil {
 		panic("Unable to encode SubnetCount data")
 	}
+	
 	msg.DataHash = crypto.Keccak256Hash(append(msg.DataHash, encoded...))
 	subnetTotal := big.NewInt(0).SetBytes(msg.MessageCost).Mul(big.NewInt(int64(subnetCount.EventCount)), big.NewInt(1))
 	msg.TotalValue = big.NewInt(0).Add(big.NewInt(0).SetBytes(msg.TotalValue), subnetTotal).Bytes()
@@ -74,20 +72,37 @@ func (msg *RewardBatch) Append(subnetCount SubnetCount) {
 	if length == 1 {
 		msg.DataBoundary[0] = msg.Data[0]
 	}
-	if len(msg.Data) >= 100 {
+	if len(msg.Data) >= MaxBatchSize || len(msg.Data) == int(msg.cycleSize) {
 		msg.Closed = true
 		msg.DataBoundary[1] = msg.Data[length-1]
+	}
+}
+
+func (msg *RewardBatch) Clear() {
+	msg.Data =[]SubnetCount{}
+	msg.TotalValue = nil
+	msg.DataHash = []byte{}
+}
+
+func (msg *RewardBatch) GetProofData(chainId configs.ChainId) *ProofData {
+	return &ProofData{
+		DataHash: msg.DataHash,
+		ChainId: chainId,
+		Cycle: msg.Cycle,
+		Index: msg.Index,
+		Validator: msg.Validator,
 	}
 }
 func (msg *RewardBatch) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Cycle},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.DataHash},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Cycle},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.DataHash},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Id},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Index},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Timestamp},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.TotalValue},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.Validator},
 	)
 }
 func (rb *RewardBatch) GetHash(chainId configs.ChainId) ([32]byte, error) {
@@ -116,7 +131,7 @@ func (rb *RewardBatch) GetHash(chainId configs.ChainId) ([32]byte, error) {
 // 	rb.Prefix = rb.config.AddressPrefix  // Important security update. Do not remove
 // 	//
 // 	// if math.Abs(float64(uint64(time.Now().UnixMilli()) - mp.Timestamp)) > constants.VALID_HANDSHAKE_SECONDS {
-// 	// 	logger.WithFields(logrus.Fields{"data": mp}).Warnf("Hanshake Expired: %d", uint64(time.Now().UnixMilli()) - mp.Timestamp)
+// 	// 	logger.WithFields(logrus.Fields{"data": mp}).Warnf("Batch Expired: %d", uint64(time.Now().UnixMilli()) - mp.Timestamp)
 // 	// 	return false
 // 	// }
 // 	signer, err := hex.DecodeString(string(rb.Signer));
@@ -165,14 +180,17 @@ func (rb *RewardBatch) GetHash(chainId configs.ChainId) ([32]byte, error) {
 // 	return *msg
 // }
 
-func NewRewardBatch(config *configs.MainConfiguration, cycle uint64, index uint64, cycleMessageCost *big.Int) *RewardBatch {
-	id := utils.RandomString(32)
+func NewRewardBatch(config *configs.MainConfiguration, cycle uint64, index int, cycleMessageCost *big.Int, cycleSize int, validator []byte) *RewardBatch {
+	id := utils.RandomHexString(32)
 	return &RewardBatch{Id: id,
 		config:      config,
 		Timestamp:   uint64(time.Now().UnixMilli()),
+		ChainId: config.ChainId,
 		Cycle:       uint64(cycle),
 		MessageCost: cycleMessageCost.Bytes(),
 		Index: index,
+		cycleSize: cycleSize,
+		Validator: validator,
 	}
 }
 
@@ -195,9 +213,9 @@ func (msg *RewardBatch) MsgPack() []byte {
 
 
 type SignatureRequestData struct {
-	Commitment schnorr.EthAddress `json:"comm"`
+	ProofHash json.RawMessage `json:"pH"`
 	Challenge json.RawMessage `json:"chal"`
-	AggPubKey json.RawMessage `json:"aggPub"`
+	// AggPubKey json.RawMessage `json:"aggPub"`
 	// Message [32]byte `json:"msg"`
 }
 func (sr *SignatureRequestData) MsgPack() []byte {
@@ -208,4 +226,43 @@ func UnpackSignatureRequestData(b []byte) (*SignatureRequestData, error) {
 	var message SignatureRequestData
 	err := encoder.MsgPackUnpackStruct(b, &message)
 	return &message, err
+}
+
+type ProofData struct {
+	DataHash json.RawMessage `json:"bH"`
+	ChainId configs.ChainId `json:"chId"`
+	Cycle uint64 `json:"cyc"`
+	Index int `json:"idx"`
+	Validator json.RawMessage `json:"val"`
+	Signature  json.RawMessage `json:"sig"`
+	Signers [][]byte `json:"signers"`
+	Commitment json.RawMessage `json:"com"`
+}
+func (sr *ProofData) MsgPack() []byte {
+	b, _ := encoder.MsgPackStruct(sr)
+	return b
+}
+func UnpackProofDataData(b []byte) (*SignatureRequestData, error) {
+	var message SignatureRequestData
+	err := encoder.MsgPackUnpackStruct(b, &message)
+	return &message, err
+}
+
+
+func (msg *ProofData) EncodeBytes() ([]byte, error) {
+	return encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.DataHash},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Cycle},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Index},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.Validator},
+	)
+}
+func (rb *ProofData) GetHash() ([32]byte, error) {
+	
+	b, err := rb.EncodeBytes()
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return [32]byte(crypto.Keccak256Hash(b)), nil
 }

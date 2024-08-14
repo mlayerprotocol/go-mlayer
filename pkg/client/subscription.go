@@ -164,7 +164,8 @@ func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *mode
 		return nil, nil, apperror.BadRequest(fmt.Sprintf("Topic %s does not exist in subnet %s", topicData.ID, payload.Subnet))
 	}
 
-	currentState, err := service.ValidateSubscriptionData(&payloadData, &payload, &topicData.Topic)
+	currentState, err := service.ValidateSubscriptionData(&payload, &topicData.Topic)
+	
 	if err != nil && (err != gorm.ErrRecordNotFound && payload.EventType == uint16(constants.SubscribeTopicEvent)) {
 		return nil, nil, err
 	}

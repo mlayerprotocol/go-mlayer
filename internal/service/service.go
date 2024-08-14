@@ -2,646 +2,329 @@ package service
 
 import (
 	"context"
-	"encoding/hex"
+	"errors"
 	"fmt"
-	"reflect"
-	"slices"
 	"strings"
 
-	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
-	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-/*
-Validate an agent authorization
-*/
-// func dataValidator[Entt any, Auth any, M any](topic *Entt, authState *Auth) (currentTopicState *M, err error) {
-// 	subnet := models.SubnetState{}
-// 	rTopic := reflect.ValueOf(topic)
-// 	subnetId := rTopic.FieldByName("Subnet").Interface()
 
-// 	// TODO state might have changed befor receiving event, so we need to find state that is relevant to this event.
-// 	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: fmt.Sprint(subnetId)}}, &subnet)
-// 	if err != nil {
-// 		if err == gorm.ErrRecordNotFound {
-// 			return nil, apperror.Forbidden("Invalid subnet id")
-// 		}
-// 		return nil, apperror.Internal(err.Error())
-// 	}
-// 	if  *authState.Priviledge < constants.StandardPriviledge {
-// 		return nil, apperror.Forbidden("Agent does not have enough permission to create topics")
-// 	}
-
-// 	if len(topic.Ref) > 40 {
-// 		return nil, apperror.BadRequest("Topic handle can not be more than 40 characters")
-// 	}
-// 	if !utils.IsAlphaNumericDot(topic.Ref) {
-// 		return nil, apperror.BadRequest("Handle must be alphanumeric, _ and . but cannot start with a number")
-// 	}
-// 	return nil, nil
-// }
-
-// func dataValidator[Event any, State any](event Event, state State, auth *models.AuthorizationState) (currState State, err error) {
-// 	rEvent := reflect.ValueOf(event)
-// 	return state, nil
-// }
-
-type CurrentState struct {
-	EventHash string
-	Hash      string
-	Event     entities.EventPath
+type PayloadData struct {
+	Subnet string
+	localDataState *LocalDataState
+	
+	localDataStateEvent *LocalDataStateEvent
 }
 
-func HandleNewPubSubEventOld(eventPayloadDataType any, event *entities.Event, ctx *context.Context) {
-	
-	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-	logger.WithFields(logrus.Fields{"event": eventPayloadDataType}).Debug("New topic event from pubsub channel")
-	// _, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
-	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-	
-	if !ok {
-		panic("Unable to get config")
-	}
-	// if err != nil {
-	// 	panic(err)
-	// }
-	
-	var tx *gorm.DB
-	defer func () {
-		if tx != nil {
-			if tx.Error == nil {
-				tx.Commit()
-			} else {
-				logger.Errorf("Transaction %v", tx.Error)
-				tx.Rollback()
-			}
-		}
-	}()
-	var data any
-	validAuth := false
-	markAsSynced := false
-	updateState := false
-	var eventError string
-	// hash, _ := event.GetHash()
-	var authState *models.AuthorizationState
-	// var localAuthState *models.AuthorizationState
-	var account string
-	var authError error
-	var modelName entities.EntityModel
-	//var entityState any
-	var entityHash string
-	var currentState *CurrentState
-	var currentStateEvent entities.Event
-	var where any
-	var broadcastedWhere any
-	var subnet string
-	// var currentAgentAuthState *models.AuthorizationState
 
-	previousEventHash := event.PreviousEventHash
-	authEventHash := event.AuthEventHash
-	// val := reflect.ValueOf(eventType)
-	// previousEventHash := val.FieldByName("PreviousEventHash").Interface().(entities.EventPath)
-	// authEventHash := val.FieldByName("AuthEventHash").Interface().(entities.EventPath)
+
+type LocalDataState struct {
+	Hash string
+	ID string
+	Event *entities.EventPath
+	Timestamp uint64
+}
+type LocalDataStateEvent struct {
+	Hash string
+	ID string
+	Timestamp uint64
+}
+
+func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bool, saveEvent func (entities.Event, *entities.Event, *entities.Event, *gorm.DB) (*entities.Event, error), tx *gorm.DB, ctx *context.Context) (bool, bool, *models.AuthorizationState, bool, error) {
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	// logger.WithFields(logrus.Fields{"event": event}).Debug("New topic event from pubsub channel")
+	// markAsSynced := false
+	// updateState := false
+	// var eventError string
+	// // hash, _ := event.GetHash()
+
+	if validAgentRequired && uint64(event.Payload.Timestamp) > uint64(event.Timestamp)+15000 || uint64(event.Payload.Timestamp) < uint64(event.Timestamp)-15000 {
+		return false, false, nil, false, errors.New("event timestamp exceeds payload timestamp")
+	}
+
+	logger.Infof("Event is a valid event %s", event.PayloadHash)
+	//cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+
+	// Extract and validate the Data of the paylaod which is an Events Payload Data,
+	
+	logger.Infof("NEWEVENT: %s", event.Hash)
+	previousEventUptoDate := false
+	authEventUptoDate :=  !validAgentRequired
+	eventIsMoreRecent := true
+	authMoreRecent := false
+	var badEvent  error
+	// eventIsMoreRecent := true
+	// authMoreRecent := false
+
+	err := ValidateEvent(*event)
+
+	if err != nil {
+		logger.Debug(err)
+		return false, false, nil, eventIsMoreRecent, err
+	}
 	d, err := event.Payload.EncodeBytes()
-	if err != nil {
-		logger.Errorf("Invalid event payload")
+	if err != nil || len(d) == 0 {
+		logger.Debug("Invalid event payload")
+		return false, false, nil, eventIsMoreRecent, fmt.Errorf("invalid event payload")
 	}
-	agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
+	
+	subnet := models.SubnetState{}
+	
+	if event.EventType != uint16(constants.CreateSubnetEvent) && event.EventType != uint16(constants.UpdateSubnetEvent) {
+	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: data.Subnet}}, &subnet)
 	if err != nil {
-		panic(err)
-	}
-
-	err = ValidateEvent(*event)
-	if err != nil {
-		logger.Error(err)
-		return
-	}
-	// TODO Check if event signer is a validator
-	// reject event if not
-
-	// save event
-	// if len(event.Payload.Agent) > 0 {
-	// 	currentAgentAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Agent: event.Payload.Agent, Subnet: event.Payload.Subnet})
-	// 	if err != nil {
-	// 		logger.Errorf("query: %v", err)
-	// 	}
-	// } 
-	switch evt := eventPayloadDataType.(type) {
-
-		case entities.Topic:
-			logger.Debugf("DataType %v", evt)
-			modelName = entities.TopicModel
-			topic := event.Payload.Data.(entities.Topic)
-
-			hashByte, _ := topic.GetHash()
-			entityHash = hex.EncodeToString(hashByte)
-			topic.Hash = entityHash
-			subnet = topic.Subnet
-			account = string(event.Payload.Account)
-
-			// check if the current local state is based on thise event
-			authState, authError = query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
-			// validate from here
-			// validateAuthState(authState)
-
-			logger.Infof("AUTHSTATE %s, %v", authEventHash, authState)
-			curState, err := ValidateTopicData(&topic, authState)
+		logger.Infof("EVENTINFO: %v %s", err, data.Subnet)
+		if err == gorm.ErrRecordNotFound {
+			// get the subnetstate from the sending node
+			subPath := entities.NewEntityPath(event.Validator, entities.SubnetModel, data.Subnet)
+			pp, err := p2p.GetState(cfg, *subPath, &event.Validator, &subnet.Subnet)
 			if err != nil {
-				// penalize node for broadcasting invalid data
-				logger.Infof("Invalid topic data %v. Node should be penalized", err)
-				return
+				logger.Error(err)
+				return false, false, nil, eventIsMoreRecent, fmt.Errorf("unable to get subnetdata")
 			}
-			if curState != nil {
-				currentState = &CurrentState{EventHash: curState.Event.Hash, Hash: curState.Hash}
-				var currStateEvent *models.TopicEvent
-				query.GetOne(entities.Event{Hash: curState.Event.Hash}, currStateEvent)
-				if currStateEvent != nil {
-					utils.CopyStructValues(currStateEvent.Event, currentStateEvent)
-				}
+			if len(pp.Event) < 2 {
+				return false, false, nil, eventIsMoreRecent, fmt.Errorf("unable to unpack subnetdata")
 			}
-			where = models.TopicEvent{
-				Event: entities.Event{Hash: event.Hash},
+			subnetEvent, err := entities.UnpackEvent(pp.Event, entities.SubnetModel)
+			if err != nil {
+				logger.Error(err)
+				return false, false, nil, eventIsMoreRecent, fmt.Errorf("unable to unpack subnetdata")
 			}
-			broadcastedWhere = models.TopicEvent{
-				Event: entities.Event{Hash: event.Hash},
-			}
-			topic.Event = *entities.NewEventPath(event.Validator, modelName, event.Hash)
-			topic.Agent = entities.AddressFromString(agent).ToDeviceString()
-			topic.Account = event.Payload.Account
-			data = topic
-		case entities.Authorization:
-			
-			modelName = entities.AuthModel
-			authRequest := event.Payload.Data.(entities.Authorization)
-
-			hashByte, _ := authRequest.GetHash()
-			entityHash = hex.EncodeToString(hashByte)
-			authRequest.Hash = entityHash
-			subnet = authRequest.Subnet
-			account = string(event.Payload.Account)
-			agent = string(authRequest.Agent)
-			authRequest.Agent = entities.AddressFromString(string(authRequest.Agent)).ToDeviceString()
-			// check if the current local state is based on thise event
-			// authState, authError = query.GetOneAuthorizationState(entities.Authorization{Subnet: subnet, Agent: entities.DeviceString(agent)})
-			// validate from here
-			// validateAuthState(authState)
-
-			logger.Infof("AUTHSTATE %s, %v", authEventHash, authState)
-			curState, grantorAuthState, subnetData, authError := ValidateAuthPayloadData(&authRequest, cfg.ChainId)
-			
-			if authError != nil {
-				// penalize node for broadcasting invalid data
-				
-				// check if the subnet exists, if it doesnt, get it from the dht
-				if strings.Contains(authError.Error(), "4004:")  && subnetData == nil {
-					
-					// get the subnet from the sending node
-					
-					subnetState := entities.Subnet{}
-					_, err := p2p.GetState(cfg, *entities.NewEntityPath(event.Validator, entities.SubnetModel, subnet), &subnetState)
-			
-					if err != nil {
-						logger.Errorf("service/GetSubnet: %v", err)
-						// return
-					} else {
-						logger.Infof("SUBNETTTTT: %v", subnetState)
-						if event.PreviousEventHash.Model != entities.SubnetModel {
-								
-						}
-					
-					}
-				}
-				
-				return
+			if subnetEvent != nil {
+				HandleNewPubSubSubnetEvent(subnetEvent, ctx)
 			} else {
-				validAuth = true
+				return false, false, nil, false, nil
 			}
-			if curState != nil {
-				currentState = &CurrentState{EventHash: curState.Event.Hash, Hash: curState.Hash}
-				var currStateEvent *models.AuthorizationEvent
-				query.GetOne(entities.Event{Hash: curState.Event.Hash}, currStateEvent)
-				if currStateEvent != nil {
-					utils.CopyStructValues(currStateEvent.Event, currentStateEvent)
-				}
-			}
-			
-			// TODO check if grantorAuthState is valid
-			if grantorAuthState != nil {
-				authState = grantorAuthState
-				
-			}
-			where = models.AuthorizationEvent{
-				Event: entities.Event{Hash: event.Hash},
-			}
-			broadcastedWhere = models.AuthorizationEvent{
-				Event: entities.Event{Hash: event.Hash},
-			}
-			authRequest.Event = *entities.NewEventPath(event.Validator, modelName, event.Hash)
-			authRequest.Agent = entities.AddressFromString(agent).ToDeviceString()
-			// authRequest.Account = event.Payload.Account
-			data = authRequest
-
-		//defer finalize(ctx, cfg, topic, event, &updateState, &markAsSynced, &tx)
-
-	}
-	tx = sql.SqlDb.Begin()
-	tx.Where(where).FirstOrCreate(eventTypeFromWhere(where, *event))
-		if tx.Error != nil {
-			logger.Errorf("TXERROR %v", tx.Error)
-			// tx.Rollback()
-			return
-		}
-	
-	if !slices.Contains([]string{string(entities.AuthModel), string(entities.SubnetModel)}, string(modelName)) {
-		validAuth, err = validateAuthState(ctx, cfg, authState, authState, event, subnet, agent, account)
-		if err != nil {
-			logger.Errorf("validateAuthError: %v", err)
-		}
-	} 
-
-	
-
-	
-		logger.Infof("PREVIOUSEVENTHASH: %s", previousEventHash.ToString())
-	prevEventUpToDate := query.EventExist(&previousEventHash) || (currentState == nil && previousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == previousEventHash.Hash)
-	authEventUpToDate := query.EventExist(&authEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
-
-	if validAuth {
-		
-		isMoreRecent := false
-		if currentState != nil && currentState.Hash != entityHash {
-			
-			isMoreRecent, markAsSynced = IsMoreRecent(
-				currentStateEvent.ID,
-				currentState.Hash,
-				currentStateEvent.Payload.Timestamp,
-				event.Hash,
-				event.Payload.Timestamp,
-				markAsSynced,
-			)
-		}
-
-		// get local auth state
-
-		// logger.Infof("Event is a valid event %s", iEvent.PayloadHash)
-		
-		if authError != nil {
-			// check if we are upto date. If we are, then the error is an actual one
-			// the error should be attached when saving the event
-			// But if we are not upto date, then we might need to wait for more info from the network
-			
-			if prevEventUpToDate && authEventUpToDate {
-				// we are upto date. This is an actual error. No need to expect an update from the network
-				eventError = authError.Error()
-				markAsSynced = true
-			} else {
-				if currentState == nil || (currentState != nil && isMoreRecent) { // it is a morer ecent event
-					if strings.HasPrefix(authError.Error(), constants.ErrorForbidden) || strings.HasPrefix(authError.Error(), constants.ErrorUnauthorized) {
-						markAsSynced = false
-					} else {
-						// entire event can be considered bad since the payload data is bad
-						// this should have been sorted out before broadcasting to the network
-						// TODO penalize the node that broadcasted this
-						eventError = authError.Error()
-						markAsSynced = true
-					}
-
-				} else {
-					// we are upto date. We just need to store this event as well.
-					// No need to update state
-					markAsSynced = true
-					eventError = authError.Error()
-				}
-			}
-
-		}
-
-		if len(eventError) == 0 {
-			logger.Infof("MARKASYNCED:: %v, %v", prevEventUpToDate, authEventUpToDate)
-			if prevEventUpToDate && authEventUpToDate { // we are upto date
-				if currentState == nil || isMoreRecent {
-					updateState = true
-					markAsSynced = true
-				} else {
-					// Its an old event
-					markAsSynced = true
-					updateState = false
-				}
-			} else {
-				updateState = false
-				markAsSynced = false
-			}
-
-		}
-	} else {
-		
-		markAsSynced = false
-	}
-
-	// Save stuff permanently
-	
-	
-	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).PublicKey {
-		// save the event
-		event.Error = eventError
-		event.IsValid = markAsSynced && len(eventError) == 0.
-		event.Synced = markAsSynced
-		event.Broadcasted = true
-
-		rsl := tx.Where(where).Updates(eventTypeFromWhere(where, *event))
-		if rsl.Error != nil {
-			logger.Errorf("TXERROR %v", tx.Error)
-			// tx.Rollback()
-			return
-		}
-
-	} else {
-		exists := eventTypeFromWhere(where, entities.Event{})
-		tx.Where(broadcastedWhere).First(exists)
-		rItem := reflect.ValueOf(exists).Elem()
-		id := fmt.Sprint(rItem.FieldByName("ID").Interface())
-		var tx2 *gorm.DB
-		
-		if markAsSynced {
-			if len(id) > 0 {
-				tx2 = tx.Where(broadcastedWhere).Updates(eventTypeFromWhere(where, entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0}))
-			} else {
-				event.Synced = true
-				event.Broadcasted = true
-				event.Error = eventError
-				event.IsValid = len(eventError) == 0
-				tx2 = tx.Where(broadcastedWhere).Create(eventTypeFromWhere(where, *event))
-			}
+			// save it
+			// query.SaveRecord(models.SubnetState{Subnet: entities.Subnet{ID: data.Subnet}}, &subnet, nil, nil )
+			// if err != nil {
+			// 	return
+			// }
 		} else {
-			// mark as broadcasted
-			if len(id) > 0 {
-				tx2 = tx.Where(broadcastedWhere).Updates(eventTypeFromWhere(where, entities.Event{Broadcasted: true}))
-			} else {
-				event.Broadcasted = true
-				tx2 = tx.Where(broadcastedWhere).Create(eventTypeFromWhere(where, *event)).FirstOrCreate(eventTypeFromWhere(where, *event))
+			return false, false, nil, false, nil
+		}
+		
+		}
+	}
+	var agent = entities.AddressFromString(string(event.Payload.Agent))
+	if validAgentRequired || agent.Addr != "" {
+		agentString, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
+		if err != nil {
+			logger.Debug(err)
+			return false, false, nil, eventIsMoreRecent, fmt.Errorf("invalid agent signature")
+		}
+	
+		if strings.Compare(agentString, agent.Addr) != 0 {
+			logger.Debug("Invalid agent signer")
+			return false, false, nil, eventIsMoreRecent, fmt.Errorf("invalid payload signer")
+		}
+	}
+	// eventModel, _, err := query.SaveRecord(models.TopicEvent{Event: entities.Event{Hash: event.Hash}}, &models.TopicEvent{Event: *event}, nil, sql.SqlDb)
+	_, err = saveEvent( entities.Event{Hash: event.Hash},  event, nil, tx)
+	if err != nil {
+		return false, false,nil, eventIsMoreRecent, fmt.Errorf("event storage failed")
+	}
+
+	
+	
+	// get agent auth state
+	
+	var eventAuthState models.AuthorizationState
+	var agentAuthState models.AuthorizationState
+	var agentAuthStateEvent models.AuthorizationEvent
+	if validAgentRequired {
+		err = query.GetOne(models.AuthorizationState{Authorization: entities.Authorization{Agent: agent.ToDeviceString(), Subnet: event.Payload.Subnet}}, &agentAuthState)
+		if err != nil && err != query.ErrorNotFound {
+			return false, false,nil, eventIsMoreRecent, fmt.Errorf("db error: %s", err.Error())
+		}
+	}
+	// lets determine which authstate to use to validate this event
+	
+
+	// get all events and auth
+	var previousEvent *entities.Event
+	var authEvent *entities.Event
+
+	// if agentAuthState == nil { // we dont have any info about the agent within this subnet
+	// 	// we need to know if the agent has the right to process this event, else we cant do anything
+	// 	// check the node that sent the event to see if it has the record
+
+	// }
+	logger.Info("PreviousEvent", event.PreviousEventHash)
+	if len(event.PreviousEventHash.Hash) > 0 {
+		previousEvent, err = query.GetEventFromPath(&event.PreviousEventHash)
+		if err != nil && err != query.ErrorNotFound {
+			logger.Info(err)
+			return false, false, nil, eventIsMoreRecent, fmt.Errorf("db err: %s", err.Error())
+		}
+		// check if we have the previous event locally, if we dont we can't proceed until we get it
+		if previousEvent != nil {
+			previousEventUptoDate = true
+		} else {
+			// get the previous event from the sending node and process it as well
+			previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEventHash, nil)
+			if err != nil {
+				logger.Error(err)
+				if event.Validator != event.PreviousEventHash.Validator {
+					previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEventHash, &event.Validator)
+					logger.Error(err)
+				}
+			}
+			if previousEvent != nil {
+				go HandleNewPubSubEvent(previousEvent, ctx)
 			}
 			
 		}
-		if tx2.Error != nil {
-			// tx2.Rollback()
-			return
-		}
-	}
-	
 
-	if updateState {
-		// var err error
-		var newStateId string
-		var newStateEvent *entities.EventPath
-		var txResult *gorm.DB
-		switch val := data.(type) {
-			case entities.Topic:
-				logger.Infof("%vs", val.ID)
-				topic := data.(entities.Topic)
-				newState := models.TopicState{
-					Topic: topic,
-				}
-				if event.EventType == uint16(constants.UpdateTopicEvent) {
-					txResult = tx.Where(models.TopicState{Topic: entities.Topic{ID: topic.ID}}).Updates(&newState)
-				} else {
-					txResult = tx.Create(&newState)
-				}
-				if txResult.Error == nil {
-					newStateId = newState.ID
-					newStateEvent = &newState.Event
-				} else {
-					logger.Info("TopicState is nil")
-				}
-			case entities.Authorization:
-				auth := data.(entities.Authorization)
-				
-				// newStateTmp := models.AuthorizationState{
-				// 	Authorization: auth,
-				// }
-				// query.GetOne(models.AuthorizationState{
-				// 	Authorization: entities.Authorization{Agent: auth.Agent, Subnet: auth.Subnet},
-				// }, &auth)
-				logger.Info("AuthState", auth.Agent, " ",  auth.Subnet, " ", auth.Account)
-				// if len(auth.ID) > 0 {
-				// 	newState, txResult = SaveState(models.AuthorizationState{
-				// 		Authorization: entities.Authorization{Agent: auth.Agent, Subnet: auth.Subnet},
-				// 	}, models.AuthorizationState{Authorization: entities.Authorization{ID: auth.ID}}, true, tx)
-				// } else {
-				// 	txResult = tx.Model(&models.AuthorizationState{}).Create(&newState)
-				// 	//newState, tx = SaveState(newState, models.AuthorizationState{Authorization: entities.Authorization{
-				// 	//}}, false, tx)
-				// }
-				newState, txResult := query.SaveAuthorizationState(&auth, tx)
-				if txResult.Error == nil {
-					newStateId = newState.ID
-					newStateEvent = &newState.Event
-				} else {
-					logger.Info("AuthorizationState is nil")
-				}
-
-		}
-		// if tx.Commit().Error != nil {
-		// 	tx.Rollback()
-		// 	logger.Error("7000: Db Error", err)
-		// 	return
-		// } 
-		if markAsSynced && newStateEvent != nil {
-			go OnFinishProcessingEvent(ctx, newStateEvent, utils.IfThenElse(len(newStateId) > 0, &newStateId, nil), utils.IfThenElse(event.Error != "", apperror.Internal(event.Error), nil))
-		}
-
-		if string(event.Validator) != cfg.PublicKey {
-			dependent, err := query.GetDependentEvents(event)
-			if err != nil {
-				logger.Info("Unable to get dependent events", err)
-			}
-			for _, dep := range *dependent {
-				go HandleNewPubSubTopicEvent(&dep, ctx)
-			}
-		}
-
-	}
-
-	// TODO Broadcast the updated state
-}
-
-func eventTypeFromWhere(where any, event entities.Event) (Model any) {
-	switch val := where.(type) {
-	case models.TopicEvent:
-		logger.Infof("DataType %s, %v", "Topic", val)
-		return &models.TopicEvent{Event: event}
-	case models.AuthorizationEvent:
-		logger.Infof("DataType %s, %v", "Topic", val)
-	
-		return &models.AuthorizationEvent{Event: event}
-	
-	}
-	return nil
-}
-
-// func deriveStateTypeModel(data any) (Model any) {
-// 	switch val := data.(type) {
-// 	case entities.Topic:
-// 		logger.Infof("DataType %v", val)
-// 		return &models.TopicState{Topic: data.(entities.Topic)}
-// 	}
-// 	return entities.Event{}
-// }
-// func finalize (ctx *context.Context, cfg *configs.MainConfiguration, data any, event *entities.Event, updateState *bool, markAsSynced *bool, tx *gorm.DB) {
-// 	if *updateState {
-// 	var	err error
-// 	var newStateId string
-// 	var newStateEvent *entities.EventPath
-
-// 	switch val := data.(type) {
-// 		case entities.Topic:
-// 			logger.Info("VallContente: %v", val)
-// 			topic := data.(entities.Topic)
-// 			logger.Infof("7000: %v", data)
-// 				// newState, _, _ := query.SaveRecord(models.TopicState{
-// 				// 	Topic: entities.Topic{ID: val.ID},
-// 				// }, &models.TopicState{
-// 				// 	Topic: val,
-// 				// }, utils.IfThenElse(event.EventType == uint16(constants.UpdateTopicEvent), &models.TopicState{
-// 				// 	Topic: val,
-// 				// }, &models.TopicState{}) , tx)
-// 				// newState, _, _ := query.SaveRecord(models.TopicState{
-// 				// 	Topic: entities.Topic{ID: val.ID},
-// 				// }, &models.TopicState{
-// 				// 	Topic: val,
-// 				// }, &models.TopicState{
-// 				// 	Topic: val,
-// 				// }, tx)
-// 				newState := models.TopicState{
-// 					Topic: topic,
-// 				}
-// 				copier.Copy(newState.Topic, topic)
-// 				// tx = tx.Table("topic_states").Where(models.TopicState{
-// 				// 	Topic: entities.Topic{ID: topic.ID},
-// 				// }).Assign( utils.IfThenElse(event.EventType == uint16(constants.UpdateTopicEvent), &models.TopicState{
-// 				// 	Topic: topic,
-// 				// }, &models.TopicState{})).Create(&newState)
-// 				tx = tx.Create(newState)
-
-// 				if tx.Error == nil {
-// 					newStateId = newState.ID
-// 					newStateEvent = &newState.Event
-// 				} else {
-// 					logger.Info("TopicState is nil")
-// 				}
-
-// 	}
-// 	// if err != nil {
-// 	// 	tx.Rollback()
-// 	// 	logger.Error("7000: Db Error", err)
-// 	// 	return
-// 	// }
-
-// 	if tx !=nil {
-// 		tx.Commit()
-// 	}
-// 	if *markAsSynced {
-// 		go OnFinishProcessingEvent(ctx, newStateEvent, utils.IfThenElse(len(newStateId) > 0, &newStateId, nil), utils.IfThenElse(event.Error!="", apperror.Internal(event.Error), nil))
-// 	}
-
-// 	if string(event.Validator) != cfg.PublicKey  {
-// 		dependent, err := query.GetDependentEvents(*event)
-// 		if err != nil {
-// 			logger.Info("Unable to get dependent events", err)
-// 		}
-// 		for _, dep := range *dependent {
-// 			go HandleNewPubSubTopicEvent(&dep, ctx)
-// 		}
-// 	}
-
-// 	}
-// }
-
-// The validateAuthState function checks if the authorization presented by an Agent is currently and valid.
-// It compares the presented authEvent with the local one. To do this, it must get the current state from the signing
-// node and checks if the event that resulted in it is older or more recent than its local
-func validateAuthState(ctx *context.Context, cfg *configs.MainConfiguration, eventAuthState *models.AuthorizationState, localAuthState *models.AuthorizationState, event *entities.Event, subnet string, agent string, account string) (valid bool, err error) {
-	//1. I dont have the event auth, I dont have any auth for the agent
-	//2. I dont have the event auth, but I have an auth for the agent. Get the event auth from the validator,save it if valid, check if its older than your local, if it is, check if the event depending on it is older than the event that modified my local authstate, if it is, then its valid, process the even if there is no other more recent event that has updated the state
-	//3. I have the event auth, but its different from the current auth of the agent - check which is most recent, if mine, check if the event was initiated before my state, if it was, then its valid, else, check if the authEvent was older than mine, if it was, throw error else accept the event
-	if eventAuthState == nil { // my local auth state is either different or I have none
-		// get the auth event from the sending node
-		payload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetEvent, event.AuthEventHash.MsgPack())
-
-		response, err := payload.SendRequest(cfg.PrivateKeyBytes, string(event.AuthEventHash.Validator))
-		if response.ResponseCode != 0 {
-			logger.Errorf("P2pPayload.SendRequest: %d-%s", response.ResponseCode, response.Error)
-			return false, fmt.Errorf(response.Error)
-		}
-		if err != nil {
-			logger.Errorf("P2pPayload.SendRequest: %v", err)
-			return false, err
-		}
-		if !response.IsValid(cfg.ChainId) {
-			return false, fmt.Errorf("service/validateAuthState: Unable to get authorization event")
-		}
-		p2pResp, err := p2p.UnpackP2pEventResponse([]byte(response.Data))
-		if err != nil {
-			return false, fmt.Errorf("service/: Invalid event data")
-		}
-		event, err := entities.UnpackEvent(p2pResp.Event, &entities.Authorization{})
-		if err != nil {
-			return false, fmt.Errorf("service/validateAuthState: Invalid event data")
-		}
-		// now we have the event, push out for processing
-		
-		go HandleNewPubSubTopicEvent(event, ctx)
-		valid = false
-		// // lets get my local authstate and see if its the same
-		// localAuthState, _ := query.GetOneAuthorizationState(entities.Authorization{Subnet: subnet, Agent: entities.DeviceString(agent), Account: entities.DIDString(account)})
-		// if localAuthState == nil  { // I have no auth state record as well.
-		// 	// all i can do is store this event and try to get the authstate from this node
-		// 	// i will still have to validate it
-		// 	return nil, nil
-		// } else {
-		// 	// I have a local authstate
-		// 	// lets see if this was an older event than the one that updated mine. If it is, then I need to
-		// 	localAuthStateEvent, _ := query.GetEventFromPath(&localAuthState.Event)
-		// 	if localAuthStateEvent == nil { // this shouldnt happen oftne
-		// 		// TODO find this event right away
-		// 	}
-
-		// 	// check if the current event we are processing is more recent than
-		// 	// the event responsible for my local authstate
-		// 	isMoreRecent, _ := IsMoreRecent(
-		// 		localAuthStateEvent.ID,
-		// 		localAuthState.Hash,
-		// 		localAuthStateEvent.Payload.Timestamp,
-		// 		event.Hash,
-		// 		event.Payload.Timestamp,
-		// 		false,
-		// 	)
-		// 	if isMoreRecent { // this means that either the originating node is not upto date or I am.
-		// 		// I must get the referred authstate event and update my authstate before I can process this event
-
-		// 	}
-
-		// 		// 1. get the event from the sending node
-		// 		// 2. validate it
-		// 		// 3. compute the possible authorization state
-		// 		// 4. See if I should updated the state based on it
-
-		// }
-		return valid, nil
 	} else {
-		// it same as my local authstate, we can use it to authenticate this event
-		return true, nil
+		previousEventUptoDate = true
 	}
 
-}
+	
+		if (validAgentRequired || len(event.AuthEventHash.Hash) > 0) && (agentAuthState.ID != "" || agentAuthState.Event.Hash != event.AuthEventHash.Hash) {
+			// check if we have the associated auth event locally, if we dont we can't proceed until we get it
+			if event.AuthEventHash.Hash == "" {
+				return previousEventUptoDate, authEventUptoDate, nil, eventIsMoreRecent, fmt.Errorf("auth event not provided")
+			}
+			authEvent, err = query.GetEventFromPath(&event.AuthEventHash)
+			if err != nil  {
+				if err == query.ErrorNotFound {
+					// get it from another node and broadcast it
+					authEv, _, err := p2p.GetEvent(cfg, event.AuthEventHash, &event.Validator)
+					if err != nil {
+						if  event.AuthEventHash.Validator != event.Validator {
+							authEv, _, err = p2p.GetEvent(cfg, event.AuthEventHash, nil)
+						}
+						if err != nil {
+							return previousEventUptoDate, authEventUptoDate, nil, eventIsMoreRecent, fmt.Errorf("auth event not found")
+						}
+					}
+					HandleNewPubSubAuthEvent(authEv, ctx)
+				}
+				logger.Info(err)
+				return previousEventUptoDate, false, nil, eventIsMoreRecent, nil
+			} else {
+				if authEvent.Synced {
+					authEventUptoDate = true
+					// get the authstate since we have the event
+					err = query.GetOneState(entities.Authorization{Event: event.AuthEventHash}, &eventAuthState)
+					if err != nil {
+						authEventUptoDate = false
+					}
+				} else {
+					authEventUptoDate = false
+				}
+			}
+			
+		
+	}
+	if previousEventUptoDate &&  authEventUptoDate {
+		// check a situation where we have either of current auth and event state locally, but the states events are not same as the events prev auth and event
+		// get the topics state
+		// var id = data.ID
+		// var badEvent  error
+		// if len(data.ID) == 0 {
+		// 	id, _ = entities.GetId(data)
+		// } else {
+		// 	id = data.ID
+		// }
+		logger.Infof("PREVIOUSANDAUTH %v, %v", previousEventUptoDate, authEventUptoDate)
+		
+		var entityState = data.localDataState
+		var stateEvent = data.localDataStateEvent
+		// err := query.GetOne(models.TopicState{Topic: entities.Topic{ID: id}}, &topic)
+		// if err != nil && err != query.ErrorNotFound {
+		// 	logger.Debug(err)
+		// }
+		
+		if entityState != nil &&  len(entityState.ID) > 0 {
+			// check if state.Event is same as events previous has
+			if entityState.Event.Hash != event.PreviousEventHash.Hash {
+				// either we are not upto date, or the sender is not
+				// get the event that resulted in current state
+				// topicEvent, err = query.GetEventFromPath(&topicState.Event)
+				// if err != nil && err != query.ErrorNotFound {
+				// 	logger.Debug(err)
+				// }
+				if len(stateEvent.ID) > 0 {
+					eventIsMoreRecent = IsMoreRecentEvent(stateEvent.Hash, int(stateEvent.Timestamp), event.Hash, int(event.Timestamp))
 
+					logger.Infof("STATEEVENT %v, %v", stateEvent, previousEvent)
+					 // if this event is more recent, then it must referrence our local event or an event after it
+					if eventIsMoreRecent  && stateEvent.Hash != event.PreviousEventHash.Hash {
+						previousEventMoreRecent := IsMoreRecentEvent(stateEvent.Hash, int(stateEvent.Timestamp), previousEvent.Hash, int(previousEvent.Timestamp))
+						if !previousEventMoreRecent {
+							badEvent = fmt.Errorf(constants.ErrorBadRequest)
+						}
+					}
+
+				}
+				
+			}
+		}
+
+		
+
+
+
+
+
+		// We need to determin which authstate is valid for this event
+		// if its an old event, we can just save it since its not updating state
+		// if its a new one, we have to confirm that it is referencing the true latest auth event
+
+		// so lets get the referrenced authorization
+		// if event.AuthEventHash.Hash != "" {
+		// 	err = query.GetOne(models.AuthorizationState{Authorization: entities.Authorization{Event: event.AuthEventHash}}, eventAuthState)
+		// 	if err != nil && err != query.ErrorNotFound {
+		// 		return false, false, nil, false,fmt.Errorf("db error: %s", err.Error())
+		// 	}
+		// 	// if we dont have it, get it from another node
+		// }
+		// if event is more recent that our local state, we have to check its validity since it updates state
+		if eventIsMoreRecent && validAgentRequired && agentAuthState.ID  != "" && agentAuthState.Event.Hash != event.AuthEventHash.Hash && authEvent != nil {
+			// get the event that is responsible for the current state
+			err := query.GetOne(models.AuthorizationEvent{Event: entities.Event{Hash: agentAuthState.Event.Hash}}, &agentAuthStateEvent)
+			if err != nil && err != query.ErrorNotFound {
+				logger.Debug(err)
+			}
+			if agentAuthStateEvent.ID != "" {
+				authMoreRecent = IsMoreRecentEvent(agentAuthStateEvent.Hash, int(agentAuthStateEvent.Timestamp), authEvent.Hash, int(authEvent.Timestamp))
+				if !authMoreRecent {
+					// this is a bad event using an old auth state.
+					// REJECT IT
+					badEvent = fmt.Errorf(constants.ErrorUnauthorized)
+				}
+			}
+		}
+
+
+
+		if badEvent != nil {
+			// update the event state with the error
+			// _, _, err = query.SaveRecord(models.TopicEvent{Event: entities.Event{Hash: event.Hash}}, &models.TopicEvent{Event: *event}, &models.TopicEvent{Event: entities.Event{Error: badEvent.Error(), IsValid: false, Synced: true}}, nil)
+
+			_, err = saveEvent(entities.Event{Hash: event.Hash}, event,  &entities.Event{Error: badEvent.Error(), IsValid: false, Synced: true}, tx)
+			if err != nil {
+				logger.Error(err)
+			}
+			// notify the originator so it can correct it e.g. let it know that there is a new authorization
+
+			// decide whether to report the node
+			return false, false, &eventAuthState, eventIsMoreRecent, fmt.Errorf("db error: %s", badEvent)
+		}
+		
+	}
+	// we returned the events authstate and not the agents auth state because the agents authstate might
+	// have been updated after this event was triggered
+	return previousEventUptoDate, authEventUptoDate, &eventAuthState, eventIsMoreRecent, nil
+
+}

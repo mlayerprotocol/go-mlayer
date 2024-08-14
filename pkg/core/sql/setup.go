@@ -41,26 +41,30 @@ func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	
 	if driver == "sqlite" {
-		// d, _ := SqlDb.DB()
-		// d.Exec("PRAGMA busy_timeout = 1000")
+		//d, _ := SqlDb.DB()
+		SqlDb.Exec("PRAGMA busy_timeout = 1000")
 	}
 	for _, model := range models.Models {
 		err := SqlDb.AutoMigrate(&model)
 		if err != nil {
-			logger.Errorf("UnmarshalError %v", err)
-		}
-		
-		
-		if err != nil {
-			logger.Errorf("UnmarshalError %v", err)
+			logger.Errorf("SQLD_BERROR: %v", err)
 		}
 	}
+	
 	
 	return SqlDb, err
 }
 
+func GetTableName(table any, db *gorm.DB) string {
+	stmt := &gorm.Statement{DB: db}
+	stmt.Parse(table)
+	return stmt.Schema.Table
+}
+
 func Init(cfg *configs.MainConfiguration) {
+	
 	SqlDb, SqlDBErr = InitializeDb(config.Config.SQLDB.DbDialect, getDSN(cfg))
 	if SqlDBErr != nil {
 		panic(SqlDBErr)
@@ -72,7 +76,7 @@ func Init(cfg *configs.MainConfiguration) {
 		if err == gorm.ErrRecordNotFound {
 			err := migration.Migrate(SqlDb)
 			if err == nil {
-				SqlDb.Create(models.MigrationState{Key: key })
+				SqlDb.Create(&models.MigrationState{Key: key })
 			} else {
 				log.Logger.Error("Migration Error", err)
 				panic(err)
@@ -86,7 +90,15 @@ func Init(cfg *configs.MainConfiguration) {
 	db.SetMaxIdleConns(cfg.SQLDB.DbMaxConnLifetime)
 	db.SetMaxOpenConns(cfg.SQLDB.DbMaxOpenConns)
 	db.SetConnMaxLifetime(time.Duration(cfg.SQLDB.DbMaxConnLifetime) * time.Second)
+	// SqlDb.Exec("DROP TRIGGER IF EXISTS subnet_events_sync_trigger;")
+	counterTable := GetTableName(models.EventCounter{}, SqlDb)
+	subnetSyncTrigger, subnetSyncFunc := EventSyncedTrigger(config.Config.SQLDB.DbDialect, GetTableName(models.SubnetEvent{}, SqlDb), counterTable)
+	SqlDb.Exec(string(subnetSyncFunc))
+	SqlDb.Exec(string(subnetSyncTrigger))
 
+	authSyncTrigger, authSyncFunc := EventSyncedTrigger(config.Config.SQLDB.DbDialect, GetTableName(models.AuthorizationEvent{}, SqlDb), counterTable)
+	SqlDb.Exec(string(authSyncFunc))
+	SqlDb.Exec(string(authSyncTrigger))
 	
 	
 }

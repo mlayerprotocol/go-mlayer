@@ -3,6 +3,7 @@ package entities
 import (
 	// "errors"
 
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,6 +16,10 @@ type PublicKeyString string
 type DIDString string
 type DeviceString DIDString
 
+func (s PublicKeyString) Bytes() []byte {
+	b, _ := hex.DecodeString(string(s))
+	return b
+}
 func (address *DIDString) ToString() string {
 
 	return string(*address)
@@ -56,7 +61,7 @@ func AddressFromBytes(b []byte) (DID, error) {
 }
 func MsgUnpack(b []byte) (DID, error) {
 	var address DID
-	err := encoder.MsgPackUnpackStruct(b, address)
+	err := encoder.MsgPackUnpackStruct(b, &address)
 	return address, err
 }
 

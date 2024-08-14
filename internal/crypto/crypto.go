@@ -128,20 +128,20 @@ func VerifySignatureECC(signer string, message *[]byte, signature string) bool {
 	return strings.EqualFold(decodedSigner, signer)
 }
 
-func VerifySignatureEDD(signer string, message *[]byte, signature string) (bool, error) {
-	signatureByte, err := hex.DecodeString(signature)
-	if err != nil {
-		logger.WithFields(logrus.Fields{"signature": signature}).Infof("Unable to decode signature %v", err)
-		return false, err
-	}
-	publicKeyBytes, err := hex.DecodeString(signer)
-	if err != nil {
-		logger.WithFields(logrus.Fields{"signer": signer}).Infof("Unable to decode signer %v", err)
-		return false, err
-	}
+func VerifySignatureEDD(signer []byte, message *[]byte, signature []byte) (bool, error) {
+	// signatureByte, err := hex.DecodeString(signature)
+	// if err != nil {
+	// 	logger.WithFields(logrus.Fields{"signature": signature}).Infof("Unable to decode signature %v", err)
+	// 	return false, err
+	// }
+	// publicKeyBytes, err := hex.DecodeString(signer)
+	// if err != nil {
+	// 	logger.WithFields(logrus.Fields{"signer": signer}).Infof("Unable to decode signer %v", err)
+	// 	return false, err
+	// }
 	
 	msg := Sha256(*message)
-	return  ed25519.Verify(publicKeyBytes, msg[:], signatureByte), nil
+	return  ed25519.Verify(signer, msg[:], signature), nil
 }
 
 func VerifySignatureSECP(publicKeyBytes []byte, message []byte, signatureByte []byte) (bool, error) {

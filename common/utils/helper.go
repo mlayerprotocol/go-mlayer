@@ -133,8 +133,9 @@ func Lcg(seed uint64)  (*big.Int) {
 }
 
 
-func UuidToBytes(uuid string) ([]byte, error) {
-	return hex.DecodeString(strings.ReplaceAll(uuid, "-", ""))
+func UuidToBytes(uuid string) ([]byte) {
+	b, _ :=  hex.DecodeString(strings.ReplaceAll(uuid, "-", ""))
+	return b
 }
 
 func Contains(s []string, str string) bool {
@@ -156,6 +157,30 @@ func RandomString(length int) string {
 	}
 	return str
 }
+func RandomAplhaNumString(length int) string {
+	var str string;
+	var err error;
+	for {
+		str, err = gonanoid.Generate("abcdefghijklmnopqrstuvwxyz123456789", length)
+		if err == nil {
+			break
+		}
+	}
+	return str
+}
+func RandomHexString(length int) string {
+	var str string;
+	var err error;
+	for {
+		str, err = gonanoid.Generate("abcdef1234567890", length)
+		if err == nil {
+			break
+		}
+	}
+	return str
+}
+
+
 func TimestampMilli() uint64 {
 	return uint64(time.Now().UnixNano() / 1e6)
 }

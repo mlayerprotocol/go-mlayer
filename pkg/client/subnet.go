@@ -182,14 +182,15 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 
 	payload.Data = payloadData
 
+
 	if uint64(payloadData.Timestamp) == 0 || uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 || uint64(payloadData.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
 		return nil, nil, apperror.BadRequest("Invalid event timestamp")
 	}
 	if payload.EventType == uint16(constants.CreateSubnetEvent) {
 		// dont worry validating the AuthHash for Authorization requests
-		if entities.AddressFromString(payloadData.Owner.ToString()).Addr == "" {
-			return nil, nil, apperror.BadRequest("You must specify the owner of the subnet")
-		}
+		// if entities.AddressFromString(payloadData.Owner.ToString()).Addr == "" {
+		// 	return nil, nil, apperror.BadRequest("You must specify the owner of the subnet")
+		// }
 
 		if payloadData.ID != "" {
 			return nil, nil, apperror.BadRequest("You cannot set an id when creating a subnet")
@@ -199,7 +200,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 		if len(found) > 0 {
 			return nil, nil, apperror.BadRequest(fmt.Sprintf("Subnet with reference %s already exists", payloadData.Ref))
 		}
-		logger.Info("FOUNDDDDD", found, payloadData.Ref)
+		// logger.Info("FOUNDDDDD", found, payloadData.Ref)
 
 	}
 	if payload.EventType == uint16(constants.UpdateSubnetEvent) {
@@ -216,8 +217,9 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 
 	// generate associations
 	if currentState != nil {
-		if strings.EqualFold(currentState.Account.ToString(), payloadData.Account.ToString()) {
-			return nil, nil, apperror.BadRequest("Subnet account do not match")
+		//logger.Infof("SUBNETINFO %v, %s, %s", strings.EqualFold(currentState.Account.ToString(), payloadData.Account.ToString()), currentState.Account.ToString(), payloadData.Account.ToString())
+		if !strings.EqualFold(currentState.Account.ToString(), payloadData.Account.ToString()) {
+			return nil, nil, apperror.BadRequest("subnet account do not match")
 		}
 		assocPrevEvent = &currentState.Event
 	}

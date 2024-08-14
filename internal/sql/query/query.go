@@ -2,13 +2,16 @@ package query
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var logger = &log.Logger
@@ -71,6 +74,28 @@ func GetMany[T any, U any](item T, data *U, order *map[string]Order) error {
 	}
 	return nil
 }
+func GetManyWithLimit[T any, U any](item T, data *U, order *map[string]Order, limit int, offset int) error {
+	tx := GetManyTx(item)
+	if order != nil {
+		logger.Infof("ORDER BY")
+		for k := range *order {
+			logger.Infof("%s %s", k, (*order)[k])
+			tx = tx.Order(fmt.Sprintf("%s %s", k, (*order)[k]))
+		}
+	}
+	if limit > 0 {
+		tx.Limit(int(limit))
+	}
+	if offset > 0 {
+		tx.Offset(offset)
+	}
+	err := tx.Find(data).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 
 func GetWithIN[T any, U any, I any](item T, data *U, slice I) error {
 	err := sql.SqlDb.Find(data, slice).Error
@@ -130,6 +155,32 @@ func GetManyGroupBy[T any, U any](item T, data *U, gb string) error {
 // 	}
 // 	return &data, nil
 // }
+
+func GetOneState[T any](filter any, data *T) error {
+		var model any
+			switch val := filter.(type) {
+				case entities.Subnet:
+					logger.Debug(val)
+					model = models.SubnetState{Subnet: val}
+				case entities.Authorization:
+					model = models.AuthorizationState{Authorization: val}
+				case entities.Topic:
+					model = models.TopicState{Topic: val}
+				case entities.Subscription:
+					model = models.SubscriptionState{Subscription: val}
+				case entities.Message:
+					model = models.MessageState{Message: val}
+			}
+			// logger.Infof("QUERY %v, value: %v, %v", filter, data)
+	err := sql.SqlDb.Where(model).Take(data).Error
+	if err != nil {
+
+		return err
+	}
+	return nil
+}
+
+
 
 func SaveRecord[Model any](where Model,  createData *Model, updateData *Model, DB *gorm.DB) (model *Model, created bool, err error) {
 	tx := DB
@@ -213,7 +264,7 @@ func GetDependentEvents(event *entities.Event) (*[]entities.Event, error) {
 		data = append(data, *prevEvent)
 	}
 	authEvent, _ := GetEventFromPath(&(event.AuthEventHash))
-	if prevEvent != nil {
+	if authEvent != nil {
 		data = append(data, *authEvent)
 	}
 	return &data, nil
@@ -303,4 +354,48 @@ func GetAccountSubscriptions(account string) {
 	}
 	logger.Infof("%s", subscriptions)
 
+}
+
+func GenerateImportScript[T any](db *gorm.DB, where T, fileName string, cfg *configs.MainConfiguration ) (string, error) {
+    var sqlScript string
+	var rows []T
+    result := db.Where(where).Order("created_at DESC").Find(&rows)
+    if result.Error != nil {
+        logger.Error(result.Error)
+		return "", result.Error
+    }
+    for _, row := range rows {
+        // Create a new DB session with DryRun mode
+        stmt := db.Session(&gorm.Session{DryRun: true}).Clauses(clause.OnConflict{
+            DoNothing: true, // To generate INSERT OR IGNORE, use DoNothing
+        }).Create(&row).Statement
+
+        sql := stmt.SQL.String()
+
+        // Replace "INSERT" with "INSERT OR REPLACE" in the generated SQL query
+        sql = "INSERT OR REPLACE" + sql[len("INSERT"):]
+
+        // Append the generated SQL query to the script
+        sqlScript += sql + ";\n"
+    } 
+	if fileName != "" {
+		fileName = fmt.Sprintf("/tmp/%s.sql", fileName)
+		return fileName, SaveToFile(fileName, sqlScript)
+	}
+    return sqlScript, nil
+}
+
+func SaveToFile(filename, data string) (error) {
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+
+	_, err = file.WriteString(data)
+    if err != nil {
+        return err
+    }
+
+    return nil
 }

@@ -13,7 +13,7 @@ import (
 )
 
 type MessagePrice struct {
-	Cycle         uint64        `json:"cy"`
+	Cycle         json.RawMessage        `json:"cy"`
 	ChainId configs.ChainId `json:"pre"`
 	Price             json.RawMessage        `json:"pr"`
 	Signature            json.RawMessage        `json:"sig"`
@@ -31,13 +31,13 @@ func (mp *MessagePrice) MsgPack() []byte {
 
 func UnpackMessagePrice(b []byte) (MessagePrice, error) {
 	var mp MessagePrice
-	err := encoder.MsgPackUnpackStruct(b,  mp)
+	err := encoder.MsgPackUnpackStruct(b,  &mp)
 	return mp, err
 }
 
 func (mp MessagePrice) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: mp.Cycle},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: mp.Cycle},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: mp.ChainId.Bytes()},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: mp.Price},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: mp.Timestamp},
@@ -50,7 +50,7 @@ func (mp *MessagePrice) IsValid(prefix configs.ChainId) bool {
 	mp.ChainId = prefix // Important security update. Do not remove
 	//
 	// if math.Abs(float64(uint64(time.Now().UnixMilli()) - mp.Timestamp)) > constants.VALID_HANDSHAKE_SECONDS {
-	// 	logger.WithFields(logrus.Fields{"data": mp}).Warnf("Hanshake Expired: %d", uint64(time.Now().UnixMilli()) - mp.Timestamp)
+	// 	logger.WithFields(logrus.Fields{"data": mp}).Warnf("Price Expired: %d", uint64(time.Now().UnixMilli()) - mp.Timestamp)
 	// 	return false
 	// }
 	signer, err := hex.DecodeString(string(mp.Signer));
@@ -84,15 +84,18 @@ func (mp *MessagePrice) IsValid(prefix configs.ChainId) bool {
 }
 
 
-func NewMessagePrice(config *configs.MainConfiguration, privateKey []byte, price []byte) (*MessagePrice, error) {
+func NewMessagePrice(config *configs.MainConfiguration, privateKey []byte, price []byte, cycle []byte) (*MessagePrice, error) {
 	pubKey := crypto.GetPublicKeySECP(privateKey)
-	mp := MessagePrice{config: config,  ChainId: config.ChainId, Price: price, Timestamp: uint64(time.Now().UnixMilli())}
+	mp := MessagePrice{config: config, Cycle: cycle,  ChainId: config.ChainId, Price: price, Timestamp: uint64(time.Now().UnixMilli())}
 	b, err := mp.EncodeBytes();
 	if(err != nil) {
 		return nil, err
 	}
 	_, signature := crypto.SignSECP(b, privateKey)
     mp.Signature, err = hex.DecodeString(signature)
+	if err != nil {
+		return nil, err
+	}
     mp.Signer = pubKey
 	return &mp, nil
 }

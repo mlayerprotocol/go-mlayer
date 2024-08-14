@@ -170,12 +170,12 @@ func Start(mainCtx *context.Context) {
 		// }
 		// }()
 		
-		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, &entities.AuthorizationPubSub, &ctx, service.HandleNewPubSubAuthEvent)
-		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, &entities.TopicPubSub, &ctx, service.HandleNewPubSubTopicEvent)
-		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Subnet{}, &entities.SubnetPubSub, &ctx, service.HandleNewPubSubSubnetEvent)
-		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Wallet{}, &entities.WalletPubSub, &ctx, service.HandleNewPubSubWalletEvent)
-		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, &entities.SubscriptionPubSub, &ctx, service.HandleNewPubSubSubscriptionEvent)
-		go p2p.ProcessEventsReceivedFromOtherNodes(&entities.Message{}, &entities.MessagePubSub, &ctx, service.HandleNewPubSubMessageEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.AuthModel, &entities.AuthorizationPubSub, &ctx, service.HandleNewPubSubAuthEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.TopicModel, &entities.TopicPubSub, &ctx, service.HandleNewPubSubTopicEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.SubnetModel, &entities.SubnetPubSub, &ctx, service.HandleNewPubSubSubnetEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.WalletModel, &entities.WalletPubSub, &ctx, service.HandleNewPubSubWalletEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.SubnetModel, &entities.SubscriptionPubSub, &ctx, service.HandleNewPubSubSubscriptionEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.MessageModel, &entities.MessagePubSub, &ctx, service.HandleNewPubSubMessageEvent)
 		
 
 		p2p.Run(&ctx)
@@ -183,6 +183,27 @@ func Start(mainCtx *context.Context) {
 		// 	wg.Done()
 		// 	panic(err)
 		// }
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			time.Sleep(5 * time.Second)
+			logger.Info("Generating batch...")
+			batch, err := generateBatch(197, 0, mainCtx, cfg)
+			if batch == nil {
+				
+				break
+			}
+			if err != nil {
+				
+			} else {
+				
+				processSentryRewardBatch(&ctx, cfg, batch)
+			}
+			time.Sleep(5 * time.Second)
+		}
 	}()
 
 	// wg.Add(1)

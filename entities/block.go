@@ -77,3 +77,4 @@ func UnpackBlock(b []byte) (*Block, error) {
 	err := encoder.MsgPackUnpackStruct(b, &message)
 	return &message, err
 }
+

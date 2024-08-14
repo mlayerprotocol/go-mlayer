@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"gorm.io/gorm"
@@ -165,9 +166,12 @@ type Event struct {
 	Signature   string          `json:"sig"`
 	Broadcasted bool            `json:"br"`
 	BlockNumber uint64          `json:"blk"`
+	Cycle   	uint64			`json:"cy"`
+	Epoch		uint64			`json:"ep"`
 	IsValid     bool            `json:"isVal" gorm:"default:false"`
 	Synced      bool            `json:"sync" gorm:"default:false"`
 	Validator   PublicKeyString `json:"val"`
+	Subnet   	string			`json:"snet"`
 
 	Total int `json:"total"`
 }
@@ -204,28 +208,79 @@ func (e *Event) MsgPack() []byte {
 	b, _ := encoder.MsgPackStruct(e)
 	return b
 }
+func (e *Event) GetDataModelType() EntityModel {
+	return GetModel(e.Payload.Data)
+}
 
-func UnpackEvent[DataType any](b []byte, data DataType) (*Event, error) {
+func GetModel(ent any) EntityModel {
+	var model EntityModel
+	switch val := ent.(type) {
+		case Subnet:
+			logger.Debug(val)
+			model = SubnetModel
+		case Authorization:
+			model = AuthModel
+		case Topic:
+			model = TopicModel
+		case Subscription:
+			model = SubscriptionModel
+		case Message:
+			model = MessageModel
+	}
+	return model
+}
+
+func (e *Event) GetPath() *EventPath {
+	return NewEventPath(e.Validator, e.GetDataModelType(), e.Hash)
+}
+
+func UnpackEvent(b []byte, model EntityModel) (*Event, error) {
 	// e.Payload = payload
 	e := Event{}
-	err := encoder.MsgPackUnpackStruct(b, &e)
+	if err := encoder.MsgPackUnpackStruct(b, &e); err != nil {
+		return nil, err
+	}
 	c, err := json.Marshal(e.Payload)
 	if err != nil {
 		return nil, err
 	}
 
-	pl := ClientPayload{
-		Data: data,
-	}
+	pl := ClientPayload{}
+	
 	err = json.Unmarshal(c, &pl)
+	
 	if err != nil {
 		logger.Errorf("UnmarshalError:: %o", err)
 	}
-	dBytes, err := json.Marshal(pl.Data)
-	var d DataType
-	json.Unmarshal(dBytes, &d)
 	
-	pl.Data = d
+	dBytes, err := json.Marshal(pl.Data)
+	
+	switch model {
+	case AuthModel:
+		r := Authorization{}
+		json.Unmarshal(dBytes, &r)
+		pl.Data = r
+	case SubnetModel:
+		r := Subnet{}
+		json.Unmarshal(dBytes, &r)
+		pl.Data = r
+	case TopicModel:
+		r := Topic{}
+		json.Unmarshal(dBytes, &r)
+		logger.Infof("PAYLOADDDDD %v", r)
+		pl.Data = r
+	case SubscriptionModel:
+		r := Subscription{}
+		json.Unmarshal(dBytes, &r)
+		pl.Data = r
+	case MessageModel:
+		r := Message{}
+		json.Unmarshal(dBytes, &r)
+		pl.Data = r
+	}
+	
+	// json.Unmarshal(dBytes, &pl.Data)
+	// pl.Data, err = UnpackToEntity(dBytes, model)
 	_, err2 := (&pl).EncodeBytes()
 	if err2 != nil {
 		logger.Errorf("EncodeBytesError:: %o", err)
@@ -280,11 +335,14 @@ func (e Event) EncodeBytes() ([]byte, error) {
 	}
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: d},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.EventType},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: strings.Join(e.Associations, "")},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.PreviousEventHash.Hash},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.AuthEventHash.Hash},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.BlockNumber},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.Cycle},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.Epoch},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.EventType},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.PreviousEventHash.Hash},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(e.Subnet)},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.Timestamp},
 	)
 }

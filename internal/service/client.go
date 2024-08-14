@@ -2,16 +2,17 @@ package service
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/dgraph-io/badger"
 	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
@@ -45,9 +46,9 @@ func ConnectClient(message []byte, protocol constants.Protocol, client interface
 func IsMoreRecent(
 	currenStatetEventId string,
 	currenStatetHash string,
-	currentStateEventTimestamp int,
+	currentStateEventTimestamp uint64,
 	eventHash string,
-	eventPayloadTimestamp int,
+	eventPayloadTimestamp uint64,
 	markedAsSynced bool,
 	) (isMoreRecent bool , markAsSynced bool) {
 	isMoreRecent = false
@@ -126,7 +127,8 @@ func ValidateEvent(event interface{}) error {
 		return apperror.Forbidden("Payload validator does not match event validator")
 	}
 	logger.Infof("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())
-	valid, err := crypto.VerifySignatureEDD(string(e.GetValidator()), &b, e.GetSignature())
+	sign, _ := hex.DecodeString(e.GetSignature())
+	valid, err := crypto.VerifySignatureEDD(e.GetValidator().Bytes(), &b, sign)
 	if err != nil {
 		logger.Error(err)
 		return err
@@ -195,11 +197,12 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 	
 	event, err := query.GetEventFromPath(eventPath)
 	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
-	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		panic("Unable to connect to counter data store")
 	}
 	if err == nil || event != nil {
+		
 		// increment count
 		currentSubnetCount := uint64(0);
 		currentCycleCount := uint64(0);
@@ -208,13 +211,18 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 		if err != nil {
 			panic(err)
 		}
-		
-		subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *subnetId, event.Payload.Subnet)))
-		cycleKey :=  datastore.NewKey(fmt.Sprintf("%s/%d", event.Payload.Validator, chain.GetCycle(event.BlockNumber)))
+		// TODO consider storing cycle with event so we dont need another network call here
+		cycle, err :=  chain.DefaultProvider(cfg).GetCycle(big.NewInt(int64(event.BlockNumber)))
+		if err != nil {
+			// TODO
+			panic(err)
+		}
+		subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, cycle, utils.IfThenElse(event.Payload.Subnet == "", *subnetId, event.Payload.Subnet)))
+		cycleKey :=  datastore.NewKey(fmt.Sprintf("%s/%d", event.Payload.Validator, cycle))
 		val, err := eventCounterStore.Get(*ctx, subnetKey)
 		
 		if err != nil  {
-			if err != badger.ErrKeyNotFound {
+			if err != datastore.ErrNotFound {
 				logger.Error(err)
 				return;
 			}
@@ -223,16 +231,16 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 		}
 		
 		cycleCount, err := eventCounterStore.Get(*ctx, cycleKey)
-		logger.Infof("CURRENTCYCLE %d", cycleCount)
+		
 		if err != nil  {
-			if err != badger.ErrKeyNotFound {
+			if err != datastore.ErrNotFound {
 				logger.Error(err)
 				return;
 			}
 		} else {
 			currentCycleCount = encoder.NumberFromByte(cycleCount)
 		}
-
+		logger.Infof("CURRENTCYCLE %d, %d", cycleCount, currentCycleCount)
 		// if event.Payload.Validator == entities.PublicKeyString(cfg.NetworkPublicKey) {
 		// 	subnetCycleClaimed := uint64(0);
 		// 	subnetClaimStatusKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s/claimed", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))

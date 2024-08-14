@@ -2,8 +2,11 @@ package p2p
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 	"time"
@@ -43,7 +46,7 @@ import (
 )
 
 var logger = &log.Logger
-var Delimiter = []byte{'\n'}
+var Delimiter = []byte{'0'}
 
 // var config configs.MainConfiguration
 type P2pChannelFlow int8
@@ -57,7 +60,7 @@ var protocolId string
 // var privKey crypto.PrivKey
 var config *configs.MainConfiguration
 var handShakeProtocolId = "mlayer/handshake/1.0.0"
-var P2pComChannels = make(map[string]map[P2pChannelFlow]chan P2pPayload)
+// var P2pComChannels = make(map[string]map[P2pChannelFlow]chan P2pPayload)
 
 
 const (
@@ -76,7 +79,7 @@ const (
 // var PeerStreams = make(map[string]peer.ID)
 var PeerPubKeys = make(map[peer.ID][]byte)
 var DisconnectFromPeer = make(map[peer.ID]bool)
-var mainContext *context.Context
+var MainContext *context.Context
 
 // var node *host.Host
 var idht *dht.IpfsDHT
@@ -150,7 +153,7 @@ func Run(mainCtx *context.Context) {
 	// Cancelling it will stop the the host.
 
 	ctx, cancel := context.WithCancel(*mainCtx)
-	mainContext = &ctx
+	MainContext = &ctx
 	defer cancel()
 
 	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
@@ -380,8 +383,9 @@ func Run(mainCtx *context.Context) {
 	// bootstrap peers (or any other peers). We leave this commented as
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
-	logger.Infof("Operator Public Key %s", cfg.PublicKey)
-	logger.Infof("Host started with ID %s", h.ID())
+	logger.Infof("Licence Public Key (SECP): %s", hex.EncodeToString(cfg.PublicKeySECP))
+	logger.Infof("Network Public Key (EDD): %s", cfg.PublicKey)
+	logger.Infof("Host started with ID: %s", h.ID())
 	logger.Infof("Host Network: %s", protocolId)
 	logger.Infof("Host Listening on: %s", h.Addrs())
 
@@ -638,11 +642,12 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 		}
 		// logger.Info("Iamavalidator")
 		
-		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyBytes, getMultiAddresses(*h))
+		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyBytes, getMultiAddresses(*h), config.PublicKeySECP)
 		if err != nil {
 			logger.Error(err)
 		}
 		key := "/ml/val/" + config.PublicKey
+		keySecP := "/ml/val/" + hex.EncodeToString(config.PublicKeySECP)
 		// v, err := idht.GetValue(*ctx, key)
 		// 	if err != nil {
 		// 		logger.Error("KDHT_GET_ERROR: ", err)
@@ -650,11 +655,21 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 		// 		logger.Infof("VALURRRR %s", string(v))
 		// 	}
 		
-		err = idht.PutValue(*ctx, key, mad.MsgPack())
+		packed :=  mad.MsgPack()
+		err = idht.PutValue(*ctx, key, packed)
+		
 		if err != nil {
 			logger.Error("KDHT_PUT_ERROR", err)
 		} else {
-			logger.Infof("Successfully put value")
+			logger.Debugf("Successfully stored key: %s", key)
+		}
+
+		logger.Infof("ADDING_SECP_ADDRESS: %d", config.PublicKeySECP)
+		err = idht.PutValue(*ctx, keySecP, packed)
+		if err != nil {
+			logger.Error("KDHT_PUT_ERROR", err)
+		} else {
+			logger.Debugf("Successfully stored key: %s", keySecP)
 		}
 		time.Sleep(1 * time.Hour)
 		// else {
@@ -754,42 +769,47 @@ func setupDiscovery(h host.Host, serviceName string) error {
 	return disc.Start()
 }
 
-func connectToNode(targetAddr multiaddr.Multiaddr, connectionId string, ctx context.Context) (pid *peer.AddrInfo, stream *network.Stream, err error) {
+
+func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *peer.AddrInfo, stream *network.Stream, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered from panic:", r)
 		}
 	}()
+	
 	targetInfo, err := peer.AddrInfoFromP2pAddr(targetAddr)
 	if err != nil {
 		logger.Errorf("Failed to get peer info: %v", err)
 		return targetInfo, nil, err
 	}
-	logger.Infof("P2PCHANNELIDS %s", connectionId)
+	// logger.Infof("P2PCHANNELIDS %s", connectionId)
 	// if P2pComChannels[connectionId] == nil {
 		
 	// }
 	// logger.Infof("P2PCHANNELIDS %v", P2pComChannels[targetInfo.ID.String()][P2pChannelOut] == nil)
 	h := idht.Host()
-	err = h.Connect(ctx, *targetInfo)
+	if  h.Network().Connectedness(targetInfo.ID) != network.Connected {
+		err = h.Connect(ctx, *targetInfo)
+	}
 	if err != nil {
 		logger.Errorf("ErrorConnectingToPeer %v", err)
 		h.Peerstore().RemovePeer(targetInfo.ID)
-		delete(P2pComChannels, connectionId)
+		//delete(P2pComChannels, connectionId)
 		return nil, nil, err
 	}
 	h.Peerstore().AddAddrs(targetInfo.ID, targetInfo.Addrs, peerstore.PermanentAddrTTL)
 	// Add the target peer to the host's peerstore
+	logger.Info("Connectedness: %s", h.Network().Connectedness(targetInfo.ID).String())
 	if h.Network().Connectedness(targetInfo.ID) == network.Connected {
 		streamz, err := h.NewStream(ctx, targetInfo.ID, protocol.ID(protocolId))
 		stream = &streamz
-		P2pComChannels[connectionId] = make(map[P2pChannelFlow]chan P2pPayload)
-		P2pComChannels[streamz.ID()] = make(map[P2pChannelFlow]chan P2pPayload)
-		P2pComChannels[connectionId][P2pChannelIn] = make(chan P2pPayload)
-		P2pComChannels[streamz.ID()][P2pChannelOut] = make(chan P2pPayload)
+		// P2pComChannels[connectionId] = make(map[P2pChannelFlow]chan P2pPayload)
+		// P2pComChannels[streamz.ID()] = make(map[P2pChannelFlow]chan P2pPayload)
+		// P2pComChannels[connectionId][P2pChannelIn] = make(chan P2pPayload)
+		// P2pComChannels[streamz.ID()][P2pChannelOut] = make(chan P2pPayload)
 		logger.Infof("CreateNewPeerStream")
 		if err != nil {
-			logger.Error(err)
+			logger.Errorf("ConnectionError: %v", err)
 		}
 	} 
 	
@@ -859,34 +879,65 @@ func handlePayload(stream network.Stream) {
 
 func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 	
-	defer stream.Close()
+	// defer stream.Close()
+	
 	for {
-		pData, err := rw.ReadBytes('\n')
-		if err != nil {
-			logger.Errorf("Error reading from buffer %o", err)
-			return
-		}
-		if pData == nil {
-			//break
-			return
+		
+		var payloadBuf bytes.Buffer
+		bufferLen := 1024
+		buf := make([]byte, bufferLen)
+		for {
+			
+			n, err := rw.Read(buf)
+			
+			if n > 0 {
+				payloadBuf.Write(buf[:n])
+			}
+			// logger.Infof("BYTESREAD: %d %d",  n, payloadBuf.Len())
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				break
+			}
+			if n < bufferLen {
+				break;
+			}
 		}
 
-		payload, err := UnpackP2pPayload(pData)
-		logger.Infof("Received Data from remote peer: %v", payload)
+		logger.Infof("BYTESREAD: %d",  payloadBuf.Len())
+		// for {
+		// 	read, err := rw.ReadBytes('0')
+		// 	pData = append(pData, read...)
+		// 	logger.Infof("BYTESREAD: %d %d",  len(read), len(pData))
+		// 	if err != nil {
+		// 		logger.Errorf("Error reading from buffer %d, %v", len(read), err)
+		// 		break
+		// 	}
+		// }
+		pData := payloadBuf.Bytes()
+		if len(pData) == 0 {
+			return
+		}
+		
+		payload, err := UnpackP2pPayload(pData[:len(pData)-1])
+		
+			
 		if err != nil {
-			logger.WithFields(logrus.Fields{"data": payload}).Warnf("Failed to parse payload: %o", err)
+			logger.WithFields(logrus.Fields{"data": len(pData)}).Warnf("Failed to parse payload: %o", err)
 			return
 			// break
 		}
 		validPayload := payload.IsValid(config.ChainId)
 
-		
+		logger.Infof("Received Data from remote peer: %v", validPayload)
 		if !validPayload {
 			logger.Infof("Invalid payload received from peer %s", peerId)
-			delete(P2pComChannels, payload.Id)
+			// delete(P2pComChannels, payload.Id)
 			(stream).Reset()
 			return
 		}
+	
 		// TODO check if his is a staked sentry node
 
 		// if P2pComChannels[payload.Id] == nil {
@@ -909,7 +960,7 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 		// }
 
 
-		response, err := processP2pPayload(mainContext, config, payload)
+		response, err := processP2pPayload(config, payload)
 		
 		
 		if err != nil {
@@ -919,7 +970,11 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 
 
 		delimeter := []byte{'\n'}
-		_, err = stream.Write(append(response.MsgPack(), delimeter...))
+		b := response.MsgPack()
+		
+		resp, _ := UnpackP2pPayload(b)
+		logger.Infof("BYTESSSSS: %s, %v", resp.Id, err)
+		_, err = stream.Write(append(b, delimeter...))
 		if err != nil {
 			logger.Errorf("readPayload: %v", err)
 		}
@@ -945,18 +1000,35 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 	}
 }
 func GetDhtValue(key string)  ([]byte, error) {
-	return idht.GetValue(*mainContext, key)
+	return idht.GetValue(*MainContext, key)
 }
+
+// func GetOperatorMultiAddress(pubKey string, chainId configs.ChainId ) (multiaddr.Multiaddr, error) {
+// 	key := "/ml/val/" + pubKey
+// 	d, err := GetDhtValue(key)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	md, err := UnpackNodeMultiAddressData(d)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+	
+// 	if md.IsValid(chainId) {
+// 		return multiaddr.NewMultiaddr(md.Addresses[0])
+// 	}
+// 	return nil, fmt.Errorf("invalid multiaddress ")
+// }
 // check the dht before going onchain
 func GetCycleMessageCost(ctx *context.Context, cycle uint64) (*big.Int, error) {
 
 	priceKey := fmt.Sprintf("/ml/cost/%d", cycle)
 	priceByte, err := idht.GetValue(*ctx, priceKey)
 	//
-	if err != nil {
-		return nil, err
-	}
-	if len(priceByte) > 0 {
+	// if err != nil {
+	// 	return nil, err
+	// }
+	if len(priceByte) > 0 && err == nil {
 		priceData, err := UnpackMessagePrice(priceByte)
 		if err != nil {
 			return getAndSaveMessageCostFromChain(ctx, cycle)
@@ -968,26 +1040,32 @@ func GetCycleMessageCost(ctx *context.Context, cycle uint64) (*big.Int, error) {
 }
 
 func getAndSaveMessageCostFromChain(ctx *context.Context, cycle uint64) (*big.Int, error) {
-	price, err := chain.API.GetMessageCost(cycle)
+	
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	price, err := chain.DefaultProvider(cfg).GetMessagePrice(big.NewInt(int64(cycle)))
 	if err != nil {
 		return nil, err
 	}
 	priceKey := fmt.Sprintf("/ml/cost/%d", cycle)
-	mp, err := NewMessagePrice(config, config.PrivateKeyBytes, price.Bytes())
+	mp, err := NewMessagePrice(config, config.PrivateKeyBytes, price.Bytes(), big.NewInt(int64(cycle)).Bytes())
 	if err != nil {
 		return price, err
 	}
+	logger.Infof("MESSAGEPRICE: %v %d", mp, price.Uint64())
+	// TODO - save it to local datastore rather than dht
 	err = idht.PutValue(*ctx, priceKey, mp.MsgPack())
 	return price, err
 }
 
 func GetNodeAddress(ctx *context.Context, pubKey string) (multiaddr.Multiaddr, error) {
 	key := "/ml/val/" + pubKey
+	
 	v, err := GetDhtValue(key)
 	if err != nil {
 		logger.Error("KDHT_GET_ERROR: ", err)
 		return nil, err
 	} else {
+		logger.Infof("Operator3: %s", v)
 		if len(v) > 0 {
 			nma, err := UnpackNodeMultiAddressData(v)
 			if err != nil {

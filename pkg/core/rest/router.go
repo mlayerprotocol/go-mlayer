@@ -98,9 +98,17 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		// logger.Infof("PUT %s %v", "/api/authorize", payload.ToJSON())
 		// copier.Copy(&payload.ClientPayload, &payload)
+		authorization := entities.Authorization{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &authorization)
+		if e != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
+		}
+		// Subnet.ID = id
+		payload.Data = authorization
 
 		logger.WithFields(logrus.Fields{"payload": string(payload.ToJSON())}).Debug("New auth payload from REST api")
-		authEvent, err := client.AuthorizeAgent(payload, p.Ctx)
+		authEvent, err := client.CreateEvent(payload, p.Ctx)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
@@ -524,7 +532,7 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.GET("/api/main-stats", func(c *gin.Context) {
-		mainStats, err := client.GetMainStats()
+		mainStats, err := client.GetMainStats(p.Cfg)
 
 		if err != nil {
 			logger.Error(err)

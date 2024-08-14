@@ -9,14 +9,16 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/dgraph-io/badger"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/query"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto/schnorr"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
 )
@@ -27,13 +29,13 @@ func TrackReward(ctx *context.Context) {
 	// validator := (*cfg).PublicKey  
 	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
 	if !ok {
-		panic("Unable to load claimedRewardStore")
+		panic("Unable to load claimedRewardStore") 
 	}
-	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
-	if !ok {
-		panic("Unable to load eventCounterStore")
-	}
-	currentCycle := chain.API.GetCurrentCycle()
+	// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+	// if !ok {
+	// 	panic("Unable to load eventCounterStore")
+	// }
+	currentCycle, err := chain.DefaultProvider(cfg).GetCurrentCycle()
 	if !ok {
 		panic("Unable to access reward store")
 	}
@@ -53,66 +55,46 @@ func TrackReward(ctx *context.Context) {
 		} else {
 			lastClaimedCycle = encoder.NumberFromByte(lastClaimed)
 		}
-	if lastClaimedCycle >= currentCycle {
+	if lastClaimedCycle >= currentCycle.Uint64() {
 		return
 	}
-	for i := lastClaimedCycle+1; i < currentCycle; i++ {
-		// get message count per subnet in this cycle in groups of 100 and create a proof batch
-		cycleKey :=  fmt.Sprintf("%s/%d", cfg.PublicKey, i)
-	
-		subnetList, err := eventCounterStore.Query(*ctx, query.Query{
-			Prefix: cycleKey,
-		})
-
-		
+	for i := lastClaimedCycle+1; i < currentCycle.Uint64(); i++ {
+		// TODO loop through index till no data
+		rewardBatch, err := generateBatch(i, 1, ctx, cfg)
 		if err != nil {
-			continue
+			break
 		}
-		defer subnetList.Close()
-		cost, err := p2p.GetCycleMessageCost(ctx, i)
-		if err != nil {
-			logger.Errorf("GetCycleMessageCost: %v", err)
-			break;
-		}
-		index := uint64(0)
-		rewardBatch := entities.NewRewardBatch(cfg, i, index, cost)
-		for  rsl := range subnetList.Next() {
-				rewardBatch.Append(entities.SubnetCount{
-					Subnet: rsl.Key,
-				EventCount: encoder.NumberFromByte(rsl.Value),
-				})
-				if rewardBatch.Closed {
-					// save batch
-					unclaimedBatchKey :=  datastore.NewKey(fmt.Sprintf("unclaimed/%s", rewardBatch.Id))
-					 err :=	claimedRewardStore.Put(*ctx, unclaimedBatchKey, rewardBatch.MsgPack())
-					if err != nil {
-						panic(err)
-					}
-					go processSentryRewardBatch(ctx, cfg, *rewardBatch)
-					index++
-					rewardBatch = entities.NewRewardBatch(cfg, i, index, cost)
-					
-					// set time stamp and sign batch
-					// rewardBatch.Sign(cfg.PrivateKey)
-		
-					// // identify nodes to provide proof
-					// totalLicenses  := big.NewInt(int64(100))
-					// hashNumber := big.NewInt(0).SetBytes(rewardBatch.DataHash)
-					// salt := big.NewInt(0).Mod(hashNumber, totalLicenses)
-					// startLicence := big.NewInt(0).Mod(big.NewInt(0).Div(hashNumber, salt), totalLicenses)
-					// var nodeIds = []int{}(15)
-					// for i = 0; i < len(nodeIds); i++ {
-					// 	nodeIds[i] =  big.NewInt(0).Mod( big.NewInt(0).SetBytes(utils.lcg(startLicence.Uint64() + i * salt.Uint64())), totalLicenses)
-					// }
-
-
-					// get nodes associated with licences
-					// request proof from nodes
-
-					// send proof to blokchain for redemption
-				}
+		if rewardBatch.Closed {
+			// save batch
+			unclaimedBatchKey :=  datastore.NewKey(fmt.Sprintf("unclaimed/%s", rewardBatch.Id))
+			err :=	claimedRewardStore.Put(*ctx, unclaimedBatchKey, rewardBatch.MsgPack())
+			if err != nil {
+				panic(err)
 			}
+			go processSentryRewardBatch(ctx, cfg, rewardBatch)
+			// index++
+			// rewardBatch = entities.NewRewardBatch(cfg, i, index, cost)
+			
+			// set time stamp and sign batch
+			// rewardBatch.Sign(cfg.PrivateKey)
+
+			// // identify nodes to provide proof
+			// totalLicenses  := big.NewInt(int64(100))
+			// hashNumber := big.NewInt(0).SetBytes(rewardBatch.DataHash)
+			// salt := big.NewInt(0).Mod(hashNumber, totalLicenses)
+			// startLicence := big.NewInt(0).Mod(big.NewInt(0).Div(hashNumber, salt), totalLicenses)
+			// var nodeIds = []int{}(15)
+			// for i = 0; i < len(nodeIds); i++ {
+			// 	nodeIds[i] =  big.NewInt(0).Mod( big.NewInt(0).SetBytes(utils.lcg(startLicence.Uint64() + i * salt.Uint64())), totalLicenses)
+			// }
+
+
+			// get nodes associated with licences
+			// request proof from nodes
+
+			// send proof to blokchain for redemption
 		}
+	}
 			
 	
 	// key := fmt.Sprintf("%s", validator)
@@ -134,12 +116,56 @@ func TrackReward(ctx *context.Context) {
 	// }
 }
 
+func generateBatch(cycle uint64, index int, ctx *context.Context, cfg *configs.MainConfiguration) (*entities.RewardBatch, error) {
+	
+	subnetList := []models.EventCounter{}
+		claimed := false
+		err := query.GetManyWithLimit(models.EventCounter{Cycle: cycle, Validator: entities.PublicKeyString(cfg.PublicKey), Claimed: &claimed }, &subnetList, &map[string]query.Order{"count": query.OrderDec}, entities.MaxBatchSize, index*entities.MaxBatchSize)
+		if err != nil {
+			return nil, err
+		}
+		// defer subnetList.Close()
+		logger.Infof("ListLen: %d", len(subnetList))
+		if len(subnetList) == 0 {
+			return nil, fmt.Errorf("list empty")
+		}
+		cost, err := p2p.GetCycleMessageCost(ctx, cycle)
+		if err != nil {
+			logger.Errorf("GetCycleMessageCost: %v", err)
+			return nil, err
+		}
+		
+		rewardBatch := entities.NewRewardBatch(cfg, cycle, index, cost, len(subnetList), cfg.PublicKeySECP)
+		for  _, rsl := range subnetList {
+				rewardBatch.Append(entities.SubnetCount{
+					Subnet: rsl.Subnet,
+				EventCount: rsl.Count,
+				})
+				if rewardBatch.Closed {
+					break
+				}
+		}
+		return rewardBatch, nil
+}
 
-func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfiguration, batch entities.RewardBatch) {
+func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfiguration, batch *entities.RewardBatch) {
+	logger.Infof("Processing Batch....: %v", batch.Id)
+	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	if !ok {
+		panic("Unable to load claimedRewardStore") 
+	}
 	hashNumber :=  new(big.Int).SetBytes(batch.DataHash)
-		totalLicenses  := chain.API.GetLicenseCount(batch.Cycle)
-		salt := new(big.Int).Mod(hashNumber, big.NewInt(1000)).Add(big.NewInt(1), big.NewInt(0))
+	logger.Infof("Hash: %s", hashNumber)
+		totalLicenses, err := chain.DefaultProvider(cfg).GetTotalSentryLicenseCount(big.NewInt(int64(batch.Cycle)))
+		logger.Infof("License count: %s", totalLicenses)
+		if err != nil {
+			panic(err)
+		}
+		salt := new(big.Int).Mod(hashNumber, big.NewInt(1000))
+		salt = new(big.Int).Add(salt, big.NewInt(1))
+		logger.Infof("Salt: %s", new(big.Int).Mod(hashNumber, big.NewInt(1000)))
 		startLicence := new(big.Int).Mod(new(big.Int).Div(hashNumber, salt), totalLicenses).Add(big.NewInt(1000), big.NewInt(0))
+		
 		// var licenses = [15]*big.Int{}
 		//1. Identify nodes licences associated with the batch hash
 		//2. loop through licence and request commitment from nodes by sending them the batch data. The nodes will call "schnorr.ComputeNonce(pk, msg)"
@@ -148,59 +174,93 @@ func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfigurati
 		sentryPubKeys := []*btcec.PublicKey{}
 		signatures := [][]byte{}
 		operatorPubKeys := []string{}
-		for i := 0; i<30; i++ {
+		max := 30
+		if totalLicenses.Uint64() < 120 {
+			max = int(totalLicenses.Uint64() / 3)
+		}
+		if totalLicenses.Uint64() < 3 {
+			max = int(totalLicenses.Uint64()) - 1
+		}
+		logger.Infof("Max Proofs Needed: %d", max)
+		for i := 0; i<max*2; i++ {
 			decodedLicence :=  new(big.Int).Mod(utils.Lcg(startLicence.Uint64() + (uint64(i) * salt.Uint64())), totalLicenses)
-			operator, err := chain.API.LicenceOperator(decodedLicence)
+			decodedLicence = new(big.Int).Add(decodedLicence, big.NewInt(1000))
+			logger.Infof("Start Licence: %s", decodedLicence)
+			operatorBytes, err := chain.DefaultProvider(cfg).GetSentryLicenceOperator(decodedLicence)
 			if err != nil {
+				logger.Info(err)
 				continue
 			} else {
-				if len(operator) > 0 {
+				if len(operatorBytes) > 0 {
+					operator := hex.EncodeToString(operatorBytes)
+					if operator == hex.EncodeToString(cfg.PublicKeySECP) {
+						continue
+					}
 					// get the operators address from the dht
-				validator, err := p2p.GetDhtValue("/ml/val/" + hex.EncodeToString(operator))
+					
+				// validator, err := p2p.GetOperatorMultiAddress(hex.EncodeToString(operator), cfg.ChainId)
+				// if err != nil {
+				// 	continue
+				// }
+
+				
+				// clear out the batch data. Its unncessary to send as the receiving node wont use it
+				batchCopy := *batch
+				tmpBatch := &batchCopy
+				tmpBatch.Data = []entities.SubnetCount{}
+				
+				logger.Infof("BATCHDATA: %v", batch)
+				// request commitment from validator
+				payload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetCommitment, tmpBatch.MsgPack())
+				
+				response, err := payload.SendRequest( cfg.PrivateKeyBytes, operator) // nonce public key
 				if err != nil {
+					logger.Error(err)
 					continue
 				}
 				
-				// clear out the batch data. Its unncessary to send as the receiving node wont use it
-				tmpBatch := batch
-				tmpBatch.Data = []entities.SubnetCount{}
-				// request commitment from validator
-				payload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetCommitment, tmpBatch.MsgPack())
-				if err != nil {
-					continue
-				}
-				response, err := payload.SendRequest( cfg.PrivateKeyBytes, hex.EncodeToString(validator)) // nonce public key
-				if err != nil {
-					continue
-				}
+				logger.Infof("IsValid Response: %s, %v", response.Id, response.IsValid(cfg.ChainId))
+				
 				if response.IsValid(cfg.ChainId) {
+					
 					noncePubKey, err := btcec.ParsePubKey(response.Data)
+					
 					if err != nil {
+						logger.Errorf("Response Nonce: %v, %v", err, response.Data)
+				
 						continue
 					}
-					pubKey, err := btcec.ParsePubKey(operator)
+					
+					pubKey, err := btcec.ParsePubKey(operatorBytes)
 					if err != nil {
+						logger.Errorf("Response Nonce: %v, %v", err, response.Data)
+				
 						continue
 					}
 					
 					noncePubKeys = append(noncePubKeys, noncePubKey)
 					sentryPubKeys = append(sentryPubKeys, pubKey)
-					operatorPubKeys = append(operatorPubKeys, hex.EncodeToString(operator))
+					operatorPubKeys = append(operatorPubKeys, operator)
 					
 				}
-				if len(noncePubKeys) == 20 {
-					hash, err := batch.GetHash(cfg.ChainId)
-					if err != nil {
+				
+				
+				if len(noncePubKeys) == max {
+					
+					// hash, _ := batch.GetHash(cfg.ChainId)
+					// if err != nil {
 
-					}
-					
-					aggPubKey, challenge, commitment := schnorr.ComputeSigningParams(sentryPubKeys, noncePubKeys, hash )
+					// }
+					proofData := batch.GetProofData(cfg.ChainId)
+					hash, _ := proofData.GetHash()
+					_, challenge, commitment := schnorr.ComputeSigningParams(sentryPubKeys, noncePubKeys, hash )
 					signReq := entities.SignatureRequestData{
-						AggPubKey: aggPubKey.SerializeCompressed(),
+						ProofHash: hash[:],
+						// AggPubKey: aggPubKey.SerializeCompressed(),
 						Challenge: challenge,
-						Commitment: commitment,
+						// Commitment: commitment,
 					}
-					
+					logger.Infof("ReceivedAllNonces: challange:%s, commit:%s", hex.EncodeToString(challenge), commitment)
 					signingPayload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetSentryProof, signReq.MsgPack())
 					if err != nil {
 						continue
@@ -210,15 +270,21 @@ func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfigurati
 						if err != nil {
 							continue
 						}
+						if signResp.Error != "" {
+							logger.Errorf("GetProofRequestError %s", signResp.Error)
+							continue
+						}
+						logger.Infof("IsValid Response For Signature: %s, %v", response.Id, response.IsValid(cfg.ChainId))
 						if signResp.IsValid(cfg.ChainId) {
 							// we have received a valid signature from this node
 							signatures = append(signatures, signResp.Data)
 						}
 					}
-					if len(signatures) == 20 { // all 20 have signed
+					if len(signatures) == max { // all 20 have signed
 						// aggregate signature
+						logger.Infof("Signatures: %v", signatures)
 						aggSig := schnorr.AggregateSignatures(signatures)
-						_, err := chain.API.ClaimReward(chain.ClaimData{
+						_, err := chain.DefaultProvider(cfg).ClaimReward(entities.ClaimData{
 							SubnetRewardCount: batch.Data,
 							Signature: [32]byte(aggSig),
 							Commitment: commitment,
@@ -230,7 +296,21 @@ func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfigurati
 							logger.Errorf("processSentryRewardBatch: %v", err)
 						} else {
 							// mark it as finalized
-							logger.Infof("processSentryRewardBatch: Successful..... %d/%s", batch.Cycle, batch.Id)
+							// store it as a pending claim
+							signers := [][]byte{}
+							for _, k := range sentryPubKeys {
+								signers = append(signers, k.SerializeCompressed())
+							}
+							proofData.Signature  = aggSig	
+							proofData.Signers = signers
+							proofData.Commitment = []byte(commitment)
+							pendingClaimsKey :=  datastore.NewKey(fmt.Sprintf("validClaim/%s",  hex.EncodeToString(hash[:])))
+							err = claimedRewardStore.Put(*ctx,pendingClaimsKey, proofData.MsgPack() )
+							if err != nil {
+								logger.Error(err)
+							} else {
+								logger.Infof("processSentryRewardBatch: Successful..... %d/%s, %v, %v", batch.Cycle, batch.Id, sentryPubKeys[0], commitment)
+							}
 						}
 
 					}

@@ -38,10 +38,10 @@ type MessageService struct {
 
 func GetMessages(topicId string) (*[]models.MessageState, error) {
 	var messageStates []models.MessageState
-
+	order := map[string]query.Order{"created_at": query.OrderDec}
 	err := query.GetMany(models.MessageState{
-		Message: entities.Message{TopicId: topicId},
-	}, &messageStates, nil)
+		Message: entities.Message{Topic: topicId},
+	}, &messageStates, &order)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -101,7 +101,7 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 	}
 	payload.Data = payloadData
 
-	topicData, err := query.GetTopicById(payloadData.TopicId)
+	topicData, err := query.GetTopicById(payloadData.Topic)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -110,19 +110,21 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 		return nil, nil, apperror.BadRequest("Invalid topic id")
 	}
 
+	
 	// pool = channelpool.SubscriptionEventPublishC
 
 	
 	
 
 
-	_, subscription, err := service.ValidateMessageData(&payloadData, &payload, &topicData.Topic)
+	subscription, err := service.ValidateMessageData(&payload, &topicData.Topic)
+	
 	
 
 	if  payload.Account != topicData.Account {
 		if err != gorm.ErrRecordNotFound {
 			if payload.Account != topicData.Account {
-				return nil, &currentAuthState.Event, apperror.Forbidden("Now subscribed to topic")
+				return nil, &currentAuthState.Event, apperror.Forbidden("Not subscribed to topic")
 			}
 		}
 		return nil, &currentAuthState.Event, apperror.Internal(err.Error())
