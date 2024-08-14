@@ -114,13 +114,15 @@ func StructToMap(input interface{}) map[string]interface{} {
 	return output
 }
 
-func PadTo256Bits(b []byte) []byte {
+func To256Bits(b []byte) []byte {
 	const size = 32
 	padded := make([]byte, size)
 	copy(padded[size-len(b):], b)
 	return padded
 }
-
+func  ToUint256(num *big.Int) []byte {
+	return num.FillBytes(make([]byte, 32))
+}
 
 func Lcg(seed uint64)  (*big.Int) {
     a := uint64(1664525)

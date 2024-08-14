@@ -414,11 +414,13 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			
 			claimHash := [32]byte{}
 			if len(batch.Data) > 0 && len(response.Error) == 0  {
+				logger.Infof("BATCHINGOF %s", realBatch.GetProofData(config.ChainId).DataHash)
 				claimHash, err = realBatch.GetProofData(config.ChainId).GetHash()
 				logger.Infof("ValidDataHash %v, %v",[32]byte(batch.DataHash) == [32]byte(realBatch.DataHash), realBatch )
 				if err != nil {
 					response.ResponseCode = 500
 					response.Error = err.Error()
+					logger.Errorf("Error getting hash: %v", err)
 				}
 				if [32]byte(batch.DataHash) != [32]byte(realBatch.DataHash) {
 					response.ResponseCode = 400

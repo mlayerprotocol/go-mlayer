@@ -16,6 +16,7 @@ import (
 type SubnetCount struct {
 	Subnet     string `json:"sNet"`
 	EventCount uint64 `json:"eC"`
+	Cost json.RawMessage `json:"cost"`
 }
 const MaxBatchSize = 100
 
@@ -23,7 +24,7 @@ func (msg *SubnetCount) EncodeBytes() ([]byte, error) {
 	d := utils.UuidToBytes(msg.Subnet)
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: d[:6]},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventCount},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.Cost},
 	)
 }
 
@@ -59,15 +60,18 @@ type RewardBatch struct {
 // }
 
 func (msg *RewardBatch) Append(subnetCount SubnetCount) {
+	if len(msg.Data) == 0 {
+		msg.DataHash = nil
+	}
+	subnetTotal := big.NewInt(0).SetBytes(msg.MessageCost).Mul(big.NewInt(int64(subnetCount.EventCount)), big.NewInt(1))
+	subnetCount.Cost = utils.ToUint256(subnetTotal)
 	msg.Data = append(msg.Data, subnetCount)
 	encoded, err := subnetCount.EncodeBytes()
 	if err != nil {
 		panic("Unable to encode SubnetCount data")
 	}
-	
 	msg.DataHash = crypto.Keccak256Hash(append(msg.DataHash, encoded...))
-	subnetTotal := big.NewInt(0).SetBytes(msg.MessageCost).Mul(big.NewInt(int64(subnetCount.EventCount)), big.NewInt(1))
-	msg.TotalValue = big.NewInt(0).Add(big.NewInt(0).SetBytes(msg.TotalValue), subnetTotal).Bytes()
+	msg.TotalValue = utils.ToUint256(big.NewInt(0).Add(big.NewInt(0).SetBytes(msg.TotalValue), subnetTotal))
 	length := len(msg.Data)
 	if length == 1 {
 		msg.DataBoundary[0] = msg.Data[0]
@@ -91,6 +95,7 @@ func (msg *RewardBatch) GetProofData(chainId configs.ChainId) *ProofData {
 		Cycle: msg.Cycle,
 		Index: msg.Index,
 		Validator: msg.Validator,
+		TotalCost: msg.TotalValue,
 	}
 }
 func (msg *RewardBatch) EncodeBytes() ([]byte, error) {
@@ -237,12 +242,13 @@ type ProofData struct {
 	Signature  json.RawMessage `json:"sig"`
 	Signers [][]byte `json:"signers"`
 	Commitment json.RawMessage `json:"com"`
+	TotalCost json.RawMessage `json:"mCo"`
 }
 func (sr *ProofData) MsgPack() []byte {
 	b, _ := encoder.MsgPackStruct(sr)
 	return b
 }
-func UnpackProofDataData(b []byte) (*SignatureRequestData, error) {
+func UnpackProofData(b []byte) (*SignatureRequestData, error) {
 	var message SignatureRequestData
 	err := encoder.MsgPackUnpackStruct(b, &message)
 	return &message, err
@@ -253,14 +259,16 @@ func (msg *ProofData) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.DataHash},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Cycle},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Index},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.ToUint256(new(big.Int).SetUint64(msg.Cycle))},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.ToUint256(big.NewInt(int64(msg.Index)))},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.TotalCost},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.Validator},
 	)
 }
 func (rb *ProofData) GetHash() ([32]byte, error) {
 	
 	b, err := rb.EncodeBytes()
+	logger.Infof("ENCODERD %v", b)
 	if err != nil {
 		return [32]byte{}, err
 	}

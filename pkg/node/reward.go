@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/dgraph-io/badger"
@@ -309,6 +310,24 @@ func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfigurati
 							if err != nil {
 								logger.Error(err)
 							} else {
+								for _, d := range batch.Data {
+									logger.Infof("[")
+									logger.Infof("{'subnetId':'0x%s', 'amount':'%s'},", strings.ReplaceAll(d.Subnet, "-", ""), new(big.Int).SetBytes(d.Cost) )
+									logger.Infof("]")
+								}
+								for _, k := range sentryPubKeys {
+									logger.Infof("[")
+									logger.Infof("{'x':'%s','y':'%s'},", k.X(), k.Y() )
+									logger.Infof("]")
+								}
+								logger.Info("Cycle", batch.Cycle)
+								logger.Info("Index", batch.Index)
+								logger.Info("Cost", batch.TotalValue)
+								logger.Info("Validator", hex.EncodeToString(batch.Validator))
+								logger.Info("DataHash", hex.EncodeToString(proofData.DataHash))
+								logger.Info("ProofHash: ", hex.EncodeToString(hash[:]))
+								logger.Info("commitment: ", hex.EncodeToString(proofData.Commitment))
+								logger.Info("signature: ", hex.EncodeToString(proofData.Signature))
 								logger.Infof("processSentryRewardBatch: Successful..... %d/%s, %v, %v", batch.Cycle, batch.Id, sentryPubKeys[0], commitment)
 							}
 						}

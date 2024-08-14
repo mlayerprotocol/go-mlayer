@@ -1,11 +1,10 @@
 package configs
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"strconv"
 
@@ -54,9 +53,7 @@ func (n *ChainId) Bytes() []byte {
 	s := string(*n)
 	number, err := strconv.Atoi(string(s))
 	if err == nil {
-		buf := new(bytes.Buffer)
-		binary.Write(buf, binary.BigEndian, uint64(number))
-		return buf.Bytes()
+		return big.NewInt(int64(number)).FillBytes(make([]byte, 32))
 	}
 	return []byte(s)
 }
