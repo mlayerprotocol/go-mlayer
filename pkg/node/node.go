@@ -5,6 +5,8 @@ package node
 
 import (
 	"context"
+	"encoding/hex"
+	"math/big"
 	"time"
 
 	"strings"
@@ -188,10 +190,12 @@ func Start(mainCtx *context.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		logger.Infof("RPCCONFIG", cfg.EvmRpcConfig["31337"])
+		GenerateRegsitrationData(cfg)
 		for {
 			time.Sleep(5 * time.Second)
 			logger.Info("Generating batch...")
-			batch, err := generateBatch(197, 0, mainCtx, cfg)
+			batch, err := generateBatch(0, 0, &ctx)
 			if batch == nil {
 				
 				break
@@ -200,11 +204,13 @@ func Start(mainCtx *context.Context) {
 				
 			} else {
 				
-				processSentryRewardBatch(&ctx, cfg, batch)
+				processSentryRewardBatch(ctx, cfg, batch)
 			}
 			time.Sleep(5 * time.Second)
 		}
 	}()
+
+	
 
 	// wg.Add(1)
 	// go func() {
@@ -323,3 +329,16 @@ func parserEvent(vLog types.Log, eventName string) {
 
 // var lobbyConn = []*websocket.Conn{}
 // var verifiedConn = []*websocket.Conn{}
+func GenerateRegsitrationData(cfg *configs.MainConfiguration) {
+	regData := entities.RegisterationData{ChainId: "31337"}
+	regData.Timestamp = 1723776438802; // uint64(time.Now().UnixMilli())
+	// pkBig := new(big.Int).SetBytes(cfg.PublicKeySECP)
+	// if !ok {
+	// 	panic("Unable to generate big number")
+	// }
+	dHash := regData.GetHash()
+	logger.Infof("DATAHHASH %s", new(big.Int).SetBytes(dHash))
+	//pk, _ := hex.DecodeString(cfg.PrivateKey)
+	signature, commitment, _ := regData.Sign(cfg.PrivateKeySECP)
+	logger.Infof("RegData %s, %s, %s, %d, %s", hex.EncodeToString(signature),cfg.PrivateKey, hex.EncodeToString(commitment), regData.Timestamp, hex.EncodeToString(cfg.PublicKeySECP))
+}

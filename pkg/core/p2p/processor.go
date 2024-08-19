@@ -373,7 +373,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			//  cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)
 			subnetList := []models.EventCounter{}
 			claimed := false
-			err = query.GetManyWithLimit(models.EventCounter{Cycle: batch.Cycle, Validator: entities.PublicKeyString(hex.EncodeToString(payload.Signer)), Claimed: &claimed }, &subnetList, &map[string]query.Order{"count": query.OrderDec}, entities.MaxBatchSize,  batch.Index * entities.MaxBatchSize)
+			err = query.GetManyWithLimit(models.EventCounter{Cycle: &batch.Cycle, Validator: entities.PublicKeyString(hex.EncodeToString(payload.Signer)), Claimed: &claimed }, &subnetList, &map[string]query.Order{"count": query.OrderDec}, entities.MaxBatchSize,  batch.Index * entities.MaxBatchSize)
 			if err != nil {
 				return nil, err
 			}
@@ -402,7 +402,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 					// }
 					batch.Append(entities.SubnetCount{
 						Subnet: rsl.Subnet,
-						EventCount: rsl.Count,
+						EventCount: *rsl.Count,
 					})
 					
 				// }
@@ -436,7 +436,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			logger.Infof("CommitmentKey1: %s", validCommitmentKey.String())
 
 			if response.ResponseCode == 0 {
-				pk, _ := btcec.PrivKeyFromBytes(config.PrivateKeyBytes)
+				pk, _ := btcec.PrivKeyFromBytes(config.PrivateKeySECP)
 				nonce, noncePublicKey := schnorr.ComputeNonce(pk, claimHash)
 				err = claimedRewardStore.Put(*ctx, validCommitmentKey, nonce.Bytes())
 				if err != nil {
@@ -485,7 +485,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			} 
 			if err == nil && response.ResponseCode == 0 {
 
-				pk, _ := btcec.PrivKeyFromBytes(config.PrivateKeyBytes)
+				pk, _ := btcec.PrivKeyFromBytes(config.PrivateKeySECP)
 				// nonce, _ := schnorr.ComputeNonce(pk, [32]byte(sigData.BatchHash))
 				sig := schnorr.ComputeSignature(pk, new(big.Int).SetBytes(nonce), sigData.Challenge)
 				//  cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)

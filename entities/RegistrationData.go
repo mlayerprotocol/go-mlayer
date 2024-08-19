@@ -4,10 +4,12 @@ import (
 	// "errors"
 
 	"encoding/hex"
+	"math/big"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto/schnorr"
@@ -22,22 +24,20 @@ type RegisterationData struct {
 func (regData RegisterationData) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: regData.ChainId.Bytes()},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: regData.Timestamp},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.ToUint256(new(big.Int).SetUint64(regData.Timestamp))},
 	)
 }
 
-func (regData *RegisterationData) Sign(privateKey string) ([]byte, schnorr.EthAddress, error) {
+func (regData *RegisterationData) Sign(privkBytes []byte) ([]byte, schnorr.EthAddress, error) {
 	if regData.Timestamp == 0 {
 		regData.Timestamp = uint64(time.Now().UnixMilli())
 	}
-	privkBytes, err := hex.DecodeString(privateKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	_, p := btcec.PrivKeyFromBytes(btcec.S256(), privkBytes)
-	logger.Infof("PUBKEY_X %d | %d", p.X, p.Y )
+	_, p := btcec.PrivKeyFromBytes(privkBytes)
+
+	logger.Infof("PUBKEY_X %d | %d", p.X(), p.Y())
+	logger.Infof("REGDATAHASH: %s", hex.EncodeToString(regData.GetHash()))
 	signature, commitment, _, _ := schnorr.SignSingle(privkBytes, [32]byte(regData.GetHash()))
-	return signature, commitment, err
+	return signature, commitment, nil
 }
 
 func (regData *RegisterationData) GetHash() []byte {

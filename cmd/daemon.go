@@ -78,7 +78,6 @@ func init() {
 	daemonCmd.Flags().StringP(string(REST_ADDRESS), "R", constants.DefaultRestAddress, "rest api service address")
 	daemonCmd.Flags().StringP(string(DATA_DIR), "d", constants.DefaultDataDir, "data storage directory")
 	daemonCmd.Flags().StringSliceP(string(LISTENERS), "l", []string{}, "libp2p multiaddress array eg. [\"/ip4/127.0.0.1/tcp/5000/ws\", \"/ip4/127.0.0.1/tcp/5001\"]")
-
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {
@@ -154,9 +153,6 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	cfg.PrivateKeyBytes = ed25519.NewKeyFromSeed(pk)
 	cfg.PrivateKey = hex.EncodeToString(cfg.PrivateKeyBytes)
 	cfg.PublicKeyBytes = cfg.PrivateKeyBytes[32:]
-	
-	
-	
 	cfg.PublicKey = hex.EncodeToString(cfg.PublicKeyBytes)
 	cfg.OperatorAddress = crypto.ToBech32Address(cfg.PublicKeySECP, string(cfg.AddressPrefix))
 
@@ -240,17 +236,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	ctx = context.WithValue(ctx, constants.SQLDB, &sql.SqlDb)
 
 	
-	// regData := entities.RegisterationData{ChainId: "31337"}
-	// regData.Timestamp = 1721333362786
-	// pkBig, ok := new(big.Int).SetString("72899163643598738277738319679191588732231853444529124907544445648379905735121", 10)
-	// if !ok {
-	// 	panic("Unable to generate big number")
-	// }
-	// dHash := regData.GetHash()
-	// logger.Infof("DATAHHASH %s %s", hex.EncodeToString(dHash), hex.EncodeToString(pkBig.Bytes()))
-	// // pk, _ := hex.DecodeString(cfg.PrivateKey)
-	// signature, commitment, _ := regData.Sign(cfg.PrivateKey)
-	// logger.Infof("RegData %s, %s, %s, %d, %s", hex.EncodeToString(signature),cfg.PrivateKey, hex.EncodeToString(commitment), regData.Timestamp, cfg.PublicKey)
+	
 	
 
 }

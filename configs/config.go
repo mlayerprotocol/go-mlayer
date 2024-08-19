@@ -21,10 +21,17 @@ type IpfsConfig struct {
 	ProjectSecret string `toml:"ipfs_password"`
 }
 
-type EthChainConfig struct {
-	Registry string  `toml:"bsc_registry"`
-	ChainId  int `toml:"bsc_chain_id"`
-	RPCUrl   string  `toml:"bsc_rpc_url"`
+type EthConfig struct {
+	Name string  `toml:"name"`
+	Http  string `toml:"http"`
+	Wss   string  `toml:"wss"`
+	TokenContract string `toml:"token_contract"`
+	XTokenContract string  `toml:"x_token_contract"`
+	ChainInfoContract  string `toml:"chain_info_contract"`
+	SentryNodeContract   string  `toml:"sentry_node_contract"`
+	ValidatorNodeContract   string  `toml:"validator_node_contract"`
+	SubnetContract	string `toml:"subnet_contract"`
+	RegistryContract string  `toml:"registry_contract"`
 }
 
 type SqlConfig struct {
@@ -64,16 +71,15 @@ func (n *ChainId) Equals(s string) bool {
 
 type MainConfiguration struct {
 	AddressPrefix            string         `toml:"network_address_prefix"`
-	StakeContract            string         `toml:"stake_contract"`
+	// StakeContract            string         `toml:"stake_contract"`
 	ChainId                  ChainId        `toml:"chain_id"`
-	Token                    string         `toml:"token_address"`
-	EVMRPCUrl                string         `toml:"evm_rpc_url"` // deprecated
-	EVMRPCHttp               string         `toml:"evm_rpc_http"`
-	EVMRPCWss                string         `toml:"evm_rpc_wss"`
+	// Token                    string         `toml:"token_address"`
+	// EVMRPCUrl                string         `toml:"evm_rpc_url"` // deprecated
+	// EVMRPCHttp               string         `toml:"evm_rpc_http"`
+	// EVMRPCWss                string         `toml:"evm_rpc_wss"`
 	ProtocolVersion          string         `toml:"protocol_version"`
 	ChannelMessageBufferSize uint           `toml:"channel_message_buffer_size"`
 	Ipfs                     IpfsConfig     `toml:"ipfs"`
-	Bsc                      EthChainConfig `toml:"bsc"`
 	LogLevel                 string         `toml:"log_level"`
 	BootstrapPeers           []string       `toml:"bootstrap_peers"`
 	ListenerAdresses         []string       `toml:"listener_addresses"`
@@ -88,9 +94,11 @@ type MainConfiguration struct {
 	SQLDB                    SqlConfig      `toml:"sql"`
 	MLBlockchainAPIUrl       string         `toml:"mlayer_api_url"`
 	PrivateKey               string         `toml:"private_key"`
+	EvmRpcConfig			 map[string]EthConfig `toml:"evm_rpc"`
 	PublicKey        string
 	OperatorAddress          string
 	ValidatorPublicKey       string
+	
 	PrivateKeyBytes  []byte 
 	PublicKeyBytes []byte 
 	PrivateKeySECP  []byte 
@@ -136,11 +144,14 @@ func init() {
 func LoadConfig() (*MainConfiguration, error) {
 	var config MainConfiguration
 
+	
+
 	// Try loading the configuration file from the possible paths
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {
 			if _, err := toml.DecodeFile(path, &config); err != nil {
-				return nil, fmt.Errorf("failed to decode config file %s: %w", path, err)
+				panic(err)
+				//return nil, fmt.Errorf("failed to decode config file %s: %w", path, err)
 			}
 			log.Printf("Loaded configuration from: %s",path)
 			// Override with environment variables

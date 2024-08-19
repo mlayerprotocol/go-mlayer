@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/dgraph-io/badger"
@@ -37,8 +38,13 @@ func TrackReward(ctx *context.Context) {
 	// 	panic("Unable to load eventCounterStore")
 	// }
 	currentCycle, err := chain.DefaultProvider(cfg).GetCurrentCycle()
-	if !ok {
-		panic("Unable to access reward store")
+	if err != nil {
+		// wait and retry
+		time.Sleep(5 * time.Second)
+		TrackReward(ctx) 
+		logger.Debugf("TrackReward: Unable to get current cycle")
+		return;
+		
 	}
 	lastCycleClaimedKey :=  datastore.NewKey("claimed")
 	lastClaimedCycle := uint64(0)
@@ -47,7 +53,6 @@ func TrackReward(ctx *context.Context) {
 	// 	panic(err)
 	// }
 	lastClaimed, err := claimedRewardStore.Get(*ctx, lastCycleClaimedKey)
-		logger.Infof("CURRENTCYCLECLAIM %d", lastClaimed)
 		if err != nil  {
 			if err != badger.ErrKeyNotFound {
 				logger.Error(err)
@@ -61,7 +66,7 @@ func TrackReward(ctx *context.Context) {
 	}
 	for i := lastClaimedCycle+1; i < currentCycle.Uint64(); i++ {
 		// TODO loop through index till no data
-		rewardBatch, err := generateBatch(i, 1, ctx, cfg)
+		rewardBatch, err := generateBatch(i, 1, ctx)
 		if err != nil {
 			break
 		}
@@ -72,7 +77,7 @@ func TrackReward(ctx *context.Context) {
 			if err != nil {
 				panic(err)
 			}
-			go processSentryRewardBatch(ctx, cfg, rewardBatch)
+			go processSentryRewardBatch(*ctx, cfg, rewardBatch)
 			// index++
 			// rewardBatch = entities.NewRewardBatch(cfg, i, index, cost)
 			
@@ -117,11 +122,15 @@ func TrackReward(ctx *context.Context) {
 	// }
 }
 
-func generateBatch(cycle uint64, index int, ctx *context.Context, cfg *configs.MainConfiguration) (*entities.RewardBatch, error) {
+func generateBatch(cycle uint64, index int, ctx *context.Context) (*entities.RewardBatch, error) {
+	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	if !ok {
+		return nil, fmt.Errorf("reward store not loaded")
+	}
 	
 	subnetList := []models.EventCounter{}
 		claimed := false
-		err := query.GetManyWithLimit(models.EventCounter{Cycle: cycle, Validator: entities.PublicKeyString(cfg.PublicKey), Claimed: &claimed }, &subnetList, &map[string]query.Order{"count": query.OrderDec}, entities.MaxBatchSize, index*entities.MaxBatchSize)
+		err := query.GetManyWithLimit(models.EventCounter{Cycle: &cycle, Validator: entities.PublicKeyString(cfg.PublicKey), Claimed: &claimed }, &subnetList, &map[string]query.Order{"count": query.OrderDec}, entities.MaxBatchSize, index*entities.MaxBatchSize)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +139,7 @@ func generateBatch(cycle uint64, index int, ctx *context.Context, cfg *configs.M
 		if len(subnetList) == 0 {
 			return nil, fmt.Errorf("list empty")
 		}
-		cost, err := p2p.GetCycleMessageCost(ctx, cycle)
+		cost, err := p2p.GetCycleMessageCost(*ctx, cycle)
 		if err != nil {
 			logger.Errorf("GetCycleMessageCost: %v", err)
 			return nil, err
@@ -140,7 +149,7 @@ func generateBatch(cycle uint64, index int, ctx *context.Context, cfg *configs.M
 		for  _, rsl := range subnetList {
 				rewardBatch.Append(entities.SubnetCount{
 					Subnet: rsl.Subnet,
-				EventCount: rsl.Count,
+				EventCount: *rsl.Count,
 				})
 				if rewardBatch.Closed {
 					break
@@ -149,15 +158,15 @@ func generateBatch(cycle uint64, index int, ctx *context.Context, cfg *configs.M
 		return rewardBatch, nil
 }
 
-func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfiguration, batch *entities.RewardBatch) {
+func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguration, batch *entities.RewardBatch) {
 	logger.Infof("Processing Batch....: %v", batch.Id)
-	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	claimedRewardStore, ok := (ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
 	if !ok {
 		panic("Unable to load claimedRewardStore") 
 	}
 	hashNumber :=  new(big.Int).SetBytes(batch.DataHash)
 	logger.Infof("Hash: %s", hashNumber)
-		totalLicenses, err := chain.DefaultProvider(cfg).GetTotalSentryLicenseCount(big.NewInt(int64(batch.Cycle)))
+		totalLicenses, err := chain.DefaultProvider(cfg).GetSentryActiveLicenseCount(big.NewInt(int64(batch.Cycle)))
 		logger.Infof("License count: %s", totalLicenses)
 		if err != nil {
 			panic(err)
@@ -306,7 +315,7 @@ func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfigurati
 							proofData.Signers = signers
 							proofData.Commitment = []byte(commitment)
 							pendingClaimsKey :=  datastore.NewKey(fmt.Sprintf("validClaim/%s",  hex.EncodeToString(hash[:])))
-							err = claimedRewardStore.Put(*ctx,pendingClaimsKey, proofData.MsgPack() )
+							err = claimedRewardStore.Put(ctx,pendingClaimsKey, proofData.MsgPack() )
 							if err != nil {
 								logger.Error(err)
 							} else {
@@ -320,11 +329,11 @@ func processSentryRewardBatch(ctx *context.Context, cfg *configs.MainConfigurati
 									logger.Infof("{'x':'%s','y':'%s'},", k.X(), k.Y() )
 									logger.Infof("]")
 								}
-								logger.Info("Cycle", batch.Cycle)
-								logger.Info("Index", batch.Index)
-								logger.Info("Cost", batch.TotalValue)
-								logger.Info("Validator", hex.EncodeToString(batch.Validator))
-								logger.Info("DataHash", hex.EncodeToString(proofData.DataHash))
+								logger.Info("Cycle: ", batch.Cycle)
+								logger.Info("Index: ", batch.Index)
+								logger.Info("Cost: ", new(big.Int).SetBytes(batch.TotalValue))
+								logger.Info("Validator: ", hex.EncodeToString(batch.Validator))
+								logger.Info("DataHash: ", hex.EncodeToString(proofData.DataHash))
 								logger.Info("ProofHash: ", hex.EncodeToString(hash[:]))
 								logger.Info("commitment: ", hex.EncodeToString(proofData.Commitment))
 								logger.Info("signature: ", hex.EncodeToString(proofData.Signature))

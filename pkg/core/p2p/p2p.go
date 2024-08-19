@@ -13,7 +13,9 @@ import (
 
 	// "github.com/gin-gonic/gin"
 
+	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
@@ -1020,40 +1022,47 @@ func GetDhtValue(key string)  ([]byte, error) {
 // 	return nil, fmt.Errorf("invalid multiaddress ")
 // }
 // check the dht before going onchain
-func GetCycleMessageCost(ctx *context.Context, cycle uint64) (*big.Int, error) {
-
-	priceKey := fmt.Sprintf("/ml/cost/%d", cycle)
-	priceByte, err := idht.GetValue(*ctx, priceKey)
+func GetCycleMessageCost(ctx context.Context, cycle uint64) (*big.Int, error) {
+	_, ok := (ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	if !ok {
+		return nil, fmt.Errorf("failed to load config")
+	}
+	claimedRewardStore, ok := (ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	if !ok {
+		return nil, fmt.Errorf("failed to load store")
+	}
+	priceKey := datastore.NewKey(fmt.Sprintf("/ml/cost/%d", cycle))
+	priceByte, err := claimedRewardStore.Get(ctx, priceKey)
 	//
-	// if err != nil {
-	// 	return nil, err
-	// }
+	if err != nil && err != datastore.ErrNotFound {
+		return nil, err
+	}
 	if len(priceByte) > 0 && err == nil {
-		priceData, err := UnpackMessagePrice(priceByte)
-		if err != nil {
-			return getAndSaveMessageCostFromChain(ctx, cycle)
-		}
-		return big.NewInt(0).SetBytes(priceData.Price), nil
+		// priceData, err := UnpackMessagePrice(priceByte)
+		// if err != nil {
+		// 	return GetAndSaveMessageCostFromChain(ctx, cycle)
+		// }
+		return big.NewInt(0).SetBytes(priceByte), nil
 	} else {
-		return getAndSaveMessageCostFromChain(ctx, cycle)
+		return GetAndSaveMessageCostFromChain(&ctx, cycle)
 	}
 }
 
-func getAndSaveMessageCostFromChain(ctx *context.Context, cycle uint64) (*big.Int, error) {
+func GetAndSaveMessageCostFromChain(ctx *context.Context, cycle uint64) (*big.Int, error) {
 	
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	if !ok {
+		return nil, fmt.Errorf("GetAndSaveMessageCostFromChain: failed to load store")
+	}
 	price, err := chain.DefaultProvider(cfg).GetMessagePrice(big.NewInt(int64(cycle)))
 	if err != nil {
 		return nil, err
 	}
-	priceKey := fmt.Sprintf("/ml/cost/%d", cycle)
-	mp, err := NewMessagePrice(config, config.PrivateKeyBytes, price.Bytes(), big.NewInt(int64(cycle)).Bytes())
-	if err != nil {
-		return price, err
-	}
-	logger.Infof("MESSAGEPRICE: %v %d", mp, price.Uint64())
-	// TODO - save it to local datastore rather than dht
-	err = idht.PutValue(*ctx, priceKey, mp.MsgPack())
+	logger.Infof("ITEMPRICE: %s", price)
+	priceKey := datastore.NewKey(fmt.Sprintf("/ml/cost/%d", cycle))
+	
+	err = claimedRewardStore.Put(*ctx, priceKey, utils.ToUint256(price))
 	return price, err
 }
 

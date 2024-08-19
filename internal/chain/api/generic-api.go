@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/hex"
 	"math/big"
-	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/entities"
 )
@@ -51,18 +50,19 @@ func (n GenericAPI) GetCycle(blockNumber *big.Int) (*big.Int, error) {
 }
 
 func (n GenericAPI) GetCurrentBlockNumber() (*big.Int, error) {
-	return big.NewInt(int64(time.Now().UnixMilli() - NetworkStartDate) / 6000), nil
-}
-func (n GenericAPI) GetTotalSentryLicenseCount(cycle *big.Int)  (*big.Int, error)  {
+	// return big.NewInt(int64(time.Now().UnixMilli() - NetworkStartDate) / 6000), nil
 	return big.NewInt(4), nil
 }
-func (n GenericAPI) GetTotalValidatorLicenceCount(cycle *big.Int) (*big.Int, error) {
+func (n GenericAPI) GetSentryActiveLicenseCount(cycle *big.Int)  (*big.Int, error)  {
+	return big.NewInt(4), nil
+}
+func (n GenericAPI) GetValidatorActiveLicenseCount(cycle *big.Int) (*big.Int, error) {
 	return big.NewInt(2), nil
 }
-func (n GenericAPI) GetSentryLicenseCount(cycle  *big.Int, operator []byte) (*big.Int, error) {
+func (n GenericAPI) GetSentryOperatorLicenseCount(cycle  *big.Int, operator []byte) (*big.Int, error) {
 	return big.NewInt(100), nil
 }
-func (n GenericAPI) GetValidatorLicenceCount(cycle  *big.Int ,operator []byte) (*big.Int, error) {
+func (n GenericAPI) GetValidatorOperatorLicenceCount(cycle  *big.Int ,operator []byte) (*big.Int, error) {
 	return big.NewInt(100), nil
 }
 func (n GenericAPI) GetSentryLicenceOperator(license *big.Int) ([]byte, error) {
@@ -87,7 +87,13 @@ func (n GenericAPI) GetCurrentEpoch() (*big.Int, error) {
 	}
 	return nil, err
 }
+func (n GenericAPI) IsValidatorNode(publicKey []byte) (bool, error) {
+	return true, nil
+}
 
+func (n GenericAPI) IsSentryNode(publicKey []byte) (bool, error) {
+	return true, nil
+}
 
 func (n GenericAPI) GetCurrentCycle() (*big.Int, error) {
 	b, err := n.GetCurrentBlockNumber()
@@ -136,9 +142,9 @@ func (n GenericAPI) GetMessagePrice(cycle *big.Int) (*big.Int, error) {
 }
 
 func (n GenericAPI) GetCurrentMessagePrice() (*big.Int, error) {
-	bal := new(big.Int)
-	bal.SetString("10000000", 10)
-	return bal, nil
+	// bal := new(big.Int)
+	// bal.SetString("10000000", 10)
+	return big.NewInt(10000000), nil
 }
 
 

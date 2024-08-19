@@ -26,12 +26,16 @@ type IChainAPI interface {
 	GetCurrentYear() (*big.Int, error) 
 
 	// licence
-	GetTotalSentryLicenseCount(cycle *big.Int)  (*big.Int, error)
-	GetTotalValidatorLicenceCount(cycle *big.Int) (*big.Int, error)
-	GetSentryLicenseCount(cycle *big.Int, operator []byte)  (*big.Int, error)
-	GetValidatorLicenceCount(cycle *big.Int, operator []byte) (*big.Int, error)
+	GetSentryActiveLicenseCount(cycle *big.Int)  (*big.Int, error)
+	GetValidatorActiveLicenceCount(cycle *big.Int) (*big.Int, error)
+	GetSentryOperatorLicenseCount(cycle *big.Int, operator []byte)  (*big.Int, error)
+	GetValidatorOperatorLicenceCount(cycle *big.Int, operator []byte) (*big.Int, error)
 	GetSentryLicenceOperator(license *big.Int) ([]byte, error)
 	GetValidatorLicenceOperator(license *big.Int) ([]byte, error)
+
+
+	IsValidatorNodeOperator(publicKey []byte) (bool, error)
+	IsSentryNodeOperator(publicKey []byte) (bool, error)
 	
 	
 	// GetStakeBalance(address entities.DIDString) big.Int
