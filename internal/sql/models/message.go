@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"gorm.io/gorm"
 )
@@ -11,6 +12,11 @@ import (
 type MessageState struct {
 	entities.Message
 	BaseModel
+}
+
+func (d MessageState) MsgPack() []byte {
+	b, _ := encoder.MsgPackStruct(&d.Message)
+	return b
 }
 
 func (d *MessageState) BeforeCreate(tx *gorm.DB) (err error) {

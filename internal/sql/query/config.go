@@ -8,7 +8,7 @@ import (
 func GetConfig(key string) (*models.Config, error) {
 
 	data := models.Config{}
-	err := db.Db.Where(&models.Config{Key: key}).First(&data).Error
+	err := db.SqlDb.Where(&models.Config{Key: key}).First(&data).Error
 	if err != nil {
 		return nil, err
 	}
@@ -18,7 +18,7 @@ func GetConfig(key string) (*models.Config, error) {
 func SetConfig(key string, value string) (*models.Config, error) {
 
 	data := models.Config{}
-	err := db.Db.Where(models.Config{Key: key}).Assign(models.Config{Value: value}).FirstOrCreate(&data).Error
+	err := db.SqlDb.Where(models.Config{Key: key}).Assign(models.Config{Value: value}).FirstOrCreate(&data).Error
 	if err != nil {
 		return nil, err
 	}

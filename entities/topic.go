@@ -12,6 +12,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 )
 
 type Topic struct {
@@ -40,6 +41,9 @@ type Topic struct {
 	Timestamp uint64 `json:"ts,omitempty" binding:"required"`
 	Subnet    string `json:"snet" gorm:"uniqueIndex:idx_unique_subnet_ref;type:char(36);"`
 	// Subnet string `json:"snet" gorm:"index;varchar(36)"`
+	BlockNumber uint64          `json:"blk"`
+	Cycle   	uint64			`json:"cy"`
+	Epoch		uint64			`json:"ep"`
 }
 
 func (topic *Topic) Key() string {
@@ -77,7 +81,7 @@ func TopicFromBytes(b []byte) (Topic, error) {
 }
 func UnpackTopic(b []byte) (Topic, error) {
 	var topic Topic
-	err := encoder.MsgPackUnpackStruct(b, topic)
+	err := encoder.MsgPackUnpackStruct(b, &topic)
 	return topic, err
 }
 
@@ -123,14 +127,15 @@ func (topic Topic) GetAgent() DeviceString {
 
 func (topic Topic) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *topic.DefaultSubscriberRole},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(topic.DefaultSubscriberRole, 0)},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.ID},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Meta},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: topic.ParentTopicHash},
-		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.Public},
-		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: *topic.ReadOnly},
+		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value: utils.SafePointerValue(topic.Public, false)},
+		encoder.EncoderParam{Type: encoder.BoolEncoderDataType, Value:  utils.SafePointerValue(topic.ReadOnly, false)},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Ref},
 		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *topic.DefaultSubscriptionStatus},
 		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: topic.Subnet},
 	)
 }
+

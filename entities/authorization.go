@@ -14,14 +14,14 @@ type PubKeyType string
 
 const (
 	TendermintsSecp256k1PubKey PubKeyType = "tendermint/PubKeySecp256k1"
-	EthereumPubKey             PubKeyType = "ethereum"
+	EthereumPubKey             PubKeyType = "eth"
 )
 
 type Authorization struct {
 	ID            string                           	`json:"id" gorm:"type:uuid;not null;primaryKey"`
 	Agent         DeviceString                    	`json:"agt" gorm:"uniqueIndex:idx_agent_account_subnet;index:idx_authorization_states_agent"`
 	Meta          string                           	`json:"meta,omitempty"`
-	Account       DIDString                        	`json:"acct" gorm:"varchar(40);uniqueIndex:idx_agent_account_subnet"`
+	Account       DIDString                        	`json:"acct" gorm:"varchar(40);"`
 	Grantor       DIDString                        	`json:"gr" gorm:"index"`
 	Priviledge    *constants.AuthorizationPrivilege	`json:"privi"  gorm:""`
 	TopicIds      string                           	`json:"topIds"`
@@ -31,7 +31,9 @@ type Authorization struct {
 	Hash          string                           	`json:"h" gorm:"unique" `
 	Event         EventPath                        	`json:"e,omitempty" gorm:"index;varchar;"`
 	Subnet        string                           	`json:"snet" gorm:"uniqueIndex:idx_agent_account_subnet;char(36)"`
-
+	BlockNumber uint64          `json:"blk"`
+	Cycle   	uint64			`json:"cy"`
+	Epoch		uint64			`json:"ep"`
 	// AuthorizationEventID string                           `json:"authEventId,omitempty"`
 }
 
@@ -63,18 +65,23 @@ func (g Authorization) ToJSON() []byte {
 func (g Authorization) ToString() string {
 	return fmt.Sprintf("TopicIds:%s, Priviledge: %d, Grantor: %s, Timestamp: %d", g.TopicIds, g.Priviledge, g.Grantor, g.Timestamp)
 }
+func UnpackAuthorization(b []byte) (Authorization, error) {
+	var auth Authorization
+	err := encoder.MsgPackUnpackStruct(b, &auth)
+	return auth, err
+}
 
 func (g Authorization) EncodeBytes() ([]byte, error) {
 
 	b, e := encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: string(g.Account)},
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: AddressFromString(string(g.Agent)).Addr},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.Meta},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.TopicIds},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *g.Priviledge},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *g.Duration},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.Meta},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *g.Priviledge},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.Subnet},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *g.Timestamp},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: g.TopicIds},
 	)
 
 	return b, e

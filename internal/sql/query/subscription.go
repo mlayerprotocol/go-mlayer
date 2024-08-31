@@ -12,7 +12,7 @@ func GetSubscriptionStateBySuscriber(subnet string, topic string, subscribers []
 	data := []models.SubscriptionState{}
 	tx := DB
 	if DB == nil {
-		tx = db.Db.Begin()
+		tx = db.SqlDb
 	}
 	subsc := []entities.DIDString{}
 	for _, sub := range subscribers {
@@ -21,14 +21,15 @@ func GetSubscriptionStateBySuscriber(subnet string, topic string, subscribers []
 		}
 		subsc = append(subsc, sub)
 	}
+	logger.Infof("HELLOOOO::: %v, %v, %v", subnet, topic, subsc)
 	err := tx.Model(models.SubscriptionState{}).Where(models.SubscriptionState{
 		Subscription: entities.Subscription{ Subnet: subnet, Topic: topic },
 	}).Where("subscriber IN ?", subsc).Assign(&data).Error
 	if err != nil {
 		return nil, err
 	}
-	if DB == nil {
-		tx.Commit()
-	}
+	// if DB == nil {
+	// 	tx.Commit()
+	// }
 	return &data, nil
 }

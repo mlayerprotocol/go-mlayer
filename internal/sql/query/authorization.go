@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 
 	"github.com/jinzhu/copier"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	db "github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
@@ -13,9 +14,13 @@ import (
 func GetOneAuthorizationState(auth entities.Authorization) (*models.AuthorizationState, error) {
 
 	data := models.AuthorizationState{}
-	err := db.Db.Where(&models.AuthorizationState{
+	where := models.AuthorizationState{
 		Authorization: auth,
-	}).First(&data).Error
+	}
+	if err := utils.CheckEmpty(where); err != nil {
+		return nil, nil
+	}
+	err := db.SqlDb.Where(where).First(&data).Error
 	if err != nil {
 
 		return nil, err
@@ -24,9 +29,12 @@ func GetOneAuthorizationState(auth entities.Authorization) (*models.Authorizatio
 }
 
 func GetOneAuthorizationEvent(event entities.Event) (*models.AuthorizationEvent, error) {
-
+	where := models.AuthorizationEvent{Event: event}
+	if err := utils.CheckEmpty(where); err != nil {
+		return nil, nil
+	}
 	data := models.AuthorizationEvent{}
-	err := db.Db.Where(&models.AuthorizationEvent{Event: event}).First(&data).Error
+	err := db.SqlDb.Where(&where).First(&data).Error
 	if err != nil {
 		return nil, err
 	}
@@ -36,36 +44,16 @@ func GetOneAuthorizationEvent(event entities.Event) (*models.AuthorizationEvent,
 func GetManyAuthorizationEvents(event entities.Event) (*models.AuthorizationEvent, error) {
 
 	data := models.AuthorizationEvent{}
-	err := db.Db.Where(&models.AuthorizationEvent{Event: event}).Find(&data).Error
+	err := db.SqlDb.Where(&models.AuthorizationEvent{Event: event}).Find(&data).Error
 	if err != nil {
 		return nil, err
 	}
 	return &data, nil
 }
-func GetDependentEvents(event entities.Event) (*[]entities.Event, error) {
 
-	data := []entities.Event{}
-	// err := db.Db.Where(
-	// 	&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: *entities.NewEventPath(entities.AuthEventModel, event.Hash)}},
-	// ).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: *entities.NewEventPath(entities.AuthEventModel, event.Hash)}},
-	// // ).Or("? LIKE ANY (associations)", fmt.Sprintf("%%%s%%", event.Hash)
-	// ).Find(&data).Error
-	// if err != nil {
-	// 	return nil, err
-	// }
-	prevEvent, _ := GetEventFromPath(&event.PreviousEventHash)
-	if prevEvent != nil {
-		data = append(data, *prevEvent)
-	}
-	authEvent, _ := GetEventFromPath(&event.AuthEventHash)
-	if prevEvent != nil {
-		data = append(data, *authEvent)
-	}
-	return &data, nil
-}
 
 // Save authorization only when it doesnt exist
-func SaveAuthorizationState(auth *entities.Authorization, DB *gorm.DB) (*models.AuthorizationState, error) {
+func SaveAuthorizationState(auth *entities.Authorization, DB *gorm.DB) (*models.AuthorizationState, *gorm.DB) {
 
 	data := models.AuthorizationState{
 		// Privilege 	: auth.Priviledge,
@@ -73,27 +61,25 @@ func SaveAuthorizationState(auth *entities.Authorization, DB *gorm.DB) (*models.
 	}
 	tx := DB
 	if DB == nil {
-		tx = db.Db.Begin()
+		tx = db.SqlDb
 	}
-	err := tx.Where(models.AuthorizationState{
-		Authorization: entities.Authorization{Grantor: auth.Grantor,
+	result := tx.Where(utils.EnsureNotEmpty(models.AuthorizationState{
+		Authorization: entities.Authorization{
 			Agent:  auth.Agent,
 			Subnet: auth.Subnet,
 		},
-	}).Assign(data).FirstOrCreate(&data).Error
-	if err != nil {
-		return nil, err
-	}
-	if DB == nil {
-		tx.Commit()
-	}
-	return &data, nil
+	})).Assign(data).FirstOrCreate(&data)
+	
+	// if DB == nil {
+	// 	tx.Commit()
+	// }
+	return &data, result
 }
 
 func SaveAuthorizationEvent(event *entities.Event, update bool, DB *gorm.DB) (model *models.AuthorizationEvent, created bool, err error) {
 	tx := DB
 	if DB == nil {
-		tx = db.Db.Begin()
+		tx = db.SqlDb
 	}
 	// dataByte, err := encoder.MsgPackStruct(event.Payload)
 	if err != nil {
@@ -117,20 +103,20 @@ func SaveAuthorizationEvent(event *entities.Event, update bool, DB *gorm.DB) (mo
 		}).FirstOrCreate(&data)
 	}
 	if result.Error != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		logger.Errorf("SQL: %v", result.Error)
 		return nil, false, result.Error
 	}
-	if DB == nil {
-		tx.Commit()
-	}
+	// if DB == nil {
+	// 	tx.Commit()
+	// }
 	return &data, result.RowsAffected > 0, nil
 }
 
 func UpdateAuthorizationEvent(where entities.Event, updateFields entities.Event, DB *gorm.DB) (model *models.AuthorizationEvent, err error) {
 	tx := DB
 	if DB == nil {
-		tx = db.Db.Begin()
+		tx = db.SqlDb
 	}
 	// dataByte, err := encoder.MsgPackStruct(event.Payload)
 	if err != nil {
@@ -144,26 +130,26 @@ func UpdateAuthorizationEvent(where entities.Event, updateFields entities.Event,
 	}).First(&model)
 
 	if result.Error != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		logger.Errorf("SQL: %v", result.Error)
 		return nil, result.Error
 	}
-	if DB == nil {
-		tx.Commit()
-	}
+	// if DB == nil {
+	// 	tx.Commit()
+	// }
 	return model, nil
 }
 
 func SaveAuthorizationStateAndEvent(authEvent *entities.Event, tx *gorm.DB) (*models.AuthorizationState, *models.AuthorizationEvent, error) {
 	if tx == nil {
-		tx = db.Db.Begin()
+		tx = db.SqlDb
 	}
 
 	auth := (*authEvent).Payload.Data.(entities.Authorization)
 
 	hash, _ := auth.GetHash()
 	auth.Hash = hex.EncodeToString(hash)
-	auth.Event = *entities.NewEventPath(authEvent.Validator, entities.AuthEventModel, authEvent.Hash)
+	auth.Event = *entities.NewEventPath(authEvent.Validator, entities.AuthModel, authEvent.Hash)
 	event, created, err := SaveAuthorizationEvent(authEvent, false, tx)
 	if err != nil {
 		logger.Errorf("SQL: %v", err)
@@ -171,22 +157,22 @@ func SaveAuthorizationStateAndEvent(authEvent *entities.Event, tx *gorm.DB) (*mo
 	}
 	// auth.AuthorizationEventID = event.Event.ID
 	if created {
-		state, err := SaveAuthorizationState(&auth, tx)
-		if err != nil {
+		state, txrsl := SaveAuthorizationState(&auth, tx)
+		if txrsl.Error != nil {
 			logger.Errorf("SQL: %v", err)
-			tx.Rollback()
+			// tx.Rollback()
 			return nil, nil, err
 		}
-		tx.Commit()
+		//tx.Commit()
 		return state, event, nil
 	} else {
 		state, err := GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: auth.Agent})
 		if err != nil {
 			logger.Errorf("SQL: %v", err)
-			tx.Rollback()
+			// tx.Rollback()
 			return nil, nil, err
 		}
-		tx.Commit()
+		// tx.Commit()
 		return state, event, nil
 	}
 

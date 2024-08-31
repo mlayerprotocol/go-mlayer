@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 )
 
@@ -34,10 +36,11 @@ func GetId(d Payload) (string, error) {
 type ClientPayload struct {
 	// Primary
 	Data      interface{}   `json:"d"`
-	Timestamp int           `json:"ts"`
+	Timestamp uint64           `json:"ts"`
 	EventType uint16        `json:"ty"`
 	Nonce     uint64        `json:"nonce"`
 	Account   DIDString `json:"acct,omitempty"` // optional public key of sender
+	ChainId   configs.ChainId `json:"chId"` // optional public key of sender
 
 	Validator PublicKeyString `json:"val,omitempty"`
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
@@ -76,7 +79,7 @@ func (s *ClientPayload) MsgPack() []byte {
 
 func MsgUnpackClientPayload(b []byte) (ClientPayload, error) {
 	var p ClientPayload
-	err := encoder.MsgPackUnpackStruct(b, p)
+	err := encoder.MsgPackUnpackStruct(b, &p)
 	return p, err
 }
 
@@ -95,7 +98,7 @@ func (msg ClientPayload) GetHash() ([]byte, error) {
 
 func (msg ClientPayload) GetSigner() (DeviceString, error) {
 
-	if len(msg.Agent) == 0 {
+	//if len(msg.Agent) == 0 {
 		b, err := msg.EncodeBytes()
 		logger.Info("ENCODEDBBBBB", " ", hex.EncodeToString(b), " ", hex.EncodeToString(crypto.Keccak256Hash(b)), " Err: ", err)
 		if err != nil {
@@ -104,8 +107,8 @@ func (msg ClientPayload) GetSigner() (DeviceString, error) {
 		agent, _ := crypto.GetSignerECC(&b, &msg.Signature)
 		msg.Agent = AddressFromString(agent).ToDeviceString()
 		return msg.Agent, nil
-	}
-	return msg.Agent, nil
+	//}
+	// return msg.Agent, nil
 }
 
 // func (msg *ClientPayload) Validate(pubKey PublicKeyString) error {
@@ -138,10 +141,12 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	}
 
 	var params []encoder.EncoderParam
+	logger.Infof("ChainID %s", hex.EncodeToString(msg.ChainId.Bytes()))
+	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()})
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
 	if msg.Subnet != "" {
-		params = append(params, encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Subnet})
+		params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(msg.Subnet)})
 	}
 	if msg.Account != "" {
 		params = append(params, encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: msg.Account})
@@ -166,3 +171,7 @@ type SyncRequest struct {
 	Interval ResponseInterval `json:"inter"`
 	TopicIds string           `json:"topIds"`
 }
+
+
+// 0000000000007a69 684f9c7f9ba3f01e94c4599362a3266b7fa9d92b569dd2b53127f676b525ca36 00000000000004b133c981003bd204eb9fdfb17cb32a08416469643a636f736d6f73317a3770757836706574663666766e67646b6170306370796e657a746a3577776d6c76377a39662bd13f459be8acf7750609db22c4c3daa55fa9509f43e54ad59a0c38107db372000000000000000000000191227711b8
+// 0000000000007a69 793e5e986a8a3e29ca7b75d04df840740d948c2fa37d9e57c2ed8ed520021899 00000000000004b133c981003bd204eb9fdfb17cb32a08416469643a636f736d6f73317a3770757836706574663666766e67646b6170306370796e657a746a3577776d6c76377a39662bd13f459be8acf7750609db22c4c3daa55fa9509f43e54ad59a0c38107db372000000000000000000000191227711b8

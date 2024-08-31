@@ -5,7 +5,9 @@ package node
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"math/big"
 	"time"
 
 	"strings"
@@ -17,18 +19,17 @@ import (
 
 	// "net/rpc/jsonrpc"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 
 	// "github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
-	"github.com/mlayerprotocol/go-mlayer/internal/message"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm/abis/stake"
+	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/rest"
@@ -47,6 +48,8 @@ var upgrader = websocket.Upgrader{
 
 var logger = &log.Logger
 
+
+
 func Start(mainCtx *context.Context) {
 	ctx, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
@@ -60,27 +63,29 @@ func Start(mainCtx *context.Context) {
 	// incomingEventsC := make(chan types.Log)
 
 	var wg sync.WaitGroup
-	// errc := make(chan error)
+	eventCountStore := db.New(&ctx,   string(constants.EventCountStore))
+	defer eventCountStore.Close()
+	ctx = context.WithValue(ctx, constants.EventCountStore, eventCountStore)
 
-	// deliveryProofBlockStateStore := db.New(&ctx, constants.DeliveryProofBlockStateStore)
-	// subscriptionBlockStateStore := db.New(&ctx, constants.SubscriptionBlockStateStore)
-
-	// stores messages that have been validated
-	// validMessagesStore := db.New(&ctx, constants.ValidMessageStore)
-	unProcessedClientPayloadStore := db.New(&ctx, fmt.Sprintf("%s", constants.UnprocessedClientPayloadStore))
-	unsentMessageP2pStore := db.New(&ctx, constants.UnsentMessageStore)
-	// topicSubscriptionStore := db.New(&ctx, constants.TopicSubscriptionStore)
-	newTopicSubscriptionStore := db.New(&ctx, constants.NewTopicSubscriptionStore)
-	// topicSubscriptionCountStore := db.New(&ctx, constants.TopicSubscriptionCountStore)
-	// sentMessageStore := db.Db(&ctx, constants.SentMessageStore)
-	// deliveryProofStore := db.New(&ctx, constants.DeliveryProofStore)
-	// localDPBlockStore := db.New(&ctx, constants.DeliveryProofBlockStore)
-	// unconfirmedBlockStore := db.New(&ctx, constants.UnconfirmedDeliveryProofStore)
-
-	ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
-	ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
+	claimedRewardStore := db.New(&ctx,   string(constants.ClaimedRewardStore))
+	defer claimedRewardStore.Close()
+	ctx = context.WithValue(ctx, constants.ClaimedRewardStore, claimedRewardStore)
+	// ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
+	// ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
 	ctx = context.WithValue(ctx, constants.ConnectedSubscribersMap, connectedSubscribers)
 
+	// p2pDataStore := db.New(&ctx,   string(constants.P2PDataStore))
+	// defer p2pDataStore.Close()
+	// ctx = context.WithValue(ctx, constants.P2PDataStore, p2pDataStore)
+	defer func () {
+		if chain.NetworkInfo.Synced && !eventCountStore.DB.IsClosed() {
+			lastBlockKey :=  datastore.NewKey("/syncedBlock")
+			eventCountStore.Set(ctx, lastBlockKey, chain.NetworkInfo.CurrentBlock.Bytes(), true)
+		}
+	}()
+	if err := loadChainInfo(cfg); err != nil {
+		panic(err)
+	}
 	defer wg.Wait()
 
 	//  wg.Add(1)
@@ -143,13 +148,66 @@ func Start(mainCtx *context.Context) {
 	// 		&wg)
 	// }()
 
+	// wg.Add(1)
+	// go func() {
+	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
+	// }()
+
+	// load network params
 	wg.Add(1)
 	go func() {
 		_, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		defer wg.Done()
-		message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
+		time.Sleep(10 * time.Minute)
+		for {
+			if err := loadChainInfo(cfg); err != nil {
+				logger.Error(err)
+				time.Sleep(10*time.Second)
+				continue
+			}
+			time.Sleep(60 * time.Second)
+		}
 	}()
+
+	wg.Add(1)
+	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		defer wg.Done()
+		TrackReward(&ctx)
+	}()
+
+	wg.Add(1)
+	go func() {
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		defer wg.Done()
+		ProcessPendingClaims(&ctx)
+		
+		// for {
+		// 	time.Sleep(5 * time.Second)
+		// 	logger.Info("Generating batch...")
+		// 	batch, err := generateBatch(0, 0, &ctx)
+		// 	processPendingClaims(&ctx)
+		// 	if batch == nil {
+				
+		// 		break
+		// 	}
+		// 	if err != nil {
+				
+		// 	} else {
+				
+		// 		processSentryRewardBatch(ctx, cfg, batch)
+		// 	}
+		// 	time.Sleep(5 * time.Second)
+		// }
+	}()
+
+	
 
 	wg.Add(1)
 	go func() {
@@ -160,6 +218,14 @@ func Start(mainCtx *context.Context) {
 		// 	errc <- fmt.Errorf("P2P error: %g", err)
 		// }
 		// }()
+		
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.AuthModel, &entities.AuthorizationPubSub, &ctx, service.HandleNewPubSubAuthEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.TopicModel, &entities.TopicPubSub, &ctx, service.HandleNewPubSubTopicEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.SubnetModel, &entities.SubnetPubSub, &ctx, service.HandleNewPubSubSubnetEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.WalletModel, &entities.WalletPubSub, &ctx, service.HandleNewPubSubWalletEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.SubnetModel, &entities.SubscriptionPubSub, &ctx, service.HandleNewPubSubSubscriptionEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.MessageModel, &entities.MessagePubSub, &ctx, service.HandleNewPubSubMessageEvent)
+		
 
 		p2p.Run(&ctx)
 		// if err != nil {
@@ -167,6 +233,10 @@ func Start(mainCtx *context.Context) {
 		// 	panic(err)
 		// }
 	}()
+
+	
+
+	
 
 	// wg.Add(1)
 	// go func() {
@@ -240,6 +310,7 @@ func Start(mainCtx *context.Context) {
 	wg.Add(1)
 	go func() {
 		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		
 		defer cancel()
 		defer wg.Done()
 		wss := ws.NewWsService(&ctx)
@@ -266,22 +337,66 @@ func Start(mainCtx *context.Context) {
 
 }
 
-func parserEvent(vLog types.Log, eventName string) {
-	event := stake.StakeStakeEvent{}
-	contractAbi, err := abi.JSON(strings.NewReader(string(stake.StakeMetaData.ABI)))
-
-	if err != nil {
-		logger.Fatal("contractAbi, err", err)
-	}
-	_err := contractAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
-	if _err != nil {
-		logger.Fatal("_err :  ", _err)
-	}
-
-	fmt.Println(event.Account) // foo
-	fmt.Println(event.Amount)
-	fmt.Println(event.Timestamp)
+func loadChainInfo(cfg *configs.MainConfiguration) error {
+	info, err := chain.Provider(cfg.ChainId).GetChainInfo()
+			if err != nil {
+				return fmt.Errorf("pkg/node/NodeInfo/GetChainInfo: %v", err)
+			}
+			chain.NetworkInfo.StartBlock = info.StartBlock
+			chain.NetworkInfo.StartTime = info.StartTime
+			chain.NetworkInfo.CurrentCycle = info.CurrentCycle
+			if chain.NetworkInfo.Validators == nil {
+				chain.NetworkInfo.Validators = map[string]bool{}
+			}
+			page := big.NewInt(1)
+			perPage := big.NewInt(100)
+			for {
+				
+				validators, err := chain.Provider(cfg.ChainId).GetValidatorNodeOperators(page, perPage )
+				if err != nil {
+					return fmt.Errorf("pkg/node/NodeInfo/GetValidatorNodeOperators: %v", err)
+				}
+				for _, val := range validators {
+					chain.NetworkInfo.Validators[hex.EncodeToString(val)] = true
+				}
+				if big.NewInt(int64(len(validators))).Cmp(perPage) == -1 {
+					break
+				}
+				page = new(big.Int).Add(page, big.NewInt(1))
+			}
+			
+			return err
 }
+
+// func parserEvent(vLog types.Log, eventName string) {
+// 	event := stake.StakeStakeEvent{}
+// 	contractAbi, err := abi.JSON(strings.NewReader(string(stake.StakeMetaData.ABI)))
+
+// 	if err != nil {
+// 		logger.Fatal("contractAbi, err", err)
+// 	}
+// 	_err := contractAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
+// 	if _err != nil {
+// 		logger.Fatal("_err :  ", _err)
+// 	}
+
+// 	logger.Infof("Event Account: %s", event.Account) // foo
+// 	logger.Infof("Event Amount: %d", event.Amount)
+// 	logger.Infof("Event Timestamp: %d",event.Timestamp)
+// }
 
 // var lobbyConn = []*websocket.Conn{}
 // var verifiedConn = []*websocket.Conn{}
+// func GenerateRegsitrationData(cfg *configs.MainConfiguration) {
+// 	regData := entities.RegisterationData{ChainId: "31337"}
+// 	regData.Timestamp = 1723776438802; // uint64(time.Now().UnixMilli())
+// 	// pkBig := new(big.Int).SetBytes(cfg.PublicKeySECP)
+// 	// if !ok {
+// 	// 	panic("Unable to generate big number")
+// 	// }
+// 	dHash := regData.GetHash()
+// 	logger.Infof("DATAHHASH %s", new(big.Int).SetBytes(dHash))
+// 	//pk, _ := hex.DecodeString(cfg.PrivateKey)
+// 	signature, commitment, _ := regData.Sign(cfg.PrivateKeySECP)
+// 	logger.Infof("RegData %s, %s, %s, %d, %s", hex.EncodeToString(signature),cfg.PrivateKey, hex.EncodeToString(commitment), regData.Timestamp, hex.EncodeToString(cfg.PublicKeySECP))
+// }

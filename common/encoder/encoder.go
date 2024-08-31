@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -26,27 +27,31 @@ func MsgPackStruct(msg interface{}) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func MsgPackUnpackStruct(b []byte, message interface{}) error {
+func MsgPackUnpackStruct[T interface{}](b []byte, message *T) error {
 	buf := bytes.NewBuffer(b)
 	dec := msgpack.NewDecoder(buf)
 	// dec.UseLooseInterfaceDecoding(true)
 	dec.SetCustomStructTag("json")
-	err := dec.Decode(&message)
+	err := dec.Decode(message)
 	return err
 }
 
-func EncodeNumber(b []byte, message interface{}) error {
-	buf := bytes.NewBuffer(b)
-	dec := msgpack.NewDecoder(buf)
-	dec.SetCustomStructTag("json")
-	err := dec.Decode(&message)
-	return err
-}
+// func EncodeNumber(b []byte, message interface{}) error {
+// 	buf := bytes.NewBuffer(b)
+// 	dec := msgpack.NewDecoder(buf)
+// 	dec.SetCustomStructTag("json")
+// 	err := dec.Decode(&message)
+// 	return err
+// }
 
 func NumberToByte(i uint64) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, i)
-	return b
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, i)
+	return buf.Bytes()
+}
+
+func NumberFromByte(buf []byte) uint64 {
+	return (binary.BigEndian.Uint64(buf))
 }
 
 type EncoderDataType string
@@ -63,7 +68,7 @@ const (
 
 type EncoderParam struct {
 	Type  EncoderDataType
-	Value interface{}
+	Value any
 }
 
 func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
@@ -79,7 +84,12 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 	for i, arg := range args {
 		index = append(index, i)
 		if arg.Type == ByteEncoderDataType {
-			m[i] = arg.Value.([]byte)
+			if _, ok := arg.Value.(json.RawMessage); ok {
+				m[i] = []byte(arg.Value.(json.RawMessage))
+			} else {
+				m[i] = (arg.Value.([]byte))
+		
+			}
 		}
 		if arg.Type == StringEncoderDataType {
 			m[i] = []byte(fmt.Sprintf("%v", arg.Value))
@@ -89,8 +99,7 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 			if err != nil {
 				return []byte(""), err
 			}
-			m[i] = []byte(NumberToByte(num))
-			logger.Infof("TYPEEEE: %s", hex.EncodeToString(m[i]))
+			m[i] = NumberToByte(num)
 		}
 		if arg.Type == BoolEncoderDataType {
 			val := 0

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"gorm.io/gorm"
 )
@@ -20,7 +21,10 @@ type SubscriptionState struct {
 	entities.Subscription `msgpack:",noinline"`
 	// Privilege 	constants.AuthorizationPrivilege  `json:"priv" gorm:"type:int"`
 }
-
+func (d SubscriptionState) MsgPack() []byte {
+	b, _ := encoder.MsgPackStruct(&d.Subscription)
+	return b
+}
 
 func (d *SubscriptionState) BeforeCreate(tx *gorm.DB) (err error) {
 	if d.ID == ""  {

@@ -18,13 +18,13 @@ import (
 	dbLogger "gorm.io/gorm/logger"
 )
 
-var Db *gorm.DB
+var SqlDb *gorm.DB
 var SqlDBErr error
 
 var logger = &log.Logger
 
 func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
-	logger.Infof("Initializing %s db... dsn %s", driver, dsn)
+	logger.Infof("Initializing %s db", driver)
 	var dialect gorm.Dialector
 	switch driver {
 	case "postgres":
@@ -34,59 +34,72 @@ func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
 	default:
 		dialect = sqlite.Open(dsn)
 	}
-	db, err := gorm.Open(dialect, &gorm.Config{
+	SqlDb, err := gorm.Open(dialect, &gorm.Config{
 		Logger: dbLogger.Default.LogMode(logLevel()),
 	})
 
 	if err != nil {
 		return nil, err
 	}
+	
+	if driver == "sqlite" {
+		//d, _ := SqlDb.DB()
+		SqlDb.Exec("PRAGMA busy_timeout = 1000")
+	}
 	for _, model := range models.Models {
-		err := db.AutoMigrate(&model)
+		err := SqlDb.AutoMigrate(&model)
 		if err != nil {
-			logger.Errorf("UnmarshalError %v", err)
-		}
-		
-		
-		if err != nil {
-			logger.Errorf("UnmarshalError %v", err)
+			logger.Errorf("SQLD_BERROR: %v", err)
 		}
 	}
 	
-	return db, err
+	
+	return SqlDb, err
 }
 
-func Init() {
-	cfg := config.Config
-	logger.Infof("DB Dialect %v", config.Config.SQLDB)
-	Db, SqlDBErr = InitializeDb(config.Config.SQLDB.DbDialect, getDSN(&cfg))
+func GetTableName(table any, db *gorm.DB) string {
+	stmt := &gorm.Statement{DB: db}
+	stmt.Parse(table)
+	return stmt.Schema.Table
+}
+
+func Init(cfg *configs.MainConfiguration) {
+	
+	SqlDb, SqlDBErr = InitializeDb(config.Config.SQLDB.DbDialect, getDSN(cfg))
 	if SqlDBErr != nil {
 		panic(SqlDBErr)
 	}
 	for _, migration := range migration.Migrations {
 		var m models.MigrationState;
 		key := strings.ToLower(fmt.Sprintf("%s:%s", migration.DateTime,  migration.Id))
-		err := Db.Where(models.MigrationState{Key: key }).First(&m).Error
+		err := SqlDb.Where(models.MigrationState{Key: key }).First(&m).Error
 		if err == gorm.ErrRecordNotFound {
-			err := migration.Migrate(Db)
+			err := migration.Migrate(SqlDb)
+			
 			if err == nil {
-				Db.Create(models.MigrationState{Key: key })
+				SqlDb.Create(&models.MigrationState{Key: key })
 			} else {
 				log.Logger.Error("Migration Error", err)
 				panic(err)
 			}
-
 		}
-
 	}
-	db, err := Db.DB()
+	db, err := SqlDb.DB()
 	if err != nil {
 		panic(err)
 	}
 	db.SetMaxIdleConns(cfg.SQLDB.DbMaxConnLifetime)
 	db.SetMaxOpenConns(cfg.SQLDB.DbMaxOpenConns)
 	db.SetConnMaxLifetime(time.Duration(cfg.SQLDB.DbMaxConnLifetime) * time.Second)
+	// SqlDb.Exec("DROP TRIGGER IF EXISTS subnet_events_sync_trigger;")
+	counterTable := GetTableName(models.EventCounter{}, SqlDb)
+	subnetSyncTrigger, subnetSyncFunc := EventSyncedTrigger(config.Config.SQLDB.DbDialect, GetTableName(models.SubnetEvent{}, SqlDb), counterTable)
+	SqlDb.Exec(string(subnetSyncFunc))
+	SqlDb.Exec(string(subnetSyncTrigger))
 
+	authSyncTrigger, authSyncFunc := EventSyncedTrigger(config.Config.SQLDB.DbDialect, GetTableName(models.AuthorizationEvent{}, SqlDb), counterTable)
+	SqlDb.Exec(string(authSyncFunc))
+	SqlDb.Exec(string(authSyncTrigger))
 	
 	
 }

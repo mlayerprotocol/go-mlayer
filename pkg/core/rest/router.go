@@ -98,9 +98,17 @@ func (p *RestService) Initialize() *gin.Engine {
 		}
 		// logger.Infof("PUT %s %v", "/api/authorize", payload.ToJSON())
 		// copier.Copy(&payload.ClientPayload, &payload)
+		authorization := entities.Authorization{}
+		d, _ := json.Marshal(payload.Data)
+		e := json.Unmarshal(d, &authorization)
+		if e != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
+		}
+		// Subnet.ID = id
+		payload.Data = authorization
 
 		logger.WithFields(logrus.Fields{"payload": string(payload.ToJSON())}).Debug("New auth payload from REST api")
-		authEvent, err := client.AuthorizeAgent(payload, p.Ctx)
+		authEvent, err := client.CreateEvent(payload, p.Ctx)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
@@ -429,8 +437,8 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: parseError.Error()}))
 			return
 		}
-		
-	subs := entities.Subscription{}
+
+		subs := entities.Subscription{}
 		// json.Unmarshal(*b, &subs)
 		// rawQuery := c.Request.URL.Query()
 		// err := c.ShouldBind(&subs)
@@ -453,7 +461,6 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subs}))
 		// c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: subscriptions}))
 	})
-	
 
 	router.GET("/api/subscription/account", func(c *gin.Context) {
 
@@ -525,7 +532,7 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.GET("/api/main-stats", func(c *gin.Context) {
-		mainStats, err := client.GetMainStats()
+		mainStats, err := client.GetMainStats(p.Cfg)
 
 		if err != nil {
 			logger.Error(err)
@@ -535,25 +542,42 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: mainStats}))
 	})
 
-	router.GET("/api/event/:type/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		logger.Info(id)
+	router.GET("/api/event-path/:hash/:type/:id", func(c *gin.Context) {
+		hash := c.Param("hash")
+		logger.Info("hash", hash)
 		typeParam := c.Param("type")
-		typeParamInt, err := strconv.Atoi(typeParam)
-		if err != nil {
-			// ... handle error
-			logger.Error(err, typeParam)
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
-			return
-		}
+		typeParamInt := client.GetEventTypeFromModel(entities.EntityModel(typeParam))
 
-		topic, err := client.GetEvent(id, typeParamInt)
+		topic, err := client.GetEventByHash(hash, int(typeParamInt))
 
 		if err != nil {
 			logger.Error(err)
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
+	})
+
+	router.GET("/api/event/:type/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		logger.Info(id)
+		//typeParam := c.Param("type")
+		//typeParamInt, err := strconv.Atoi(typeParam)
+		// if err != nil {
+		// 	// ... handle error
+		// 	logger.Error(err, typeParam)
+		// 	c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+		// 	return
+		// }
+
+		// topic, err := client.GetEvent(id, typeParamInt)
+		topic := entities.Event{}
+
+		// if err != nil {
+		// 	logger.Error(err)
+		// 	c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+		// 	return
+		// }
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
 	})
 

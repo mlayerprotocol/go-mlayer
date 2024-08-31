@@ -5,20 +5,23 @@ package cmd
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/hex"
+	"fmt"
 	"slices"
 
 	"sync"
 
 	// "net/rpc/jsonrpc"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain/api"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 
 	// "github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
-	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/mlayerprotocol/go-mlayer/pkg/node"
@@ -33,13 +36,16 @@ type Flag string
 
 const (
 	NETWORK_ADDRESS_PRFIX Flag = "network-address-prefix"
-	NETWORK_PRIVATE_KEY Flag = "network-private-key"
-	NODE_PRIVATE_KEY    Flag = "node-private-key"
+	CHAIN_ID Flag = "chain-id"
+	PRIVATE_KEY Flag = "private-key"
 	PROTOCOL_VERSION    Flag  = "protocol-version"
 	RPC_PORT            Flag = "rpc-port"
 	WS_ADDRESS          Flag = "ws-address"
 	REST_ADDRESS        Flag = "rest-address"
 	DATA_DIR            Flag = "data-dir"
+	LISTENERS            Flag = "listen"
+	KEYSTORE_DIR         Flag = "key_store_dir"
+	KEYSTORE_PASSWORD         Flag = "key_store_password"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -66,50 +72,67 @@ var daemonCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(daemonCmd)
-	daemonCmd.Flags().StringP(string(NETWORK_ADDRESS_PRFIX), "a", "", "The network address prefix. This is determines the primary network e.g. ml=>mainnet, mldev=>devnet,mltest=>testnet")
-	daemonCmd.Flags().StringP(string(NETWORK_PRIVATE_KEY), "e", "", "The network private key. This is the key used to sign handshakes and messages")
-	daemonCmd.Flags().StringP(string(NODE_PRIVATE_KEY), "k", "", "The node private key. This is the nodes identity")
+	daemonCmd.Flags().StringP(string(NETWORK_ADDRESS_PRFIX), "p", "", "The network address prefix. This determines the operational network e.g. ml=>mainnet, mldev=>devnet,mltest=>testnet")
+	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "k", "", "The deligated operators private key. This is the key used to sign handshakes and messages. The coresponding public key must be assigned to the validator")
 	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "v", constants.DefaultProtocolVersion, "Protocol version")
-	daemonCmd.Flags().StringP(string(RPC_PORT), "p", constants.DefaultRPCPort, "RPC server port")
+	daemonCmd.Flags().StringP(string(RPC_PORT), "r", constants.DefaultRPCPort, "RPC server port")
 	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", constants.DefaultWebSocketAddress, "ws service address")
-	daemonCmd.Flags().StringP(string(REST_ADDRESS), "r", constants.DefaultRestAddress, "rest api service address")
-	daemonCmd.Flags().StringP(string(DATA_DIR), "d", constants.DefaultDataDir, "data directory")
-
+	daemonCmd.Flags().StringP(string(REST_ADDRESS), "R", constants.DefaultRestAddress, "rest api service address")
+	daemonCmd.Flags().StringP(string(DATA_DIR), "d", constants.DefaultDataDir, "data storage directory")
+	daemonCmd.Flags().StringSliceP(string(LISTENERS), "l", []string{}, "libp2p multiaddress array eg. [\"/ip4/127.0.0.1/tcp/5000/ws\", \"/ip4/127.0.0.1/tcp/5001\"]")
+	daemonCmd.Flags().StringP(string(KEYSTORE_DIR), "K", "", "path to keystore directory")
+	daemonCmd.Flags().StringP(string(KEYSTORE_PASSWORD), "P", "", "password for decripting key store")
 }
 
-func daemonFunc(cmd *cobra.Command, args []string) {
+func daemonFunc(cmd *cobra.Command, _ []string) {
 	cfg := configs.Config
 	ctx := context.Background()
 
-	sql.Init()
+	
+	defer node.Start(&ctx)
+	defer func () {
+		// chain.Network = chain.Init(&cfg)
+		chain.RegisterProvider(
+			"31337", api.NewGenericAPI(),
+		)
+		ethAPI, err := api.NewEthAPI(cfg.ChainId, cfg.EvmRpcConfig[string(cfg.ChainId)], &cfg.PrivateKeySECP)
+		if err != nil {
+			panic(err)
+		}
+		chain.RegisterProvider(
+			"84532", ethAPI,
+		)
+		// chain.DefaultProvider = chain.Network.Default()
+	}()
+	defer sql.Init(&cfg)
+	
+
+	
 
 	rpcPort, _ := cmd.Flags().GetString(string(RPC_PORT))
 	wsAddress, _ := cmd.Flags().GetString(string(WS_ADDRESS))
 	restAddress, _ := cmd.Flags().GetString(string(REST_ADDRESS))
+	listeners, _ := cmd.Flags().GetStringSlice(string(LISTENERS))
 
-	networkPrivateKey, err := cmd.Flags().GetString(string(NETWORK_PRIVATE_KEY))
-	if err != nil || len(networkPrivateKey) == 0 {
-		panic("network_private_key is required. Use --network-private-key flag or environment var ML_NETWORK_PRIVATE_KEY")
+	
+	cfg.Context = &ctx
+
+	if len(cfg.ChainId) == 0 {
+		cfg.ChainId = "ml"
+	}
+	chainId, _ := cmd.Flags().GetString(string(CHAIN_ID))
+	if len(chainId) > 0 {
+		cfg.ChainId = configs.ChainId(chainId)
 	}
 
-
-	if len(cfg.AddressPrefix) == 0 {
-		cfg.AddressPrefix = "ml"
+	if len(cfg.ChainId) == 0 {
+		cfg.ChainId = "ml"
 	}
 	prefix, _ := cmd.Flags().GetString(string(NETWORK_ADDRESS_PRFIX))
 	if len(prefix) > 0 {
 		cfg.AddressPrefix = prefix
 	}
-	
-	if len(networkPrivateKey) > 0 {
-		cfg.NetworkPrivateKey = networkPrivateKey
-		cfg.NetworkPublicKey = crypto.GetPublicKeyEDD(networkPrivateKey)
-		key, err := hex.DecodeString(cfg.NetworkPublicKey)
-		if err != nil {
-			panic(err)
-		}
-		cfg.NetworkKeyAddress = crypto.ToBech32Address(key, cfg.AddressPrefix)
-	}
+	cfg = injectPrivateKey(&cfg, cmd)
 
 	if len(wsAddress) > 0 {
 		cfg.WSAddress = wsAddress
@@ -123,6 +146,12 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	if len(dataDir) > 0 {
 		cfg.DataDir = dataDir
 	}
+
+	if len(cfg.SQLDB.DbStoragePath) == 0 {
+		cfg.SQLDB.DbStoragePath = fmt.Sprintf("%s/store/sql", cfg.DataDir)
+	}
+
+
 	protocolVersion, _ := cmd.Flags().GetString(string(PROTOCOL_VERSION))
 	
 	if len(protocolVersion) > 0 && protocolVersion != constants.DefaultProtocolVersion  {
@@ -145,8 +174,12 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	if len(cfg.RPCPort) == 0 {
 		cfg.RPCPort = constants.DefaultRPCPort
 	}
+	
+	if len(listeners) > 0 {
+		cfg.ListenerAdresses = listeners
+	}
 
-	chain.Init(&cfg)
+	
 
 	// ****** INITIALIZE CONTEXT ****** //
 
@@ -157,78 +190,90 @@ func daemonFunc(cmd *cobra.Command, args []string) {
 	// ctx = context.WithValue(ctx, constants.IncomingTopicEventChId, &channelpool.IncomingTopicEventSubscriptionC)
 
 	// ADD EVENT BROADCAST CHANNELS TO THE CONTEXT
-	ctx = context.WithValue(ctx, constants.BroadcastAuthorizationEventChId, &channelpool.AuthorizationEventPublishC)
-	ctx = context.WithValue(ctx, constants.BroadcastTopicEventChId, &channelpool.TopicEventPublishC)
-	ctx = context.WithValue(ctx, constants.BroadcastSubnetEventChId, &channelpool.SubnetEventPublishC)
+	// ctx = context.WithValue(ctx, constants.BroadcastAuthorizationEventChId, &channelpool.AuthorizationEventPublishC)
+	// ctx = context.WithValue(ctx, constants.BroadcastTopicEventChId, &channelpool.TopicEventPublishC)
+	// ctx = context.WithValue(ctx, constants.BroadcastSubnetEventChId, &channelpool.SubnetEventPublishC)
 
-	// CLEANUP
-	ctx = context.WithValue(ctx, constants.IncomingMessageChId, &channelpool.IncomingMessageEvent_P2P_D_C)
-	ctx = context.WithValue(ctx, constants.OutgoingMessageChId, &channelpool.NewPayload_Cli_D_C)
-	ctx = context.WithValue(ctx, constants.OutgoingMessageDP2PChId, &channelpool.OutgoingMessageEvents_D_P2P_C)
+	// // CLEANUP
+	// ctx = context.WithValue(ctx, constants.IncomingMessageChId, &channelpool.IncomingMessageEvent_P2P_D_C)
+	// ctx = context.WithValue(ctx, constants.OutgoingMessageChId, &channelpool.NewPayload_Cli_D_C)
+	// ctx = context.WithValue(ctx, constants.OutgoingMessageDP2PChId, &channelpool.OutgoingMessageEvents_D_P2P_C)
 	// incoming from client apps to daemon channel
-	ctx = context.WithValue(ctx, constants.SubscribeChId, &channelpool.Subscribers_RPC_D_C)
+	// ctx = context.WithValue(ctx, constants.SubscribeChId, &channelpool.Subscribers_RPC_D_C)
 	// daemon to p2p channel
-	ctx = context.WithValue(ctx, constants.SubscriptionDP2PChId, &channelpool.Subscription_D_P2P_C)
-	ctx = context.WithValue(ctx, constants.ClientHandShackChId, &channelpool.ClientHandshakeC)
-	ctx = context.WithValue(ctx, constants.OutgoingDeliveryProof_BlockChId, &channelpool.OutgoingDeliveryProof_BlockC)
-	ctx = context.WithValue(ctx, constants.OutgoingDeliveryProofChId, &channelpool.OutgoingDeliveryProofC)
-	ctx = context.WithValue(ctx, constants.PubsubDeliverProofChId, &channelpool.PubSubInputBlockC)
-	ctx = context.WithValue(ctx, constants.PubSubBlockChId, &channelpool.PubSubInputProofC)
-	// receiving subscription from other nodes channel
-	ctx = context.WithValue(ctx, constants.PublishedSubChId, &channelpool.PublishedSubC)
+	// ctx = context.WithValue(ctx, constants.SubscriptionDP2PChId, &channelpool.Subscription_D_P2P_C)
+	// ctx = context.WithValue(ctx, constants.ClientHandShackChId, &channelpool.ClientHandshakeC)
+	// ctx = context.WithValue(ctx, constants.OutgoingDeliveryProof_BlockChId, &channelpool.OutgoingDeliveryProof_BlockC)
+	// ctx = context.WithValue(ctx, constants.OutgoingDeliveryProofChId, &channelpool.OutgoingDeliveryProofC)
+	// ctx = context.WithValue(ctx, constants.PubsubDeliverProofChId, &channelpool.PubSubInputBlockC)
+	// ctx = context.WithValue(ctx, constants.PubSubBlockChId, &channelpool.PubSubInputProofC)
+	// // receiving subscription from other nodes channel
+	// ctx = context.WithValue(ctx, constants.PublishedSubChId, &channelpool.PublishedSubC)
 
-	ctx = context.WithValue(ctx, constants.SQLDB, &sql.Db)
+	ctx = context.WithValue(ctx, constants.SQLDB, &sql.SqlDb)
 
-	node.Start(&ctx)
+	
+	
+	
+
 }
 
-// func ServeWebSocket(w http.ResponseWriter, r *http.Request) {
+func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) configs.MainConfiguration {
+	operatorPrivateKey, _ := cmd.Flags().GetString(string(PRIVATE_KEY))
+	// if err != nil || len(operatorPrivateKey) == 0 {
+	// 	logger.Fatal("operators private_key is required. Use --private-key flag or environment var ML_PRIVATE_KEY")
 
-// 	c, err := upgrader.Upgrade(w, r, nil)
-// 	logger.Print("New ServeWebSocket c : ", c.RemoteAddr())
+	// }
+	pkFlagLen := len(operatorPrivateKey)
+	if pkFlagLen > 0 {
+		cfg.PrivateKey = operatorPrivateKey
+	}
+	if len(cfg.PrivateKey) == 0 {
+		//check the keystore
+		password, _ := cmd.Flags().GetString(string(KEYSTORE_PASSWORD))
+		if password == "" {
+			fmt.Println("Enter your keystore password: ")
+			inputPass, err := readInputSecurely()
+			if err!= nil {
+				panic("provide a keystore password")
+			}
+			password = string(inputPass)
+		}
+		ksDir, _ := cmd.Flags().GetString(string(KEYSTORE_DIR))
+		if len(ksDir) == 0 {
+			ksDir = cfg.KeyStoreDir
+		}
+		if len(ksDir) == 0 {
+			ksDir = "./data/keystores/"
+		}
+		privKey, err := loadPrivateKeyFromKeyStore(string(password), "account", ksDir)
+		if err != nil {
+			panic(err)
+		}
+		cfg.PrivateKey = hex.EncodeToString(privKey)
+	}
+	
+	if  len(cfg.PrivateKey) != 64 {
+		panic("--private-key must be 32 bytes long")
+	}
+	
 
-// 	if err != nil {
-// 		logger.Print("upgrade:", err)
-// 		return
-// 	}
-// 	defer c.Close()
-// 	hasVerifed := false
-// 	time.AfterFunc(5000*time.Millisecond, func() {
+	// conver private key to edd
+	pk, err :=  hex.DecodeString(cfg.PrivateKey)
+	if err != nil {
+		panic( err)
+	}
+	// SECP KEYS
+	cfg.PrivateKeySECP = pk
+	_, pubKey := btcec.PrivKeyFromBytes(pk)
+	cfg.PublicKeySECP = pubKey.SerializeCompressed()
+	
+	// EDD KEYS
+	cfg.PrivateKeyEDD = ed25519.NewKeyFromSeed(pk)
+	cfg.PrivateKey = hex.EncodeToString(cfg.PrivateKeyEDD)
+	cfg.PublicKeyEDD = cfg.PrivateKeyEDD[32:]
+	cfg.PublicKey = hex.EncodeToString(cfg.PublicKeyEDD)
+	cfg.OperatorAddress = crypto.ToBech32Address(cfg.PublicKeySECP, string(cfg.AddressPrefix))
 
-// 		if !hasVerifed {
-// 			c.Close()
-// 		}
-// 	})
-// 	_close := func(code int, t string) error {
-// 		logger.Infof("code: %d, t: %s \n", code, t)
-// 		return errors.New("Closed ")
-// 	}
-// 	c.SetCloseHandler(_close)
-// 	for {
-// 		mt, message, err := c.ReadMessage()
-// 		if err != nil {
-// 			logger.Println("read:", err)
-// 			break
-
-// 		} else {
-// 			err = c.WriteMessage(mt, (append(message, []byte("recieved Signature")...)))
-// 			if err != nil {
-// 				logger.Println("Error:", err)
-// 			} else {
-// 				// signature := string(message)
-// 				verifiedRequest, _ := entities.UnpackVerificationRequest(message)
-// 				logger.Println("verifiedRequest.Message: ", verifiedRequest.Message)
-
-// 				if constants.VerifySignature(verifiedRequest.Signer, verifiedRequest.Message, verifiedRequest.Signature) {
-// 					verifiedConn = append(verifiedConn, c)
-// 					hasVerifed = true
-// 					logger.Println("Verification was successful: ", verifiedRequest)
-// 				}
-// 				logger.Println("message:", string(message))
-// 				logger.Printf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
-// 			}
-
-// 		}
-// 	}
-
-// }
+	return *cfg
+}

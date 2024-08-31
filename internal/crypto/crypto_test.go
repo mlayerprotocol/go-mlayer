@@ -33,7 +33,7 @@ import (
 // 	return privKey[64:]
 // }
 
-// func NetworkPrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
+// func PrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 // 	privateKey, err := crypto.HexToECDSA(privKey)
 // 	if err != nil {
 // 		logger.Fatalf("Invalid private key %o", err)
@@ -230,7 +230,7 @@ func TestVerifySignatureAmino(t *testing.T) {
 	logger.Infof("signature %s; publicKey %s", string(plainSign), hex.EncodeToString(pubkey))
 	logger.Info("msg: %", []byte(msg))
 	
-	valid, err := VerifySignatureAmino(encoder.ToBase64Padded([]byte(msg)), plainSign, account, hex.EncodeToString(pubkey))
+	valid, err := VerifySignatureAmino(encoder.ToBase64Padded([]byte(msg)), plainSign, account, pubkey)
     if !valid {
         t.Fatalf("Invalid signature signer: %v", err )
     }

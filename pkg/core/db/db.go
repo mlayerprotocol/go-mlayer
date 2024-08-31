@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	ds "github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -19,9 +20,15 @@ func New(mainCtx *context.Context, keyStore string) *Datastore {
 	defer cancel()
 	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
-
+		return nil
 	}
-	dir := filepath.Join(cfg.DataDir, keyStore)
+	dir := filepath.Join(cfg.DataDir, "store", "kv", keyStore)
+	if !strings.HasPrefix(dir, "./") && !strings.HasPrefix(dir, "../") && !filepath.IsAbs(dir) {
+		dir = "./" + dir
+		if strings.HasPrefix(cfg.DataDir, "../") {
+			dir = "." + dir
+		}
+	}
 	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		panic(err)

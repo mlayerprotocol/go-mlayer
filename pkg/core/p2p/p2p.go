@@ -2,27 +2,31 @@ package p2p
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
-	"math"
+	"io"
 	"math/big"
 	"os"
 	"time"
 
 	// "github.com/gin-gonic/gin"
 
+	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
-	cryptoMl "github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	"github.com/mlayerprotocol/go-mlayer/internal/service"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/chain/evm"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/p2p/notifee"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
+	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
@@ -44,12 +48,23 @@ import (
 )
 
 var logger = &log.Logger
+var Delimiter = []byte{'0'}
 
 // var config configs.MainConfiguration
+type P2pChannelFlow int8
 
-var protocolId string
-var privKey crypto.PrivKey
+const (
+	P2pChannelOut P2pChannelFlow = 1
+	P2pChannelIn  P2pChannelFlow = 2
+)
 
+
+// var privKey crypto.PrivKey
+var config *configs.MainConfiguration
+var handShakeProtocolId = "mlayer/handshake/1.0.0"
+var p2pProtocolId string
+var syncProtocolId = "mlayer/sync/1.0.0"
+// var P2pComChannels = make(map[string]map[P2pChannelFlow]chan P2pPayload)
 
 
 const (
@@ -65,16 +80,13 @@ const (
 	DeliveryProofChannel = "ml-delivery-proof"
 )
 
-var PeerStreams = make(map[string]peer.ID)
+// var PeerStreams = make(map[string]peer.ID)
 var PeerPubKeys = make(map[peer.ID][]byte)
-var node *host.Host
-var idht *dht.IpfsDHT
+var DisconnectFromPeer = make(map[peer.ID]bool)
+var MainContext *context.Context
 
-type connectionNotifee struct {
-}
-type discoveryNotifee struct {
-	h host.Host
-}
+// var node *host.Host
+var idht *dht.IpfsDHT
 
 // defaultNick generates a nickname based on the $USER environment variable and
 // the last 8 chars of a peer ID.
@@ -89,8 +101,13 @@ func shortID(p peer.ID) string {
 	return pretty[len(pretty)-12:]
 }
 
-func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string, config *configs.MainConfiguration) {
-
+func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string) {
+	// kdht.PutValue(ctx, "user/name", []byte("femi"))
+	// v, err := kdht.GetValue(ctx, "user/name")
+	// if err != nil {
+	// 	logger.Error("KDHTERROR", err)
+	// }
+	// logger.Infof("VALUEEEEE %s", string(v))
 	routingDiscovery := drouting.NewRoutingDiscovery(kdht)
 	dutil.Advertise(ctx, routingDiscovery, rendezvous)
 
@@ -105,9 +122,10 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 
 			peers, err := routingDiscovery.FindPeers(ctx, rendezvous)
 			if err != nil {
-				logger.Fatal(err)
+				logger.Error(err)
+				continue
 			}
-			logger.Debugf("Found peers: %d", len(peers)-1)
+
 			for p := range peers {
 
 				if p.ID == h.ID() {
@@ -122,7 +140,10 @@ func Discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 						kdht.ForceRefresh()
 						continue
 					}
-					logger.Debugf("Connected to discovered peer: %s at %s \n", p.ID.String(), p.Addrs)
+					if len(p.ID) == 0 {
+						continue
+					}
+					logger.Infof("Connected to discovered peer: %s at %s \n", p.ID.String(), p.Addrs)
 					handleConnect(&h, &p)
 				}
 			}
@@ -134,17 +155,25 @@ func Run(mainCtx *context.Context) {
 	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
-
+	logger.Infof("LoadedChainInfo: %v", chain.NetworkInfo)
 	ctx, cancel := context.WithCancel(*mainCtx)
+	MainContext = &ctx
 	defer cancel()
 
-	config, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
-
+	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
+	config = cfg
 	if !ok {
-
+		panic("Unable to load config from context")
 	}
 
-	protocolId = config.ProtocolVersion
+	p2pDataStore := db.New(&ctx, string(constants.P2PDataStore))
+	defer p2pDataStore.Close()
+
+	if !ok {
+		panic("Unable to load data store from context")
+	}
+
+	p2pProtocolId = config.ProtocolVersion
 
 	// incomingAuthorizationC, ok := ctx.Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
 	// if !ok {
@@ -177,22 +206,30 @@ func Run(mainCtx *context.Context) {
 
 	// }
 
-	if len(config.NodePrivateKey) == 0 {
-		priv, _, err := crypto.GenerateKeyPair(
-			crypto.Ed25519, // Select your key type. Ed25519 are nice short
-			-1,             // Select key length when possible (i.e. RSA).
-		)
-		if err != nil {
-			panic(err)
-		}
-		privKey = priv
-	} else {
-		priv, err := crypto.UnmarshalECDSAPrivateKey(hexutil.MustDecode(config.NodePrivateKey))
-		if err != nil {
-			panic(err)
-		}
-		privKey = priv
+	privKey, _, err := crypto.GenerateKeyPair(
+		crypto.Ed25519, // Select your key type. Ed25519 are nice short
+		2048,           // Select key length when possible (i.e. RSA).
+	)
+	if err != nil {
+		panic(err)
 	}
+
+	// if len(config.NodePrivateKey) == 0 {
+	// 	priv, _, err := crypto.GenerateKeyPair(
+	// 		crypto.Ed25519, // Select your key type. Ed25519 are nice short
+	// 		-1,             // Select key length when possible (i.e. RSA).
+	// 	)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	privKey = priv
+	// } else {
+	// 	priv, err := crypto.UnmarshalECDSAPrivateKey(hexutil.MustDecode(config.NodePrivateKey))
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	privKey = priv
+	// }
 
 	// conMgr := connmgr.NewConnManager(
 	// 	100,         // Lowwater
@@ -204,7 +241,7 @@ func Run(mainCtx *context.Context) {
 		// Use the keypair we generated
 		libp2p.Identity(privKey),
 		// Multiple listen addresses
-		libp2p.ListenAddrStrings(config.Listeners...),
+		libp2p.ListenAddrStrings(config.ListenerAdresses...),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
@@ -228,17 +265,34 @@ func Run(mainCtx *context.Context) {
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 
 			var bootstrapPeers []peer.AddrInfo
+
 			for _, addr := range config.BootstrapPeers {
 				addr, _ := multiaddr.NewMultiaddr(addr)
 				pi, _ := peer.AddrInfoFromP2pAddr(addr)
 				bootstrapPeers = append(bootstrapPeers, *pi)
 			}
 			var dhtOptions []dht.Option
-			dhtOptions = append(dhtOptions, dht.BootstrapPeers(bootstrapPeers...))
-			if config.BootstrapNode {
+			dhtOptions = append(dhtOptions,
+				dht.BootstrapPeers(bootstrapPeers...),
+				dht.ProtocolPrefix(protocol.ID(p2pProtocolId)),
+				dht.ProtocolPrefix(protocol.ID(handShakeProtocolId)),
+				dht.ProtocolPrefix(protocol.ID(syncProtocolId)),
+				dht.Datastore(p2pDataStore),
+				dht.NamespacedValidator("pk", record.PublicKeyValidator{}),
+				dht.NamespacedValidator("ipns", record.PublicKeyValidator{}),
+				dht.NamespacedValidator("ml", &DhtValidator{config: cfg}),
+			)
+			if !config.BootstrapNode {
 				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeServer))
 			}
-			kdht, err := dht.New(ctx, h, dhtOptions...)
+			// dhtOptions = append(dhtOptions,  dht.Datastore(syncDatastore))
+
+			kdht, err := dht.New(ctx, h,
+				dhtOptions...)
+			if err != nil {
+				panic(err)
+			}
+
 			// validator = {
 			// 	// Validate validates the given record, returning an error if it's
 			// 	// invalid (e.g., expired, signed by the wrong key, etc.).
@@ -250,30 +304,33 @@ func Run(mainCtx *context.Context) {
 			// 	// Decisions made by select should be stable.
 			// 	Select(key string, values [][]byte) (int, error)
 			// }
-			// dhtOptions = append(dhtOptions, dht.NamespacedValidator("subsc"))
+			// dhtOptions = append(dhtOptions, dht.NamespacedValidator("subsc", customValidator))
 
-			idht = kdht
+			//if cfg.BootstrapNode {
 			if err = kdht.Bootstrap(ctx); err != nil {
 				logger.Fatalf("Error starting bootstrap node %o", err)
 				return nil, err
 			}
+			// }
 
-			for _, addr := range config.BootstrapPeers {
-				addr, _ := multiaddr.NewMultiaddr(addr)
-				pi, err := peer.AddrInfoFromP2pAddr(addr)
-				if err != nil {
-					logger.Warnf("Invalid boostrap peer address (%s): %s \n", addr, err)
-				} else {
-					error := h.Connect(ctx, *pi)
-					if error != nil {
-						logger.Debugf("Unable connect to boostrap peer (%s): %s \n", addr, err)
-						continue
-					}
-					logger.Debugf("Connected to boostrap peer (%s)", addr)
-					handleConnect(&h, pi)
-				}
-			}
-			go Discover(ctx, h, kdht,  fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.AddressPrefix), config)
+			idht = kdht
+
+			// for _, addr := range config.BootstrapPeers {
+			// 	addr, _ := multiaddr.NewMultiaddr(addr)
+			// 	pi, err := peer.AddrInfoFromP2pAddr(addr)
+			// 	if err != nil {
+			// 		logger.Warnf("Invalid boostrap peer address (%s): %s \n", addr, err)
+			// 	} else {
+			// 		error := h.Connect(ctx, *pi)
+			// 		if error != nil {
+			// 			logger.Debugf("Unable connect to boostrap peer (%s): %s \n", addr, err)
+			// 			continue
+			// 		}
+			// 		logger.Debugf("Connected to boostrap peer (%s)", addr)
+			// 		h.Peerstore().AddAddrs(pi.ID, pi.Addrs, peerstore.PermanentAddrTTL)
+			// 		handleConnect(&h, pi)
+			// 	}
+			// }
 
 			// routingOptions := routing.Options{
 			// 	Expired: true,
@@ -289,7 +346,7 @@ func Run(mainCtx *context.Context) {
 			// }
 			return idht, err
 		}),
-
+		// libp2p.Relay(options...),
 		// Let this host use relays and advertise itself on relays if
 		// it finds it is behind NAT. Use libp2p.Relay(options...) to
 		// enable active relays and more.
@@ -304,64 +361,76 @@ func Run(mainCtx *context.Context) {
 		libp2p.EnableNATService(),
 	)
 
+	// gater := NetworkGater{host: h, config: config, blockPeers: make(map[peer.ID]struct{})}
+
+	go discover(ctx, h, idht, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
 	if err != nil {
 		panic(err)
 	}
-	h.Network().Notify(&connectionNotifee{})
+	h.Network().Notify(&notifee.ConnectionNotifee{Dht: idht})
 
-	h.SetStreamHandler(protocol.ID(protocolId), handleStream)
+	h.SetStreamHandler(protocol.ID(handShakeProtocolId), handleHandshake)
+	h.SetStreamHandler(protocol.ID(p2pProtocolId), handlePayload)
+	h.SetStreamHandler(protocol.ID(syncProtocolId), handleSync)
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		panic(err)
 	}
 	// setup local mDNS discovery
-	err = setupDiscovery(ctx, h, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.AddressPrefix))
+	err = setupDiscovery(h, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
 	if err != nil {
 		panic(err)
 	}
 
-	node = &h
+	// node = &h
 
 	// The last step to get fully up and running would be to connect to
 	// bootstrap peers (or any other peers). We leave this commented as
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
-
-	logger.Infof("Host started with ID %s", h.ID())
-	logger.Infof("Host Network: %s", protocolId)
+	logger.Infof("Licence Operator Public Key (SECP): %s", hex.EncodeToString(cfg.PublicKeySECP))
+	logger.Infof("Network Public Key (EDD): %s", cfg.PublicKey)
+	logger.Infof("Host started with ID: %s", h.ID())
+	logger.Infof("Host Network: %s", p2pProtocolId)
 	logger.Infof("Host Listening on: %s", h.Addrs())
 
 	// Subscrbers
-	authorizationPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
+	authPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+	entities.AuthorizationPubSub = *authPubSub
 
-	topicPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), TopicChannel, config.ChannelMessageBufferSize)
+	topicPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), TopicChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+	entities.TopicPubSub = *topicPubSub
 
-	SubnetPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubnetChannel, config.ChannelMessageBufferSize)
+	subnetPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubnetChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+	entities.SubnetPubSub = *subnetPubSub
 
-	WalletPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), WalletChannel, config.ChannelMessageBufferSize)
+	walletPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), WalletChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+	entities.WalletPubSub = *walletPubSub
 
-	subscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	subscriptionPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+	entities.SubscriptionPubSub = *subscriptionPubSub
 
-	messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
+	messagePubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
+	entities.MessagePubSub = *messagePubSub
 
 	// unsubscribePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
@@ -374,23 +443,18 @@ func Run(mainCtx *context.Context) {
 	// }
 
 	// Publishers
-	go PublishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, authorizationPubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.TopicEventPublishC, topicPubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.SubnetEventPublishC, SubnetPubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.WalletEventPublishC, WalletPubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.SubscriptionEventPublishC, subscriptionPubSub, mainCtx)
-	go PublishChannelEventToNetwork(channelpool.MessageEventPublishC, messagePubSub, mainCtx)
+	go publishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, &entities.AuthorizationPubSub, mainCtx)
+	go publishChannelEventToNetwork(channelpool.TopicEventPublishC, &entities.TopicPubSub, mainCtx)
+	go publishChannelEventToNetwork(channelpool.SubnetEventPublishC, &entities.SubnetPubSub, mainCtx)
+	go publishChannelEventToNetwork(channelpool.WalletEventPublishC, &entities.WalletPubSub, mainCtx)
+	go publishChannelEventToNetwork(channelpool.SubscriptionEventPublishC, &entities.SubscriptionPubSub, mainCtx)
+	go publishChannelEventToNetwork(channelpool.MessageEventPublishC, &entities.MessagePubSub, mainCtx)
 	// go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
 	// go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
 	// Subscribers
 
-	go ProcessEventsReceivedFromOtherNodes(&entities.Authorization{}, authorizationPubSub, mainCtx, service.HandleNewPubSubAuthEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Topic{}, topicPubSub, mainCtx, service.HandleNewPubSubTopicEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Subnet{}, SubnetPubSub, mainCtx, service.HandleNewPubSubSubnetEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Wallet{}, WalletPubSub, mainCtx, service.HandleNewPubSubWalletEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, subscriptionPubSub, mainCtx, service.HandleNewPubSubSubscriptionEvent)
-	go ProcessEventsReceivedFromOtherNodes(&entities.Message{}, messagePubSub, mainCtx, service.HandleNewPubSubMessageEvent)
+	
 	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
 	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
 
@@ -474,7 +538,10 @@ func Run(mainCtx *context.Context) {
 	// 		}
 	// 	}
 	// }()
-
+	// if config.Validator {
+		
+		storeAddress(&ctx, &h)
+	// }
 	defer forever()
 
 }
@@ -485,192 +552,475 @@ func forever() {
 	}
 }
 
-func handleStream(stream network.Stream) {
-	// logger.Debugf("Got a new stream! %s", stream.ID())
-	// stream.SetReadDeadline()
-	// Create a buffer stream for non blocking read and write.
+// func handleHandshake(stream network.Stream) {
+
+// 	// // if len(PeerStreams[stream.ID()]) == 0 {
+// 	// // 	logger.Infof("No peer for stream %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
+// 	// // 	return
+// 	// // }
+// 	// logger.Infof("Got a new stream 2! %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
+// 	// // stream.SetReadDeadline()
+// 	// // Create a buffer stream for non blocking read and write.
+// 	// peer := stPeerStreams[stream.ID()]
+// 	// rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+// 	// logger.Infof("Got a new stream 3! %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
+// 	host := idht.Host()
+// 	verifyHandshake(&host, &stream)
+// 	// go sendData(rw)
+
+// }
+
+func handleHandshake(stream network.Stream) {
+	// ctx, _ := context.WithCancel(context.Background())
+	// config, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
+	// defer delete(DisconnectFromPeer, p )
+	peerId := (stream).Conn().RemotePeer()
+
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-	go readData(PeerStreams[stream.ID()], rw)
-	// go sendData(rw)
 
-}
-
-func readData(p peer.ID, rw *bufio.ReadWriter) {
-	ctx, _ := context.WithCancel(context.Background())
-	config, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	for {
 		hsData, err := rw.ReadBytes('\n')
 		if err != nil {
 			logger.Errorf("Error reading from buffer %o", err)
-			panic(err)
+			return
 		}
 		if hsData == nil {
-			break
+			//break
+			return
 		}
 
-		logger.WithFields(logrus.Fields{"peer": p, "data": string(hsData)}).Info("New Handshake data from peer")
-		handshake, err := entities.UnpackHandshake(hsData)
+		handshake, err := UnpackNodeHandshake(hsData)
 
 		if err != nil {
-			logger.WithFields(logrus.Fields{"peer": p, "data": hsData}).Warnf("Failed to parse handshake: %o", err)
-			break
+			logger.WithFields(logrus.Fields{"data": handshake}).Warnf("Failed to parse handshake: %o", err)
+			return
+			// break
 		}
-		validHandshake := isValidHandshake(handshake, p)
+		validHandshake := handshake.IsValid(config.ChainId)
+
+		logger.Infof("Validating peer %s", (stream).Conn().RemotePeer())
 		if !validHandshake {
-			disconnect(*node, p)
-			logger.WithFields(logrus.Fields{"peer": p, "data": hsData}).Infof("Disconnecting from peer (%s) with invalid handshake", p)
+			disconnect((stream).Conn().RemotePeer())
 			return
 		}
-		validStake := isValidStake(handshake, p, config)
-		if !validStake {
-			disconnect(*node, p)
-			logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsData}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
-			return
+		if handshake.NodeType == constants.ValidatorNodeType {
+			validHandshake, err = chain.NetworkInfo.IsValidator(handshake.Signer)
+			if err != nil || !validHandshake {
+				disconnect((stream).Conn().RemotePeer())
+				return
+			}
+			// Validate stake as well
+
+			// validStake := isValidStake(handshake, p, config)
+			// if !validStake {
+			// 	// disconnect(*node, p)
+			// 	logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsData}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
+			// 	return
+			// }
+		} else {
+			validHandshake, err = chain.NetworkInfo.IsSentry(handshake.Signer)
+			if err != nil || !validHandshake {
+				disconnect((stream).Conn().RemotePeer())
+				return
+			}
 		}
-		b, _ := hexutil.Decode(handshake.Signer)
-		PeerPubKeys[p] = b
+		if !chain.NetworkInfo.Synced {
+			go chain.NetworkInfo.Sync(MainContext, func () bool {
+				return true
+			})
+		}
+		// b, _ := hexutil.Decode(handshake.Signer)
+		// PeerPubKeys[p] = b
 		// break
+		logger.WithFields(logrus.Fields{"peer": peerId, "pubKey": handshake.Signer}).Info("Successfully connected peer with valid handshake")
+		delete(DisconnectFromPeer, peerId)
 	}
 }
 
-func isValidHandshake(handshake entities.Handshake, p peer.ID) bool {
-	handshakeMessage := handshake.MsgPack()
-	if math.Abs(float64(handshake.Data.Timestamp-int(time.Now().Unix()))) > constants.VALID_HANDSHAKE_SECONDS {
-		logger.WithFields(logrus.Fields{"peer": p, "data": handshakeMessage}).Warnf("Hanshake Expired: %s", handshakeMessage)
-		return false
-	}
-	message, err := handshake.Data.EncodeBytes()
-	if err != nil {
-		return false
-	}
-	isValid := cryptoMl.VerifySignatureECC(entities.AddressFromString(string(handshake.Signer)).Addr, &message, handshake.Signature)
-	if !isValid {
-		logger.WithFields(logrus.Fields{"message": message, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
-		return false
-	}
-	logger.Debugf("New Valid handshake from peer: %s", p)
-	return true
-}
-func isValidStake(handshake entities.Handshake, p peer.ID, config *configs.MainConfiguration) bool {
-	if handshake.Data.NodeType == constants.ValidatorNodeType && config.Validator {
-		stakeContract, _, _, err := evm.StakeContract(config.EVMRPCHttp, config.StakeContract)
-		if err != nil {
-			logger.Errorf("EVM RPC error. Could not connect to stake contract: %s", err)
-			return false
-		}
-
-		level, err := stakeContract.GetNodeLevel(nil, evm.ToHexAddress(handshake.Signer))
-		i := new(big.Int).SetUint64(uint64(constants.ValidatorNodeType))
-		fmt.Printf("level i ---  %s: %s -- %s\n", level, i, err)
-		if level == nil || level.Cmp(i) >= 0 {
-			logger.WithFields(logrus.Fields{"address": handshake.Signer, "accountType": level}).Infof("Inadequate stake balance for validator peer %s ---- %s", p, err)
-			return false
-		}
-	}
-	return true
-}
-func sendData(p peer.ID, rw *bufio.ReadWriter, data []byte) {
-
-	// defer disconnect(*node, p)
+func sendHandshake(stream network.Stream, data []byte) {
+	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 	_, err := rw.WriteString(fmt.Sprintf("%s\n", string(data)))
 	if err != nil {
 		logger.Warn("Error writing to to stream")
 		return
 	}
+
 	err = rw.Flush()
+	logger.Infof("Flushed data to stream %s", stream.ID())
 	if err != nil {
 		// fmt.Println("Error flushing buffer")
 		// panic(err)
-		logger.Warn("Error flushing to to stream")
+		logger.Error("Error flushing to handshake stream")
 		return
 	}
 }
 
-// HandlePeerFound connects to peers discovered via mDNS. Once they're connected,
-// the PubSub system will automatically start interacting with them if they also
-// support PubSub.
-func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	logger.Debugf("Discovered new peer %s\n", pi.ID.String())
-	err := n.h.Connect(context.Background(), pi)
+func storeAddress(ctx *context.Context, h *host.Host) {
+	for {
+		if (*h).Peerstore().PeersWithAddrs().Len() == 1 {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		// logger.Info("Iamavalidator")
+		
+		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyEDD, getMultiAddresses(*h), config.PublicKeySECP)
+		if err != nil {
+			logger.Error(err)
+		}
+		key := "/ml/val/" + config.PublicKey
+		keySecP := "/ml/val/" + hex.EncodeToString(config.PublicKeySECP)
+		// v, err := idht.GetValue(*ctx, key)
+		// 	if err != nil {
+		// 		logger.Error("KDHT_GET_ERROR: ", err)
+		// 	} else {
+		// 		logger.Infof("VALURRRR %s", string(v))
+		// 	}
+		
+		packed :=  mad.MsgPack()
+		err = idht.PutValue(*ctx, key, packed)
+		
+		if err != nil {
+			logger.Error("KDHT_PUT_ERROR", err)
+		} else {
+			logger.Debugf("Successfully stored key: %s", key)
+		}
 
-	if err != nil {
-		logger.Warningf("Unable to connect with peer: %s %o", pi.ID, err)
-		return
+		logger.Infof("ADDING_SECP_ADDRESS: %d", config.PublicKeySECP)
+		err = idht.PutValue(*ctx, keySecP, packed)
+		if err != nil {
+			logger.Error("KDHT_PUT_ERROR", err)
+		} else {
+			logger.Debugf("Successfully stored key: %s", keySecP)
+		}
+		time.Sleep(1 * time.Hour)
+		// else {
+		// 	time.Sleep(2 * time.Second)
+		// 	v, err := idht.GetValue(ctx, key)
+		// 	if err != nil {
+		// 		logger.Error("KDHT_GET_ERROR", err)
+		// 	} else {
+		// 		logger.Infof("VALURRRR %s", string(v))
+		// 	}
+		// }
 	}
-	handleConnect(&n.h, &pi)
 }
 
+// called when a peer connects
 func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 	// pi := *pa
-	logger.Debugf("Successfully connected to peer: %s", pairAddr.ID)
+	logger.Infof("My multiaddress: %s", getMultiAddresses(*h))
+	if pairAddr == nil {
+		return
+	}
+	DisconnectFromPeer[pairAddr.ID] = true
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stream, err := (*h).NewStream(ctx, pairAddr.ID, protocol.ID(protocolId))
-	config, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
-	if !ok {
-
-	}
+	handshakeStream, err := (*h).NewStream(ctx, pairAddr.ID, protocol.ID(handShakeProtocolId))
 
 	if err != nil {
 		logger.Warningf("Unable to establish stream with peer: %s %o", pairAddr.ID, err)
 	} else {
-		logger.Infof("Streaming to peer: %s", pairAddr.ID)
-		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-		logger.Infof("New StreamID: %s", stream.ID())
-		PeerStreams[stream.ID()] = pairAddr.ID
 		nodeType := constants.RelayNodeType
 		if config.Validator {
 			nodeType = constants.ValidatorNodeType
 		}
-		hs, _ := entities.CreateHandshake(defaultNick((*h).ID()), protocolId, config.NetworkPrivateKey, nodeType)
-		go sendData(pairAddr.ID, rw, (&hs).MsgPack())
+		hs, _ := NewNodeHandshake(config, handShakeProtocolId, config.PrivateKeyEDD, nodeType)
+		// b, _ := hs.EncodeBytes()
+		logger.Infof("Created handshake with salt %s", hs.Salt)
+		logger.Infof("Created new stream %s with peer %s", handshakeStream.ID(), pairAddr.ID)
+		defer func(pairID peer.ID) {
+			time.Sleep(3 * time.Second)
+			if DisconnectFromPeer[pairAddr.ID] {
+				handshakeStream.Close()
+				disconnect(pairAddr.ID)
+			}
+		}(pairAddr.ID)
+		go sendHandshake(handshakeStream, (*hs).MsgPack())
+		go handleHandshake(handshakeStream)
+
+		host := idht.Host()
+		networkStream, err := host.NewStream(idht.Context(), pairAddr.ID, protocol.ID(p2pProtocolId))
+		if err != nil {
+			(networkStream).Reset()
+			return
+		}
+		go handlePayload(networkStream)
+
+		syncStream, err := host.NewStream(idht.Context(), pairAddr.ID, protocol.ID(syncProtocolId))
+		if err != nil {
+			(syncStream).Reset()
+			return
+		}
+		go handleSync(syncStream)
+
+		// _, pub, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
+		//time.Sleep(5 * time.Second)
+		// peerID, _ := peer.IDFromPublicKey(pub)
+		// logger.Infof("Waiting to send data to peer")
+		// time.Sleep(5 * time.Second)
+		// logger.Infof("Starting send process...")
+		// eventBytes := (&entities.EventPath{entities.EntityPath{Model: entities.TopicModel,Hash:"23032", Validator: "02c4435e768b4bae8236eeba29dd113ed607813b4dc5419d33b9294f712ca79ff4"}}).MsgPack()
+		// payload := NewP2pPayload(config, P2pActionGetEvent, eventBytes)
+		// if err != nil {
+		// 	logger.Errorf("ERrror: %s", err)
+		// 	return
+		// }
+		// err = payload.Sign(config.PrivateKeyEDD)
+		// if err != nil {
+		// 	logger.Infof("Error SIgning: %v", err)
+		// 	return
+		// }
+		// logger.Infof("Payload data signed: %s", payload.Id)
+		// resp, err := payload.SendRequestToAddress(config.PrivateKeyEDD, multiaddr.StringCast("/ip4/127.0.0.1/tcp/6000/ws/p2p/12D3KooWH7Ch4EETUDfCZAG1aBDUD2WmXukXuDVfpJqxxbVx7jBm"))
+		// if err != nil {
+		// 	logger.Errorf("Error :%v", err)
+		// }
+		// logger.Infof("Resopnse :%v", resp)
+
 	}
 }
 
-func disconnect(h host.Host, id peer.ID) {
-	h.Network().ClosePeer(id)
+func disconnect(id peer.ID) {
+	idht.Host().Network().ClosePeer(id)
 }
 
 // DiscoveryServiceTag is used in our mDNS advertisements to discover other chat peers.
 
 // setupDiscovery creates an mDNS discovery service and attaches it to the libp2p Host.
 // This lets us automatically discover peers on the same LAN and connect to them.
-func setupDiscovery(ctx context.Context, h host.Host, serviceName string) error {
-	n := discoveryNotifee{h: h}
-	// n.h = make(chan peer.AddrInfo)
-	// setup mDNS discovery to find local peers
+func setupDiscovery(h host.Host, serviceName string) error {
+	logger.Infof("Setting up Discovery on %s ....", serviceName)
+	n := notifee.DiscoveryNotifee{Host: h, HandleConnect: handleConnect, Dht: idht}
+
 	disc := mdns.NewMdnsService(h, serviceName, &n)
-	// if err := disc.Start(); err != nil {
-	// 	panic(err)
-	// }
-	// // disc.RegisterNotifee(&n)
 	return disc.Start()
 }
 
-// Listen is called when network starts listening on an addr
-func (n *connectionNotifee) Listen(netw network.Network, ma multiaddr.Multiaddr) {}
 
-// ListenClose is called when network starts listening on an addr
-func (n *connectionNotifee) ListenClose(netw network.Network, ma multiaddr.Multiaddr) {}
+func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *peer.AddrInfo, p2pStream *network.Stream, syncStream *network.Stream,  err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from panic:", r)
+		}
+	}()
+	
+	targetInfo, err := peer.AddrInfoFromP2pAddr(targetAddr)
+	if err != nil {
+		logger.Errorf("Failed to get peer info: %v", err)
+		return targetInfo, nil, nil, err
+	}
+	// logger.Infof("P2PCHANNELIDS %s", connectionId)
+	// if P2pComChannels[connectionId] == nil {
+		
+	// }
+	// logger.Infof("P2PCHANNELIDS %v", P2pComChannels[targetInfo.ID.String()][P2pChannelOut] == nil)
+	h := idht.Host()
+	if  h.Network().Connectedness(targetInfo.ID) != network.Connected {
+		err = h.Connect(ctx, *targetInfo)
+	}
+	if err != nil {
+		logger.Errorf("ErrorConnectingToPeer %v", err)
+		h.Peerstore().RemovePeer(targetInfo.ID)
+		//delete(P2pComChannels, connectionId)
+		return nil, nil, nil, err
+	}
+	h.Peerstore().AddAddrs(targetInfo.ID, targetInfo.Addrs, peerstore.PermanentAddrTTL)
+	// Add the target peer to the host's peerstore
+	// logger.Info("Connectedness: %s", h.Network().Connectedness(targetInfo.ID).String())
+	if h.Network().Connectedness(targetInfo.ID) == network.Connected {
+		streamz, err := h.NewStream(ctx, targetInfo.ID, protocol.ID(p2pProtocolId))
+		if err != nil {
+			logger.Errorf("ConnectionError: %v", err)
+		}
+		syncStreamz, err := h.NewStream(ctx, targetInfo.ID, protocol.ID(syncProtocolId))
+		if err != nil {
+			logger.Errorf("ConnectionError: %v", err)
+		}
+		p2pStream = &streamz
+		syncStream = &syncStreamz
+		logger.Infof("CreateNewPeerStream")
+		
+	} 
+	
 
-// Connected is called when a connection opened
-func (n *connectionNotifee) Connected(netw network.Network, conn network.Conn) {
-	//retain max 4 connections
-	// if (len(netw.Conns()) > 4){
-	// 	conn.Close()
-	// 	fmt.Printf("Connection refused for peer: %v!\n", conn.RemotePeer().Pretty())
-	// }a
+	// Connect to the target node
+	return targetInfo, p2pStream, syncStream, nil
 }
 
-// Disconnected is called when a connection closed
-func (cn *connectionNotifee) Disconnected(netw network.Network, conn network.Conn) {
-	id := conn.RemotePeer()
-	logger.Infof("Peer disconnect: %s", id)
-	idht.Host().Peerstore().RemovePeer(id)
+func getMultiAddresses(h host.Host) []string {
+	m := []string{}
+	addrs := h.Addrs()
+
+	for _, addr := range addrs {
+		m = append(m, fmt.Sprintf("%s/p2p/%s", addr, h.ID().String()))
+	}
+	logger.Infof("MULTI %v", m)
+	return m
 }
 
-// OpenedStream is called when a stream opened
-func (cn *connectionNotifee) OpenedStream(netw network.Network, stream network.Stream) {}
+func handlePayload(stream network.Stream) {
+	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+	peerId := stream.Conn().RemotePeer()
+	// go writePayload(rw, peerId, stream)
+	go readPayload(rw, peerId, stream)
+}
 
-// ClosedStream is called when a stream was closed
-func (cn *connectionNotifee) ClosedStream(netw network.Network, stream network.Stream) {}
+func handleSync(stream network.Stream) {
+	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+	peerId := stream.Conn().RemotePeer()
+	// go writePayload(rw, peerId, stream)
+	go readPayload(rw, peerId, stream)
+}
+
+
+func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
+	
+	// defer stream.Close()
+	for {
+		var payloadBuf bytes.Buffer
+		bufferLen := 1024
+		buf := make([]byte, bufferLen)
+		for {	
+			n, err := rw.Read(buf)
+			if n > 0 {
+				payloadBuf.Write(buf[:n])
+			}
+			// logger.Infof("BYTESREAD: %d %d",  n, payloadBuf.Len())
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				break
+			}
+			if n < bufferLen {
+				break;
+			}
+		}
+		pData := payloadBuf.Bytes()
+		if len(pData) == 0 {
+			return
+		}
+		payload, err := UnpackP2pPayload(pData[:len(pData)-1])
+		if err != nil {
+			logger.WithFields(logrus.Fields{"data": len(pData)}).Warnf("Failed to parse payload: %o", err)
+			return
+			// break
+		}
+		validPayload := payload.IsValid(config.ChainId)
+		logger.Infof("Received Data from remote peer: %v", validPayload)
+		if !validPayload {
+			logger.Infof("Invalid payload received from peer %s", peerId)
+			// delete(P2pComChannels, payload.Id)
+			(stream).Reset()
+			return
+		}
+		response, err := processP2pPayload(config, payload)
+		if err != nil {
+			logger.Infof("readPayload: %v", err)
+		}
+		delimeter := []byte{'\n'}
+		b := response.MsgPack()
+		resp, _ := UnpackP2pPayload(b)
+		logger.Infof("BYTESSSSS: %s, %v", resp.Id, err)
+		_, err = stream.Write(append(b, delimeter...))
+		if err != nil {
+			logger.Errorf("readPayload: %v", err)
+		}
+	
+		err = rw.Flush()
+		logger.Infof("Flushed response data to payload stream %s", stream.ID())
+		if err != nil {
+			// fmt.Println("Error flushing buffer")
+			// panic(err)
+			logger.Error("Error flushing response to stream")
+			return
+		}
+	}
+}
+func GetDhtValue(key string)  ([]byte, error) {
+	return idht.GetValue(*MainContext, key)
+}
+
+// func GetOperatorMultiAddress(pubKey string, chainId configs.ChainId ) (multiaddr.Multiaddr, error) {
+// 	key := "/ml/val/" + pubKey
+// 	d, err := GetDhtValue(key)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	md, err := UnpackNodeMultiAddressData(d)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+	
+// 	if md.IsValid(chainId) {
+// 		return multiaddr.NewMultiaddr(md.Addresses[0])
+// 	}
+// 	return nil, fmt.Errorf("invalid multiaddress ")
+// }
+// check the dht before going onchain
+func GetCycleMessageCost(ctx context.Context, cycle uint64) (*big.Int, error) {
+	_, ok := (ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	if !ok {
+		return nil, fmt.Errorf("failed to load config")
+	}
+	claimedRewardStore, ok := (ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	if !ok {
+		return nil, fmt.Errorf("failed to load store")
+	}
+	priceKey := datastore.NewKey(fmt.Sprintf("/ml/cost/%d", cycle))
+	priceByte, err := claimedRewardStore.Get(ctx, priceKey)
+	//
+	if err != nil && err != datastore.ErrNotFound {
+		return nil, err
+	}
+	if len(priceByte) > 0 && err == nil {
+		// priceData, err := UnpackMessagePrice(priceByte)
+		// if err != nil {
+		// 	return GetAndSaveMessageCostFromChain(ctx, cycle)
+		// }
+		return big.NewInt(0).SetBytes(priceByte), nil
+	} else {
+		return GetAndSaveMessageCostFromChain(&ctx, cycle)
+	}
+}
+
+func GetAndSaveMessageCostFromChain(ctx *context.Context, cycle uint64) (*big.Int, error) {
+	
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	if !ok {
+		return nil, fmt.Errorf("GetAndSaveMessageCostFromChain: failed to load store")
+	}
+	price, err := chain.DefaultProvider(cfg).GetMessagePrice(big.NewInt(int64(cycle)))
+	if err != nil {
+		return nil, err
+	}
+	logger.Infof("ITEMPRICE: %s", price)
+	priceKey := datastore.NewKey(fmt.Sprintf("/ml/cost/%d", cycle))
+	
+	err = claimedRewardStore.Put(*ctx, priceKey, utils.ToUint256(price))
+	return price, err
+}
+
+func GetNodeAddress(ctx *context.Context, pubKey string) (multiaddr.Multiaddr, error) {
+	key := "/ml/val/" + pubKey
+	
+	v, err := GetDhtValue(key)
+	if err != nil {
+		logger.Error("KDHT_GET_ERROR: ", err)
+		return nil, err
+	} else {
+		logger.Infof("Operator3: %s", v)
+		if len(v) > 0 {
+			nma, err := UnpackNodeMultiAddressData(v)
+			if err != nil {
+				return nil, fmt.Errorf("dhtValidator: invalid validator multiaddress data - %v", err)
+			}
+			return multiaddr.StringCast(nma.Addresses[0]), nil
+		// return multiaddr.StringCast(string(v)), nil
+		} else {
+			return nil, fmt.Errorf("invalid multiaddress")
+		}
+	}
+}
