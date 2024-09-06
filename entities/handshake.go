@@ -5,6 +5,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 )
 
 
@@ -15,6 +16,7 @@ type ClientHandshake struct {
 	// Message   string          `json:"m"`
 	Protocol  constants.Protocol `json:"proto"`
 	ClientSocket    *interface{} `json:"ws"`
+	ChainId configs.ChainId  `json:"chId"`
 	Timestamp int64 `json:"ts"`
 }
 
@@ -43,8 +45,8 @@ func (cs ClientHandshake) EncodeBytes() ([]byte, error) {
 		Type: encoder.AddressEncoderDataType,
 		Value: cs.Signer,
 	}, encoder.EncoderParam{
-		Type: encoder.HexEncoderDataType,
-		Value: "FFEE00FF",
+		Type: encoder.ByteEncoderDataType,
+		Value: cs.ChainId.Bytes(),
 	}, encoder.EncoderParam{
 		Type: encoder.IntEncoderDataType,
 		Value: cs.Timestamp,

@@ -26,10 +26,11 @@ const (
 
 type NodeType uint
 const (
-	RelayNodeType     NodeType = 0
 	ValidatorNodeType NodeType = 1
+    SentryNodeType     NodeType = 2
 )
 
+const ADDRESS_ZERO = "0000000000000000000000000000000000000000"
 const MaxBlockSize = 1000
 
 const (

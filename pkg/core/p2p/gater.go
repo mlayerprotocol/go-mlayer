@@ -61,7 +61,7 @@ func (g *NetworkGater) performHandshake(p peer.ID) bool {
     defer s.Close()
 
     // Send a handshake message
-    nodeType := constants.RelayNodeType
+    nodeType := constants.SentryNodeType
 		if config.Validator {
 			nodeType = constants.ValidatorNodeType
 		}

@@ -4,6 +4,7 @@ import (
 	// "errors"
 
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -19,12 +20,14 @@ import (
 type RegisterationData struct {
 	ChainId configs.ChainId  `json:"cId"`
 	Timestamp uint64 `json:"ts"`
+	PubKeyEDD json.RawMessage `json:"pubEDD"`
 }
 
 func (regData RegisterationData) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: regData.ChainId.Bytes()},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.ToUint256(new(big.Int).SetUint64(regData.Timestamp))},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: regData.PubKeyEDD},
 	)
 }
 

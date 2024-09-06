@@ -11,6 +11,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 )
 
 
@@ -82,10 +83,13 @@ func (v *DhtValidator) validateValidatorListKey(parts []string, value []byte ) e
         return errors.New("DhtValidator: Invalid validator address signature")
     }
    
-    if parts[3] != hex.EncodeToString(addresses.Signer) && parts[3] != hex.EncodeToString(addresses.PubKeySecp) {
+    if parts[3] != hex.EncodeToString(addresses.Signer) && parts[3] != hex.EncodeToString(addresses.PubKeyEDD) {
         return errors.New("DhtValidator: Signer and PubKeySecp does not match key public key")
     }
-    
+    isValidator,  err := chain.NetworkInfo.IsValidator(hex.EncodeToString(addresses.Signer))
+    if !isValidator {
+        return errors.New("DhtValidator: Signer is not a validator")
+    }
     // if chain.HasValidStake(addresses.Signer, &v.config) {
     //     return errors.New("DhtValidator: Signer is not a validator")
     // }
@@ -108,7 +112,7 @@ func (v *DhtValidator) selectFromValidatorList(parts []string, value [][]byte ) 
         if !d.IsValid(config.ChainId) {
            continue
         }
-        if parts[3] != hex.EncodeToString(d.Signer) && parts[3] != hex.EncodeToString(d.PubKeySecp) {
+        if parts[3] != hex.EncodeToString(d.Signer) && parts[3] != hex.EncodeToString(d.PubKeyEDD) {
             continue
         }
         result = append(result, NodeMultiAddressDataIndexed{Data: d, Index: idx})

@@ -210,7 +210,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	}
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
-	currentState, err := service.ValidateSubnetData(&payloadData, cfg.ChainId)
+	currentState, err := service.ValidateSubnetData(&payload, cfg.ChainId)
 	if err != nil {
 		return nil, nil, err
 	}

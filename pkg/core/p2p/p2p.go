@@ -618,7 +618,7 @@ func handleHandshake(stream network.Stream) {
 			// 	return
 			// }
 		} else {
-			validHandshake, err = chain.NetworkInfo.IsSentry(handshake.Signer)
+			validHandshake, err = chain.NetworkInfo.IsSentry(handshake.Signer, nil)
 			if err != nil || !validHandshake {
 				disconnect((stream).Conn().RemotePeer())
 				return
@@ -663,7 +663,7 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 		}
 		// logger.Info("Iamavalidator")
 		
-		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyEDD, getMultiAddresses(*h), config.PublicKeySECP)
+		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyEDD, getMultiAddresses(*h), config.PublicKeyEDD)
 		if err != nil {
 			logger.Error(err)
 		}
@@ -705,6 +705,24 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 	}
 }
 
+func GetNodeMultiAddressData(ctx *context.Context, key string) (*NodeMultiAddressData, error) {
+	
+		key = "/ml/val/" + key
+		data, err := idht.GetValue(*ctx, key, nil)
+		if err != nil {
+			return  nil, err
+		}
+		mad, err := UnpackNodeMultiAddressData(data)
+		if err != nil {
+			return nil, err
+		}
+		cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+		if !mad.IsValid(cfg.ChainId) {
+			return nil, fmt.Errorf("invalid multiaddress data")
+		}
+		return &mad, err
+}
+
 // called when a peer connects
 func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 	// pi := *pa
@@ -721,7 +739,7 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 	if err != nil {
 		logger.Warningf("Unable to establish stream with peer: %s %o", pairAddr.ID, err)
 	} else {
-		nodeType := constants.RelayNodeType
+		nodeType := constants.SentryNodeType
 		if config.Validator {
 			nodeType = constants.ValidatorNodeType
 		}
@@ -1004,23 +1022,11 @@ func GetAndSaveMessageCostFromChain(ctx *context.Context, cycle uint64) (*big.In
 }
 
 func GetNodeAddress(ctx *context.Context, pubKey string) (multiaddr.Multiaddr, error) {
-	key := "/ml/val/" + pubKey
-	
-	v, err := GetDhtValue(key)
+	mad, err := GetNodeMultiAddressData(ctx, pubKey)
 	if err != nil {
 		logger.Error("KDHT_GET_ERROR: ", err)
 		return nil, err
-	} else {
-		logger.Infof("Operator3: %s", v)
-		if len(v) > 0 {
-			nma, err := UnpackNodeMultiAddressData(v)
-			if err != nil {
-				return nil, fmt.Errorf("dhtValidator: invalid validator multiaddress data - %v", err)
-			}
-			return multiaddr.StringCast(nma.Addresses[0]), nil
-		// return multiaddr.StringCast(string(v)), nil
-		} else {
-			return nil, fmt.Errorf("invalid multiaddress")
-		}
 	}
+
+	return multiaddr.StringCast(mad.Addresses[0]), nil
 }

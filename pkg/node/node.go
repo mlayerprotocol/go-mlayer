@@ -38,13 +38,13 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
-var Nodes = []*websocket.Conn{}
+// var Nodes = []*websocket.Conn{}
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
-} // use default options
+// var upgrader = websocket.Upgrader{
+// 	ReadBufferSize:  1024,
+// 	WriteBufferSize: 1024,
+// 	CheckOrigin:     func(r *http.Request) bool { return true },
+// } // use default options
 
 var logger = &log.Logger
 
@@ -342,28 +342,46 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 			if err != nil {
 				return fmt.Errorf("pkg/node/NodeInfo/GetChainInfo: %v", err)
 			}
+
+			// if active license counts have been updated
+			logger.Infof("NetworINFO %d, %d", chain.NetworkInfo.ActiveValidatorLicenseCount, info.ValidatorActiveLicenseCount.Uint64())
+			if (chain.NetworkInfo.ActiveValidatorLicenseCount != info.ValidatorActiveLicenseCount.Uint64()) {
+				// if chain.NetworkInfo.Validators == nil {
+					chain.NetworkInfo.Validators = map[string]string{}
+				// }
+				page := big.NewInt(1)
+				perPage := big.NewInt(100)
+				for {
+					
+					validators, err := chain.Provider(cfg.ChainId).GetValidatorNodeOperators(page, perPage )
+					if err != nil {
+						logger.Errorf("pkg/node/NodeInfo/GetValidatorNodeOperators: %v", err)
+						time.Sleep(10 * time.Second)
+						continue
+					}
+					
+					for _, val := range validators {
+						pubKey := hex.EncodeToString(val.PublicKey)
+						logger.Infof("NetworINFOVals: %v, %v", pubKey, hex.EncodeToString(val.EddKey[:]))
+						// chain.NetworkInfo.Validators[pubKey] = val.LicenseOwner
+						chain.NetworkInfo.Validators[val.LicenseOwner] = "true"
+						chain.NetworkInfo.Validators[fmt.Sprintf("secp/%s/edd", pubKey)] = hex.EncodeToString(val.EddKey[:])
+						chain.NetworkInfo.Validators[fmt.Sprintf("secp/%s/addr", pubKey)] = val.LicenseOwner
+						chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/secp", hex.EncodeToString(val.EddKey[:]))] = pubKey
+						chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", hex.EncodeToString(val.EddKey[:]))] = val.LicenseOwner
+					}
+					if len(validators) == 0 || big.NewInt(int64(len(validators))).Cmp(perPage) == -1 {
+						break
+					}
+					page = new(big.Int).Add(page, big.NewInt(1))
+				}
+			}
+
 			chain.NetworkInfo.StartBlock = info.StartBlock
 			chain.NetworkInfo.StartTime = info.StartTime
 			chain.NetworkInfo.CurrentCycle = info.CurrentCycle
-			if chain.NetworkInfo.Validators == nil {
-				chain.NetworkInfo.Validators = map[string]bool{}
-			}
-			page := big.NewInt(1)
-			perPage := big.NewInt(100)
-			for {
-				
-				validators, err := chain.Provider(cfg.ChainId).GetValidatorNodeOperators(page, perPage )
-				if err != nil {
-					return fmt.Errorf("pkg/node/NodeInfo/GetValidatorNodeOperators: %v", err)
-				}
-				for _, val := range validators {
-					chain.NetworkInfo.Validators[hex.EncodeToString(val)] = true
-				}
-				if big.NewInt(int64(len(validators))).Cmp(perPage) == -1 {
-					break
-				}
-				page = new(big.Int).Add(page, big.NewInt(1))
-			}
+			chain.NetworkInfo.ActiveValidatorLicenseCount = info.ValidatorActiveLicenseCount.Uint64()
+			chain.NetworkInfo.ActiveSentryLicenseCount = info.SentryActiveLicenseCount.Uint64()
 			
 			return err
 }

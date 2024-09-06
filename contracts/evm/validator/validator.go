@@ -29,17 +29,31 @@ var (
 	_ = abi.ConvertType
 )
 
+// AccountInfo is an auto generated low-level Go binding around an user-defined struct.
+type AccountInfo struct {
+	Operators [][]byte
+	Licenses  []*big.Int
+}
+
+// OperatorInfo is an auto generated low-level Go binding around an user-defined struct.
+type OperatorInfo struct {
+	PubKey []byte
+	Owner  common.Address
+	EddKey [32]byte
+}
+
 // RegistrationData is an auto generated low-level Go binding around an user-defined struct.
 type RegistrationData struct {
 	PublicKey  []byte
 	Nonce      *big.Int
 	Signature  []byte
 	Commitment common.Address
+	EddKey     [32]byte
 }
 
 // ValidatorContractMetaData contains all meta data concerning the ValidatorContract contract.
 var ValidatorContractMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"InvalidInitialization\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotInitializing\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"OwnableInvalidOwner\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"OwnableUnauthorizedAccount\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"version\",\"type\":\"uint64\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"quantity\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"PurchaseEvent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"Received\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"accountLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"accountLicenses\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"activeLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"activeLicensesIndex\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"calibrator\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"licenses\",\"type\":\"uint256[]\"}],\"name\":\"deRegisterNodeOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fillLicenseCountGap\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"cycle\",\"type\":\"uint256\"}],\"name\":\"getCycleActiveLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"cycle\",\"type\":\"uint256\"}],\"name\":\"getCycleLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"getLicencePrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"operator\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"cycle\",\"type\":\"uint256\"}],\"name\":\"getOperatorCycleLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"operator\",\"type\":\"bytes\"}],\"name\":\"getOperatorLicenses\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"page\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"perPage\",\"type\":\"uint256\"}],\"name\":\"getOperators\",\"outputs\":[{\"internalType\":\"bytes[]\",\"name\":\"opr\",\"type\":\"bytes[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"getRegistrationData\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes\",\"name\":\"publicKey\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"commitment\",\"type\":\"address\"}],\"internalType\":\"structRegistrationData\",\"name\":\"regData\",\"type\":\"tuple\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_network\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"licensePrice\",\"type\":\"uint256\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"license\",\"type\":\"uint256\"}],\"name\":\"isActive\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"licenseOperator\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"licenseOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"locked\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"network\",\"outputs\":[{\"internalType\":\"contractINetwork\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"nodesOwned\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"operatorCycleLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"operatorLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"operatorLicenses\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"operators\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"operatorsOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"quantity\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"purchaseLicense\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes\",\"name\":\"publicKey\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"commitment\",\"type\":\"address\"}],\"internalType\":\"structRegistrationData\",\"name\":\"regData\",\"type\":\"tuple\"},{\"internalType\":\"uint256[]\",\"name\":\"licenses\",\"type\":\"uint256[]\"}],\"name\":\"registerNodeOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"regDataBytes\",\"type\":\"bytes\"},{\"internalType\":\"uint256[]\",\"name\":\"licenses\",\"type\":\"uint256[]\"}],\"name\":\"registerOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_calibrator\",\"type\":\"uint256\"}],\"name\":\"setCalibrator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_price\",\"type\":\"uint256\"}],\"name\":\"setInitialLicencePrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalAccounts\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawEthers\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"AccessControlBadConfirmation\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"neededRole\",\"type\":\"bytes32\"}],\"name\":\"AccessControlUnauthorizedAccount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidInitialization\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotInitializing\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"OwnableInvalidOwner\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"OwnableUnauthorizedAccount\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"version\",\"type\":\"uint64\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"quantity\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"PurchaseEvent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"Received\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"previousAdminRole\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"newAdminRole\",\"type\":\"bytes32\"}],\"name\":\"RoleAdminChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleGranted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleRevoked\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"DEFAULT_ADMIN_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"accountInfo\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes[]\",\"name\":\"operators\",\"type\":\"bytes[]\"},{\"internalType\":\"uint256[]\",\"name\":\"licenses\",\"type\":\"uint256[]\"}],\"internalType\":\"structAccountInfo\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"accountLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"activeLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"activeLicensesIndex\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"authorizeAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"calibrator\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"licenses\",\"type\":\"uint256[]\"}],\"name\":\"deRegisterNodeOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fillLicenseCountGap\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"cycle\",\"type\":\"uint256\"}],\"name\":\"getCycleActiveLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"cycle\",\"type\":\"uint256\"}],\"name\":\"getCycleLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"operator\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"cycle\",\"type\":\"uint256\"}],\"name\":\"getOperatorCycleLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"operator\",\"type\":\"bytes\"}],\"name\":\"getOperatorLicenses\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"page\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"perPage\",\"type\":\"uint256\"}],\"name\":\"getOperators\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes\",\"name\":\"pubKey\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"eddKey\",\"type\":\"bytes32\"}],\"internalType\":\"structOperatorInfo[]\",\"name\":\"opr\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"getRegistrationData\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes\",\"name\":\"publicKey\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"commitment\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"eddKey\",\"type\":\"bytes32\"}],\"internalType\":\"structRegistrationData\",\"name\":\"regData\",\"type\":\"tuple\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"getRoleAdmin\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"grantRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"hasRole\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_network\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_token\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_licenseContract\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_otherLicenseContract\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"license\",\"type\":\"uint256\"}],\"name\":\"isActive\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"licenseContract\",\"outputs\":[{\"internalType\":\"contractILicenseContract\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"licenseOperator\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"licenseOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"quantity\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"promoCode\",\"type\":\"string\"}],\"name\":\"licensePrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"locked\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"network\",\"outputs\":[{\"internalType\":\"contractINetwork\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"nodesOwned\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"operatorCycleLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"operatorLicenseCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"operatorLicenses\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"operators\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"operatorsEddKey\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"operatorsOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"otherLicenseContract\",\"outputs\":[{\"internalType\":\"contractILicenseContract\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"quantity\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"promoCode\",\"type\":\"string\"}],\"name\":\"purchaseLicense\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"quantity\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"promoCode\",\"type\":\"string\"}],\"name\":\"purchaseLicenseFor\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"licenses\",\"type\":\"uint256[]\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes\",\"name\":\"publicKey\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"commitment\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"eddKey\",\"type\":\"bytes32\"}],\"internalType\":\"structRegistrationData\",\"name\":\"regData\",\"type\":\"tuple\"},{\"internalType\":\"uint256[]\",\"name\":\"licenses\",\"type\":\"uint256[]\"}],\"name\":\"registerOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"regDataBytes\",\"type\":\"bytes\"},{\"internalType\":\"uint256[]\",\"name\":\"licenses\",\"type\":\"uint256[]\"}],\"name\":\"registerOperatorBytes\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"callerConfirmation\",\"type\":\"address\"}],\"name\":\"renounceRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"revokeRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"setLicenseContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"setOtherLicenseContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalAccounts\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawEthers\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
 }
 
 // ValidatorContractABI is the input ABI used to generate the binding from.
@@ -188,6 +202,68 @@ func (_ValidatorContract *ValidatorContractTransactorRaw) Transact(opts *bind.Tr
 	return _ValidatorContract.Contract.contract.Transact(opts, method, params...)
 }
 
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_ValidatorContract *ValidatorContractCaller) DEFAULTADMINROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "DEFAULT_ADMIN_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_ValidatorContract *ValidatorContractSession) DEFAULTADMINROLE() ([32]byte, error) {
+	return _ValidatorContract.Contract.DEFAULTADMINROLE(&_ValidatorContract.CallOpts)
+}
+
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_ValidatorContract *ValidatorContractCallerSession) DEFAULTADMINROLE() ([32]byte, error) {
+	return _ValidatorContract.Contract.DEFAULTADMINROLE(&_ValidatorContract.CallOpts)
+}
+
+// AccountInfo is a free data retrieval call binding the contract method 0xa7310b58.
+//
+// Solidity: function accountInfo(address addr) view returns((bytes[],uint256[]))
+func (_ValidatorContract *ValidatorContractCaller) AccountInfo(opts *bind.CallOpts, addr common.Address) (AccountInfo, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "accountInfo", addr)
+
+	if err != nil {
+		return *new(AccountInfo), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AccountInfo)).(*AccountInfo)
+
+	return out0, err
+
+}
+
+// AccountInfo is a free data retrieval call binding the contract method 0xa7310b58.
+//
+// Solidity: function accountInfo(address addr) view returns((bytes[],uint256[]))
+func (_ValidatorContract *ValidatorContractSession) AccountInfo(addr common.Address) (AccountInfo, error) {
+	return _ValidatorContract.Contract.AccountInfo(&_ValidatorContract.CallOpts, addr)
+}
+
+// AccountInfo is a free data retrieval call binding the contract method 0xa7310b58.
+//
+// Solidity: function accountInfo(address addr) view returns((bytes[],uint256[]))
+func (_ValidatorContract *ValidatorContractCallerSession) AccountInfo(addr common.Address) (AccountInfo, error) {
+	return _ValidatorContract.Contract.AccountInfo(&_ValidatorContract.CallOpts, addr)
+}
+
 // AccountLicenseCount is a free data retrieval call binding the contract method 0x2a7fca77.
 //
 // Solidity: function accountLicenseCount(address ) view returns(uint256)
@@ -217,37 +293,6 @@ func (_ValidatorContract *ValidatorContractSession) AccountLicenseCount(arg0 com
 // Solidity: function accountLicenseCount(address ) view returns(uint256)
 func (_ValidatorContract *ValidatorContractCallerSession) AccountLicenseCount(arg0 common.Address) (*big.Int, error) {
 	return _ValidatorContract.Contract.AccountLicenseCount(&_ValidatorContract.CallOpts, arg0)
-}
-
-// AccountLicenses is a free data retrieval call binding the contract method 0xf80c2adc.
-//
-// Solidity: function accountLicenses(address , uint256 ) view returns(uint256)
-func (_ValidatorContract *ValidatorContractCaller) AccountLicenses(opts *bind.CallOpts, arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
-	var out []interface{}
-	err := _ValidatorContract.contract.Call(opts, &out, "accountLicenses", arg0, arg1)
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// AccountLicenses is a free data retrieval call binding the contract method 0xf80c2adc.
-//
-// Solidity: function accountLicenses(address , uint256 ) view returns(uint256)
-func (_ValidatorContract *ValidatorContractSession) AccountLicenses(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
-	return _ValidatorContract.Contract.AccountLicenses(&_ValidatorContract.CallOpts, arg0, arg1)
-}
-
-// AccountLicenses is a free data retrieval call binding the contract method 0xf80c2adc.
-//
-// Solidity: function accountLicenses(address , uint256 ) view returns(uint256)
-func (_ValidatorContract *ValidatorContractCallerSession) AccountLicenses(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
-	return _ValidatorContract.Contract.AccountLicenses(&_ValidatorContract.CallOpts, arg0, arg1)
 }
 
 // ActiveLicenseCount is a free data retrieval call binding the contract method 0x4104991d.
@@ -405,37 +450,6 @@ func (_ValidatorContract *ValidatorContractCallerSession) GetCycleLicenseCount(c
 	return _ValidatorContract.Contract.GetCycleLicenseCount(&_ValidatorContract.CallOpts, cycle)
 }
 
-// GetLicencePrice is a free data retrieval call binding the contract method 0x1c9129a9.
-//
-// Solidity: function getLicencePrice(address token) view returns(uint256)
-func (_ValidatorContract *ValidatorContractCaller) GetLicencePrice(opts *bind.CallOpts, token common.Address) (*big.Int, error) {
-	var out []interface{}
-	err := _ValidatorContract.contract.Call(opts, &out, "getLicencePrice", token)
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// GetLicencePrice is a free data retrieval call binding the contract method 0x1c9129a9.
-//
-// Solidity: function getLicencePrice(address token) view returns(uint256)
-func (_ValidatorContract *ValidatorContractSession) GetLicencePrice(token common.Address) (*big.Int, error) {
-	return _ValidatorContract.Contract.GetLicencePrice(&_ValidatorContract.CallOpts, token)
-}
-
-// GetLicencePrice is a free data retrieval call binding the contract method 0x1c9129a9.
-//
-// Solidity: function getLicencePrice(address token) view returns(uint256)
-func (_ValidatorContract *ValidatorContractCallerSession) GetLicencePrice(token common.Address) (*big.Int, error) {
-	return _ValidatorContract.Contract.GetLicencePrice(&_ValidatorContract.CallOpts, token)
-}
-
 // GetOperatorCycleLicenseCount is a free data retrieval call binding the contract method 0x333825bd.
 //
 // Solidity: function getOperatorCycleLicenseCount(bytes operator, uint256 cycle) view returns(uint256)
@@ -500,16 +514,16 @@ func (_ValidatorContract *ValidatorContractCallerSession) GetOperatorLicenses(op
 
 // GetOperators is a free data retrieval call binding the contract method 0xea4dd2b9.
 //
-// Solidity: function getOperators(uint256 page, uint256 perPage) view returns(bytes[] opr)
-func (_ValidatorContract *ValidatorContractCaller) GetOperators(opts *bind.CallOpts, page *big.Int, perPage *big.Int) ([][]byte, error) {
+// Solidity: function getOperators(uint256 page, uint256 perPage) view returns((bytes,address,bytes32)[] opr)
+func (_ValidatorContract *ValidatorContractCaller) GetOperators(opts *bind.CallOpts, page *big.Int, perPage *big.Int) ([]OperatorInfo, error) {
 	var out []interface{}
 	err := _ValidatorContract.contract.Call(opts, &out, "getOperators", page, perPage)
 
 	if err != nil {
-		return *new([][]byte), err
+		return *new([]OperatorInfo), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([][]byte)).(*[][]byte)
+	out0 := *abi.ConvertType(out[0], new([]OperatorInfo)).(*[]OperatorInfo)
 
 	return out0, err
 
@@ -517,21 +531,21 @@ func (_ValidatorContract *ValidatorContractCaller) GetOperators(opts *bind.CallO
 
 // GetOperators is a free data retrieval call binding the contract method 0xea4dd2b9.
 //
-// Solidity: function getOperators(uint256 page, uint256 perPage) view returns(bytes[] opr)
-func (_ValidatorContract *ValidatorContractSession) GetOperators(page *big.Int, perPage *big.Int) ([][]byte, error) {
+// Solidity: function getOperators(uint256 page, uint256 perPage) view returns((bytes,address,bytes32)[] opr)
+func (_ValidatorContract *ValidatorContractSession) GetOperators(page *big.Int, perPage *big.Int) ([]OperatorInfo, error) {
 	return _ValidatorContract.Contract.GetOperators(&_ValidatorContract.CallOpts, page, perPage)
 }
 
 // GetOperators is a free data retrieval call binding the contract method 0xea4dd2b9.
 //
-// Solidity: function getOperators(uint256 page, uint256 perPage) view returns(bytes[] opr)
-func (_ValidatorContract *ValidatorContractCallerSession) GetOperators(page *big.Int, perPage *big.Int) ([][]byte, error) {
+// Solidity: function getOperators(uint256 page, uint256 perPage) view returns((bytes,address,bytes32)[] opr)
+func (_ValidatorContract *ValidatorContractCallerSession) GetOperators(page *big.Int, perPage *big.Int) ([]OperatorInfo, error) {
 	return _ValidatorContract.Contract.GetOperators(&_ValidatorContract.CallOpts, page, perPage)
 }
 
 // GetRegistrationData is a free data retrieval call binding the contract method 0x274a77b9.
 //
-// Solidity: function getRegistrationData(bytes data) pure returns((bytes,uint256,bytes,address) regData)
+// Solidity: function getRegistrationData(bytes data) pure returns((bytes,uint256,bytes,address,bytes32) regData)
 func (_ValidatorContract *ValidatorContractCaller) GetRegistrationData(opts *bind.CallOpts, data []byte) (RegistrationData, error) {
 	var out []interface{}
 	err := _ValidatorContract.contract.Call(opts, &out, "getRegistrationData", data)
@@ -548,16 +562,78 @@ func (_ValidatorContract *ValidatorContractCaller) GetRegistrationData(opts *bin
 
 // GetRegistrationData is a free data retrieval call binding the contract method 0x274a77b9.
 //
-// Solidity: function getRegistrationData(bytes data) pure returns((bytes,uint256,bytes,address) regData)
+// Solidity: function getRegistrationData(bytes data) pure returns((bytes,uint256,bytes,address,bytes32) regData)
 func (_ValidatorContract *ValidatorContractSession) GetRegistrationData(data []byte) (RegistrationData, error) {
 	return _ValidatorContract.Contract.GetRegistrationData(&_ValidatorContract.CallOpts, data)
 }
 
 // GetRegistrationData is a free data retrieval call binding the contract method 0x274a77b9.
 //
-// Solidity: function getRegistrationData(bytes data) pure returns((bytes,uint256,bytes,address) regData)
+// Solidity: function getRegistrationData(bytes data) pure returns((bytes,uint256,bytes,address,bytes32) regData)
 func (_ValidatorContract *ValidatorContractCallerSession) GetRegistrationData(data []byte) (RegistrationData, error) {
 	return _ValidatorContract.Contract.GetRegistrationData(&_ValidatorContract.CallOpts, data)
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_ValidatorContract *ValidatorContractCaller) GetRoleAdmin(opts *bind.CallOpts, role [32]byte) ([32]byte, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "getRoleAdmin", role)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_ValidatorContract *ValidatorContractSession) GetRoleAdmin(role [32]byte) ([32]byte, error) {
+	return _ValidatorContract.Contract.GetRoleAdmin(&_ValidatorContract.CallOpts, role)
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_ValidatorContract *ValidatorContractCallerSession) GetRoleAdmin(role [32]byte) ([32]byte, error) {
+	return _ValidatorContract.Contract.GetRoleAdmin(&_ValidatorContract.CallOpts, role)
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_ValidatorContract *ValidatorContractCaller) HasRole(opts *bind.CallOpts, role [32]byte, account common.Address) (bool, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "hasRole", role, account)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_ValidatorContract *ValidatorContractSession) HasRole(role [32]byte, account common.Address) (bool, error) {
+	return _ValidatorContract.Contract.HasRole(&_ValidatorContract.CallOpts, role, account)
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_ValidatorContract *ValidatorContractCallerSession) HasRole(role [32]byte, account common.Address) (bool, error) {
+	return _ValidatorContract.Contract.HasRole(&_ValidatorContract.CallOpts, role, account)
 }
 
 // IsActive is a free data retrieval call binding the contract method 0x82afd23b.
@@ -589,6 +665,37 @@ func (_ValidatorContract *ValidatorContractSession) IsActive(license *big.Int) (
 // Solidity: function isActive(uint256 license) view returns(bool)
 func (_ValidatorContract *ValidatorContractCallerSession) IsActive(license *big.Int) (bool, error) {
 	return _ValidatorContract.Contract.IsActive(&_ValidatorContract.CallOpts, license)
+}
+
+// LicenseContract is a free data retrieval call binding the contract method 0xe2c52b9d.
+//
+// Solidity: function licenseContract() view returns(address)
+func (_ValidatorContract *ValidatorContractCaller) LicenseContract(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "licenseContract")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// LicenseContract is a free data retrieval call binding the contract method 0xe2c52b9d.
+//
+// Solidity: function licenseContract() view returns(address)
+func (_ValidatorContract *ValidatorContractSession) LicenseContract() (common.Address, error) {
+	return _ValidatorContract.Contract.LicenseContract(&_ValidatorContract.CallOpts)
+}
+
+// LicenseContract is a free data retrieval call binding the contract method 0xe2c52b9d.
+//
+// Solidity: function licenseContract() view returns(address)
+func (_ValidatorContract *ValidatorContractCallerSession) LicenseContract() (common.Address, error) {
+	return _ValidatorContract.Contract.LicenseContract(&_ValidatorContract.CallOpts)
 }
 
 // LicenseOperator is a free data retrieval call binding the contract method 0xacb905f1.
@@ -624,10 +731,10 @@ func (_ValidatorContract *ValidatorContractCallerSession) LicenseOperator(arg0 *
 
 // LicenseOwner is a free data retrieval call binding the contract method 0x452dd0f7.
 //
-// Solidity: function licenseOwner(uint256 ) view returns(address)
-func (_ValidatorContract *ValidatorContractCaller) LicenseOwner(opts *bind.CallOpts, arg0 *big.Int) (common.Address, error) {
+// Solidity: function licenseOwner(uint256 tokenId) view returns(address)
+func (_ValidatorContract *ValidatorContractCaller) LicenseOwner(opts *bind.CallOpts, tokenId *big.Int) (common.Address, error) {
 	var out []interface{}
-	err := _ValidatorContract.contract.Call(opts, &out, "licenseOwner", arg0)
+	err := _ValidatorContract.contract.Call(opts, &out, "licenseOwner", tokenId)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -641,16 +748,47 @@ func (_ValidatorContract *ValidatorContractCaller) LicenseOwner(opts *bind.CallO
 
 // LicenseOwner is a free data retrieval call binding the contract method 0x452dd0f7.
 //
-// Solidity: function licenseOwner(uint256 ) view returns(address)
-func (_ValidatorContract *ValidatorContractSession) LicenseOwner(arg0 *big.Int) (common.Address, error) {
-	return _ValidatorContract.Contract.LicenseOwner(&_ValidatorContract.CallOpts, arg0)
+// Solidity: function licenseOwner(uint256 tokenId) view returns(address)
+func (_ValidatorContract *ValidatorContractSession) LicenseOwner(tokenId *big.Int) (common.Address, error) {
+	return _ValidatorContract.Contract.LicenseOwner(&_ValidatorContract.CallOpts, tokenId)
 }
 
 // LicenseOwner is a free data retrieval call binding the contract method 0x452dd0f7.
 //
-// Solidity: function licenseOwner(uint256 ) view returns(address)
-func (_ValidatorContract *ValidatorContractCallerSession) LicenseOwner(arg0 *big.Int) (common.Address, error) {
-	return _ValidatorContract.Contract.LicenseOwner(&_ValidatorContract.CallOpts, arg0)
+// Solidity: function licenseOwner(uint256 tokenId) view returns(address)
+func (_ValidatorContract *ValidatorContractCallerSession) LicenseOwner(tokenId *big.Int) (common.Address, error) {
+	return _ValidatorContract.Contract.LicenseOwner(&_ValidatorContract.CallOpts, tokenId)
+}
+
+// LicensePrice is a free data retrieval call binding the contract method 0x342d88c6.
+//
+// Solidity: function licensePrice(uint256 quantity, string promoCode) view returns(uint256)
+func (_ValidatorContract *ValidatorContractCaller) LicensePrice(opts *bind.CallOpts, quantity *big.Int, promoCode string) (*big.Int, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "licensePrice", quantity, promoCode)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// LicensePrice is a free data retrieval call binding the contract method 0x342d88c6.
+//
+// Solidity: function licensePrice(uint256 quantity, string promoCode) view returns(uint256)
+func (_ValidatorContract *ValidatorContractSession) LicensePrice(quantity *big.Int, promoCode string) (*big.Int, error) {
+	return _ValidatorContract.Contract.LicensePrice(&_ValidatorContract.CallOpts, quantity, promoCode)
+}
+
+// LicensePrice is a free data retrieval call binding the contract method 0x342d88c6.
+//
+// Solidity: function licensePrice(uint256 quantity, string promoCode) view returns(uint256)
+func (_ValidatorContract *ValidatorContractCallerSession) LicensePrice(quantity *big.Int, promoCode string) (*big.Int, error) {
+	return _ValidatorContract.Contract.LicensePrice(&_ValidatorContract.CallOpts, quantity, promoCode)
 }
 
 // Locked is a free data retrieval call binding the contract method 0xcf309012.
@@ -870,6 +1008,37 @@ func (_ValidatorContract *ValidatorContractCallerSession) Operators(arg0 *big.In
 	return _ValidatorContract.Contract.Operators(&_ValidatorContract.CallOpts, arg0)
 }
 
+// OperatorsEddKey is a free data retrieval call binding the contract method 0x2555a068.
+//
+// Solidity: function operatorsEddKey(bytes ) view returns(bytes32)
+func (_ValidatorContract *ValidatorContractCaller) OperatorsEddKey(opts *bind.CallOpts, arg0 []byte) ([32]byte, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "operatorsEddKey", arg0)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// OperatorsEddKey is a free data retrieval call binding the contract method 0x2555a068.
+//
+// Solidity: function operatorsEddKey(bytes ) view returns(bytes32)
+func (_ValidatorContract *ValidatorContractSession) OperatorsEddKey(arg0 []byte) ([32]byte, error) {
+	return _ValidatorContract.Contract.OperatorsEddKey(&_ValidatorContract.CallOpts, arg0)
+}
+
+// OperatorsEddKey is a free data retrieval call binding the contract method 0x2555a068.
+//
+// Solidity: function operatorsEddKey(bytes ) view returns(bytes32)
+func (_ValidatorContract *ValidatorContractCallerSession) OperatorsEddKey(arg0 []byte) ([32]byte, error) {
+	return _ValidatorContract.Contract.OperatorsEddKey(&_ValidatorContract.CallOpts, arg0)
+}
+
 // OperatorsOwner is a free data retrieval call binding the contract method 0xa7f5afee.
 //
 // Solidity: function operatorsOwner(bytes ) view returns(address)
@@ -899,6 +1068,37 @@ func (_ValidatorContract *ValidatorContractSession) OperatorsOwner(arg0 []byte) 
 // Solidity: function operatorsOwner(bytes ) view returns(address)
 func (_ValidatorContract *ValidatorContractCallerSession) OperatorsOwner(arg0 []byte) (common.Address, error) {
 	return _ValidatorContract.Contract.OperatorsOwner(&_ValidatorContract.CallOpts, arg0)
+}
+
+// OtherLicenseContract is a free data retrieval call binding the contract method 0x26732bfe.
+//
+// Solidity: function otherLicenseContract() view returns(address)
+func (_ValidatorContract *ValidatorContractCaller) OtherLicenseContract(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "otherLicenseContract")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// OtherLicenseContract is a free data retrieval call binding the contract method 0x26732bfe.
+//
+// Solidity: function otherLicenseContract() view returns(address)
+func (_ValidatorContract *ValidatorContractSession) OtherLicenseContract() (common.Address, error) {
+	return _ValidatorContract.Contract.OtherLicenseContract(&_ValidatorContract.CallOpts)
+}
+
+// OtherLicenseContract is a free data retrieval call binding the contract method 0x26732bfe.
+//
+// Solidity: function otherLicenseContract() view returns(address)
+func (_ValidatorContract *ValidatorContractCallerSession) OtherLicenseContract() (common.Address, error) {
+	return _ValidatorContract.Contract.OtherLicenseContract(&_ValidatorContract.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -932,6 +1132,37 @@ func (_ValidatorContract *ValidatorContractCallerSession) Owner() (common.Addres
 	return _ValidatorContract.Contract.Owner(&_ValidatorContract.CallOpts)
 }
 
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_ValidatorContract *ValidatorContractCaller) SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error) {
+	var out []interface{}
+	err := _ValidatorContract.contract.Call(opts, &out, "supportsInterface", interfaceId)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_ValidatorContract *ValidatorContractSession) SupportsInterface(interfaceId [4]byte) (bool, error) {
+	return _ValidatorContract.Contract.SupportsInterface(&_ValidatorContract.CallOpts, interfaceId)
+}
+
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_ValidatorContract *ValidatorContractCallerSession) SupportsInterface(interfaceId [4]byte) (bool, error) {
+	return _ValidatorContract.Contract.SupportsInterface(&_ValidatorContract.CallOpts, interfaceId)
+}
+
 // TotalAccounts is a free data retrieval call binding the contract method 0x58451f97.
 //
 // Solidity: function totalAccounts() view returns(uint256)
@@ -961,6 +1192,27 @@ func (_ValidatorContract *ValidatorContractSession) TotalAccounts() (*big.Int, e
 // Solidity: function totalAccounts() view returns(uint256)
 func (_ValidatorContract *ValidatorContractCallerSession) TotalAccounts() (*big.Int, error) {
 	return _ValidatorContract.Contract.TotalAccounts(&_ValidatorContract.CallOpts)
+}
+
+// AuthorizeAdmin is a paid mutator transaction binding the contract method 0x997c579e.
+//
+// Solidity: function authorizeAdmin() returns()
+func (_ValidatorContract *ValidatorContractTransactor) AuthorizeAdmin(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "authorizeAdmin")
+}
+
+// AuthorizeAdmin is a paid mutator transaction binding the contract method 0x997c579e.
+//
+// Solidity: function authorizeAdmin() returns()
+func (_ValidatorContract *ValidatorContractSession) AuthorizeAdmin() (*types.Transaction, error) {
+	return _ValidatorContract.Contract.AuthorizeAdmin(&_ValidatorContract.TransactOpts)
+}
+
+// AuthorizeAdmin is a paid mutator transaction binding the contract method 0x997c579e.
+//
+// Solidity: function authorizeAdmin() returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) AuthorizeAdmin() (*types.Transaction, error) {
+	return _ValidatorContract.Contract.AuthorizeAdmin(&_ValidatorContract.TransactOpts)
 }
 
 // DeRegisterNodeOperator is a paid mutator transaction binding the contract method 0x632402cc.
@@ -1005,88 +1257,130 @@ func (_ValidatorContract *ValidatorContractTransactorSession) FillLicenseCountGa
 	return _ValidatorContract.Contract.FillLicenseCountGap(&_ValidatorContract.TransactOpts)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0x1794bb3c.
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
 //
-// Solidity: function initialize(address _network, address _token, uint256 licensePrice) returns()
-func (_ValidatorContract *ValidatorContractTransactor) Initialize(opts *bind.TransactOpts, _network common.Address, _token common.Address, licensePrice *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.contract.Transact(opts, "initialize", _network, _token, licensePrice)
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_ValidatorContract *ValidatorContractTransactor) GrantRole(opts *bind.TransactOpts, role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "grantRole", role, account)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0x1794bb3c.
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
 //
-// Solidity: function initialize(address _network, address _token, uint256 licensePrice) returns()
-func (_ValidatorContract *ValidatorContractSession) Initialize(_network common.Address, _token common.Address, licensePrice *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.Initialize(&_ValidatorContract.TransactOpts, _network, _token, licensePrice)
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_ValidatorContract *ValidatorContractSession) GrantRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.GrantRole(&_ValidatorContract.TransactOpts, role, account)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0x1794bb3c.
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
 //
-// Solidity: function initialize(address _network, address _token, uint256 licensePrice) returns()
-func (_ValidatorContract *ValidatorContractTransactorSession) Initialize(_network common.Address, _token common.Address, licensePrice *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.Initialize(&_ValidatorContract.TransactOpts, _network, _token, licensePrice)
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) GrantRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.GrantRole(&_ValidatorContract.TransactOpts, role, account)
 }
 
-// PurchaseLicense is a paid mutator transaction binding the contract method 0x003da2df.
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function purchaseLicense(uint256 quantity, address token) payable returns(uint256[])
-func (_ValidatorContract *ValidatorContractTransactor) PurchaseLicense(opts *bind.TransactOpts, quantity *big.Int, token common.Address) (*types.Transaction, error) {
-	return _ValidatorContract.contract.Transact(opts, "purchaseLicense", quantity, token)
+// Solidity: function initialize(address _network, address _token, address _licenseContract, address _otherLicenseContract) returns()
+func (_ValidatorContract *ValidatorContractTransactor) Initialize(opts *bind.TransactOpts, _network common.Address, _token common.Address, _licenseContract common.Address, _otherLicenseContract common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "initialize", _network, _token, _licenseContract, _otherLicenseContract)
 }
 
-// PurchaseLicense is a paid mutator transaction binding the contract method 0x003da2df.
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function purchaseLicense(uint256 quantity, address token) payable returns(uint256[])
-func (_ValidatorContract *ValidatorContractSession) PurchaseLicense(quantity *big.Int, token common.Address) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.PurchaseLicense(&_ValidatorContract.TransactOpts, quantity, token)
+// Solidity: function initialize(address _network, address _token, address _licenseContract, address _otherLicenseContract) returns()
+func (_ValidatorContract *ValidatorContractSession) Initialize(_network common.Address, _token common.Address, _licenseContract common.Address, _otherLicenseContract common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.Initialize(&_ValidatorContract.TransactOpts, _network, _token, _licenseContract, _otherLicenseContract)
 }
 
-// PurchaseLicense is a paid mutator transaction binding the contract method 0x003da2df.
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function purchaseLicense(uint256 quantity, address token) payable returns(uint256[])
-func (_ValidatorContract *ValidatorContractTransactorSession) PurchaseLicense(quantity *big.Int, token common.Address) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.PurchaseLicense(&_ValidatorContract.TransactOpts, quantity, token)
+// Solidity: function initialize(address _network, address _token, address _licenseContract, address _otherLicenseContract) returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) Initialize(_network common.Address, _token common.Address, _licenseContract common.Address, _otherLicenseContract common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.Initialize(&_ValidatorContract.TransactOpts, _network, _token, _licenseContract, _otherLicenseContract)
 }
 
-// RegisterNodeOperator is a paid mutator transaction binding the contract method 0x4ca5628f.
+// PurchaseLicense is a paid mutator transaction binding the contract method 0xc031d7f7.
 //
-// Solidity: function registerNodeOperator((bytes,uint256,bytes,address) regData, uint256[] licenses) returns()
-func (_ValidatorContract *ValidatorContractTransactor) RegisterNodeOperator(opts *bind.TransactOpts, regData RegistrationData, licenses []*big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.contract.Transact(opts, "registerNodeOperator", regData, licenses)
+// Solidity: function purchaseLicense(uint256 quantity, string promoCode) payable returns(uint256[])
+func (_ValidatorContract *ValidatorContractTransactor) PurchaseLicense(opts *bind.TransactOpts, quantity *big.Int, promoCode string) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "purchaseLicense", quantity, promoCode)
 }
 
-// RegisterNodeOperator is a paid mutator transaction binding the contract method 0x4ca5628f.
+// PurchaseLicense is a paid mutator transaction binding the contract method 0xc031d7f7.
 //
-// Solidity: function registerNodeOperator((bytes,uint256,bytes,address) regData, uint256[] licenses) returns()
-func (_ValidatorContract *ValidatorContractSession) RegisterNodeOperator(regData RegistrationData, licenses []*big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.RegisterNodeOperator(&_ValidatorContract.TransactOpts, regData, licenses)
+// Solidity: function purchaseLicense(uint256 quantity, string promoCode) payable returns(uint256[])
+func (_ValidatorContract *ValidatorContractSession) PurchaseLicense(quantity *big.Int, promoCode string) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.PurchaseLicense(&_ValidatorContract.TransactOpts, quantity, promoCode)
 }
 
-// RegisterNodeOperator is a paid mutator transaction binding the contract method 0x4ca5628f.
+// PurchaseLicense is a paid mutator transaction binding the contract method 0xc031d7f7.
 //
-// Solidity: function registerNodeOperator((bytes,uint256,bytes,address) regData, uint256[] licenses) returns()
-func (_ValidatorContract *ValidatorContractTransactorSession) RegisterNodeOperator(regData RegistrationData, licenses []*big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.RegisterNodeOperator(&_ValidatorContract.TransactOpts, regData, licenses)
+// Solidity: function purchaseLicense(uint256 quantity, string promoCode) payable returns(uint256[])
+func (_ValidatorContract *ValidatorContractTransactorSession) PurchaseLicense(quantity *big.Int, promoCode string) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.PurchaseLicense(&_ValidatorContract.TransactOpts, quantity, promoCode)
 }
 
-// RegisterOperator is a paid mutator transaction binding the contract method 0xcdadf777.
+// PurchaseLicenseFor is a paid mutator transaction binding the contract method 0xd921884f.
 //
-// Solidity: function registerOperator(bytes regDataBytes, uint256[] licenses) returns()
-func (_ValidatorContract *ValidatorContractTransactor) RegisterOperator(opts *bind.TransactOpts, regDataBytes []byte, licenses []*big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.contract.Transact(opts, "registerOperator", regDataBytes, licenses)
+// Solidity: function purchaseLicenseFor(uint256 quantity, address receiver, string promoCode) payable returns(uint256[] licenses)
+func (_ValidatorContract *ValidatorContractTransactor) PurchaseLicenseFor(opts *bind.TransactOpts, quantity *big.Int, receiver common.Address, promoCode string) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "purchaseLicenseFor", quantity, receiver, promoCode)
 }
 
-// RegisterOperator is a paid mutator transaction binding the contract method 0xcdadf777.
+// PurchaseLicenseFor is a paid mutator transaction binding the contract method 0xd921884f.
 //
-// Solidity: function registerOperator(bytes regDataBytes, uint256[] licenses) returns()
-func (_ValidatorContract *ValidatorContractSession) RegisterOperator(regDataBytes []byte, licenses []*big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.RegisterOperator(&_ValidatorContract.TransactOpts, regDataBytes, licenses)
+// Solidity: function purchaseLicenseFor(uint256 quantity, address receiver, string promoCode) payable returns(uint256[] licenses)
+func (_ValidatorContract *ValidatorContractSession) PurchaseLicenseFor(quantity *big.Int, receiver common.Address, promoCode string) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.PurchaseLicenseFor(&_ValidatorContract.TransactOpts, quantity, receiver, promoCode)
 }
 
-// RegisterOperator is a paid mutator transaction binding the contract method 0xcdadf777.
+// PurchaseLicenseFor is a paid mutator transaction binding the contract method 0xd921884f.
 //
-// Solidity: function registerOperator(bytes regDataBytes, uint256[] licenses) returns()
-func (_ValidatorContract *ValidatorContractTransactorSession) RegisterOperator(regDataBytes []byte, licenses []*big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.RegisterOperator(&_ValidatorContract.TransactOpts, regDataBytes, licenses)
+// Solidity: function purchaseLicenseFor(uint256 quantity, address receiver, string promoCode) payable returns(uint256[] licenses)
+func (_ValidatorContract *ValidatorContractTransactorSession) PurchaseLicenseFor(quantity *big.Int, receiver common.Address, promoCode string) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.PurchaseLicenseFor(&_ValidatorContract.TransactOpts, quantity, receiver, promoCode)
+}
+
+// RegisterOperator is a paid mutator transaction binding the contract method 0xb257250e.
+//
+// Solidity: function registerOperator((bytes,uint256,bytes,address,bytes32) regData, uint256[] licenses) returns()
+func (_ValidatorContract *ValidatorContractTransactor) RegisterOperator(opts *bind.TransactOpts, regData RegistrationData, licenses []*big.Int) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "registerOperator", regData, licenses)
+}
+
+// RegisterOperator is a paid mutator transaction binding the contract method 0xb257250e.
+//
+// Solidity: function registerOperator((bytes,uint256,bytes,address,bytes32) regData, uint256[] licenses) returns()
+func (_ValidatorContract *ValidatorContractSession) RegisterOperator(regData RegistrationData, licenses []*big.Int) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.RegisterOperator(&_ValidatorContract.TransactOpts, regData, licenses)
+}
+
+// RegisterOperator is a paid mutator transaction binding the contract method 0xb257250e.
+//
+// Solidity: function registerOperator((bytes,uint256,bytes,address,bytes32) regData, uint256[] licenses) returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) RegisterOperator(regData RegistrationData, licenses []*big.Int) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.RegisterOperator(&_ValidatorContract.TransactOpts, regData, licenses)
+}
+
+// RegisterOperatorBytes is a paid mutator transaction binding the contract method 0xb87b14d7.
+//
+// Solidity: function registerOperatorBytes(bytes regDataBytes, uint256[] licenses) returns()
+func (_ValidatorContract *ValidatorContractTransactor) RegisterOperatorBytes(opts *bind.TransactOpts, regDataBytes []byte, licenses []*big.Int) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "registerOperatorBytes", regDataBytes, licenses)
+}
+
+// RegisterOperatorBytes is a paid mutator transaction binding the contract method 0xb87b14d7.
+//
+// Solidity: function registerOperatorBytes(bytes regDataBytes, uint256[] licenses) returns()
+func (_ValidatorContract *ValidatorContractSession) RegisterOperatorBytes(regDataBytes []byte, licenses []*big.Int) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.RegisterOperatorBytes(&_ValidatorContract.TransactOpts, regDataBytes, licenses)
+}
+
+// RegisterOperatorBytes is a paid mutator transaction binding the contract method 0xb87b14d7.
+//
+// Solidity: function registerOperatorBytes(bytes regDataBytes, uint256[] licenses) returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) RegisterOperatorBytes(regDataBytes []byte, licenses []*big.Int) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.RegisterOperatorBytes(&_ValidatorContract.TransactOpts, regDataBytes, licenses)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -1110,46 +1404,88 @@ func (_ValidatorContract *ValidatorContractTransactorSession) RenounceOwnership(
 	return _ValidatorContract.Contract.RenounceOwnership(&_ValidatorContract.TransactOpts)
 }
 
-// SetCalibrator is a paid mutator transaction binding the contract method 0x48922da5.
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
 //
-// Solidity: function setCalibrator(uint256 _calibrator) returns()
-func (_ValidatorContract *ValidatorContractTransactor) SetCalibrator(opts *bind.TransactOpts, _calibrator *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.contract.Transact(opts, "setCalibrator", _calibrator)
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_ValidatorContract *ValidatorContractTransactor) RenounceRole(opts *bind.TransactOpts, role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "renounceRole", role, callerConfirmation)
 }
 
-// SetCalibrator is a paid mutator transaction binding the contract method 0x48922da5.
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
 //
-// Solidity: function setCalibrator(uint256 _calibrator) returns()
-func (_ValidatorContract *ValidatorContractSession) SetCalibrator(_calibrator *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.SetCalibrator(&_ValidatorContract.TransactOpts, _calibrator)
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_ValidatorContract *ValidatorContractSession) RenounceRole(role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.RenounceRole(&_ValidatorContract.TransactOpts, role, callerConfirmation)
 }
 
-// SetCalibrator is a paid mutator transaction binding the contract method 0x48922da5.
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
 //
-// Solidity: function setCalibrator(uint256 _calibrator) returns()
-func (_ValidatorContract *ValidatorContractTransactorSession) SetCalibrator(_calibrator *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.SetCalibrator(&_ValidatorContract.TransactOpts, _calibrator)
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) RenounceRole(role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.RenounceRole(&_ValidatorContract.TransactOpts, role, callerConfirmation)
 }
 
-// SetInitialLicencePrice is a paid mutator transaction binding the contract method 0x98bcd0b0.
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
 //
-// Solidity: function setInitialLicencePrice(address token, uint256 _price) returns()
-func (_ValidatorContract *ValidatorContractTransactor) SetInitialLicencePrice(opts *bind.TransactOpts, token common.Address, _price *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.contract.Transact(opts, "setInitialLicencePrice", token, _price)
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_ValidatorContract *ValidatorContractTransactor) RevokeRole(opts *bind.TransactOpts, role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "revokeRole", role, account)
 }
 
-// SetInitialLicencePrice is a paid mutator transaction binding the contract method 0x98bcd0b0.
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
 //
-// Solidity: function setInitialLicencePrice(address token, uint256 _price) returns()
-func (_ValidatorContract *ValidatorContractSession) SetInitialLicencePrice(token common.Address, _price *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.SetInitialLicencePrice(&_ValidatorContract.TransactOpts, token, _price)
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_ValidatorContract *ValidatorContractSession) RevokeRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.RevokeRole(&_ValidatorContract.TransactOpts, role, account)
 }
 
-// SetInitialLicencePrice is a paid mutator transaction binding the contract method 0x98bcd0b0.
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
 //
-// Solidity: function setInitialLicencePrice(address token, uint256 _price) returns()
-func (_ValidatorContract *ValidatorContractTransactorSession) SetInitialLicencePrice(token common.Address, _price *big.Int) (*types.Transaction, error) {
-	return _ValidatorContract.Contract.SetInitialLicencePrice(&_ValidatorContract.TransactOpts, token, _price)
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) RevokeRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.RevokeRole(&_ValidatorContract.TransactOpts, role, account)
+}
+
+// SetLicenseContract is a paid mutator transaction binding the contract method 0x9ae3aff8.
+//
+// Solidity: function setLicenseContract(address addr) returns()
+func (_ValidatorContract *ValidatorContractTransactor) SetLicenseContract(opts *bind.TransactOpts, addr common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "setLicenseContract", addr)
+}
+
+// SetLicenseContract is a paid mutator transaction binding the contract method 0x9ae3aff8.
+//
+// Solidity: function setLicenseContract(address addr) returns()
+func (_ValidatorContract *ValidatorContractSession) SetLicenseContract(addr common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.SetLicenseContract(&_ValidatorContract.TransactOpts, addr)
+}
+
+// SetLicenseContract is a paid mutator transaction binding the contract method 0x9ae3aff8.
+//
+// Solidity: function setLicenseContract(address addr) returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) SetLicenseContract(addr common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.SetLicenseContract(&_ValidatorContract.TransactOpts, addr)
+}
+
+// SetOtherLicenseContract is a paid mutator transaction binding the contract method 0xb8f434b1.
+//
+// Solidity: function setOtherLicenseContract(address addr) returns()
+func (_ValidatorContract *ValidatorContractTransactor) SetOtherLicenseContract(opts *bind.TransactOpts, addr common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.contract.Transact(opts, "setOtherLicenseContract", addr)
+}
+
+// SetOtherLicenseContract is a paid mutator transaction binding the contract method 0xb8f434b1.
+//
+// Solidity: function setOtherLicenseContract(address addr) returns()
+func (_ValidatorContract *ValidatorContractSession) SetOtherLicenseContract(addr common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.SetOtherLicenseContract(&_ValidatorContract.TransactOpts, addr)
+}
+
+// SetOtherLicenseContract is a paid mutator transaction binding the contract method 0xb8f434b1.
+//
+// Solidity: function setOtherLicenseContract(address addr) returns()
+func (_ValidatorContract *ValidatorContractTransactorSession) SetOtherLicenseContract(addr common.Address) (*types.Transaction, error) {
+	return _ValidatorContract.Contract.SetOtherLicenseContract(&_ValidatorContract.TransactOpts, addr)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -1820,6 +2156,492 @@ func (_ValidatorContract *ValidatorContractFilterer) WatchReceived(opts *bind.Wa
 func (_ValidatorContract *ValidatorContractFilterer) ParseReceived(log types.Log) (*ValidatorContractReceived, error) {
 	event := new(ValidatorContractReceived)
 	if err := _ValidatorContract.contract.UnpackLog(event, "Received", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ValidatorContractRoleAdminChangedIterator is returned from FilterRoleAdminChanged and is used to iterate over the raw logs and unpacked data for RoleAdminChanged events raised by the ValidatorContract contract.
+type ValidatorContractRoleAdminChangedIterator struct {
+	Event *ValidatorContractRoleAdminChanged // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ValidatorContractRoleAdminChangedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ValidatorContractRoleAdminChanged)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ValidatorContractRoleAdminChanged)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ValidatorContractRoleAdminChangedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ValidatorContractRoleAdminChangedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ValidatorContractRoleAdminChanged represents a RoleAdminChanged event raised by the ValidatorContract contract.
+type ValidatorContractRoleAdminChanged struct {
+	Role              [32]byte
+	PreviousAdminRole [32]byte
+	NewAdminRole      [32]byte
+	Raw               types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleAdminChanged is a free log retrieval operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_ValidatorContract *ValidatorContractFilterer) FilterRoleAdminChanged(opts *bind.FilterOpts, role [][32]byte, previousAdminRole [][32]byte, newAdminRole [][32]byte) (*ValidatorContractRoleAdminChangedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var previousAdminRoleRule []interface{}
+	for _, previousAdminRoleItem := range previousAdminRole {
+		previousAdminRoleRule = append(previousAdminRoleRule, previousAdminRoleItem)
+	}
+	var newAdminRoleRule []interface{}
+	for _, newAdminRoleItem := range newAdminRole {
+		newAdminRoleRule = append(newAdminRoleRule, newAdminRoleItem)
+	}
+
+	logs, sub, err := _ValidatorContract.contract.FilterLogs(opts, "RoleAdminChanged", roleRule, previousAdminRoleRule, newAdminRoleRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ValidatorContractRoleAdminChangedIterator{contract: _ValidatorContract.contract, event: "RoleAdminChanged", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleAdminChanged is a free log subscription operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_ValidatorContract *ValidatorContractFilterer) WatchRoleAdminChanged(opts *bind.WatchOpts, sink chan<- *ValidatorContractRoleAdminChanged, role [][32]byte, previousAdminRole [][32]byte, newAdminRole [][32]byte) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var previousAdminRoleRule []interface{}
+	for _, previousAdminRoleItem := range previousAdminRole {
+		previousAdminRoleRule = append(previousAdminRoleRule, previousAdminRoleItem)
+	}
+	var newAdminRoleRule []interface{}
+	for _, newAdminRoleItem := range newAdminRole {
+		newAdminRoleRule = append(newAdminRoleRule, newAdminRoleItem)
+	}
+
+	logs, sub, err := _ValidatorContract.contract.WatchLogs(opts, "RoleAdminChanged", roleRule, previousAdminRoleRule, newAdminRoleRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ValidatorContractRoleAdminChanged)
+				if err := _ValidatorContract.contract.UnpackLog(event, "RoleAdminChanged", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleAdminChanged is a log parse operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_ValidatorContract *ValidatorContractFilterer) ParseRoleAdminChanged(log types.Log) (*ValidatorContractRoleAdminChanged, error) {
+	event := new(ValidatorContractRoleAdminChanged)
+	if err := _ValidatorContract.contract.UnpackLog(event, "RoleAdminChanged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ValidatorContractRoleGrantedIterator is returned from FilterRoleGranted and is used to iterate over the raw logs and unpacked data for RoleGranted events raised by the ValidatorContract contract.
+type ValidatorContractRoleGrantedIterator struct {
+	Event *ValidatorContractRoleGranted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ValidatorContractRoleGrantedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ValidatorContractRoleGranted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ValidatorContractRoleGranted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ValidatorContractRoleGrantedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ValidatorContractRoleGrantedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ValidatorContractRoleGranted represents a RoleGranted event raised by the ValidatorContract contract.
+type ValidatorContractRoleGranted struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleGranted is a free log retrieval operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_ValidatorContract *ValidatorContractFilterer) FilterRoleGranted(opts *bind.FilterOpts, role [][32]byte, account []common.Address, sender []common.Address) (*ValidatorContractRoleGrantedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _ValidatorContract.contract.FilterLogs(opts, "RoleGranted", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ValidatorContractRoleGrantedIterator{contract: _ValidatorContract.contract, event: "RoleGranted", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleGranted is a free log subscription operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_ValidatorContract *ValidatorContractFilterer) WatchRoleGranted(opts *bind.WatchOpts, sink chan<- *ValidatorContractRoleGranted, role [][32]byte, account []common.Address, sender []common.Address) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _ValidatorContract.contract.WatchLogs(opts, "RoleGranted", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ValidatorContractRoleGranted)
+				if err := _ValidatorContract.contract.UnpackLog(event, "RoleGranted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleGranted is a log parse operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_ValidatorContract *ValidatorContractFilterer) ParseRoleGranted(log types.Log) (*ValidatorContractRoleGranted, error) {
+	event := new(ValidatorContractRoleGranted)
+	if err := _ValidatorContract.contract.UnpackLog(event, "RoleGranted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ValidatorContractRoleRevokedIterator is returned from FilterRoleRevoked and is used to iterate over the raw logs and unpacked data for RoleRevoked events raised by the ValidatorContract contract.
+type ValidatorContractRoleRevokedIterator struct {
+	Event *ValidatorContractRoleRevoked // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ValidatorContractRoleRevokedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ValidatorContractRoleRevoked)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ValidatorContractRoleRevoked)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ValidatorContractRoleRevokedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ValidatorContractRoleRevokedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ValidatorContractRoleRevoked represents a RoleRevoked event raised by the ValidatorContract contract.
+type ValidatorContractRoleRevoked struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleRevoked is a free log retrieval operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_ValidatorContract *ValidatorContractFilterer) FilterRoleRevoked(opts *bind.FilterOpts, role [][32]byte, account []common.Address, sender []common.Address) (*ValidatorContractRoleRevokedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _ValidatorContract.contract.FilterLogs(opts, "RoleRevoked", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ValidatorContractRoleRevokedIterator{contract: _ValidatorContract.contract, event: "RoleRevoked", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleRevoked is a free log subscription operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_ValidatorContract *ValidatorContractFilterer) WatchRoleRevoked(opts *bind.WatchOpts, sink chan<- *ValidatorContractRoleRevoked, role [][32]byte, account []common.Address, sender []common.Address) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _ValidatorContract.contract.WatchLogs(opts, "RoleRevoked", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ValidatorContractRoleRevoked)
+				if err := _ValidatorContract.contract.UnpackLog(event, "RoleRevoked", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleRevoked is a log parse operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_ValidatorContract *ValidatorContractFilterer) ParseRoleRevoked(log types.Log) (*ValidatorContractRoleRevoked, error) {
+	event := new(ValidatorContractRoleRevoked)
+	if err := _ValidatorContract.contract.UnpackLog(event, "RoleRevoked", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

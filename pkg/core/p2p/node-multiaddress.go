@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"encoding/json"
-	"math"
 	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
@@ -23,7 +22,7 @@ type NodeMultiAddressData struct {
 	Timestamp uint64 `json:"ts"`
 	ChainId configs.ChainId `json:"pre"`
 	Signer json.RawMessage `json:"signr"`
-	PubKeySecp json.RawMessage `json:"pubKey"`
+	PubKeyEDD json.RawMessage `json:"pubKey"`
 	Signature json.RawMessage `json:"sig"`
 	config *configs.MainConfiguration `json:"-" msgpack:"-"`
 	
@@ -43,7 +42,7 @@ func (n NodeMultiAddressData) EncodeBytes() ([]byte, error) {
     return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: data},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: n.ChainId.Bytes()},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: n.PubKeySecp},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: n.PubKeyEDD},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: n.Timestamp},
 	)
 }
@@ -61,10 +60,10 @@ func (nma * NodeMultiAddressData) IsValid(prefix configs.ChainId) bool {
 	// Prevents cross chain replay attack
 	nma.ChainId = prefix  // Important security update. Do not remove
 	//
-	if math.Abs(float64(uint64(time.Now().UnixMilli()) - nma.Timestamp)) > float64(4 * time.Hour.Milliseconds()) {
-		logger.WithFields(logrus.Fields{"data": nma}).Warnf("MultiaddressDataExpired: %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
-		return false
-	}
+	// if math.Abs(float64(uint64(time.Now().UnixMilli()) - nma.Timestamp)) > float64(4 * time.Hour.Milliseconds()) {
+	// 	logger.WithFields(logrus.Fields{"data": nma}).Warnf("MultiaddressDataExpired: %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
+	// 	return false
+	// }
 	// signer, err := hex.DecodeString(string(nma.Signer));
 	// if err != nil {
 	// 	logger.Error("Unable to decode signer")
@@ -83,7 +82,7 @@ func (nma * NodeMultiAddressData) IsValid(prefix configs.ChainId) bool {
 	// }
 	// logger.Infof("Operator4 %s", nma.Signer)
 	
-	isValid, err := crypto.VerifySignatureEDD(nma.Signer, &data, nma.Signature)
+	isValid, err := crypto.VerifySignatureSECP(nma.Signer, data, nma.Signature)
 	if err != nil {
 		logger.Errorf("NodeMultiAddressData: %v", err)
 		return false
@@ -97,16 +96,16 @@ func (nma * NodeMultiAddressData) IsValid(prefix configs.ChainId) bool {
 }
 
 
-func NewNodeMultiAddressData(config *configs.MainConfiguration, privateKey []byte, addresses []string, pubKeySecP []byte) (*NodeMultiAddressData, error) {
+func NewNodeMultiAddressData(config *configs.MainConfiguration, privateKey []byte, addresses []string, pubKeyEDD []byte) (*NodeMultiAddressData, error) {
 	//pubKey := crypto.GetPublicKeySECP(privateKey)
-	nma := NodeMultiAddressData{config: config, PubKeySecp: pubKeySecP, ChainId: config.ChainId, Addresses: addresses,   Timestamp: uint64(time.Now().UnixMilli())}
+	nma := NodeMultiAddressData{config: config, PubKeyEDD: pubKeyEDD, ChainId: config.ChainId, Addresses: addresses,   Timestamp: uint64(time.Now().UnixMilli())}
 	b, err := nma.EncodeBytes();
 	if(err != nil) {
 		return nil, err
 	}
-	signature, _ := crypto.SignEDD(b, config.PrivateKeyEDD)
+	signature, _ := crypto.SignSECP(b, config.PrivateKeySECP)
     nma.Signature = signature
-    nma.Signer = config.PublicKeyEDD
+    nma.Signer = config.PublicKeySECP
 	return &nma, nil
 }
 

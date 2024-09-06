@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -36,6 +37,7 @@ type EthConfig struct {
 }
 
 type SqlConfig struct {
+
 	DbDialect         string `toml:"db_dialect"`
 	DbHost            string `toml:"db_host"`
 	DbStoragePath     string `toml:"db_storage_dir"`
@@ -51,9 +53,6 @@ type SqlConfig struct {
 	
 }
 
-type MLChainAPI struct {
-	url string `toml:"ml_api_url"`
-}
 
 type ChainId string
 
@@ -104,8 +103,16 @@ type MainConfiguration struct {
 	PublicKeyEDD []byte 
 	PrivateKeySECP  []byte 
 	PublicKeySECP []byte 
+
+	OwnerAddress common.Address 
 	Context *context.Context
+
 }
+
+type MLChainAPI struct {
+	url string `mapstructure:"ml_api_url"`
+}
+
 
 var (
 	Config MainConfiguration

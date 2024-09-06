@@ -3,6 +3,7 @@ package chain
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -16,15 +17,36 @@ type NetworkParams struct {
 	StartBlock *big.Int
 	CurrentCycle *big.Int
 	CurrentBlock *big.Int
-	Validators map[string]bool
+	ActiveValidatorLicenseCount uint64
+	ActiveSentryLicenseCount uint64
+	Validators map[string]string
 	Sentries map[string]uint64
 	Config *configs.MainConfiguration
 	Synced bool
 }
-func (n *NetworkParams) IsValidator(pubKey string) (bool, error) {
-	return n.Validators[pubKey], nil
+func (n *NetworkParams) IsValidator(key string) (bool, error) {
+	if len(key) == 0 {
+		return false, fmt.Errorf("IsValidator: invalid key")
+	}
+	if len(n.Validators[key]) > 0 || len(n.Validators[fmt.Sprintf("edd/%s/addr",key)]) > 0 || len(n.Validators[fmt.Sprintf("secp/%s/addr",key)]) > 0 {
+		return true, nil
+	} 
+		// check chain
+		p, err := hex.DecodeString(key)
+		if err != nil {
+			return false, err
+		}
+		return DefaultProvider(n.Config).IsValidatorNodeOperator(p, n.CurrentCycle)	
 }
-func (n *NetworkParams) IsSentry(pubKey string) (bool, error)  {
+func (n *NetworkParams) IsValidatorOwner(address string) (bool, error) {
+	if len(n.Validators[address]) > 0 {
+		return true, nil
+	} 
+		// check chain
+	
+		return DefaultProvider(n.Config).IsValidatorLicenseOwner(address)	
+}
+func (n *NetworkParams) IsSentry(pubKey string, cycle *big.Int) (bool, error)  {
 	if n.Sentries[pubKey] > 0 &&  uint64(time.Now().UnixMicro()) - n.Sentries[pubKey] < uint64(10 * time.Minute.Microseconds()) {
 		return true, nil
 	}
@@ -32,7 +54,10 @@ func (n *NetworkParams) IsSentry(pubKey string) (bool, error)  {
 	if err != nil {
 		return false, err
 	}
-	count, err := DefaultProvider(n.Config).GetSentryOperatorCycleLicenseCount(b, n.CurrentCycle)
+	if cycle == nil {
+		cycle = n.CurrentCycle
+	}
+	count, err := DefaultProvider(n.Config).GetSentryOperatorCycleLicenseCount(b, cycle)
 	if err != nil {
 		return false, err
 	}

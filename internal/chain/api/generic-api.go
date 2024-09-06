@@ -34,7 +34,13 @@ func (n GenericAPI)  GetStartBlock() (*big.Int, error) {
 func (n GenericAPI)  GetStartTime() (*big.Int, error) {
 	return big.NewInt(NetworkStartDate), nil
 }
+func (n GenericAPI)  GetValidatorLicenseOwnerAddress(publicKey []byte) ([]byte, error) {
+	return nil, nil
+}
 
+func (n GenericAPI)  GetSentryLicenseOwnerAddress(publicKey []byte) ([]byte, error) {
+	return nil, nil
+}
 func (n GenericAPI) GetChainInfo() (*ChainInfo, error) {
 	curBlock, _ := n.GetCurrentBlockNumber()
 	startBlock, _ := n.GetStartBlock()
@@ -172,16 +178,24 @@ func (n GenericAPI) GetValidatorLicenses(operator []byte, cycle *big.Int)  ([]*b
 	return []*big.Int{big.NewInt(0), big.NewInt(1)}, nil
 }
 
-func (n GenericAPI)  GetValidatorNodeOperators(page *big.Int, perPage *big.Int) ([][]byte, error) {
+func (n GenericAPI)  GetValidatorNodeOperators(page *big.Int, perPage *big.Int) ([]OperatorInfo, error) {
 	d1, _:= hex.DecodeString("03d212263468365e70b2d673b06b903216b5e101d8243cdbfac6884369e3c069a0")
 	d2, _:=hex.DecodeString("02c4435e768b4bae8236eeba29dd113ed607813b4dc5419d33b9294f712ca79ff4")
-	return [][]byte{d1, d2}, nil
+	return []OperatorInfo{{PublicKey: d1}, {PublicKey: d2}}, nil
 }
-func(n GenericAPI)	GetSentryNodeOperators(page *big.Int, perPage *big.Int) ([][]byte, error) {
+func(n GenericAPI)	GetSentryNodeOperators(page *big.Int, perPage *big.Int) ([]OperatorInfo, error) {
 	d1, _:= hex.DecodeString("03d212263468365e70b2d673b06b903216b5e101d8243cdbfac6884369e3c069a0")
 	d2, _:=hex.DecodeString("02c4435e768b4bae8236eeba29dd113ed607813b4dc5419d33b9294f712ca79ff4")
-	return [][]byte{d1, d2}, nil
+	return []OperatorInfo{{PublicKey: d1}, {PublicKey: d2}}, nil
 }
 func (n GenericAPI) Claimed(validator []byte, cycle *big.Int, index *big.Int) (bool, error) {
 	return false, nil
+}
+
+
+func (n GenericAPI) IsValidatorLicenseOwner(address string) (bool, error) {
+	return true, nil
+}
+func (n GenericAPI) IsSentryLicenseOwner(address string)  (bool, error) {
+	return true, nil
 }

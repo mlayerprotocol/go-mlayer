@@ -42,7 +42,7 @@ type ClientPayload struct {
 	Account   DIDString `json:"acct,omitempty"` // optional public key of sender
 	ChainId   configs.ChainId `json:"chId"` // optional public key of sender
 
-	Validator PublicKeyString `json:"val,omitempty"`
+	Validator string `json:"val,omitempty"`
 	// Secondary																								 	AA	`							qaZAA	`q1aZaswq21``		`	`
 	Signature string       `json:"sig"`
 	Hash      string       `json:"h,omitempty"`
@@ -92,6 +92,7 @@ func (msg ClientPayload) GetHash() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
+	logger.Infof("BYTESSSS: %s", hex.EncodeToString(b))
 	bs := crypto.Keccak256Hash(b)
 	return bs, nil
 }
@@ -110,7 +111,8 @@ func (msg ClientPayload) GetSigner() (DeviceString, error) {
 	//}
 	// return msg.Agent, nil
 }
-
+// 0000000000014a34f22033dbd9823243a3ae6ab8b42bacec84688a267d750a028e51d46e16d3f4ea00000000000005156469643a307833466436454344434432323563334445306530373342333337433463424143353334326532414338ddb466a5dd4a5c0835614c7a46e18943ef750a9d000000000000000000000191bdd35250
+// 0000000000014a34f22033dbd9823243a3ae6ab8b42bacec84688a267d750a028e51d46e16d3f4ea00000000000005156469643a307833466436454344434432323563334445306530373342333337433463424143353334326532414338ddb466a5dd4a5c0835614c7a46e18943ef750a9d000000000000000000000191bdd35250
 // func (msg *ClientPayload) Validate(pubKey PublicKeyString) error {
 // 	if string(msg.Validator)  != string(pubKey) {
 // 		// logger.Infof("VALIDIATOR %s %s, %s", msg.Validator, crypto.GetPublicKeyEDD(privateKey), crypto.ToBech32Address(crypto.GetPublicKeyEDD(privateKey)))

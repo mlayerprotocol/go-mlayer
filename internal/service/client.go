@@ -122,8 +122,8 @@ func ValidateEvent(event interface{}) error {
 		logger.Errorf("Invalid Encoding %v", err)
 		return err
 	}
-	logger.Infof("Payload Validator: %s; Event Signer: %s;", e.Payload.Validator, e.GetValidator(), )
-	if e.GetValidator() != e.Payload.Validator {
+	logger.Infof("Payload Validator: %s; Event Signer: %s; Validatos: %v", e.Payload.Validator, e.GetValidator(), chain.NetworkInfo.Validators)
+	if chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))] != e.Payload.Validator {
 		return apperror.Forbidden("Payload validator does not match event validator")
 	}
 	logger.Infof("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())

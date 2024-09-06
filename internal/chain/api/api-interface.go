@@ -18,6 +18,16 @@ type ChainInfo struct {
 	CurrentEpoch *big.Int
 	CurrentCycle *big.Int
 	ChainId configs.ChainId
+	ValidatorLicenseCount *big.Int
+	ValidatorActiveLicenseCount *big.Int
+	SentryLicenseCount *big.Int
+	SentryActiveLicenseCount *big.Int
+	
+}
+type OperatorInfo struct {
+	PublicKey  []byte
+	LicenseOwner string
+	EddKey [32]byte
 }
 type IChainAPI interface {
 	// general
@@ -40,12 +50,17 @@ type IChainAPI interface {
 	GetValidatorLicenseOperator(license *big.Int) ([]byte, error)
 
 
-	GetValidatorNodeOperators(page *big.Int, perPage *big.Int) ([][]byte, error)
-	GetSentryNodeOperators(page *big.Int, perPage *big.Int) ([][]byte, error)
+	GetValidatorNodeOperators(page *big.Int, perPage *big.Int) ([]OperatorInfo, error)
+	GetSentryNodeOperators(page *big.Int, perPage *big.Int) ([]OperatorInfo, error)
 
+	IsValidatorLicenseOwner(address string) (bool, error)
+	IsSentryLicenseOwner(address string) (bool, error)
 
 	IsValidatorNodeOperator(publicKey []byte, cycle *big.Int) (bool, error)
 	IsSentryNodeOperator(publicKey []byte, cycle *big.Int) (bool, error)
+
+	GetValidatorLicenseOwnerAddress(publicKey []byte) ([]byte, error)
+	GetSentryLicenseOwnerAddress(publicKey []byte) ([]byte, error)
 	
 	
 	// GetStakeBalance(address entities.DIDString) big.Int

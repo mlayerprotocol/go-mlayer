@@ -58,7 +58,7 @@ const (
 	UpgradeSubscriberEvent EventType = 1010
 )
 
-// Member Topic Actions
+// Subscription Actions
 const (
 	LeaveEvent          EventType = 1100
 	SubscribeTopicEvent EventType = 1101

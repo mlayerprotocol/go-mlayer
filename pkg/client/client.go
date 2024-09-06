@@ -1,14 +1,57 @@
 package client
 
 import (
+	"encoding/hex"
+
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"gorm.io/gorm"
 )
 
+type NodeInfo struct {
+	Account string `json:"account"` 
+	NodeType constants.NodeType `json:"node_type"` 
+	NetworkPublicKey string `json:"network_pubkey"` 
+	ChainPublicKey string `json:"chain_pubkey"` 
+	ChainId string `json:"chain_id"`
+	CurrentCycle uint64 `json:"current_cycle"`
+}
+
+func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
+	provider := chain.Provider(cfg.ChainId)
+	info, err := provider.GetChainInfo()
+	if err != nil  {
+		return  nil, err
+	}
+	var owner []byte
+	if cfg.Validator {
+		owner, err = provider.GetValidatorLicenseOwnerAddress(cfg.PublicKeySECP)
+	} else {
+		owner, err = provider.GetSentryLicenseOwnerAddress(cfg.PublicKeySECP)
+	}
+	if err != nil {
+		return nil, err
+	}
+	nodeType := constants.ValidatorNodeType
+	if cfg.Validator {
+		nodeType = constants.SentryNodeType
+	}
+	return &NodeInfo{
+		Account: hex.EncodeToString(owner),
+		NodeType: nodeType,
+		NetworkPublicKey: hex.EncodeToString(cfg.PublicKeySECP),
+		ChainPublicKey: hex.EncodeToString(cfg.PublicKeyEDD),
+		ChainId: string(cfg.ChainId),
+		CurrentCycle: info.CurrentCycle.Uint64(),
+	}, nil
+	
+
+}
 func ValidateClientPayload(
 	payload *entities.ClientPayload,
 	strictAuth bool,

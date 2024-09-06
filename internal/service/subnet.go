@@ -22,9 +22,9 @@ import (
 /*
 Validate an agent authorization
 */
-func ValidateSubnetData(subnet *entities.Subnet, chainID configs.ChainId) (currentSubnetState *models.SubnetState, err error) {
+func ValidateSubnetData(clientPayload *entities.ClientPayload, chainID configs.ChainId) (currentSubnetState *models.SubnetState, err error) {
 	// check fields of Subnet
-
+	var subnet entities.Subnet = clientPayload.Data.(entities.Subnet)
 	agent := entities.AddressFromString(string(subnet.Agent))
 	account := entities.AddressFromString(string(subnet.Account))
 	
@@ -57,23 +57,18 @@ func ValidateSubnetData(subnet *entities.Subnet, chainID configs.ChainId) (curre
 		return nil, apperror.BadRequest("Ref can only include alpha-numerics, and .")
 	}
 	var valid bool
-	b, _ := subnet.EncodeBytes()
+	// b, _ := subnet.EncodeBytes()
+	msg, err := clientPayload.GetHash()
+	if err != nil {
+		return nil, err
+	}
 	switch subnet.SignatureData.Type {
 	case entities.EthereumPubKey:
-		var signer entities.DeviceString
-		if len(subnet.Agent) > 0 {
-			signer = subnet.Agent
-		} else {
-			signer = entities.DeviceString(subnet.Account)
-		}
-		msg, err := subnet.GetHash()
-		if err != nil {
-			return nil, err
-		}
 		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", chainID, subnet.Ref, encoder.ToBase64Padded(msg))
 		logger.Info("MSG:: ", authMsg)
-		
-		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(signer)).Addr, &b, subnet.SignatureData.Signature)
+		msgByte := crypto.EthMessage([]byte(authMsg))
+
+		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &msgByte, subnet.SignatureData.Signature)
 
 	case entities.TendermintsSecp256k1PubKey:
 		
@@ -81,13 +76,6 @@ func ValidateSubnetData(subnet *entities.Subnet, chainID configs.ChainId) (curre
 		if err != nil {
 			return nil, err
 		}
-
-		msg, err := subnet.GetHash()
-
-		if err != nil {
-			return nil, err
-		}
-
 		// account := entities.AddressFromString(string(subnet.Account))
 		publicKeyBytes, err := base64.RawStdEncoding.DecodeString(subnet.SignatureData.PublicKey)
 
@@ -214,7 +202,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	}
 	logger.Infof("Processing 2...: %v", previousEventUptoDate)
 	if previousEventUptoDate {
-		_, err = ValidateSubnetData(&data, cfg.ChainId)
+		_, err = ValidateSubnetData(&event.Payload, cfg.ChainId)
 		if err != nil {
 			// update error and mark as synced
 			// notify validator of error

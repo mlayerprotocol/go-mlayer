@@ -62,11 +62,26 @@ func CORSMiddleware() gin.HandlerFunc {
 func (p *RestService) Initialize() *gin.Engine {
 	router := gin.Default()
 	router.Use(CORSMiddleware())
+
+	// ping the api
 	router.GET("/api/ping", func(c *gin.Context) {
 
 		// Send a response back
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{}))
 	})
+
+	// get info about the node
+	router.GET("/api/info", func(c *gin.Context) {
+		info, err := client.Info(p.Cfg)
+		if err != nil {
+			logger.Error(err)
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: info}))
+	})
+
+
 	router.GET("/api/authorizations", func(c *gin.Context) {
 
 		b, parseError := utils.ParseQueryString(c)
@@ -560,25 +575,18 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	router.GET("/api/event/:type/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		logger.Info(id)
-		//typeParam := c.Param("type")
-		//typeParamInt, err := strconv.Atoi(typeParam)
-		// if err != nil {
-		// 	// ... handle error
-		// 	logger.Error(err, typeParam)
-		// 	c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
-		// 	return
-		// }
-
-		// topic, err := client.GetEvent(id, typeParamInt)
-		topic := entities.Event{}
-
-		// if err != nil {
-		// 	logger.Error(err)
-		// 	c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
-		// 	return
-		// }
-		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: topic}))
+		typeParam := c.Param("type")
+		typeParamInt, err := strconv.Atoi(typeParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		event, err := client.GetEvent(id, typeParamInt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
+			return
+		}
+		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: event}))
 	})
 
 	router.POST("/api/subnets", func(c *gin.Context) {

@@ -15,6 +15,7 @@ import (
 	// "net/rpc/jsonrpc"
 
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain/api"
@@ -103,6 +104,22 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 			"84532", ethAPI,
 		)
 		// chain.DefaultProvider = chain.Network.Default()
+		ownerAddress, _ := hex.DecodeString(constants.ADDRESS_ZERO)
+		if cfg.Validator {
+			ownerAddress, err = chain.Provider(cfg.ChainId).GetValidatorLicenseOwnerAddress(cfg.PublicKeySECP)
+		} else {
+			ownerAddress, err = chain.Provider(cfg.ChainId).GetSentryLicenseOwnerAddress(cfg.PublicKeySECP)
+		}
+		if err != nil  {
+			logger.Fatalf("unable to get license owner: %v", err)
+		}
+		if hex.EncodeToString(ownerAddress) == constants.ADDRESS_ZERO {
+			if cfg.Validator {
+				logger.Fatalf("Failed to run in validator mode because no license is assigned to this operators public key (SECP).")
+			}
+			logger.Infof("Operator not yet deligated. Running is archive mode.")
+		}
+		cfg.OwnerAddress = common.BytesToAddress(ownerAddress)
 	}()
 	defer sql.Init(&cfg)
 	

@@ -19,6 +19,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto/schnorr"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
@@ -177,7 +178,24 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 		// logger.Infof("ADEDEEDDD %v", b)
 		// logger.Infof("Event Received ----===> %v", event.GetValidator())
 		// toGoChannel <- event
-		
+		// 
+		// check if event was signed by a valid provider
+		cfg, ok := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+		if !ok {
+			logger.Errorf("unable to get config from context")
+			return
+		}
+	if event.Validator != entities.PublicKeyString(hex.EncodeToString(cfg.PublicKeyEDD)) {
+			isValidator, err := chain.NetworkInfo.IsValidator(string(event.Validator))
+			if err !=nil {
+				logger.Error(err)
+				return 
+			}
+			if !isValidator {
+				logger.Error(fmt.Errorf("not signed by a validator"))
+				return
+			}
+		}
 		go process(event, mainCtx)
 	}
 	// for {
