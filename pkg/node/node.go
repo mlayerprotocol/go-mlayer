@@ -51,6 +51,8 @@ var logger = &log.Logger
 
 
 func Start(mainCtx *context.Context) {
+	time.Sleep(1*time.Second)
+	fmt.Println("Starting network...")
 	ctx, cancel := context.WithCancel(*mainCtx)
 	defer cancel()
 

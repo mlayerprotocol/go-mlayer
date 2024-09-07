@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -122,9 +123,9 @@ func ValidateEvent(event interface{}) error {
 		logger.Errorf("Invalid Encoding %v", err)
 		return err
 	}
-	logger.Debugf("Payload Validator: %s; Event Signer: %s; Validatos: %v", e.Payload.Validator, e.GetValidator(), chain.NetworkInfo.Validators)
-	if chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))] != e.Payload.Validator {
-		return apperror.Forbidden("Payload validator does not match event validator")
+	// logger.Debugf("Payload Validator: %s; Event Signer: %s; Validatos: %v", e.Payload.Validator, e.GetValidator(), chain.NetworkInfo.Validators)
+	if strings.EqualFold(utils.AddressToHex(chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))]),utils.AddressToHex(e.Payload.Validator)) {
+		return apperror.Forbidden("payload validator does not match event validator")
 	}
 	logger.Debugf("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())
 	sign, _ := hex.DecodeString(e.GetSignature())
