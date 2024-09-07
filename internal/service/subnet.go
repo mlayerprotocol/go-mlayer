@@ -24,7 +24,7 @@ Validate an agent authorization
 */
 func ValidateSubnetData(clientPayload *entities.ClientPayload, chainID configs.ChainId) (currentSubnetState *models.SubnetState, err error) {
 	// check fields of Subnet
-	var subnet entities.Subnet = clientPayload.Data.(entities.Subnet)
+	subnet := clientPayload.Data.(entities.Subnet)
 	agent := entities.AddressFromString(string(subnet.Agent))
 	account := entities.AddressFromString(string(subnet.Account))
 	
