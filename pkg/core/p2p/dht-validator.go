@@ -63,7 +63,7 @@ func (v *DhtValidator) Select(key string, values [][]byte) (int, error) {
 		return v.selectFromValidatorList(parts, values)
 	}
     // Handle selecting the valid value among multiple
-    logger.Infof("FOUND records %d", len(values))
+    logger.Debugf("FOUND records %d", len(values))
     return 0, nil
 }
 
@@ -137,7 +137,7 @@ func (v *DhtValidator) validatePriceKey(parts []string, value []byte ) error {
     if err != nil {
         return fmt.Errorf("DhtValidator: Invalid price data - %v", err)
     }
-    logger.Infof("PRICE_KEY %s, %d", parts[3], new(big.Int).SetBytes(priceData.Cycle))
+    logger.Debugf("PRICE_KEY %s, %d", parts[3], new(big.Int).SetBytes(priceData.Cycle))
     if parts[3] != fmt.Sprintf("%d", new(big.Int).SetBytes(priceData.Cycle)) {
         return errors.New("DhtValidator: price data cycle does not match key cycle")
     }

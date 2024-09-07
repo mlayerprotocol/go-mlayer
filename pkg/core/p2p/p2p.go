@@ -11,8 +11,6 @@ import (
 	"os"
 	"time"
 
-	// "github.com/gin-gonic/gin"
-
 	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
@@ -107,7 +105,7 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 	// if err != nil {
 	// 	logger.Error("KDHTERROR", err)
 	// }
-	// logger.Infof("VALUEEEEE %s", string(v))
+	// logger.Debugf("VALUEEEEE %s", string(v))
 	routingDiscovery := drouting.NewRoutingDiscovery(kdht)
 	dutil.Advertise(ctx, routingDiscovery, rendezvous)
 
@@ -143,7 +141,7 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 					if len(p.ID) == 0 {
 						continue
 					}
-					logger.Infof("Connected to discovered peer: %s at %s \n", p.ID.String(), p.Addrs)
+					logger.Debugf("Connected to discovered peer: %s at %s \n", p.ID.String(), p.Addrs)
 					handleConnect(&h, &p)
 				}
 			}
@@ -155,7 +153,7 @@ func Run(mainCtx *context.Context) {
 	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
-	logger.Infof("LoadedChainInfo: %v", chain.NetworkInfo)
+	logger.Debugf("LoadedChainInfo: %v", chain.NetworkInfo)
 	ctx, cancel := context.WithCancel(*mainCtx)
 	MainContext = &ctx
 	defer cancel()
@@ -342,7 +340,7 @@ func Run(mainCtx *context.Context) {
 			// putErr := kdht.PutValue(ctx, key, []byte("femi"), routingOptions.ToOption())
 
 			// if putErr != nil {
-			// 	logger.Infof("Put the error %o", putErr)
+			// 	logger.Debugf("Put the error %o", putErr)
 			// }
 			return idht, err
 		}),
@@ -389,11 +387,12 @@ func Run(mainCtx *context.Context) {
 	// bootstrap peers (or any other peers). We leave this commented as
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
-	logger.Infof("Licence Operator Public Key (SECP): %s", hex.EncodeToString(cfg.PublicKeySECP))
-	logger.Infof("Network Public Key (EDD): %s", cfg.PublicKey)
-	logger.Infof("Host started with ID: %s", h.ID())
-	logger.Infof("Host Network: %s", p2pProtocolId)
-	logger.Infof("Host Listening on: %s", h.Addrs())
+	fmt.Println("------------------------------- MLAYER -----------------------------------")
+	fmt.Println("- Licence Operator Public Key (SECP): ", hex.EncodeToString(cfg.PublicKeySECP))
+	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKey)
+	fmt.Println("- Host started with ID: ", h.ID())
+	fmt.Println("- Host Network: ", p2pProtocolId)
+	fmt.Println("- Host Listening on: ", h.Addrs())
 
 	// Subscrbers
 	authPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
@@ -492,7 +491,7 @@ func Run(mainCtx *context.Context) {
 	// 			//TODO:
 	// 			// if not a valid message, continue
 
-	// 			logger.Infof("Received new message %s\n", authEvent.ToString())
+	// 			logger.Debugf("Received new message %s\n", authEvent.ToString())
 	// 			cm := models.AuthorizationEvent{}
 	// 			err = encoder.MsgPackUnpackStruct(authEvent.Data, cm)
 	// 			if err != nil {
@@ -514,7 +513,7 @@ func Run(mainCtx *context.Context) {
 	// 			//TODO:
 	// 			// if not a valid message, continue
 
-	// 			logger.Infof("Received new message %s\n", inMessage.ToString())
+	// 			logger.Debugf("Received new message %s\n", inMessage.ToString())
 	// 			cm, err := entities.MsgUnpackClientPayload(inMessage.Data)
 	// 			if err != nil {
 
@@ -526,12 +525,12 @@ func Run(mainCtx *context.Context) {
 	// 				logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
 	// 				return
 	// 			}
-	// 			// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+	// 			// logger.Debug("Received new message %s\n", inMessage.Message.Body.Message)
 	// 			cm, err := entities.UnpackSubscription(sub.Data)
 	// 			if err != nil {
 
 	// 			}
-	// 			logger.Info("New subscription updates:::", string(cm.ToJSON()))
+	// 			logger.Debug("New subscription updates:::", string(cm.ToJSON()))
 	// 			// *incomingMessagesC <- &cm
 	// 			cm.Broadcasted = false
 	// 			*publishedSubscriptionC <- &cm
@@ -555,15 +554,15 @@ func forever() {
 // func handleHandshake(stream network.Stream) {
 
 // 	// // if len(PeerStreams[stream.ID()]) == 0 {
-// 	// // 	logger.Infof("No peer for stream %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
+// 	// // 	logger.Debugf("No peer for stream %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
 // 	// // 	return
 // 	// // }
-// 	// logger.Infof("Got a new stream 2! %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
+// 	// logger.Debugf("Got a new stream 2! %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
 // 	// // stream.SetReadDeadline()
 // 	// // Create a buffer stream for non blocking read and write.
 // 	// peer := stPeerStreams[stream.ID()]
 // 	// rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-// 	// logger.Infof("Got a new stream 3! %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
+// 	// logger.Debugf("Got a new stream 3! %s Peer %s", stream.ID(), PeerStreams[stream.ID()])
 // 	host := idht.Host()
 // 	verifyHandshake(&host, &stream)
 // 	// go sendData(rw)
@@ -598,7 +597,7 @@ func handleHandshake(stream network.Stream) {
 		}
 		validHandshake := handshake.IsValid(config.ChainId)
 
-		logger.Infof("Validating peer %s", (stream).Conn().RemotePeer())
+		logger.Debugf("Validating peer %s", (stream).Conn().RemotePeer())
 		if !validHandshake {
 			disconnect((stream).Conn().RemotePeer())
 			return
@@ -646,7 +645,7 @@ func sendHandshake(stream network.Stream, data []byte) {
 	}
 
 	err = rw.Flush()
-	logger.Infof("Flushed data to stream %s", stream.ID())
+	logger.Debugf("Flushed data to stream %s", stream.ID())
 	if err != nil {
 		// fmt.Println("Error flushing buffer")
 		// panic(err)
@@ -661,7 +660,7 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		// logger.Info("Iamavalidator")
+		// logger.Debug("Iamavalidator")
 		
 		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyEDD, getMultiAddresses(*h), config.PublicKeyEDD)
 		if err != nil {
@@ -673,7 +672,7 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 		// 	if err != nil {
 		// 		logger.Error("KDHT_GET_ERROR: ", err)
 		// 	} else {
-		// 		logger.Infof("VALURRRR %s", string(v))
+		// 		logger.Debugf("VALURRRR %s", string(v))
 		// 	}
 		
 		packed :=  mad.MsgPack()
@@ -685,7 +684,7 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 			logger.Debugf("Successfully stored key: %s", key)
 		}
 
-		logger.Infof("ADDING_SECP_ADDRESS: %d", config.PublicKeySECP)
+		logger.Debugf("ADDING_SECP_ADDRESS: %d", config.PublicKeySECP)
 		err = idht.PutValue(*ctx, keySecP, packed)
 		if err != nil {
 			logger.Error("KDHT_PUT_ERROR", err)
@@ -699,7 +698,7 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 		// 	if err != nil {
 		// 		logger.Error("KDHT_GET_ERROR", err)
 		// 	} else {
-		// 		logger.Infof("VALURRRR %s", string(v))
+		// 		logger.Debugf("VALURRRR %s", string(v))
 		// 	}
 		// }
 	}
@@ -726,7 +725,7 @@ func GetNodeMultiAddressData(ctx *context.Context, key string) (*NodeMultiAddres
 // called when a peer connects
 func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 	// pi := *pa
-	logger.Infof("My multiaddress: %s", getMultiAddresses(*h))
+	logger.Debugf("My multiaddress: %s", getMultiAddresses(*h))
 	if pairAddr == nil {
 		return
 	}
@@ -745,8 +744,8 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 		}
 		hs, _ := NewNodeHandshake(config, handShakeProtocolId, config.PrivateKeyEDD, nodeType)
 		// b, _ := hs.EncodeBytes()
-		logger.Infof("Created handshake with salt %s", hs.Salt)
-		logger.Infof("Created new stream %s with peer %s", handshakeStream.ID(), pairAddr.ID)
+		logger.Debugf("Created handshake with salt %s", hs.Salt)
+		logger.Debugf("Created new stream %s with peer %s", handshakeStream.ID(), pairAddr.ID)
 		defer func(pairID peer.ID) {
 			time.Sleep(3 * time.Second)
 			if DisconnectFromPeer[pairAddr.ID] {
@@ -775,9 +774,9 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 		// _, pub, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
 		//time.Sleep(5 * time.Second)
 		// peerID, _ := peer.IDFromPublicKey(pub)
-		// logger.Infof("Waiting to send data to peer")
+		// logger.Debugf("Waiting to send data to peer")
 		// time.Sleep(5 * time.Second)
-		// logger.Infof("Starting send process...")
+		// logger.Debugf("Starting send process...")
 		// eventBytes := (&entities.EventPath{entities.EntityPath{Model: entities.TopicModel,Hash:"23032", Validator: "02c4435e768b4bae8236eeba29dd113ed607813b4dc5419d33b9294f712ca79ff4"}}).MsgPack()
 		// payload := NewP2pPayload(config, P2pActionGetEvent, eventBytes)
 		// if err != nil {
@@ -786,15 +785,15 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 		// }
 		// err = payload.Sign(config.PrivateKeyEDD)
 		// if err != nil {
-		// 	logger.Infof("Error SIgning: %v", err)
+		// 	logger.Debugf("Error SIgning: %v", err)
 		// 	return
 		// }
-		// logger.Infof("Payload data signed: %s", payload.Id)
+		// logger.Debugf("Payload data signed: %s", payload.Id)
 		// resp, err := payload.SendRequestToAddress(config.PrivateKeyEDD, multiaddr.StringCast("/ip4/127.0.0.1/tcp/6000/ws/p2p/12D3KooWH7Ch4EETUDfCZAG1aBDUD2WmXukXuDVfpJqxxbVx7jBm"))
 		// if err != nil {
 		// 	logger.Errorf("Error :%v", err)
 		// }
-		// logger.Infof("Resopnse :%v", resp)
+		// logger.Debugf("Resopnse :%v", resp)
 
 	}
 }
@@ -808,7 +807,7 @@ func disconnect(id peer.ID) {
 // setupDiscovery creates an mDNS discovery service and attaches it to the libp2p Host.
 // This lets us automatically discover peers on the same LAN and connect to them.
 func setupDiscovery(h host.Host, serviceName string) error {
-	logger.Infof("Setting up Discovery on %s ....", serviceName)
+	logger.Debugf("Setting up Discovery on %s ....", serviceName)
 	n := notifee.DiscoveryNotifee{Host: h, HandleConnect: handleConnect, Dht: idht}
 
 	disc := mdns.NewMdnsService(h, serviceName, &n)
@@ -828,11 +827,11 @@ func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *pe
 		logger.Errorf("Failed to get peer info: %v", err)
 		return targetInfo, nil, nil, err
 	}
-	// logger.Infof("P2PCHANNELIDS %s", connectionId)
+	// logger.Debugf("P2PCHANNELIDS %s", connectionId)
 	// if P2pComChannels[connectionId] == nil {
 		
 	// }
-	// logger.Infof("P2PCHANNELIDS %v", P2pComChannels[targetInfo.ID.String()][P2pChannelOut] == nil)
+	// logger.Debugf("P2PCHANNELIDS %v", P2pComChannels[targetInfo.ID.String()][P2pChannelOut] == nil)
 	h := idht.Host()
 	if  h.Network().Connectedness(targetInfo.ID) != network.Connected {
 		err = h.Connect(ctx, *targetInfo)
@@ -845,7 +844,7 @@ func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *pe
 	}
 	h.Peerstore().AddAddrs(targetInfo.ID, targetInfo.Addrs, peerstore.PermanentAddrTTL)
 	// Add the target peer to the host's peerstore
-	// logger.Info("Connectedness: %s", h.Network().Connectedness(targetInfo.ID).String())
+	// logger.Debug("Connectedness: %s", h.Network().Connectedness(targetInfo.ID).String())
 	if h.Network().Connectedness(targetInfo.ID) == network.Connected {
 		streamz, err := h.NewStream(ctx, targetInfo.ID, protocol.ID(p2pProtocolId))
 		if err != nil {
@@ -857,7 +856,7 @@ func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *pe
 		}
 		p2pStream = &streamz
 		syncStream = &syncStreamz
-		logger.Infof("CreateNewPeerStream")
+		logger.Debugf("CreateNewPeerStream")
 		
 	} 
 	
@@ -873,7 +872,7 @@ func getMultiAddresses(h host.Host) []string {
 	for _, addr := range addrs {
 		m = append(m, fmt.Sprintf("%s/p2p/%s", addr, h.ID().String()))
 	}
-	logger.Infof("MULTI %v", m)
+	logger.Debugf("MULTI %v", m)
 	return m
 }
 
@@ -904,7 +903,7 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 			if n > 0 {
 				payloadBuf.Write(buf[:n])
 			}
-			// logger.Infof("BYTESREAD: %d %d",  n, payloadBuf.Len())
+			// logger.Debugf("BYTESREAD: %d %d",  n, payloadBuf.Len())
 			if err != nil {
 				if err == io.EOF {
 					break
@@ -926,28 +925,28 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 			// break
 		}
 		validPayload := payload.IsValid(config.ChainId)
-		logger.Infof("Received Data from remote peer: %v", validPayload)
+		logger.Debugf("Received Data from remote peer: %v", validPayload)
 		if !validPayload {
-			logger.Infof("Invalid payload received from peer %s", peerId)
+			logger.Debugf("Invalid payload received from peer %s", peerId)
 			// delete(P2pComChannels, payload.Id)
 			(stream).Reset()
 			return
 		}
 		response, err := processP2pPayload(config, payload)
 		if err != nil {
-			logger.Infof("readPayload: %v", err)
+			logger.Debugf("readPayload: %v", err)
 		}
 		delimeter := []byte{'\n'}
 		b := response.MsgPack()
 		resp, _ := UnpackP2pPayload(b)
-		logger.Infof("BYTESSSSS: %s, %v", resp.Id, err)
+		logger.Debugf("BYTESSSSS: %s, %v", resp.Id, err)
 		_, err = stream.Write(append(b, delimeter...))
 		if err != nil {
 			logger.Errorf("readPayload: %v", err)
 		}
 	
 		err = rw.Flush()
-		logger.Infof("Flushed response data to payload stream %s", stream.ID())
+		logger.Debugf("Flushed response data to payload stream %s", stream.ID())
 		if err != nil {
 			// fmt.Println("Error flushing buffer")
 			// panic(err)
@@ -1014,7 +1013,7 @@ func GetAndSaveMessageCostFromChain(ctx *context.Context, cycle uint64) (*big.In
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("ITEMPRICE: %s", price)
+	logger.Debugf("ITEMPRICE: %s", price)
 	priceKey := datastore.NewKey(fmt.Sprintf("/ml/cost/%d", cycle))
 	
 	err = claimedRewardStore.Put(*ctx, priceKey, utils.ToUint256(price))

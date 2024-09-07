@@ -200,7 +200,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 		if len(found) > 0 {
 			return nil, nil, apperror.BadRequest(fmt.Sprintf("Subnet with reference %s already exists", payloadData.Ref))
 		}
-		// logger.Info("FOUNDDDDD", found, payloadData.Ref)
+		// logger.Debug("FOUNDDDDD", found, payloadData.Ref)
 
 	}
 	if payload.EventType == uint16(constants.UpdateSubnetEvent) {
@@ -217,7 +217,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 
 	// generate associations
 	if currentState != nil {
-		//logger.Infof("SUBNETINFO %v, %s, %s", strings.EqualFold(currentState.Account.ToString(), payloadData.Account.ToString()), currentState.Account.ToString(), payloadData.Account.ToString())
+		//logger.Debugf("SUBNETINFO %v, %s, %s", strings.EqualFold(currentState.Account.ToString(), payloadData.Account.ToString()), currentState.Account.ToString(), payloadData.Account.ToString())
 		if !strings.EqualFold(currentState.Account.ToString(), payloadData.Account.ToString()) {
 			return nil, nil, apperror.BadRequest("subnet account do not match")
 		}

@@ -71,7 +71,7 @@ func (msg *RewardBatch) Append(subnetCount SubnetCount) {
 		panic("Unable to encode SubnetCount data")
 	}
 	msg.DataHash = crypto.Keccak256Hash(append(msg.DataHash, encoded...))
-	logger.Infof("TOTALVLAUE:::%s", big.NewInt(0).Add(new(big.Int).SetBytes(msg.TotalValue), subnetTotal))
+	logger.Debugf("TOTALVLAUE:::%s", big.NewInt(0).Add(new(big.Int).SetBytes(msg.TotalValue), subnetTotal))
 	msg.TotalValue = utils.ToUint256(big.NewInt(0).Add(new(big.Int).SetBytes(msg.TotalValue), subnetTotal))
 	length := len(msg.Data)
 	if length == 1 {
@@ -269,7 +269,7 @@ func (msg *ProofData) EncodeBytes() ([]byte, error) {
 func (rb *ProofData) GetHash() ([32]byte, error) {
 	
 	b, err := rb.EncodeBytes()
-	logger.Infof("ENCODERD %v", b)
+	logger.Debugf("ENCODERD %v", b)
 	if err != nil {
 		return [32]byte{}, err
 	}

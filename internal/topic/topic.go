@@ -55,7 +55,7 @@ func ValidateMessageClient(
 		}
 		(*connectedSubscribers)[_sub.TopicId][_sub.Subscriber] = append((*connectedSubscribers)[_sub.TopicId][_sub.Subscriber], clientHandshake.ClientSocket)
 	}
-	logger.Infof("results:  %s  -  %o\n", entries[0].Value, _err)
+	logger.Debugf("results:  %s  -  %o\n", entries[0].Value, _err)
 }
 
 func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,

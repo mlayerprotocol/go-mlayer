@@ -35,7 +35,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("Peer joined channel %s", channelName)
+	logger.Debugf("Peer joined channel %s", channelName)
 
 	
 	// and subscribe to it
@@ -87,7 +87,7 @@ func (cr *Channel) readLoop() {
 			logger.Errorf("Invalid pubsub message received: %v", err)
 			continue
 		}
-		// logger.Infof("New Mesage %v \n\n %v", pmsg)
+		// logger.Debugf("New Mesage %v \n\n %v", pmsg)
 		// b, err := pmsg.EncodeBytes()
 		// if(err != nil) {
 		// 	logger.Error("Unable to encode msg %v", msg)
@@ -98,7 +98,7 @@ func (cr *Channel) readLoop() {
 		// 	logger.Error("Unable to get signer")
 		// 	continue
 		// }
-		// logger.Infof("Pubsub message signer %s", signer)
+		// logger.Debugf("Pubsub message signer %s", signer)
 		// TODO
 		// get the stake contract for this signer and ensure they have enough Validator stake
 		// if not, identify their IP and blacklist it. Ignore the message

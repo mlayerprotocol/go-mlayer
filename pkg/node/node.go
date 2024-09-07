@@ -115,13 +115,13 @@ func Start(mainCtx *context.Context) {
 				// VALIDATE, STORE AND DISTRIBUTE
 				go func() {
 					inMessage := inEvent.Payload.Data.(entities.Message)
-					logger.Infof("Received new message %s\n", inMessage.DataHash)
+					logger.Debugf("Received new message %s\n", inMessage.DataHash)
 					// validMessagesStore.Set(ctx, db.Key(inMessage.Key()), inMessage.MsgPack(), false)
 					_reciever := inMessage.Receiver
 					_recievers := strings.Split(string(_reciever), ":")
 					_currentTopic := connectedSubscribers[_recievers[1]]
-					logger.Info("connectedSubscribers : ", connectedSubscribers, "---", _reciever)
-					logger.Info("_currentTopic : ", _currentTopic, "/n")
+					logger.Debug("connectedSubscribers : ", connectedSubscribers, "---", _reciever)
+					logger.Debug("_currentTopic : ", _currentTopic, "/n")
 					for _, signerConn := range _currentTopic {
 						for i := 0; i < len(signerConn); i++ {
 							signerConn[i].(*websocket.Conn).WriteMessage(1, inMessage.MsgPack())
@@ -190,7 +190,7 @@ func Start(mainCtx *context.Context) {
 		
 		// for {
 		// 	time.Sleep(5 * time.Second)
-		// 	logger.Info("Generating batch...")
+		// 	logger.Debug("Generating batch...")
 		// 	batch, err := generateBatch(0, 0, &ctx)
 		// 	processPendingClaims(&ctx)
 		// 	if batch == nil {
@@ -260,7 +260,7 @@ func Start(mainCtx *context.Context) {
 	// 	// }
 	// 	// parserEvent(logs[0], "StakeEvent")
 
-	// 	// logger.Infof("Past Events", logs)
+	// 	// logger.Debugf("Past Events", logs)
 	// 	// incomingEventsC
 
 	// 	sub, err := client.SubscribeFilterLogs(context.Background(), query, incomingEventsC)
@@ -296,7 +296,7 @@ func Start(mainCtx *context.Context) {
 			logger.Fatal("RPC failed to listen on TCP port: ", err)
 		}
 		defer listener.Close()
-		logger.Infof("RPC server runing on: %+s", host+":"+cfg.RPCPort)
+		logger.Debugf("RPC server runing on: %+s", host+":"+cfg.RPCPort)
 		go http.Serve(listener, nil)
 		time.Sleep(time.Second) 
 		sendHttp := rpcServer.NewHttpService(&ctx)
@@ -314,7 +314,7 @@ func Start(mainCtx *context.Context) {
 		defer cancel()
 		defer wg.Done()
 		wss := ws.NewWsService(&ctx)
-		logger.Infof("WsAddress: %s\n", cfg.WSAddress)
+		logger.Debugf("WsAddress: %s\n", cfg.WSAddress)
 		http.HandleFunc("/echo", wss.ServeWebSocket)
 
 		logger.Fatal(http.ListenAndServe(cfg.WSAddress, nil))
@@ -328,7 +328,7 @@ func Start(mainCtx *context.Context) {
 		rest := rest.NewRestService(&ctx)
 
 		router := rest.Initialize()
-		logger.Infof("Starting REST api on: %s", cfg.RestAddress)
+		logger.Debugf("Starting REST api on: %s", cfg.RestAddress)
 		logger.Fatal(router.Run(cfg.RestAddress))
 	
 	}()
@@ -344,7 +344,7 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 			}
 
 			// if active license counts have been updated
-			logger.Infof("NetworINFO %d, %d", chain.NetworkInfo.ActiveValidatorLicenseCount, info.ValidatorActiveLicenseCount.Uint64())
+			logger.Debugf("NetworINFO %d, %d", chain.NetworkInfo.ActiveValidatorLicenseCount, info.ValidatorActiveLicenseCount.Uint64())
 			if (chain.NetworkInfo.ActiveValidatorLicenseCount != info.ValidatorActiveLicenseCount.Uint64()) {
 				// if chain.NetworkInfo.Validators == nil {
 					chain.NetworkInfo.Validators = map[string]string{}
@@ -362,7 +362,7 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 					
 					for _, val := range validators {
 						pubKey := hex.EncodeToString(val.PublicKey)
-						logger.Infof("NetworINFOVals: %v, %v", pubKey, hex.EncodeToString(val.EddKey[:]))
+						logger.Debugf("NetworINFOVals: %v, %v", pubKey, hex.EncodeToString(val.EddKey[:]))
 						// chain.NetworkInfo.Validators[pubKey] = val.LicenseOwner
 						chain.NetworkInfo.Validators[val.LicenseOwner] = "true"
 						chain.NetworkInfo.Validators[fmt.Sprintf("secp/%s/edd", pubKey)] = hex.EncodeToString(val.EddKey[:])
@@ -398,9 +398,9 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 // 		logger.Fatal("_err :  ", _err)
 // 	}
 
-// 	logger.Infof("Event Account: %s", event.Account) // foo
-// 	logger.Infof("Event Amount: %d", event.Amount)
-// 	logger.Infof("Event Timestamp: %d",event.Timestamp)
+// 	logger.Debugf("Event Account: %s", event.Account) // foo
+// 	logger.Debugf("Event Amount: %d", event.Amount)
+// 	logger.Debugf("Event Timestamp: %d",event.Timestamp)
 // }
 
 // var lobbyConn = []*websocket.Conn{}
@@ -413,8 +413,8 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 // 	// 	panic("Unable to generate big number")
 // 	// }
 // 	dHash := regData.GetHash()
-// 	logger.Infof("DATAHHASH %s", new(big.Int).SetBytes(dHash))
+// 	logger.Debugf("DATAHHASH %s", new(big.Int).SetBytes(dHash))
 // 	//pk, _ := hex.DecodeString(cfg.PrivateKey)
 // 	signature, commitment, _ := regData.Sign(cfg.PrivateKeySECP)
-// 	logger.Infof("RegData %s, %s, %s, %d, %s", hex.EncodeToString(signature),cfg.PrivateKey, hex.EncodeToString(commitment), regData.Timestamp, hex.EncodeToString(cfg.PublicKeySECP))
+// 	logger.Debugf("RegData %s, %s, %s, %d, %s", hex.EncodeToString(signature),cfg.PrivateKey, hex.EncodeToString(commitment), regData.Timestamp, hex.EncodeToString(cfg.PublicKeySECP))
 // }

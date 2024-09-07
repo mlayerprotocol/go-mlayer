@@ -13,7 +13,7 @@ type ConnectionNotifee struct {
 
 // Listen is called when network starts listening on an addr
 func (n *ConnectionNotifee) Listen(netw network.Network, ma multiaddr.Multiaddr) {
-	logger.Infof("Listening.....")
+	logger.Debugf("Listening.....")
 }
 
 // ListenClose is called when network starts listening on an addr

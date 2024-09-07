@@ -43,7 +43,7 @@ func GetPublicKeyECC(privKey string) string {
 func GetPublicKeySECP(privateKey []byte) string {
 	_, pub := btcec.PrivKeyFromBytes(btcec.S256(), privateKey)
 	
-	// logger.Infof("PUBKEY %d %d %d", pub.X, pub.Y)
+	// logger.Debugf("PUBKEY %d %d %d", pub.X, pub.Y)
 	
 	return hex.EncodeToString(pub.SerializeCompressed())
 }
@@ -121,7 +121,7 @@ func GetSignerECC(message *[]byte, signature *string) (string, error) {
 		return "", err
 	}
 	hash := Keccak256Hash(*message)
-	logger.Info("Keccak256Hash Hash:: ", hex.EncodeToString(hash))
+	logger.Debug("Keccak256Hash Hash:: ", hex.EncodeToString(hash))
 	if decoded[crypto.RecoveryIDOffset] == 27 || decoded[crypto.RecoveryIDOffset] == 28 {
 		decoded[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
 	}
@@ -230,7 +230,7 @@ func ToBtcecSignature(sigHex string) (*[]byte, error) {
 		return nil, err
 	}
 	R := sigHex[:64]
-	logger.Infof("SIGNA %s", R)
+	logger.Debugf("SIGNA %s", R)
 	S := sigHex[64:]
 	rByte, err := hex.DecodeString(R)
 	if err != nil {

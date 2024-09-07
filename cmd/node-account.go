@@ -70,7 +70,7 @@ var accountImportCmd = &cobra.Command{
 
 
 func accountInitFunc(_cmd *cobra.Command, _args []string) {
-	logger.Infof("APRAMS %v", _args)
+	logger.Debugf("APRAMS %v", _args)
 	dir, _ := _cmd.Flags().GetString(string(KEYSTORE_DIR))
 	
 	privKeyBytes, err := initKey("account", dir)

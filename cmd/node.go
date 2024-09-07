@@ -194,7 +194,7 @@ func getKeyStoreFilePath(keystoreName string, ksPath string) (string) {
 }
 
 func loadPrivateKeyFromKeyStore(password string, name string, ksPath string) ([]byte, error) {
-	logger.Infof("PATH %s", ksPath)
+	logger.Debugf("PATH %s", ksPath)
 	path := filepath.Join(ksPath, ".goml", fmt.Sprintf("%s.json", name))
 	if !strings.HasPrefix(path, "./") && !strings.HasPrefix(path, "../") && !filepath.IsAbs(ksPath) {
 		path = "./" + path

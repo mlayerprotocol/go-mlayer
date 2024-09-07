@@ -20,7 +20,7 @@ func GetOne[T any, U any](filter T, data U) error {
 	if err := utils.CheckEmpty(filter); err != nil {
 		return err
 	}
-	// logger.Infof("QUERY %v, value: %v, %v", filter, data)
+	// logger.Debugf("QUERY %v, value: %v, %v", filter, data)
 	err := sql.SqlDb.Where(filter).Take(data).Error
 	if err != nil {
 
@@ -62,9 +62,9 @@ const (
 func GetMany[T any, U any](item T, data *U, order *map[string]Order) error {
 	tx := GetManyTx(item)
 	if order != nil {
-		logger.Infof("ORDER BY")
+		logger.Debugf("ORDER BY")
 		for k := range *order {
-			logger.Infof("%s %s", k, (*order)[k])
+			logger.Debugf("%s %s", k, (*order)[k])
 			tx = tx.Order(fmt.Sprintf("%s %s", k, (*order)[k]))
 		}
 	}
@@ -77,9 +77,9 @@ func GetMany[T any, U any](item T, data *U, order *map[string]Order) error {
 func GetManyWithLimit[T any, U any](item T, data *U, order *map[string]Order, limit int, offset int) error {
 	tx := GetManyTx(item)
 	if order != nil {
-		logger.Infof("ORDER BY")
+		logger.Debugf("ORDER BY")
 		for k := range *order {
-			logger.Infof("%s %s", k, (*order)[k])
+			logger.Debugf("%s %s", k, (*order)[k])
 			tx = tx.Order(fmt.Sprintf("%s %s", k, (*order)[k]))
 		}
 	}
@@ -129,7 +129,7 @@ func GetSubscriptionsByBlock(subState entities.Subscription, from uint, to uint,
 	if err != nil {
 		return list, err
 	}
-	logger.Info("RSL ", list)
+	logger.Debug("RSL ", list)
 	return list, nil
 }
 
@@ -171,7 +171,7 @@ func GetOneState[T any](filter any, data *T) error {
 				case entities.Message:
 					model = models.MessageState{Message: val}
 			}
-			// logger.Infof("QUERY %v, value: %v, %v", filter, data)
+			// logger.Debugf("QUERY %v, value: %v, %v", filter, data)
 	err := sql.SqlDb.Where(model).Take(data).Error
 	if err != nil {
 
@@ -288,7 +288,7 @@ func GetDependentEvents(event *entities.Event) (*[]entities.Event, error) {
 // 	// }
 // 	var result *gorm.DB
 // 	var data Model
-// 	logger.Infof("111111::::: %s", where)
+// 	logger.Debugf("111111::::: %s", where)
 // 	result = tx.Where(where).Find(data)
 // 	if result.Error != nil {
 // 		tx.Rollback()
@@ -296,10 +296,10 @@ func GetDependentEvents(event *entities.Event) (*[]entities.Event, error) {
 // 		return nil, false, result.Error
 // 	}
 // 	if result.RowsAffected == 0 {
-// 		logger.Infof("111111 TTTT ::::: %s", where)
+// 		logger.Debugf("111111 TTTT ::::: %s", where)
 // 		result = tx.Where(where).FirstOrCreate(&data)
 // 	} else {
-// 		logger.Infof("111111 FFFF ::::: %s", where)
+// 		logger.Debugf("111111 FFFF ::::: %s", where)
 // 		result = tx.Where(where).Update(field, fmt.Sprintf("%s + 1", field))
 
 // 	}
@@ -308,13 +308,13 @@ func GetDependentEvents(event *entities.Event) (*[]entities.Event, error) {
 // 	// } else {
 // 	// 	result = tx.Where(where).FirstOrCreate(&data)
 // 	// }
-// 	logger.Infof("22222 ::::: %s", where)
+// 	logger.Debugf("22222 ::::: %s", where)
 // 	if result.Error != nil {
 // 		tx.Rollback()
 
 // 		return nil, false, result.Error
 // 	}
-// 	logger.Infof("33333 ::::: %s", where)
+// 	logger.Debugf("33333 ::::: %s", where)
 // 	if DB == nil {
 // 		if tx.Commit().Error != nil {
 // 			tx.Rollback()
@@ -322,7 +322,7 @@ func GetDependentEvents(event *entities.Event) (*[]entities.Event, error) {
 // 		}
 
 // 	}
-// 	logger.Infof("44444 ::::: %s", where)
+// 	logger.Debugf("44444 ::::: %s", where)
 // 	return &data, result.RowsAffected > 0, nil
 // }
 
@@ -340,10 +340,10 @@ func GetAccountSubscriptions(account string) {
 	rows, err := sql.SqlDb.Table(subscriptionTableName).Where(fmt.Sprintf("%s.subscriber = \"%s\"", subscriptionTableName, account)).Joins(fmt.Sprintf("right join %s on %s.topic = %s.id", topicTableName, subscriptionTableName, topicTableName)).Rows()
 	defer rows.Close()
 
-	// logger.Info(rows.)
+	// logger.Debug(rows.)
 
 	if err != nil {
-		logger.Info(err)
+		logger.Debug(err)
 	}
 
 	var subscriptions []map[string]string
@@ -352,7 +352,7 @@ func GetAccountSubscriptions(account string) {
 		sql.SqlDb.ScanRows(rows, &subscription)
 		subscriptions = append(subscriptions, subscription)
 	}
-	logger.Infof("%s", subscriptions)
+	logger.Debugf("%s", subscriptions)
 
 }
 

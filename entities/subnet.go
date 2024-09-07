@@ -98,7 +98,7 @@ func (item Subnet) GetHash() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	logger.Infof("GetHash crypto.Sha256(b) : %v", crypto.Sha256(b))
+	logger.Debugf("GetHash crypto.Sha256(b) : %v", crypto.Sha256(b))
 	return crypto.Sha256(b), nil
 }
 

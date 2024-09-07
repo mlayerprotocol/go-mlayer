@@ -157,7 +157,7 @@ func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.M
 	if err != nil {
 		return nil, fmt.Errorf("P2pPayload: %v", err)
 	}
-	logger.Infof("Preparing to send paylaod to peer: %s", p.Id)
+	logger.Debugf("Preparing to send paylaod to peer: %s", p.Id)
 	stream := dataStream
 	if _type == SyncRequest {
 		stream = syncStream
@@ -169,7 +169,7 @@ func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.M
 		// defer s.Close()
 		i, err := rw.Write(append(p.MsgPack(), Delimiter...))
 		rw.Flush()
-		logger.Infof("BytesWritten: %d", i)
+		logger.Debugf("BytesWritten: %d", i)
 
 		if err != nil {
 			if err == network.ErrReset {
@@ -209,16 +209,16 @@ func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.M
 		
 		resp, err := UnpackP2pPayload(payloadBuf.Bytes()[:payloadBuf.Len()-1])
 		if err != nil {
-			logger.Infof("UnpackREadBYtes: %v", err)
+			logger.Debugf("UnpackREadBYtes: %v", err)
 			return resp, err
 		}
-		logger.Infof("REadBYtes 1: %v", err)
+		logger.Debugf("REadBYtes 1: %v", err)
 		if !resp.IsValid(p.ChainId) {
 			return nil, apperror.Unauthorized("response is invalid")
 		}
 		return resp, nil	
 	}
-	logger.Infof("Failed to connect")
+	logger.Debugf("Failed to connect")
 	return nil, fmt.Errorf("P2pPayload: connection failed %s", peer.ID)
 }
 
@@ -277,7 +277,7 @@ func GetEvent(config *configs.MainConfiguration, eventPath entities.EventPath, v
 		return nil, nil, apperror.NotFound("subnet not found")
 	}
 	event := entities.GetEventEntityFromModel(eventPath.Model)
-	logger.Infof("EventMODELEData: %v", eventPath.Model)
+	logger.Debugf("EventMODELEData: %v", eventPath.Model)
 	event.Payload = entities.ClientPayload{Data: event.Payload.Data}
 	
 	event, err = entities.UnpackEvent(data.Event, eventPath.Model)

@@ -37,8 +37,8 @@ func (regData *RegisterationData) Sign(privkBytes []byte) ([]byte, schnorr.EthAd
 	}
 	_, p := btcec.PrivKeyFromBytes(privkBytes)
 
-	logger.Infof("PUBKEY_X %d | %d", p.X(), p.Y())
-	logger.Infof("REGDATAHASH: %s", hex.EncodeToString(regData.GetHash()))
+	logger.Debugf("PUBKEY_X %d | %d", p.X(), p.Y())
+	logger.Debugf("REGDATAHASH: %s", hex.EncodeToString(regData.GetHash()))
 	signature, commitment, _, _ := schnorr.SignSingle(privkBytes, [32]byte(regData.GetHash()))
 	return signature, commitment, nil
 }

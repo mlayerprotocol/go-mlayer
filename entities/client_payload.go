@@ -92,7 +92,7 @@ func (msg ClientPayload) GetHash() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	logger.Infof("BYTESSSS: %s", hex.EncodeToString(b))
+	logger.Debugf("BYTESSSS: %s", hex.EncodeToString(b))
 	bs := crypto.Keccak256Hash(b)
 	return bs, nil
 }
@@ -101,7 +101,7 @@ func (msg ClientPayload) GetSigner() (DeviceString, error) {
 
 	//if len(msg.Agent) == 0 {
 		b, err := msg.EncodeBytes()
-		logger.Info("ENCODEDBBBBB", " ", hex.EncodeToString(b), " ", hex.EncodeToString(crypto.Keccak256Hash(b)), " Err: ", err)
+		logger.Debug("ENCODEDBBBBB", " ", hex.EncodeToString(b), " ", hex.EncodeToString(crypto.Keccak256Hash(b)), " Err: ", err)
 		if err != nil {
 			return "", err
 		}
@@ -115,7 +115,7 @@ func (msg ClientPayload) GetSigner() (DeviceString, error) {
 // 0000000000014a34f22033dbd9823243a3ae6ab8b42bacec84688a267d750a028e51d46e16d3f4ea00000000000005156469643a307833466436454344434432323563334445306530373342333337433463424143353334326532414338ddb466a5dd4a5c0835614c7a46e18943ef750a9d000000000000000000000191bdd35250
 // func (msg *ClientPayload) Validate(pubKey PublicKeyString) error {
 // 	if string(msg.Validator)  != string(pubKey) {
-// 		// logger.Infof("VALIDIATOR %s %s, %s", msg.Validator, crypto.GetPublicKeyEDD(privateKey), crypto.ToBech32Address(crypto.GetPublicKeyEDD(privateKey)))
+// 		// logger.Debugf("VALIDIATOR %s %s, %s", msg.Validator, crypto.GetPublicKeyEDD(privateKey), crypto.ToBech32Address(crypto.GetPublicKeyEDD(privateKey)))
 // 		return errors.New("Invalid message. Message not registered to this validator")
 // 	}
 // 	_, err := msg.EncodeBytes()
@@ -139,11 +139,11 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 			return []byte(""), err
 		}
 		hashed = crypto.Keccak256Hash(b)
-		logger.Info("ENCODED==== ", hex.EncodeToString(b), " HASHED==== ", hex.EncodeToString(hashed))
+		logger.Debug("ENCODED==== ", hex.EncodeToString(b), " HASHED==== ", hex.EncodeToString(hashed))
 	}
 
 	var params []encoder.EncoderParam
-	logger.Infof("ChainID %s", hex.EncodeToString(msg.ChainId.Bytes()))
+	logger.Debugf("ChainID %s", hex.EncodeToString(msg.ChainId.Bytes()))
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()})
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})

@@ -42,7 +42,7 @@ func (g Authorization) GetHash() ([]byte, error) {
 		return hex.DecodeString(g.Hash)
 	}
 	b, err := (g.EncodeBytes())
-	logger.Info("EncodeBytes:: ", b)
+	logger.Debug("EncodeBytes:: ", b)
 	if err != nil {
 		logger.Errorf("Error endoding Authorization: %v", err)
 		return []byte(""), err

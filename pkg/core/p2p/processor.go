@@ -2,7 +2,6 @@ package p2p
 
 import (
 
-	// "github.com/gin-gonic/gin"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -98,7 +97,7 @@ func publishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 				
 			 // auth.Payload = payload
 			//  auth.Payload.ClientPayload.Data = auth.Payload.ClientPayload.Data
-			//  logger.Infof("Payload----> %v", event.Payload.ClientPayload.Data)
+			//  logger.Debugf("Payload----> %v", event.Payload.ClientPayload.Data)
 			// 	// auth.Event.Payload = payload
 			// 	b, err := (auth).EncodeBytes()
 			// 	if err != nil {
@@ -127,11 +126,11 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 	
 	for {
 		if fromPubSubChannel == nil || fromPubSubChannel.Messages == nil {
-			logger.Info("Channel is nil")
+			logger.Debug("Channel is nil")
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		logger.Info("Channel no more nil")
+		logger.Debug("Channel no more nil")
 		
 		message, ok := <-fromPubSubChannel.Messages
 		if !ok {
@@ -140,7 +139,7 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 		}
 		
 		event, errT := entities.UnpackEvent(message.Data,  modelType)
-		logger.Infof("UNPASCKEDEVENT %s  %s, %v", event.PreviousEventHash, event.PayloadHash,  event.Payload.Data)
+		logger.Debugf("UNPASCKEDEVENT %s  %s, %v", event.PreviousEventHash, event.PayloadHash,  event.Payload.Data)
 		
 		if errT != nil {
 			logger.Errorf("Error receiving event  %v\n", errT)
@@ -156,7 +155,7 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 		// if err != nil {
 		// 	logger.Error(err)
 		// }
-		// logger.Infof("Event 1 ----===> %v", event)
+		// logger.Debugf("Event 1 ----===> %v", event)
 		// authByte, _ := json.Marshal( pv.Event.Payload.(entities.AuthorizationPayload).ClientPayload.Data)
 		// _	= json.Unmarshal(authByte, &auth)
 		// // pv.Event.Payload  = payload
@@ -173,10 +172,10 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 		// 		Data: payload.Data.
 		// 	},
 		// }
-		// logger.Infof("ADEDEEDDD %v", pv.Event.Payload.(entities.AuthorizationPayload).ClientPayload)
+		// logger.Debugf("ADEDEEDDD %v", pv.Event.Payload.(entities.AuthorizationPayload).ClientPayload)
 		// b, err := pv.EncodeBytes()
-		// logger.Infof("ADEDEEDDD %v", b)
-		// logger.Infof("Event Received ----===> %v", event.GetValidator())
+		// logger.Debugf("ADEDEEDDD %v", b)
+		// logger.Debugf("Event Received ----===> %v", event.GetValidator())
 		// toGoChannel <- event
 		// 
 		// check if event was signed by a valid provider
@@ -216,7 +215,7 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 	// 		//TODO:
 	// 		// if not a valid message, continue
 
-	// 		logger.Infof("Received new message %s\n", authEvent.ToString())
+	// 		logger.Debugf("Received new message %s\n", authEvent.ToString())
 	// 		cm := models.AuthorizationEvent{}
 	// 		err = encoder.MsgPackUnpackStruct(authEvent.Data, cm)
 	// 		if err != nil {
@@ -238,7 +237,7 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 	// 		//TODO:
 	// 		// if not a valid message, continue
 
-	// 		logger.Infof("Received new message %s\n", inMessage.ToString())
+	// 		logger.Debugf("Received new message %s\n", inMessage.ToString())
 	// 		cm, err := entities.MsgUnpackClientPayload(inMessage.Data)
 	// 		if err != nil {
 
@@ -250,12 +249,12 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 	// 			logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
 	// 			return
 	// 		}
-	// 		// logger.Info("Received new message %s\n", inMessage.Message.Body.Message)
+	// 		// logger.Debug("Received new message %s\n", inMessage.Message.Body.Message)
 	// 		cm, err := entities.UnpackSubscription(sub.Data)
 	// 		if err != nil {
 
 	// 		}
-	// 		logger.Info("New subscription updates:::", string(cm.ToJSON()))
+	// 		logger.Debug("New subscription updates:::", string(cm.ToJSON()))
 	// 		// *incomingMessagesC <- &cm
 	// 		cm.Broadcasted = false
 	// 		*publishedSubscriptionC <- &cm
@@ -277,7 +276,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 	if !ok {
 		response.ResponseCode = 500
 		response.Error = "Internal error"
-		logger.Infof("CommitmentRequest: Error get claim reward store from context")
+		logger.Debugf("CommitmentRequest: Error get claim reward store from context")
 		response.Sign(config.PrivateKeyEDD)
 		return response, err
 	}
@@ -287,7 +286,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			if err != nil {
 				response.ResponseCode = 500
 				response.Error = "Invalid payload data"
-				logger.Infof("processP2pPayload: %v", err)
+				logger.Debugf("processP2pPayload: %v", err)
 			}
 			event, err := query.GetEventFromPath(eventPath)
 			if err != nil {
@@ -314,7 +313,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 						states = append(states, st.MsgPack())
 					}
 					data := P2pEventResponse{Event: event.MsgPack(), States: states}
-					logger.Infof("EventReseponse: %v", (&data).MsgPack())
+					logger.Debugf("EventReseponse: %v", (&data).MsgPack())
 					response.Data = (&data).MsgPack()
 				}
 			}
@@ -323,7 +322,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			if err != nil {
 				response.ResponseCode = 500
 				response.Error = "Invalid payload data"
-				logger.Infof("processP2pPayload: %v", err)
+				logger.Debugf("processP2pPayload: %v", err)
 			}
 			state, err := query.GetStateFromPath(ePath)
 			if err != nil {
@@ -340,7 +339,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 				// := entities.EventPathFromString(eventPath)
 				path := eventPath.(entities.EventPath)
 				event, err := query.GetEventFromPath(&path)
-				logger.Infof("STATESEVENNNT %v, %v", event, eventPath)
+				logger.Debugf("STATESEVENNNT %v, %v", event, eventPath)
 				if err == nil {
 					states := []json.RawMessage{}
 					states = append(states, state.(IState).MsgPack())
@@ -389,10 +388,10 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 				buffer.Write([]byte{'|'})
 			}
 				response.Data = buffer.Bytes()
-			//	logger.Infof("FILEPATH: %s", sql)
+			//	logger.Debugf("FILEPATH: %s", sql)
 			
 		case P2pActionGetCommitment:
-			// logger.Info("ReceivedCommitmentRequest")
+			// logger.Debug("ReceivedCommitmentRequest")
 			// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
 			// if !ok {
 			// 	panic("Unable to load eventCounterStore")
@@ -451,9 +450,9 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			
 			claimHash := [32]byte{}
 			if len(batch.Data) > 0 && len(response.Error) == 0  {
-				//logger.Infof("BATCHINGOF %s", realBatch.GetProofData(config.ChainId).DataHash)
+				//logger.Debugf("BATCHINGOF %s", realBatch.GetProofData(config.ChainId).DataHash)
 				claimHash, err = realBatch.GetProofData(config.ChainId).GetHash()
-				logger.Infof("ValidDataHash %v, %v",[32]byte(batch.DataHash) == [32]byte(realBatch.DataHash), realBatch )
+				logger.Debugf("ValidDataHash %v, %v",[32]byte(batch.DataHash) == [32]byte(realBatch.DataHash), realBatch )
 				if err != nil {
 					response.ResponseCode = 500
 					response.Error = err.Error()
@@ -470,7 +469,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 
 			
 			validCommitmentKey :=  datastore.NewKey(fmt.Sprintf("commitment/%s",  hex.EncodeToString(claimHash[:])))
-			logger.Infof("CommitmentKey1: %s", validCommitmentKey.String())
+			logger.Debugf("CommitmentKey1: %s", validCommitmentKey.String())
 
 			if response.ResponseCode == 0 {
 				pk, _ := btcec.PrivKeyFromBytes(config.PrivateKeySECP)
@@ -483,11 +482,11 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 				} else{ 
 					response.Data = noncePublicKey.SerializeCompressed()
 				}
-				logger.Infof("NoncePubKey %s", hex.EncodeToString(noncePublicKey.SerializeCompressed()))
+				logger.Debugf("NoncePubKey %s", hex.EncodeToString(noncePublicKey.SerializeCompressed()))
 			}
 	
 		case P2pActionGetSentryProof:
-			logger.Info("ReceivedProoftRequest")
+			logger.Debug("ReceivedProoftRequest")
 			// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
 			// if !ok {
 			// 	panic("Unable to load eventCounterStore")
@@ -501,13 +500,13 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			}
 			
 			validCommitmentKey :=  datastore.NewKey(fmt.Sprintf("commitment/%s",  hex.EncodeToString(sigData.ProofHash)))
-			logger.Infof("CommitmentKey2: %s", validCommitmentKey.String())
+			logger.Debugf("CommitmentKey2: %s", validCommitmentKey.String())
 			
 			nonce, err := claimedRewardStore.Get(*ctx, validCommitmentKey)
 			if err != nil {
 				response.ResponseCode = 500
 				response.Error = "Internal error"
-				logger.Infof("Error getting commitment from store")
+				logger.Debugf("Error getting commitment from store")
 			} 
 			if err == nil && response.ResponseCode == 0 {
 
@@ -517,14 +516,14 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 				//  cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)
 				response.Data = sig
 				/// TODO save the nonepublickey with the claimhash in badger
-				logger.Infof("NoncePubKey %s", hex.EncodeToString(sig))
+				logger.Debugf("NoncePubKey %s", hex.EncodeToString(sig))
 			}
 		
 
 			// if err != nil {
 			// 	response.ResponseCode = 500
 			// 	response.Error = "Invalid payload data"
-			// 	logger.Infof("processP2pPayload: %v", err)
+			// 	logger.Debugf("processP2pPayload: %v", err)
 			// }
 			
 			// 1. Get the reward batch data
@@ -545,7 +544,7 @@ func generateImportScript(model any, fromBlock uint64, toBlock uint64) ([]byte, 
 
 	sql, err := query.GenerateImportScript(sql.SqlDb, model, sql.SqlDb.Where("block_number >= ? AND block_number <= ?",  fromBlock, toBlock), "", config )
 				if err != nil {
-					logger.Infof("SQLFILEERROR: %v", err)
+					logger.Debugf("SQLFILEERROR: %v", err)
 				}
 				d, err := utils.CompressToGzip(sql)
 				if err != nil {

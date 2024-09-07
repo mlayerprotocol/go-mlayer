@@ -29,7 +29,7 @@ import (
 
 // Keep a record of all messages sent within a cycle per subnet
 func TrackReward(ctx *context.Context) {
-	logger.Info("Tracking Reward Batches...")
+	logger.Debug("Tracking Reward Batches...")
 	defer TrackReward(ctx) 
 	defer time.Sleep(5 * time.Second)
 	if !chain.NetworkInfo.Synced {
@@ -131,7 +131,7 @@ func generateBatch(cycle uint64, index int, ctx *context.Context) (*entities.Rew
 			return nil, err
 		}
 		// defer subnetList.Close()
-		logger.Infof("ListLen: %d", len(subnetList))
+		logger.Debugf("ListLen: %d", len(subnetList))
 		if len(subnetList) == 0 {
 			return nil, query.ErrorNotFound //do not change because error string "empty" is checked above
 		}
@@ -155,25 +155,25 @@ func generateBatch(cycle uint64, index int, ctx *context.Context) (*entities.Rew
 }
 
 func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguration, batch *entities.RewardBatch) {
-	logger.Infof("Processing Batch....: %v", batch.Id)
+	logger.Debugf("Processing Batch....: %v", batch.Id)
 	claimedRewardStore, ok := (ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
 	if !ok {
 		panic("Unable to load claimedRewardStore") 
 	}
 	hashNumber :=  new(big.Int).SetBytes(batch.DataHash)
-	logger.Infof("Hash: %s", hashNumber)
+	logger.Debugf("Hash: %s", hashNumber)
 		totalLicenses, err := chain.DefaultProvider(cfg).GetSentryActiveLicenseCount(big.NewInt(int64(batch.Cycle)))
 		if err != nil {
 			logger.Error(err)
 			return
 		}
 		if totalLicenses.Cmp(big.NewInt(0)) == 0 {
-			logger.Infof("No active license found")
+			logger.Debugf("No active license found")
 			return
 		}
 		salt := new(big.Int).Mod(hashNumber, big.NewInt(1000))
 		salt = new(big.Int).Add(salt, big.NewInt(1))
-		logger.Infof("Salt: %s", new(big.Int).Mod(hashNumber, big.NewInt(1000)))
+		logger.Debugf("Salt: %s", new(big.Int).Mod(hashNumber, big.NewInt(1000)))
 		startLicence := new(big.Int).Mod(new(big.Int).Div(hashNumber, salt), totalLicenses).Add(big.NewInt(1000), big.NewInt(0))
 		
 		// var licenses = [15]*big.Int{}
@@ -191,14 +191,14 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 		if totalLicenses.Uint64() < 3 {
 			max = int(totalLicenses.Uint64()) - 1
 		}
-		logger.Infof("Max Proofs Needed: %d", max)
+		logger.Debugf("Max Proofs Needed: %d", max)
 		for i := 0; i<max*2; i++ {
 			decodedLicence :=  new(big.Int).Mod(utils.Lcg(startLicence.Uint64() + (uint64(i) * salt.Uint64())), totalLicenses)
 			decodedLicence = new(big.Int).Add(decodedLicence, big.NewInt(1000))
-			logger.Infof("Start Licence: %s", decodedLicence)
+			logger.Debugf("Start Licence: %s", decodedLicence)
 			operatorBytes, err := chain.Provider(cfg.ChainId).GetSentryLicenseOperator(decodedLicence)
 			if err != nil {
-				logger.Info(err)
+				logger.Debug(err)
 				continue
 			} else {
 				if len(operatorBytes) > 0 {
@@ -219,7 +219,7 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 				tmpBatch := &batchCopy
 				tmpBatch.Data = []entities.SubnetCount{}
 				
-				logger.Infof("BATCHDATA: %v", batch)
+				logger.Debugf("BATCHDATA: %v", batch)
 				// request commitment from validator
 				payload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetCommitment, tmpBatch.MsgPack())
 				
@@ -229,7 +229,7 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 					continue
 				}
 				
-				logger.Infof("IsValid Response: %s, %v", response.Id, response.IsValid(cfg.ChainId))
+				logger.Debugf("IsValid Response: %s, %v", response.Id, response.IsValid(cfg.ChainId))
 				
 				if response.IsValid(cfg.ChainId) {
 					
@@ -270,7 +270,7 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 						Challenge: challenge,
 						// Commitment: commitment,
 					}
-					logger.Infof("ReceivedAllNonces: challange:%s, commit:%s", hex.EncodeToString(challenge), commitment)
+					logger.Debugf("ReceivedAllNonces: challange:%s, commit:%s", hex.EncodeToString(challenge), commitment)
 					signingPayload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetSentryProof, signReq.MsgPack())
 					if err != nil {
 						continue
@@ -284,7 +284,7 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 							logger.Errorf("GetProofRequestError %s", signResp.Error)
 							continue
 						}
-						logger.Infof("IsValid Response For Signature: %s, %v", response.Id, response.IsValid(cfg.ChainId))
+						logger.Debugf("IsValid Response For Signature: %s, %v", response.Id, response.IsValid(cfg.ChainId))
 						if signResp.IsValid(cfg.ChainId) {
 							// we have received a valid signature from this node
 							signatures = append(signatures, signResp.Data)
@@ -292,7 +292,7 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 					}
 					if len(signatures) == max { // all 20 have signed
 						// aggregate signature
-						logger.Infof("Signatures: %v", signatures)
+						logger.Debugf("Signatures: %v", signatures)
 						aggSig := schnorr.AggregateSignatures(signatures)
 						// _, err := chain.DefaultProvider(cfg).ClaimReward(entities.ClaimData{
 						// 	SubnetRewardCount: batch.Data,
@@ -308,7 +308,7 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 							// mark it as finalized
 							// store it as a pending claim
 							signers := [][]byte{}
-						logger.Infof("RPCCONFIG: %v", cfg.EvmRpcConfig["31337"])		
+						logger.Debugf("RPCCONFIG: %v", cfg.EvmRpcConfig["31337"])		
 							for _, k := range sentryPubKeys {
 								signers = append(signers, k.SerializeCompressed())
 							}
@@ -321,24 +321,24 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 								logger.Error(err)
 							} else {
 								for _, d := range batch.Data {
-									logger.Infof("[")
-									logger.Infof("{'subnetId':'0x%s', 'amount':'%s'},", strings.ReplaceAll(d.Subnet, "-", ""), new(big.Int).SetBytes(d.Cost) )
-									logger.Infof("]")
+									logger.Debugf("[")
+									logger.Debugf("{'subnetId':'0x%s', 'amount':'%s'},", strings.ReplaceAll(d.Subnet, "-", ""), new(big.Int).SetBytes(d.Cost) )
+									logger.Debugf("]")
 								}
 								for _, k := range sentryPubKeys {
-									logger.Infof("[")
-									logger.Infof("{'x':'%s','y':'%s'},", k.X(), k.Y() )
-									logger.Infof("]")
+									logger.Debugf("[")
+									logger.Debugf("{'x':'%s','y':'%s'},", k.X(), k.Y() )
+									logger.Debugf("]")
 								}
-								logger.Info("Cycle: ", batch.Cycle)
-								logger.Info("Index: ", batch.Index)
-								logger.Info("Cost: ", new(big.Int).SetBytes(batch.TotalValue))
-								logger.Info("Validator: ", hex.EncodeToString(batch.Validator))
-								logger.Info("DataHash: ", hex.EncodeToString(proofData.DataHash))
-								logger.Info("ProofHash: ", hex.EncodeToString(hash[:]))
-								logger.Info("commitment: ", hex.EncodeToString(proofData.Commitment))
-								logger.Info("signature: ", hex.EncodeToString(proofData.Signature))
-								logger.Infof("processSentryRewardBatch: Successful..... %d/%s, %v, %v", batch.Cycle, batch.Id, sentryPubKeys[0], commitment)
+								logger.Debug("Cycle: ", batch.Cycle)
+								logger.Debug("Index: ", batch.Index)
+								logger.Debug("Cost: ", new(big.Int).SetBytes(batch.TotalValue))
+								logger.Debug("Validator: ", hex.EncodeToString(batch.Validator))
+								logger.Debug("DataHash: ", hex.EncodeToString(proofData.DataHash))
+								logger.Debug("ProofHash: ", hex.EncodeToString(hash[:]))
+								logger.Debug("commitment: ", hex.EncodeToString(proofData.Commitment))
+								logger.Debug("signature: ", hex.EncodeToString(proofData.Signature))
+								logger.Debugf("processSentryRewardBatch: Successful..... %d/%s, %v, %v", batch.Cycle, batch.Id, sentryPubKeys[0], commitment)
 							}
 						// }
 
@@ -359,7 +359,7 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 }
 
 func ProcessPendingClaims(ctx *context.Context) {
-	logger.Info("Processing pending claims...")
+	logger.Debug("Processing pending claims...")
 	waitPeriod := 10 * time.Second
 	defer ProcessPendingClaims(ctx) 
 	defer time.Sleep(waitPeriod)

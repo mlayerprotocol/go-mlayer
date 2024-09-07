@@ -238,7 +238,7 @@ func SafePointerValue[T any](b *T, defaultValue T) T {
 
 func ParseQueryString(c *gin.Context) (*[]byte, error) {
 	rawQuery := c.Request.URL.Query()
-	logger.Info("rawQuery:: ", rawQuery)
+	logger.Debug("rawQuery:: ", rawQuery)
 	var query map[string]any = map[string]any{}
 	for key, v := range rawQuery {
 		if len(v) > 0 {
@@ -246,7 +246,7 @@ func ParseQueryString(c *gin.Context) (*[]byte, error) {
 		}
 
 	}
-	logger.Info("query:: ", query)
+	logger.Debug("query:: ", query)
 	b, requestErr := json.Marshal(query)
 	if requestErr != nil {
 		return nil, requestErr

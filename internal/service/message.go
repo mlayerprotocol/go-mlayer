@@ -186,10 +186,10 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 	
 	previousEventUptoDate,  authEventUpToDate, _, eventIsMoreRecent, err := ProcessEvent(event,  eventData, true, saveMessageEvent, tx, ctx)
 	if err != nil {
-		logger.Infof("Processing Error...: %v", err)
+		logger.Debugf("Processing Error...: %v", err)
 		return
 	}
-	logger.Infof("Processing 2...: %v,  %v", previousEventUptoDate, authEventUpToDate)
+	logger.Debugf("Processing 2...: %v,  %v", previousEventUptoDate, authEventUpToDate)
 	// get the topic, if not found retrieve it
 	
 	if previousEventUptoDate  && authEventUpToDate {
@@ -258,7 +258,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 				go func () {
 				dependent, err := query.GetDependentEvents(event)
 				if err != nil {
-					logger.Info("Unable to get dependent events", err)
+					logger.Debug("Unable to get dependent events", err)
 				}
 				for _, dep := range *dependent {
 					HandleNewPubSubEvent(&dep, ctx)

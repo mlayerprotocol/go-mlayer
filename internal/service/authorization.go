@@ -26,7 +26,7 @@ func ValidateAuthPayloadData(auth *entities.Authorization, addressPrefix configs
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	logger.Info("auth.SignatureData.Signature:: ", auth.SignatureData.Signature)
+	logger.Debug("auth.SignatureData.Signature:: ", auth.SignatureData.Signature)
 	var valid bool
 
 	// if string(auth.Account) == string(auth.Grantor) {
@@ -111,7 +111,7 @@ func ValidateAuthPayloadData(auth *entities.Authorization, addressPrefix configs
 
 		msg, err := auth.GetHash()
 
-		logger.Info("MSG:: ", msg)
+		logger.Debug("MSG:: ", msg)
 
 		if err != nil {
 			return nil, nil, subnet, err
@@ -248,10 +248,10 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 	
 	previousEventUptoDate,  authEventUpToDate, _, eventIsMoreRecent, err := ProcessEvent(event,  eventData, false, saveAuthorizationEvent, tx, ctx)
 	if err != nil {
-		logger.Infof("Processing Error...: %v", err)
+		logger.Debugf("Processing Error...: %v", err)
 		return
 	}
-	logger.Infof("Processing 2...: %v,  %v", previousEventUptoDate, authEventUpToDate)
+	logger.Debugf("Processing 2...: %v,  %v", previousEventUptoDate, authEventUpToDate)
 	if previousEventUptoDate  && authEventUpToDate {
 		_, _, _, err = ValidateAuthPayloadData(&data, cfg.ChainId)
 		if err != nil {
@@ -288,10 +288,10 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 				go func () {
 				dependent, err := query.GetDependentEvents(event)
 				if err != nil {
-					logger.Info("Unable to get dependent events", err)
+					logger.Debug("Unable to get dependent events", err)
 				}
 				for _, dep := range *dependent {
-					logger.Infof("Processing Dependend Event %s", dep.Hash)
+					logger.Debugf("Processing Dependend Event %s", dep.Hash)
 					go HandleNewPubSubEvent(&dep, ctx)
 				}
 				}()

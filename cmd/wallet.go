@@ -143,7 +143,7 @@ package cmd
 //     //     fmt.Println("Error creating new mnemonic:", err)
 //     //     return
 //     // }
-// 	// logger.Infof("Mnemonic: %s", mnemonic)
+// 	// logger.Debugf("Mnemonic: %s", mnemonic)
 
 // 	// var one = 1;
 // 	// if one == 1 {

@@ -80,7 +80,7 @@ func (nma * NodeMultiAddressData) IsValid(prefix configs.ChainId) bool {
 	// 	logger.Error(err)
 	// 	return false
 	// }
-	// logger.Infof("Operator4 %s", nma.Signer)
+	// logger.Debugf("Operator4 %s", nma.Signer)
 	
 	isValid, err := crypto.VerifySignatureSECP(nma.Signer, data, nma.Signature)
 	if err != nil {

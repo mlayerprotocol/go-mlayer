@@ -89,7 +89,7 @@ func (handshake *NodeHandshake) IsValid(chainId configs.ChainId) bool {
 		logger.Error(err)
 		return false
 	}
-	logger.Infof("Validating handshake data %v", isValid)
+	logger.Debugf("Validating handshake data %v", isValid)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": handshake.Protocol, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
 		return false

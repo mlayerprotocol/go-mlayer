@@ -85,14 +85,14 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 	data.Account = event.Payload.Account
 	data.Agent = event.Payload.Agent
 	data.Timestamp = event.Payload.Timestamp
-	logger.Info("Processing 1...")
+	logger.Debug("Processing 1...")
 	var localState models.TopicState
 	// err := query.GetOne(&models.TopicState{Topic: entities.Topic{ID: id}}, &localState)
 	err = sql.SqlDb.Where(&models.TopicState{Topic: entities.Topic{ID: id}}).Take(&localState).Error
 	if err != nil {
 		logger.Error(err)
 	}
-	logger.Info("Processing 2...")
+	logger.Debug("Processing 2...")
 	
 	var localDataState *LocalDataState
 	if localState.ID == "" {
@@ -150,7 +150,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 			// TODO if event is older than our state, just save it and mark it as synced
 			savedEvent, err := saveTopicEvent(entities.Event{Hash: event.Hash}, nil, &entities.Event{IsValid: true, Synced: true}, tx )
 			if eventIsMoreRecent {
-				logger.Info("ISMORERECENT", eventIsMoreRecent)
+				logger.Debug("ISMORERECENT", eventIsMoreRecent)
 				// update state
 				if data.ID != "" {
 					_, _, err = query.SaveRecord(models.TopicState{
@@ -178,7 +178,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 				go func () {
 				dependent, err := query.GetDependentEvents(event)
 				if err != nil {
-					logger.Info("Unable to get dependent events", err)
+					logger.Debug("Unable to get dependent events", err)
 				}
 				for _, dep := range *dependent {
 					HandleNewPubSubEvent(&dep, ctx)

@@ -65,7 +65,7 @@ func ValidateSubnetData(clientPayload *entities.ClientPayload, chainID configs.C
 	switch subnet.SignatureData.Type {
 	case entities.EthereumPubKey:
 		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", chainID, subnet.Ref, encoder.ToBase64Padded(msg))
-		logger.Info("MSG:: ", authMsg)
+		logger.Debug("MSG:: ", authMsg)
 		msgByte := crypto.EthMessage([]byte(authMsg))
 
 		valid = crypto.VerifySignatureECC(entities.AddressFromString(string(subnet.Account)).Addr, &msgByte, subnet.SignatureData.Signature)
@@ -83,7 +83,7 @@ func ValidateSubnetData(clientPayload *entities.ClientPayload, chainID configs.C
 			return nil, err
 		}
 		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", chainID, subnet.Ref, encoder.ToBase64Padded(msg))
-		logger.Info("MSG:: ", authMsg)
+		logger.Debug("MSG:: ", authMsg)
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
 		if err != nil {
 			return nil, err
@@ -197,10 +197,10 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	// }()
 	previousEventUptoDate,  _, _, eventIsMoreRecent, err := ProcessEvent(event,  eventData, false, saveSubnetEvent, tx, ctx)
 	if err != nil {
-		logger.Infof("Processing Error...: %v", err)
+		logger.Debugf("Processing Error...: %v", err)
 		return
 	}
-	logger.Infof("Processing 2...: %v", previousEventUptoDate)
+	logger.Debugf("Processing 2...: %v", previousEventUptoDate)
 	if previousEventUptoDate {
 		_, err = ValidateSubnetData(&event.Payload, cfg.ChainId)
 		if err != nil {
@@ -241,7 +241,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 				go func () {
 				dependent, err := query.GetDependentEvents(event)
 				if err != nil {
-					logger.Info("Unable to get dependent events", err)
+					logger.Debug("Unable to get dependent events", err)
 				}
 				for _, dep := range *dependent {
 					HandleNewPubSubEvent(&dep, ctx)
@@ -265,7 +265,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	// 	return
 	// }
 
-	// logger.Infof("Event is a valid event %s", event.PayloadHash)
+	// logger.Debugf("Event is a valid event %s", event.PayloadHash)
 	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// // Extract and validate the Data of the paylaod which is an Events Payload Data,
@@ -274,14 +274,14 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	// data.Hash = hex.EncodeToString(hash)
 	// // authEventHash := event.AuthEventHash
 	// // authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
-	// logger.Info("data.Meta Ref ", data.Meta, " ", data.Ref)
+	// logger.Debug("data.Meta Ref ", data.Meta, " ", data.Ref)
 	// h, _ := data.GetHash()
-	// logger.Infof("data.Hash %v", h)
+	// logger.Debugf("data.Hash %v", h)
 
 	// currentState, err := ValidateSubnetData(&data, cfg.ChainId)
 	// if err != nil {
 	// 	// penalize node for broadcasting invalid data
-	// 	logger.Infof("Invalid Subnet data %v. Node should be penalized", err)
+	// 	logger.Debugf("Invalid Subnet data %v. Node should be penalized", err)
 	// 	return
 	// }
 
@@ -324,7 +324,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	// 	// 		// 	isMoreRecent = true
 	// 	// 		// }
 	// 	// 		// if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-	// 	// 			// logger.Infof("Current state %v", currentStateEvent.Payload)
+	// 	// 			// logger.Debugf("Current state %v", currentStateEvent.Payload)
 	// 	// 			csN := new(big.Int)
 	// 	// 			csN.SetString(currentState.Event.Hash[56:], 16)
 	// 	// 			nsN := new(big.Int)
@@ -451,7 +451,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	// if string(event.Validator) != (*cfg).PublicKey  {
 	// 	dependent, err := query.GetDependentEvents(*event)
 	// 	if err != nil {
-	// 		logger.Info("Unable to get dependent events", err)
+	// 		logger.Debug("Unable to get dependent events", err)
 	// 	}
 	// 	for _, dep := range *dependent {
 	// 		go HandleNewPubSubSubnetEvent(&dep, ctx)

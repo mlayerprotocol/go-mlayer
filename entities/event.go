@@ -267,7 +267,7 @@ func UnpackEvent(b []byte, model EntityModel) (*Event, error) {
 	case TopicModel:
 		r := Topic{}
 		json.Unmarshal(dBytes, &r)
-		logger.Infof("PAYLOADDDDD %v", r)
+		logger.Debugf("PAYLOADDDDD %v", r)
 		pl.Data = r
 	case SubscriptionModel:
 		r := Subscription{}

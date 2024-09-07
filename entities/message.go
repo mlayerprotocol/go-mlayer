@@ -197,7 +197,7 @@ func (msg Message) EncodeBytes() ([]byte, error) {
 	}
 
 	dataByte, _ := hex.DecodeString(msg.Data)
-	logger.Infof("DataBytes: %s %s %s %s", dataByte, msg.DataType, msg.Receiver, hex.EncodeToString(utils.UuidToBytes(msg.Topic)))
+	logger.Debugf("DataBytes: %s %s %s %s", dataByte, msg.DataType, msg.Receiver, hex.EncodeToString(utils.UuidToBytes(msg.Topic)))
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: actions},
 		// encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: attachments},

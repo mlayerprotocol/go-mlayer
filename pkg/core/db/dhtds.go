@@ -137,7 +137,7 @@ package db
 // }
 
 // func (d *DhtDatastore) Put(ctx context.Context, key ds.Key, value []byte) error {
-// 	logger.Infof("KEYYYYY %s value %d vvv %v", string(key.Bytes()))
+// 	logger.Debugf("KEYYYYY %s value %d vvv %v", string(key.Bytes()))
 // 	// return d.DB.Update(func(txn *badger.Txn) error {
 // 	// 	return txn.Set(key.Bytes(), value)
 // 	// })

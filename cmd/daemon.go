@@ -117,7 +117,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 			if cfg.Validator {
 				logger.Fatalf("Failed to run in validator mode because no license is assigned to this operators public key (SECP).")
 			}
-			logger.Infof("Operator not yet deligated. Running is archive mode.")
+			logger.Debugf("Operator not yet deligated. Running is archive mode.")
 		}
 		cfg.OwnerAddress = common.BytesToAddress(ownerAddress)
 	}()

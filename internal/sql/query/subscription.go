@@ -21,7 +21,7 @@ func GetSubscriptionStateBySuscriber(subnet string, topic string, subscribers []
 		}
 		subsc = append(subsc, sub)
 	}
-	logger.Infof("HELLOOOO::: %v, %v, %v", subnet, topic, subsc)
+	logger.Debugf("HELLOOOO::: %v, %v, %v", subnet, topic, subsc)
 	err := tx.Model(models.SubscriptionState{}).Where(models.SubscriptionState{
 		Subscription: entities.Subscription{ Subnet: subnet, Topic: topic },
 	}).Where("subscriber IN ?", subsc).Assign(&data).Error

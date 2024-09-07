@@ -3,10 +3,10 @@ package notifee
 import (
 	"context"
 
-	"github.com/libp2p/go-libp2p/core/peerstore"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 var logger = &log.Logger
@@ -17,7 +17,7 @@ type DiscoveryNotifee struct {
 	HandleConnect func (*host.Host, *peer.AddrInfo)
 }
 func (n *DiscoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	logger.Infof("Discovered new peer in notifee %s\n", pi.ID.String())
+	logger.Debugf("Discovered new peer in notifee %s\n", pi.ID.String())
 	err := n.Host.Connect(context.Background(), pi)
 	
 	if err != nil {

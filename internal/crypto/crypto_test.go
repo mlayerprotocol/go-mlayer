@@ -227,8 +227,8 @@ func TestVerifySignatureAmino(t *testing.T) {
 		t.Fatalf("Unable to decode pubkey: %v", err )
 	}
 	
-	logger.Infof("signature %s; publicKey %s", string(plainSign), hex.EncodeToString(pubkey))
-	logger.Info("msg: %", []byte(msg))
+	logger.Debugf("signature %s; publicKey %s", string(plainSign), hex.EncodeToString(pubkey))
+	logger.Debug("msg: %", []byte(msg))
 	
 	valid, err := VerifySignatureAmino(encoder.ToBase64Padded([]byte(msg)), plainSign, account, pubkey)
     if !valid {

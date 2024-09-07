@@ -170,7 +170,7 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 	for _, n := range index {
 		buffer.Write(m[n])
 	}
-	// logger.Infof("LOG MEssage  =========> %v \n %v \n %v", index, buffer, args)
+	// logger.Debugf("LOG MEssage  =========> %v \n %v \n %v", index, buffer, args)
 	return buffer.Bytes(), nil
 }
 

@@ -50,12 +50,12 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 		return false, false, nil, false, errors.New("event timestamp exceeds payload timestamp")
 	}
 
-	logger.Infof("Event is a valid event %s", event.PayloadHash)
+	logger.Debugf("Event is a valid event %s", event.PayloadHash)
 	//cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// Extract and validate the Data of the paylaod which is an Events Payload Data,
 	
-	logger.Infof("NEWEVENT: %s", event.Hash)
+	logger.Debugf("NEWEVENT: %s", event.Hash)
 	previousEventUptoDate := false
 	authEventUptoDate :=  !validAgentRequired
 	eventIsMoreRecent := true
@@ -81,7 +81,7 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 	if event.EventType != uint16(constants.CreateSubnetEvent) && event.EventType != uint16(constants.UpdateSubnetEvent) {
 	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: data.Subnet}}, &subnet)
 	if err != nil {
-		logger.Infof("EVENTINFO: %v %s", err, data.Subnet)
+		logger.Debugf("EVENTINFO: %v %s", err, data.Subnet)
 		if err == gorm.ErrRecordNotFound {
 			// get the subnetstate from the sending node
 			subPath := entities.NewEntityPath(event.Validator, entities.SubnetModel, data.Subnet)
@@ -158,11 +158,11 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 	// 	// check the node that sent the event to see if it has the record
 
 	// }
-	logger.Info("PreviousEvent", event.PreviousEventHash)
+	logger.Debug("PreviousEvent", event.PreviousEventHash)
 	if len(event.PreviousEventHash.Hash) > 0 {
 		previousEvent, err = query.GetEventFromPath(&event.PreviousEventHash)
 		if err != nil && err != query.ErrorNotFound {
-			logger.Info(err)
+			logger.Debug(err)
 			return false, false, nil, eventIsMoreRecent, fmt.Errorf("db err: %s", err.Error())
 		}
 		// check if we have the previous event locally, if we dont we can't proceed until we get it
@@ -209,7 +209,7 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 					}
 					HandleNewPubSubAuthEvent(authEv, ctx)
 				}
-				logger.Info(err)
+				logger.Debug(err)
 				return previousEventUptoDate, false, nil, eventIsMoreRecent, nil
 			} else {
 				if authEvent.Synced {
@@ -236,7 +236,7 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 		// } else {
 		// 	id = data.ID
 		// }
-		logger.Infof("PREVIOUSANDAUTH %v, %v", previousEventUptoDate, authEventUptoDate)
+		logger.Debugf("PREVIOUSANDAUTH %v, %v", previousEventUptoDate, authEventUptoDate)
 		
 		var entityState = data.localDataState
 		var stateEvent = data.localDataStateEvent
@@ -257,7 +257,7 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 				if len(stateEvent.ID) > 0 {
 					eventIsMoreRecent = IsMoreRecentEvent(stateEvent.Hash, int(stateEvent.Timestamp), event.Hash, int(event.Timestamp))
 
-					logger.Infof("STATEEVENT %v, %v", stateEvent, previousEvent)
+					logger.Debugf("STATEEVENT %v, %v", stateEvent, previousEvent)
 					 // if this event is more recent, then it must referrence our local event or an event after it
 					if eventIsMoreRecent  && stateEvent.Hash != event.PreviousEventHash.Hash {
 						previousEventMoreRecent := IsMoreRecentEvent(stateEvent.Hash, int(stateEvent.Timestamp), previousEvent.Hash, int(previousEvent.Timestamp))

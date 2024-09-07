@@ -63,7 +63,7 @@ func ValidateClientPayload(
 	// 	logger.Error(err)
 	// 	return nil, apperror.Internal(err.Error())
 	// }
-	// logger.Info("ENCODEDBYTESSS"," ", hex.EncodeToString(d), " ", hex.EncodeToString(crypto.Keccak256Hash(d)))
+	// logger.Debug("ENCODEDBYTESSS"," ", hex.EncodeToString(d), " ", hex.EncodeToString(crypto.Keccak256Hash(d)))
 
 	if payload.Subnet == "" {
 		return nil, nil, apperror.Forbidden("Subnet Id is required")
@@ -81,7 +81,7 @@ func ValidateClientPayload(
 	// if agent != payload.Agent {
 	// 	return nil, nil, apperror.BadRequest("Agent is required")
 	// }
-	// logger.Infof("AGENTTTT %s", agent)
+	// logger.Debugf("AGENTTTT %s", agent)
 	subnet := models.SubnetState{}
 	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: payload.Subnet}}, &subnet)
 	if err != nil {
@@ -97,7 +97,7 @@ func ValidateClientPayload(
 
 	// check if device is authorized
 	if agent != "" {
-		logger.Infof("New Event for Agent/Device %s", agent)
+		logger.Debugf("New Event for Agent/Device %s", agent)
 		agent = entities.DeviceString(agent)
 		
 		if strictAuth || string(payload.Account) != ""  {

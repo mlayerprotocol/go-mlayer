@@ -154,11 +154,11 @@ package service
 // 			// validate from here
 // 			// validateAuthState(authState)
 
-// 			logger.Infof("AUTHSTATE %s, %v", authEventHash, authState)
+// 			logger.Debugf("AUTHSTATE %s, %v", authEventHash, authState)
 // 			curState, err := ValidateTopicData(&topic, authState)
 // 			if err != nil {
 // 				// penalize node for broadcasting invalid data
-// 				logger.Infof("Invalid topic data %v. Node should be penalized", err)
+// 				logger.Debugf("Invalid topic data %v. Node should be penalized", err)
 // 				return
 // 			}
 // 			if curState != nil {
@@ -196,7 +196,7 @@ package service
 // 			// validate from here
 // 			// validateAuthState(authState)
 
-// 			logger.Infof("AUTHSTATE %s, %v", authEventHash, authState)
+// 			logger.Debugf("AUTHSTATE %s, %v", authEventHash, authState)
 // 			curState, grantorAuthState, subnetData, authError := ValidateAuthPayloadData(&authRequest, cfg.ChainId)
 
 // 			if authError != nil {
@@ -214,7 +214,7 @@ package service
 // 						logger.Errorf("service/GetSubnet: %v", err)
 // 						// return
 // 					} else {
-// 						logger.Infof("SUBNETTTTT: %v", subnetState)
+// 						logger.Debugf("SUBNETTTTT: %v", subnetState)
 // 						if event.PreviousEventHash.Model != entities.SubnetModel {
 
 // 						}
@@ -269,7 +269,7 @@ package service
 // 		}
 // 	}
 
-// 		logger.Infof("PREVIOUSEVENTHASH: %s", previousEventHash.ToString())
+// 		logger.Debugf("PREVIOUSEVENTHASH: %s", previousEventHash.ToString())
 // 	prevEventUpToDate := query.EventExist(&previousEventHash) || (currentState == nil && previousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == previousEventHash.Hash)
 // 	authEventUpToDate := query.EventExist(&authEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
 
@@ -290,7 +290,7 @@ package service
 
 // 		// get local auth state
 
-// 		// logger.Infof("Event is a valid event %s", iEvent.PayloadHash)
+// 		// logger.Debugf("Event is a valid event %s", iEvent.PayloadHash)
 
 // 		if authError != nil {
 // 			// check if we are upto date. If we are, then the error is an actual one
@@ -324,7 +324,7 @@ package service
 // 		}
 
 // 		if len(eventError) == 0 {
-// 			logger.Infof("MARKASYNCED:: %v, %v", prevEventUpToDate, authEventUpToDate)
+// 			logger.Debugf("MARKASYNCED:: %v, %v", prevEventUpToDate, authEventUpToDate)
 // 			if prevEventUpToDate && authEventUpToDate { // we are upto date
 // 				if currentState == nil || isMoreRecent {
 // 					updateState = true
@@ -402,7 +402,7 @@ package service
 // 		var txResult *gorm.DB
 // 		switch val := data.(type) {
 // 			case entities.Topic:
-// 				logger.Infof("%vs", val.ID)
+// 				logger.Debugf("%vs", val.ID)
 // 				topic := data.(entities.Topic)
 // 				newState := models.TopicState{
 // 					Topic: topic,
@@ -416,7 +416,7 @@ package service
 // 					newStateId = newState.ID
 // 					newStateEvent = &newState.Event
 // 				} else {
-// 					logger.Info("TopicState is nil")
+// 					logger.Debug("TopicState is nil")
 // 				}
 // 			case entities.Authorization:
 // 				auth := data.(entities.Authorization)
@@ -427,7 +427,7 @@ package service
 // 				// query.GetOne(models.AuthorizationState{
 // 				// 	Authorization: entities.Authorization{Agent: auth.Agent, Subnet: auth.Subnet},
 // 				// }, &auth)
-// 				logger.Info("AuthState", auth.Agent, " ",  auth.Subnet, " ", auth.Account)
+// 				logger.Debug("AuthState", auth.Agent, " ",  auth.Subnet, " ", auth.Account)
 // 				// if len(auth.ID) > 0 {
 // 				// 	newState, txResult = SaveState(models.AuthorizationState{
 // 				// 		Authorization: entities.Authorization{Agent: auth.Agent, Subnet: auth.Subnet},
@@ -442,7 +442,7 @@ package service
 // 					newStateId = newState.ID
 // 					newStateEvent = &newState.Event
 // 				} else {
-// 					logger.Info("AuthorizationState is nil")
+// 					logger.Debug("AuthorizationState is nil")
 // 				}
 
 // 		}
@@ -458,7 +458,7 @@ package service
 // 		if string(event.Validator) != cfg.PublicKey {
 // 			dependent, err := query.GetDependentEvents(event)
 // 			if err != nil {
-// 				logger.Info("Unable to get dependent events", err)
+// 				logger.Debug("Unable to get dependent events", err)
 // 			}
 // 			for _, dep := range *dependent {
 // 				go HandleNewPubSubTopicEvent(&dep, ctx)
@@ -473,10 +473,10 @@ package service
 // func eventTypeFromWhere(where any, event entities.Event) (Model any) {
 // 	switch val := where.(type) {
 // 	case models.TopicEvent:
-// 		logger.Infof("DataType %s, %v", "Topic", val)
+// 		logger.Debugf("DataType %s, %v", "Topic", val)
 // 		return &models.TopicEvent{Event: event}
 // 	case models.AuthorizationEvent:
-// 		logger.Infof("DataType %s, %v", "Topic", val)
+// 		logger.Debugf("DataType %s, %v", "Topic", val)
 
 // 		return &models.AuthorizationEvent{Event: event}
 
@@ -487,7 +487,7 @@ package service
 // // func deriveStateTypeModel(data any) (Model any) {
 // // 	switch val := data.(type) {
 // // 	case entities.Topic:
-// // 		logger.Infof("DataType %v", val)
+// // 		logger.Debugf("DataType %v", val)
 // // 		return &models.TopicState{Topic: data.(entities.Topic)}
 // // 	}
 // // 	return entities.Event{}
@@ -500,9 +500,9 @@ package service
 
 // // 	switch val := data.(type) {
 // // 		case entities.Topic:
-// // 			logger.Info("VallContente: %v", val)
+// // 			logger.Debug("VallContente: %v", val)
 // // 			topic := data.(entities.Topic)
-// // 			logger.Infof("7000: %v", data)
+// // 			logger.Debugf("7000: %v", data)
 // // 				// newState, _, _ := query.SaveRecord(models.TopicState{
 // // 				// 	Topic: entities.Topic{ID: val.ID},
 // // 				// }, &models.TopicState{
@@ -532,7 +532,7 @@ package service
 // // 					newStateId = newState.ID
 // // 					newStateEvent = &newState.Event
 // // 				} else {
-// // 					logger.Info("TopicState is nil")
+// // 					logger.Debug("TopicState is nil")
 // // 				}
 
 // // 	}
@@ -552,7 +552,7 @@ package service
 // // 	if string(event.Validator) != cfg.PublicKey  {
 // // 		dependent, err := query.GetDependentEvents(*event)
 // // 		if err != nil {
-// // 			logger.Info("Unable to get dependent events", err)
+// // 			logger.Debug("Unable to get dependent events", err)
 // // 		}
 // // 		for _, dep := range *dependent {
 // // 			go HandleNewPubSubTopicEvent(&dep, ctx)

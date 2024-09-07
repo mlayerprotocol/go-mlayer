@@ -24,7 +24,7 @@ var SqlDBErr error
 var logger = &log.Logger
 
 func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
-	logger.Infof("Initializing %s db", driver)
+	logger.Debugf("Initializing %s db", driver)
 	var dialect gorm.Dialector
 	switch driver {
 	case "postgres":
@@ -108,7 +108,10 @@ func logLevel() dbLogger.LogLevel {
 	if config.Config.LogLevel == "info" {
 		return dbLogger.Info
 	}
-	return dbLogger.Error
+	if strings.Contains(config.Config.LogLevel, "warn")  {
+		return dbLogger.Warn
+	}
+	return dbLogger.Warn
 }
 
 func getDSN(cfg *configs.MainConfiguration) string {

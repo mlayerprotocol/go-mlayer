@@ -20,7 +20,7 @@ Validate an agent authorization
 */
 func ValidateWalletData(Wallet *entities.Wallet) (currentWalletState *models.WalletState, err error) {
 	// check fields of Wallet
-	// logger.Info("Walletcc", Wallet.Ref)
+	// logger.Debug("Walletcc", Wallet.Ref)
 	// if len(Wallet.Ref) > 60 {
 	// 	return nil, apperror.BadRequest("Wallet ref cannont be more than 40 characters")
 	// }
@@ -43,7 +43,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 		return
 	}
 
-	logger.Infof("Event is a valid event %s", event.PayloadHash)
+	logger.Debugf("Event is a valid event %s", event.PayloadHash)
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// Extract and validate the Data of the paylaod which is an Events Payload Data,
@@ -56,7 +56,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	currentState, err := ValidateWalletData(data)
 	if err != nil {
 		// penalize node for broadcasting invalid data
-		logger.Infof("Invalid Wallet data %v. Node should be penalized", err)
+		logger.Debugf("Invalid Wallet data %v. Node should be penalized", err)
 		return
 	}
 
@@ -132,7 +132,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 
 	// Save stuff permanently
 	tx := sql.SqlDb.Begin()
-	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
+	logger.Debug(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
 	if string(event.Validator) != (*cfg).PublicKey  {
@@ -216,7 +216,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	if string(event.Validator) != (*cfg).PublicKey  {
 		dependent, err := query.GetDependentEvents(event)
 		if err != nil {
-			logger.Info("Unable to get dependent events", err)
+			logger.Debug("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
 			go HandleNewPubSubWalletEvent(&dep, ctx)

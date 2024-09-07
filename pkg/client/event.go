@@ -33,7 +33,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	// if err != nil {
 	// 	return nil, apperror.Internal(err.Error())
 	// }
-	logger.Infof("OWNERADDRESS: %s", cfg.OwnerAddress.String())
+	logger.Debugf("OWNERADDRESS: %s", cfg.OwnerAddress.String())
 	if !strings.EqualFold(strings.Replace(payload.Validator, "0x", "", 1), strings.Replace(cfg.OwnerAddress.String(), "0x", "", 1)) {
 		return nil, apperror.Forbidden("Validator not authorized to procces this request")
 	}
@@ -69,7 +69,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		query.GetOneState(entities.Subnet{ID: payload.Subnet}, &subnetState)
 	}
 	//Perfom checks base on event types
-	logger.Infof("authState****** 2: %v ", authState)
+	logger.Debugf("authState****** 2: %v ", authState)
 	switch payload.EventType {
 	case uint16(constants.AuthorizationEvent):
 		// authData := entities.Authorization{}
@@ -139,7 +139,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 			return nil, err
 		}
 	case uint16(constants.SendMessageEvent):
-		logger.Infof("authState 2: %d ", *authState.Authorization.Priviledge)
+		logger.Debugf("authState 2: %d ", *authState.Authorization.Priviledge)
 		// 1. Agent message
 		// if *authState.Authorization.Priviledge < constants.StandardPriviledge {
 		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
@@ -162,7 +162,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 	if payload.EventType == uint16(constants.CreateSubnetEvent) {
 		subnet, err = entities.GetId(payload.Data.(entities.Payload))
 		if err != nil {
-			logger.Infof("Subnet error: %v", err)
+			logger.Debugf("Subnet error: %v", err)
 			return nil, err
 		}
 		
@@ -190,13 +190,13 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		Subnet: subnet,
 	}
 
-	logger.Infof("NewEvent: %v", event)
+	logger.Debugf("NewEvent: %v", event)
 	b, err := event.EncodeBytes()
 	if err != nil {
 		return nil, apperror.Internal(err.Error())
 	}
-	logger.Infof("Validator 2: %s", event.Validator)
-	logger.Infof("eventPayloadType 2: %s", eventPayloadType)
+	logger.Debugf("Validator 2: %s", event.Validator)
+	logger.Debugf("eventPayloadType 2: %s", eventPayloadType)
 
 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
 	_, event.Signature = crypto.SignEDD(b, cfg.PrivateKeyEDD)
