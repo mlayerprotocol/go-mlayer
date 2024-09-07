@@ -47,6 +47,7 @@ import (
 
 var logger = &log.Logger
 var Delimiter = []byte{'0'}
+var Host host.Host
 
 // var config configs.MainConfiguration
 type P2pChannelFlow int8
@@ -235,7 +236,7 @@ func Run(mainCtx *context.Context) {
 	// 	time.Minute, // GracePeriod
 	// )
 
-	h, err := libp2p.New(
+	Host, err = libp2p.New(
 		// Use the keypair we generated
 		libp2p.Identity(privKey),
 		// Multiple listen addresses
@@ -361,22 +362,22 @@ func Run(mainCtx *context.Context) {
 
 	// gater := NetworkGater{host: h, config: config, blockPeers: make(map[peer.ID]struct{})}
 
-	go discover(ctx, h, idht, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
+	go discover(ctx, Host, idht, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
 	if err != nil {
 		panic(err)
 	}
-	h.Network().Notify(&notifee.ConnectionNotifee{Dht: idht})
+	Host.Network().Notify(&notifee.ConnectionNotifee{Dht: idht})
 
-	h.SetStreamHandler(protocol.ID(handShakeProtocolId), handleHandshake)
-	h.SetStreamHandler(protocol.ID(p2pProtocolId), handlePayload)
-	h.SetStreamHandler(protocol.ID(syncProtocolId), handleSync)
+	Host.SetStreamHandler(protocol.ID(handShakeProtocolId), handleHandshake)
+	Host.SetStreamHandler(protocol.ID(p2pProtocolId), handlePayload)
+	Host.SetStreamHandler(protocol.ID(syncProtocolId), handleSync)
 	// create a new PubSub service using the GossipSub router
-	ps, err := pubsub.NewGossipSub(ctx, h)
+	ps, err := pubsub.NewGossipSub(ctx, Host)
 	if err != nil {
 		panic(err)
 	}
 	// setup local mDNS discovery
-	err = setupDiscovery(h, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
+	err = setupDiscovery(Host, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
 	if err != nil {
 		panic(err)
 	}
@@ -390,53 +391,53 @@ func Run(mainCtx *context.Context) {
 	fmt.Println("------------------------------- MLAYER -----------------------------------")
 	fmt.Println("- Licence Operator Public Key (SECP): ", hex.EncodeToString(cfg.PublicKeySECP))
 	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKey)
-	fmt.Println("- Host started with ID: ", h.ID())
+	fmt.Println("- Host started with ID: ", Host.ID())
 	fmt.Println("- Host Network: ", p2pProtocolId)
-	fmt.Println("- Host Listening on: ", h.Addrs())
+	fmt.Println("- Host Listening on: ", Host.Addrs())
 
 	// Subscrbers
-	authPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
+	authPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.AuthorizationPubSub = *authPubSub
 
-	topicPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), TopicChannel, config.ChannelMessageBufferSize)
+	topicPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), TopicChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.TopicPubSub = *topicPubSub
 
-	subnetPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubnetChannel, config.ChannelMessageBufferSize)
+	subnetPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), SubnetChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.SubnetPubSub = *subnetPubSub
 
-	walletPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), WalletChannel, config.ChannelMessageBufferSize)
+	walletPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), WalletChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.WalletPubSub = *walletPubSub
 
-	subscriptionPubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	subscriptionPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.SubscriptionPubSub = *subscriptionPubSub
 
-	messagePubSub, err := entities.JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
+	messagePubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.MessagePubSub = *messagePubSub
 
-	// unsubscribePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
+	// unsubscribePubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	// approveSubscriptionPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), ApproveSubscriptionChannel, config.ChannelMessageBufferSize)
+	// approveSubscriptionPubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), ApproveSubscriptionChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
@@ -457,16 +458,16 @@ func Run(mainCtx *context.Context) {
 	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
 	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
 
-	// messagePubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), MessageChannel, config.ChannelMessageBufferSize)
+	// messagePubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), MessageChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	// batchPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), BatchChannel, config.ChannelMessageBufferSize)
+	// batchPubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), BatchChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	//}
-	// delieveryProofPubSub, err := JoinChannel(ctx, ps, h.ID(), defaultNick(h.ID()), DeliveryProofChannel, config.ChannelMessageBufferSize)
+	// delieveryProofPubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), DeliveryProofChannel, config.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
@@ -539,7 +540,7 @@ func Run(mainCtx *context.Context) {
 	// }()
 	// if config.Validator {
 		
-		storeAddress(&ctx, &h)
+		storeAddress(&ctx, &Host)
 	// }
 	defer forever()
 
@@ -662,7 +663,7 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 		}
 		// logger.Debug("Iamavalidator")
 		
-		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyEDD, getMultiAddresses(*h), config.PublicKeyEDD)
+		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyEDD, GetMultiAddresses(*h), config.PublicKeyEDD)
 		if err != nil {
 			logger.Error(err)
 		}
@@ -725,7 +726,7 @@ func GetNodeMultiAddressData(ctx *context.Context, key string) (*NodeMultiAddres
 // called when a peer connects
 func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 	// pi := *pa
-	logger.Debugf("My multiaddress: %s", getMultiAddresses(*h))
+	logger.Debugf("My multiaddress: %s", GetMultiAddresses(*h))
 	if pairAddr == nil {
 		return
 	}
@@ -865,7 +866,7 @@ func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *pe
 	return targetInfo, p2pStream, syncStream, nil
 }
 
-func getMultiAddresses(h host.Host) []string {
+func GetMultiAddresses(h host.Host) []string {
 	m := []string{}
 	addrs := h.Addrs()
 
