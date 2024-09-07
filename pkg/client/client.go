@@ -38,7 +38,7 @@ func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
 		return nil, err
 	}
 	nodeType := constants.ValidatorNodeType
-	if cfg.Validator {
+	if !cfg.Validator {
 		nodeType = constants.SentryNodeType
 	}
 	return &NodeInfo{
