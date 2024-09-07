@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 
 	"sync"
@@ -266,7 +267,7 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) config
 			ksDir = cfg.KeyStoreDir
 		}
 		if len(ksDir) == 0 {
-			ksDir = "./data/keystores/"
+			ksDir = filepath.Join(cfg.DataDir, "keystores")
 		}
 		privKey, err := loadPrivateKeyFromKeyStore(string(password), "account", ksDir)
 		if err != nil {

@@ -162,7 +162,7 @@ func LoadConfig() (*MainConfiguration, error) {
 				panic(err)
 				//return nil, fmt.Errorf("failed to decode config file %s: %w", path, err)
 			}
-			log.Debugf("Loaded configuration from: %s",path)
+			log.Infof("Loaded configuration from: %s",path)
 			// Override with environment variables
 			// kong.Parse(&config)
 			
