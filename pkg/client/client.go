@@ -1,35 +1,87 @@
 package client
 
 import (
+	"encoding/hex"
+
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"gorm.io/gorm"
 )
 
+type NodeInfo struct {
+	Account string `json:"account"` 
+	NodeType constants.NodeType `json:"node_type"` 
+	NetworkPublicKey string `json:"network_pubkey"` 
+	ChainPublicKey string `json:"chain_pubkey"` 
+	ChainId string `json:"chain_id"`
+	CurrentCycle uint64 `json:"current_cycle"`
+}
+
+func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
+	provider := chain.Provider(cfg.ChainId)
+	info, err := provider.GetChainInfo()
+	if err != nil  {
+		return  nil, err
+	}
+	var owner []byte
+	if cfg.Validator {
+		owner, err = provider.GetValidatorLicenseOwnerAddress(cfg.PublicKeySECP)
+	} else {
+		owner, err = provider.GetSentryLicenseOwnerAddress(cfg.PublicKeySECP)
+	}
+	if err != nil {
+		return nil, err
+	}
+	nodeType := constants.ValidatorNodeType
+	if cfg.Validator {
+		nodeType = constants.SentryNodeType
+	}
+	return &NodeInfo{
+		Account: hex.EncodeToString(owner),
+		NodeType: nodeType,
+		NetworkPublicKey: hex.EncodeToString(cfg.PublicKeySECP),
+		ChainPublicKey: hex.EncodeToString(cfg.PublicKeyEDD),
+		ChainId: string(cfg.ChainId),
+		CurrentCycle: info.CurrentCycle.Uint64(),
+	}, nil
+	
+
+}
 func ValidateClientPayload(
 	payload *entities.ClientPayload,
 	strictAuth bool,
+	chainId configs.ChainId,
 ) (*models.AuthorizationState, *entities.DeviceString, error) {
-	logger.Info("PAYLOAD", string(payload.ToJSON()))
+	
 	// _, err := payload.EncodeBytes()
 	// if err != nil {
 	// 	logger.Error(err)
 	// 	return nil, apperror.Internal(err.Error())
 	// }
-	// logger.Info("ENCODEDBYTESSS"," ", hex.EncodeToString(d), " ", hex.EncodeToString(crypto.Keccak256Hash(d)))
+	// logger.Debug("ENCODEDBYTESSS"," ", hex.EncodeToString(d), " ", hex.EncodeToString(crypto.Keccak256Hash(d)))
 
 	if payload.Subnet == "" {
 		return nil, nil, apperror.Forbidden("Subnet Id is required")
 	}
-
+	if string(payload.ChainId) != string(chainId) {
+		return nil, nil, apperror.Forbidden("Invalid chain Id")
+	}
+	// payload.ChainId = chainId
 	agent, err := payload.GetSigner()
 	
 	if err != nil {
 		return nil, nil, err
 	}
 	
+	// if agent != payload.Agent {
+	// 	return nil, nil, apperror.BadRequest("Agent is required")
+	// }
+	// logger.Debugf("AGENTTTT %s", agent)
 	subnet := models.SubnetState{}
 	err = query.GetOne(models.SubnetState{Subnet: entities.Subnet{ID: payload.Subnet}}, &subnet)
 	if err != nil {
@@ -38,7 +90,6 @@ func ValidateClientPayload(
 		}
 		return nil, nil, apperror.Internal(err.Error())
 	}
-
 	if *subnet.Status ==  0 {
 		return nil, nil, apperror.Forbidden("Subnet is disabled")
 	}
@@ -46,7 +97,7 @@ func ValidateClientPayload(
 
 	// check if device is authorized
 	if agent != "" {
-		logger.Infof("New Event for Agent/Device %s", agent)
+		logger.Debugf("New Event for Agent/Device %s", agent)
 		agent = entities.DeviceString(agent)
 		
 		if strictAuth || string(payload.Account) != ""  {

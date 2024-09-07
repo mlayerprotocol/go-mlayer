@@ -15,7 +15,7 @@ func UpdateSubnetState(Subnet *entities.Subnet, DB *gorm.DB) (*models.SubnetStat
 	}
 	tx := DB
 	if DB == nil {
-		tx = db.Db.Begin()
+		tx = db.SqlDb
 	}
 	err := tx.Where(models.SubnetState{
 		Subnet: entities.Subnet{Hash: Subnet.Hash,
@@ -24,8 +24,8 @@ func UpdateSubnetState(Subnet *entities.Subnet, DB *gorm.DB) (*models.SubnetStat
 	if err != nil {
 		return nil, err
 	}
-	if DB == nil {
-		tx.Commit()
-	}
+	// if DB == nil {
+	// 	tx.Commit()
+	// }
 	return &data, nil
 }

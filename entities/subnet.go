@@ -13,14 +13,15 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 )
 
 type Subnet struct {
 	ID            string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	Meta          string        `json:"meta,omitempty"`
-	Ref           string        `json:"ref,omitempty"  gorm:"unique;type:varchar(64);default:null"`
+	Ref           string        `json:"ref,omitempty" binding:"required"  gorm:"unique;type:varchar(64);default:null"`
 	Categories    pq.Int32Array `gorm:"type:integer[]"`
-	Owner         DIDString     `json:"own,omitempty" binding:"required"  gorm:"not null;type:varchar(100);default:did"`
+	// Owner         DIDString     `json:"own,omitempty" binding:"required"  gorm:"not null;type:varchar(100);default:did"`
 	SignatureData SignatureData `json:"sigD" gorm:"json;"`
 	Status        *uint8        `json:"st" gorm:"boolean;default:0"`
 	Timestamp     uint64        `json:"ts,omitempty" binding:"required"`
@@ -35,6 +36,9 @@ type Subnet struct {
 	// Derived
 	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`
 	Hash  string    `json:"h,omitempty" gorm:"type:char(64)"`
+	BlockNumber uint64          `json:"blk"`
+	Cycle   	uint64			`json:"cy"`
+	Epoch		uint64			`json:"ep"`
 }
 
 func (item *Subnet) Key() string {
@@ -54,6 +58,9 @@ func (item *Subnet) MsgPack() []byte {
 	return b
 }
 
+
+
+
 func SubnetToByte(i uint64) []byte {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, i)
@@ -72,7 +79,7 @@ func SubnetFromBytes(b []byte) (Subnet, error) {
 }
 func UnpackSubnet(b []byte) (Subnet, error) {
 	var item Subnet
-	err := encoder.MsgPackUnpackStruct(b, item)
+	err := encoder.MsgPackUnpackStruct(b, &item)
 	return item, err
 }
 
@@ -91,7 +98,7 @@ func (item Subnet) GetHash() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	logger.Infof("GetHash crypto.Sha256(b) : %v", crypto.Sha256(b))
+	logger.Debugf("GetHash crypto.Sha256(b) : %v", crypto.Sha256(b))
 	return crypto.Sha256(b), nil
 }
 
@@ -123,12 +130,11 @@ func (item Subnet) EncodeBytes() ([]byte, error) {
 		cats = append(cats, b...)
 	}
 	return encoder.EncodeBytes(
-
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.DefaultAuthPrivilege},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Account},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(item.DefaultAuthPrivilege, 0)},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Owner},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *item.Status},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(item.Status, 0)},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Timestamp},
 	)
 }

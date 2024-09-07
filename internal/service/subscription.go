@@ -4,25 +4,25 @@ import (
 	"context"
 	"encoding/hex"
 	"slices"
-	"strings"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
 /*
 Validate an agent authorization
 */
-func ValidateSubscriptionData(subscription *entities.Subscription, payload *entities.ClientPayload, topic *entities.Topic) (currentSubscriptionState *models.SubscriptionState, err error) {
+func ValidateSubscriptionData(payload *entities.ClientPayload, topic *entities.Topic) (currentSubscriptionState *models.SubscriptionState, err error) {
 	// check fields of subscription
+
+	subscription := payload.Data.(entities.Subscription)
 	var currentState *models.SubscriptionState
 	
 
@@ -67,231 +67,177 @@ func ValidateSubscriptionData(subscription *entities.Subscription, payload *enti
 
 	return currentState, err
 }
-
-func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Context) {
-	logger.WithFields(logrus.Fields{"event": event}).Debug("New subscription event from pubsub channel")
-	markAsSynced := false
-	updateState := false
-	var eventError string
-	// hash, _ := event.GetHash()
-	err := ValidateEvent(*event)
-
+func saveSubscriptionEvent(where entities.Event, createData *entities.Event, updateData *entities.Event, tx *gorm.DB) (*entities.Event, error) {
+	var createModel *models.SubscriptionEvent
+	if createData != nil {
+		createModel = &models.SubscriptionEvent{Event: *createData}
+	} else {
+		createModel = &models.SubscriptionEvent{}
+	}
+	var updateModel *models.SubscriptionEvent
+	if updateData != nil {
+		updateModel = &models.SubscriptionEvent{Event: *updateData}
+	}
+	model, _, err := query.SaveRecord(models.SubscriptionEvent{Event: where},  createModel, updateModel, tx)
 	if err != nil {
-		logger.Error(err)
+		return nil, err
+	}
+	return &model.Event, err
+}
+func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Context) {
+	
+	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	if !ok {
+		panic("Unable to load config from context")
+	}
+	data := event.Payload.Data.(entities.Subscription)
+	// var id = data.ID
+	// if len(data.ID) == 0 {
+	// 	id, _ = entities.GetId(data)
+	// } else {
+	// 	id = data.ID
+	// }
+	var topic =  models.TopicState{}
+	data.Event = *event.GetPath()
+	data.BlockNumber = event.BlockNumber
+	data.Cycle = event.Cycle
+	data.Epoch = event.Epoch
+	hash, err := data.GetHash()
+	if err != nil {
 		return
 	}
-	d, err := event.Payload.EncodeBytes()
-	if err != nil {
-		logger.Errorf("Invalid event payload")
-	}
-	agent, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
-	if err != nil {
-		logger.Errorf("Invalid event payload")
-	}
-
-	logger.Infof("Event is a valid event %s", event.PayloadHash)
-	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-
-	// Extract and validate the Data of the paylaod which is an Events Payload Data,
-	data := event.Payload.Data.(*entities.Subscription)
-	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
-
-	var topicData *models.TopicState
-
-	query.GetOne(models.TopicState{
-		Topic: entities.Topic{ID: data.Topic, Subnet: event.Payload.Subnet},
-	}, &topicData)
-
-	data.Subnet = event.Payload.Subnet
-	logger.Infof("ValidateSubscriptionData %v", data)
-	currentState, authError := ValidateSubscriptionData(data, &event.Payload, &topicData.Topic)
-	prevEventUpToDate := false
-	authEventUpToDate := false
-
-	// check if we are upto date on this event
-	prevEventUpToDate = query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
-
-	authState, _ := query.GetOneAuthorizationState(entities.Authorization{Event: event.AuthEventHash})
-
-	authEventUpToDate = query.EventExist(&event.AuthEventHash) || (authState.ID == "" && event.AuthEventHash.Hash == "") || (authState.ID != "" && authState.Event.Hash == event.AuthEventHash.Hash)
-
-	// Confirm if this is an older event coming after a newer event.
-	// If it is, then we only have to update our event history, else we need to also update our current state
-	isMoreRecent := false
-	if currentState != nil && currentState.Hash != data.Hash {
-		var currentStateEvent *models.SubscriptionEvent
-		query.GetOne(entities.Event{Hash: currentState.Event.Hash}, &currentStateEvent)
-		isMoreRecent, markAsSynced = IsMoreRecent(
-			currentStateEvent.ID,
-			currentState.Event.Hash,
-			currentStateEvent.Payload.Timestamp,
-			event.Hash,
-			event.Payload.Timestamp,
-			markAsSynced,
-		)
+	var subnet = data.Subnet
+	
+	var localState models.SubscriptionState
+	// err := query.GetOne(&models.TopicState{Topic: entities.Topic{ID: id}}, &localTopicState)
+	err = sql.SqlDb.Where(&models.SubscriptionState{Subscription: entities.Subscription{Subnet: subnet, Topic: data.Topic, Agent: entities.AddressFromString(string(data.Agent)).ToDeviceString()}}).Take(&localState).Error
+	if err != nil {
+		logger.Error(err)
 	}
+	
 
-	if currentState == nil || isMoreRecent { // it is a morer ecent event
-		markAsSynced = true
-	}
-
-	if currentState != nil && data.Subscriber == topicData.Account && event.EventType == uint16(constants.SubscribeTopicEvent) {
-		authError =  apperror.BadRequest("Topic already owned by account")
-	}
-
-	if event.Payload.EventType != uint16(constants.SubscribeTopicEvent) {
-		if authError != nil {
-			// check if we are upto date. If we are, then the error is an actual one
-			// the error should be attached when saving the event
-			// But if we are not upto date, then we might need to wait for more info from the network
-
-			if prevEventUpToDate && authEventUpToDate {
-				// we are upto date. This is an actual error. No need to expect an update from the network
-				eventError = authError.Error()
-				markAsSynced = true
-			} else {
-				if currentState == nil || isMoreRecent { // it is a morer ecent event
-					if strings.HasPrefix(authError.Error(), constants.ErrorForbidden) || strings.HasPrefix(authError.Error(), constants.ErrorUnauthorized) {
-						markAsSynced = false
-					} else {
-						// entire event can be considered bad since the payload data is bad
-						// this should have been sorted out before broadcasting to the network
-						// TODO penalize the node that broadcasted this
-						eventError = authError.Error()
-						markAsSynced = true
-					}
-
-				} else {
-					// we are upto date. We just need to store this event as well.
-					// No need to update state
-					markAsSynced = true
-					eventError = authError.Error()
-				}
-			}
-
+	var localDataState *LocalDataState
+	if localState.ID != "" {
+		localDataState = &LocalDataState{
+			ID: localState.ID,
+			Hash: localState.Hash,
+			Event: &localState.Event,
+			Timestamp: *localState.Timestamp,
 		}
-
-		// If no error, then we should act accordingly as well
-		// If are upto date, then we should update the state based on if its a recent or old event
-		if len(eventError) == 0 {
-			if prevEventUpToDate && authEventUpToDate { // we are upto date
-				if currentState == nil ||  isMoreRecent {
-					updateState = true
-					markAsSynced = true
-				} else {
-					// Its an old event
-					markAsSynced = true
-					updateState = false
-				}
-			} else {
-				updateState = false
-				markAsSynced = false
-			}
-
+	}
+	// localDataState := utils.IfThenElse(localTopicState != nil, &LocalDataState{
+	// 	ID: localTopicState.ID,
+	// 	Hash: localTopicState.Hash,
+	// 	Event: &localTopicState.Event,
+	// 	Timestamp: localTopicState.Timestamp,
+	// }, nil)
+	var stateEvent *entities.Event
+	if localState.ID != "" {
+		stateEvent, err = query.GetEventFromPath(&localState.Event)
+		if err != nil && err != query.ErrorNotFound {
+			logger.Debug(err)
+		}
+	}
+	var localDataStateEvent *LocalDataStateEvent
+	if stateEvent != nil {
+		localDataStateEvent = &LocalDataStateEvent{
+			ID: stateEvent.ID,
+			Hash: stateEvent.Hash,
+			Timestamp: stateEvent.Timestamp,
 		}
 	}
 
-	// Save stuff permanently
-	tx := sql.Db.Begin()
-
-	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
-		// save the event
-		event.Error = eventError
-		event.IsValid = markAsSynced && len(eventError) == 0.
-		event.Synced = markAsSynced
-		event.Broadcasted = true
-		_, _, err := query.SaveRecord(models.SubscriptionEvent{
-			Event: entities.Event{
-				PayloadHash: event.PayloadHash,
-			},
-		}, models.SubscriptionEvent{
-			Event: *event,
-		}, false, tx)
-		if err != nil {
-			tx.Rollback()
-			logger.Error("5000: Db Error", err)
-			return
-		}
-	} else {
-		if markAsSynced {
-			_, _, err := query.SaveRecord(models.SubscriptionEvent{
-				Event: entities.Event{PayloadHash: event.PayloadHash},
-			}, models.SubscriptionEvent{
-				Event: entities.Event{Synced: true, Broadcasted: true, Error: eventError, IsValid: len(eventError) == 0},
-			}, true, tx)
-			if err != nil {
-				logger.Error("DB error", err)
-			}
-		} else {
-			// mark as broadcasted
-			_, _, err := query.SaveRecord(models.SubscriptionEvent{
-				Event: entities.Event{PayloadHash: event.PayloadHash, Broadcasted: false},
-			},
-				models.SubscriptionEvent{
-					Event: entities.Event{Broadcasted: true},
-				}, true, tx)
-			if err != nil {
-				logger.Error("DB error", err)
-			}
-		}
-	}
-
-	//Update subscription status based on the event type
-	switch event.Payload.EventType {
-	// case uint16(constants.SubscribeTopicEvent):
-	// 	if *topicData.Public {
-	// 		data.Status = &constants.SubscribedSubscriptionStatus
+	eventData := PayloadData{Subnet: subnet, localDataState: localDataState, localDataStateEvent:  localDataStateEvent}
+	tx := sql.SqlDb
+	// defer func () {
+	// 	if tx.Error != nil {
+	// 		tx.Rollback()
 	// 	} else {
-	// 		data.Status = &constants.PendingSubscriptionStatus
+	// 		tx.Commit()
 	// 	}
-	case uint16(constants.LeaveEvent):
-		data.Status = &constants.UnsubscribedSubscriptionStatus
-	case uint16(constants.ApprovedEvent):
-		data.Status = &constants.SubscribedSubscriptionStatus
-	case uint16(constants.BanMemberEvent):
-		data.Status = &constants.BannedSubscriptionStatus
-	case uint16(constants.UnbanMemberEvent):
-		data.Status = &constants.SubscribedSubscriptionStatus
-	default:
+	// }()
 
+	
+	
+	previousEventUptoDate,  authEventUpToDate, _, eventIsMoreRecent, err := ProcessEvent(event,  eventData, true, saveSubscriptionEvent, tx, ctx)
+	if err != nil {
+		logger.Debugf("Processing Error...: %v", err)
+		return
 	}
+	logger.Debugf("Processing 2...: %v,  %v", previousEventUptoDate, authEventUpToDate)
+	// get the topic, if not found retrieve it
+	
+	if previousEventUptoDate  && authEventUpToDate {
 
-	data.Event = *entities.NewEventPath(event.Validator, entities.SubscriptionEventModel, event.Hash)
-	data.Agent = entities.AddressFromString(agent).ToDeviceString()
+		err = query.GetOneState(entities.Topic{ID: data.Topic}, &topic)
 
-	if markAsSynced && eventError == "" {
-		updateState = true
-	}
-
-	data.Subnet = event.Payload.Subnet
-
-	if updateState {
-		logger.Infof("data.ID++++ %v", data.ID)
-		_, _, err := query.SaveRecord(models.SubscriptionState{
-			Subscription: entities.Subscription{ID: data.ID, Subnet: data.Subnet, Subscriber: data.Subscriber, Topic: data.Topic},
-		}, models.SubscriptionState{
-			Subscription: *data,
-		}, true, tx)
+		if topic.ID == "" || (err != nil && err == query.ErrorNotFound) {
+			// get topic like we got subnet
+			topicPath := entities.NewEntityPath(event.Validator, entities.TopicModel, data.Topic)
+				pp, err := p2p.GetState(cfg, *topicPath, &event.Validator, &topic)
+				if err != nil {
+					logger.Error(err)
+					
+				}
+				
+				topicEvent, err := entities.UnpackEvent(pp.Event, entities.TopicModel)
+				if err != nil {
+					logger.Error(err)
+					
+				}
+				if topicEvent != nil {
+					HandleNewPubSubSubnetEvent(topicEvent, ctx)
+					
+				}
+				return
+		}
+	
+		_, err = ValidateSubscriptionData(&event.Payload, &topic.Topic)
 		if err != nil {
-			tx.Rollback()
-			logger.Error("5000: Db Error", err)
-			return
+			// update error and mark as synced
+			// notify validator of error
+			saveSubscriptionEvent(entities.Event{Hash: event.Hash}, nil, &entities.Event{Error: err.Error(), IsValid: false, Synced: true}, tx )
+			
+		} else {
+			// TODO if event is older than our state, just save it and mark it as synced
+			
+			savedEvent, err := saveSubscriptionEvent(entities.Event{Hash: event.Hash}, nil, &entities.Event{IsValid: true, Synced: true}, tx );
+			if eventIsMoreRecent && err == nil {
+				// update state
+				_, _, err := query.SaveRecord(models.SubscriptionState{
+					Subscription: entities.Subscription{Topic: data.Topic, Subnet: data.Subnet, Agent: data.Agent},
+				}, &models.SubscriptionState{
+					Subscription: data,
+				},  &models.SubscriptionState{
+					Subscription: data,
+				}, tx)
+				if err != nil {
+					// tx.Rollback()
+					logger.Errorf("SaveStateError %v", err)
+					return
+				}
+				
+			}
+			if err == nil {
+				go OnFinishProcessingEvent(ctx, event.GetPath(), &savedEvent.Payload.Subnet, err)
+			}
+			
+			
+			if string(event.Validator) != cfg.PublicKey {
+				go func () {
+				dependent, err := query.GetDependentEvents(event)
+				if err != nil {
+					logger.Debug("Unable to get dependent events", err)
+				}
+				for _, dep := range *dependent {
+					HandleNewPubSubEvent(&dep, ctx)
+				}
+				}()
+			}
+			
 		}
-	}
-	tx.Commit()
-
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
-		dependent, err := query.GetDependentEvents(*event)
-		if err != nil {
-			logger.Info("Unable to get dependent events", err)
-		}
-		for _, dep := range *dependent {
-			go HandleNewPubSubSubscriptionEvent(&dep, ctx)
-		}
-	}
-
-	// TODO Broadcast the updated state
-
+	} 
+		
+	
 }

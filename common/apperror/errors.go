@@ -1,8 +1,8 @@
 package apperror
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 )
 
 
@@ -17,19 +17,29 @@ const (
     ForbiddenError ErrorCode = 4003
     BadRequestError ErrorCode = 4003
     InternalError ErrorCode = 5000
+    NotFoundError ErrorCode = 4004
 )
 
 func Unauthorized(message string) error {
-    return errors.New(fmt.Sprintf("%d: %s", UnauthorizedError, message))
+    message = strings.ToLower(message)
+    return fmt.Errorf("%d: %s", UnauthorizedError, message)
 }
 func Forbidden(message string) error {
-    return errors.New(fmt.Sprintf("%d: %s", ForbiddenError, message))
+    message = strings.ToLower(message)
+    return fmt.Errorf("%d: %s", ForbiddenError, message)
+}
+
+func NotFound(message string) error {
+    message = strings.ToLower(message)
+    return fmt.Errorf("%d: %s", NotFoundError, message)
 }
 
 func BadRequest(message string) error {
-    return errors.New(fmt.Sprintf("%d: %s", BadRequestError, message))
+    message = strings.ToLower(message)
+    return fmt.Errorf("%d: %s", BadRequestError, message)
 }
 
 func Internal(message string) error {
-    return errors.New(fmt.Sprintf("%d: %s", InternalError, message))
+    message = strings.ToLower(message)
+    return fmt.Errorf("%d: %s", InternalError, message)
 }

@@ -71,7 +71,7 @@ var logger = &log.Logger
 // 			if _err != nil {
 // 				// delete the subscription
 // 				newChannelSubscriptionStore.Delete(ctx, db.Key(result.Key))
-// 				logger.Infof("Invalid subscription %s", result.Value)
+// 				logger.Debugf("Invalid subscription %s", result.Value)
 // 			}
 
 // 			block.Size += 1
@@ -89,7 +89,7 @@ var logger = &log.Logger
 // 			if hasSub {
 // 				subCountInBlock, err := blockStateTxn.Get(ctx, subCountKey)
 // 				if err != nil {
-// 					logger.Info("Could not get sub form block store %s/%s: %o", block.BlockId, sub.Signature, err)
+// 					logger.Debug("Could not get sub form block store %s/%s: %o", block.BlockId, sub.Signature, err)
 // 				}
 // 				subCount, convErr := strconv.Atoi(string(subCountInBlock))
 // 				if convErr != nil {
@@ -103,7 +103,7 @@ var logger = &log.Logger
 // 			// tag the subscription with the blockid???
 // 			subTotalCountData, err := channelSubscriptionCountStore.Get(ctx, db.Key("/"+sub.Signature))
 // 			if err != nil {
-// 				logger.Infof("Could not get sub total count sub store %s: %o", sub.Signature, err)
+// 				logger.Debugf("Could not get sub total count sub store %s: %o", sub.Signature, err)
 // 			}
 // 			subTotalCount, convErr := strconv.Atoi(string(subTotalCountData))
 // 			if convErr != nil {
@@ -142,9 +142,9 @@ var logger = &log.Logger
 // 		UnpackServerIdentity.SubscriptionD_P2P_C <- sub
 // 	}
 // 	trx, err := channelsubscribersRPC_D_countStore.NewTransaction(ctx, false)
-// 	logger.Info("TRANSACTION INITIATED ******")
+// 	logger.Debug("TRANSACTION INITIATED ******")
 // 	if err != nil {
-// 		logger.Infof("Transaction err::: %o", err)
+// 		logger.Debugf("Transaction err::: %o", err)
 // 	}
 // 	cscstore, err := trx.Get(ctx, db.Key(sub.Key()))
 // 	increment := -1
@@ -161,6 +161,6 @@ var logger = &log.Logger
 // 	cscstoreint, err := strconv.Atoi(string(cscstore))
 // 	cscstoreint += increment
 // 	channelsubscribersRPC_D_countStore.Set(ctx, db.Key(sub.Channel), []byte(strconv.Itoa(cscstoreint)), true)
-// 	logger.Info("TRANSACTION ENDED ******")
+// 	logger.Debug("TRANSACTION ENDED ******")
 // 	trx.Commit(ctx)
 // }

@@ -5,6 +5,7 @@ import (
 
 	"math/big"
 
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
@@ -26,7 +27,7 @@ func GetBlockStats() (*[]models.BlockStat, error) {
 	return &blockStat, nil
 }
 
-func GetMainStats() (*entities.MainStat, error) {
+func GetMainStats(cfg *configs.MainConfiguration) (*entities.MainStat, error) {
 	// var mainStat []entities.MainStat
 	var accountCount int64
 	var topicBalanceTotal int64
@@ -62,10 +63,14 @@ func GetMainStats() (*entities.MainStat, error) {
 		}
 		return nil, err
 	}
+	msgCost, err := chain.Provider(cfg.ChainId).GetCurrentMessagePrice()
+	if err != nil {
+		panic(err)
+	}
 	return &entities.MainStat{
 		Accounts:     accountCount,
 		TopicBalance: topicBalanceTotal,
 		Messages:     messageCount,
-		MessageCount: big.NewInt(0).Mul(chain.API.GetCurrentMessageCost(), big.NewInt(messageCount)),
+		MessageCount: big.NewInt(1).Mul(msgCost, big.NewInt(messageCount)),
 	}, nil
 }

@@ -2,19 +2,28 @@ package service
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 
+	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
+	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
 var logger = &log.Logger
+var	eventCounterStore *db.Datastore
 
 func ConnectClient(message []byte, protocol constants.Protocol, client interface{}) (*entities.ClientHandshake, error) {
 	verifiedRequest, _ := entities.UnpackClientHandshake(message)
@@ -37,9 +46,9 @@ func ConnectClient(message []byte, protocol constants.Protocol, client interface
 func IsMoreRecent(
 	currenStatetEventId string,
 	currenStatetHash string,
-	currentStateEventTimestamp int,
+	currentStateEventTimestamp uint64,
 	eventHash string,
-	eventPayloadTimestamp int,
+	eventPayloadTimestamp uint64,
 	markedAsSynced bool,
 	) (isMoreRecent bool , markAsSynced bool) {
 	isMoreRecent = false
@@ -65,7 +74,7 @@ func IsMoreRecent(
 				// 	isMoreRecent = true
 				// }
 				// if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
+					// logger.Debugf("Current state %v", currentStateEvent.Payload)
 					csN := new(big.Int)
 					csN.SetString(currenStatetHash[56:], 16)
 					nsN := new(big.Int)
@@ -80,6 +89,32 @@ func IsMoreRecent(
 		return isMoreRecent, markAsSynced
 }
 
+func IsMoreRecentEvent(
+	eventHash string,
+	eventTimestamp int,
+	event2Hash string,
+	event2Timestamp int,
+	) (bool) {
+	
+		if eventTimestamp < event2Timestamp {
+			return true
+		}
+		if eventTimestamp  > event2Timestamp {
+			return false
+		}
+		// if the authorization was created at exactly the same time but their hash is different
+		// use the last 4 digits of their event hash
+		csN := new(big.Int)
+		csN.SetString(eventHash[50:], 16)
+		nsN := new(big.Int)
+		nsN.SetString(eventHash[50:], 16)
+
+		if csN.Cmp(nsN) < 1 {
+			return true
+		}
+		return false
+}
+
 func ValidateEvent(event interface{}) error {
 	e := event.(entities.Event)
 	b, err := e.EncodeBytes()
@@ -87,12 +122,13 @@ func ValidateEvent(event interface{}) error {
 		logger.Errorf("Invalid Encoding %v", err)
 		return err
 	}
-	// logger.Errorf("Payload Validator: %s; Event Signer: %s; PublicKey: %s", e.Payload.Validator, e.Validator, )
-	if e.GetValidator() != e.Payload.Validator {
+	logger.Debugf("Payload Validator: %s; Event Signer: %s; Validatos: %v", e.Payload.Validator, e.GetValidator(), chain.NetworkInfo.Validators)
+	if chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))] != e.Payload.Validator {
 		return apperror.Forbidden("Payload validator does not match event validator")
 	}
-	logger.Infof("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())
-	valid, err := crypto.VerifySignatureEDD(string(e.GetValidator()), &b, e.GetSignature())
+	logger.Debugf("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())
+	sign, _ := hex.DecodeString(e.GetSignature())
+	valid, err := crypto.VerifySignatureEDD(e.GetValidator().Bytes(), &b, sign)
 	if err != nil {
 		logger.Error(err)
 		return err
@@ -137,8 +173,122 @@ func ValidateMessageClient(
 		}
 		(*connectedSubscribers)[_topic][_subscriber] = append((*connectedSubscribers)[_topic][_subscriber], clientHandshake.ClientSocket)
 	}
-	logger.Infof("results:  %v  \n", subscriptionStates[0])
+	logger.Debugf("results:  %v  \n", subscriptionStates[0])
 	return nil
+}
+
+func HandleNewPubSubEvent (event *entities.Event, ctx *context.Context) {
+	switch val := event.Payload.Data.(type) {
+	case entities.Subnet:
+		logger.Debug(val)
+		HandleNewPubSubSubnetEvent(event, ctx)
+	case entities.Authorization:
+		HandleNewPubSubAuthEvent(event, ctx)
+	case entities.Topic:
+		HandleNewPubSubTopicEvent(event, ctx)
+	case entities.Subscription:
+		HandleNewPubSubSubscriptionEvent(event, ctx)
+	case entities.Message:
+		HandleNewPubSubMessageEvent(event, ctx)
+	}
+}
+
+func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPath, subnetId *string, err error) {
+	
+	event, err := query.GetEventFromPath(eventPath)
+	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	if !ok {
+		panic("Unable to connect to counter data store")
+	}
+	if err == nil || event != nil {
+		
+		// increment count
+		currentSubnetCount := uint64(0);
+		currentCycleCount := uint64(0);
+		
+		batch, err :=	eventCounterStore.Batch(*ctx)
+		if err != nil {
+			panic(err)
+		}
+		// TODO consider storing cycle with event so we dont need another network call here
+		cycle, err :=  chain.DefaultProvider(cfg).GetCycle(big.NewInt(int64(event.BlockNumber)))
+		if err != nil {
+			// TODO
+			panic(err)
+		}
+		subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, cycle, utils.IfThenElse(event.Payload.Subnet == "", *subnetId, event.Payload.Subnet)))
+		cycleKey :=  datastore.NewKey(fmt.Sprintf("%s/%d", event.Payload.Validator, cycle))
+		val, err := eventCounterStore.Get(*ctx, subnetKey)
+		
+		if err != nil  {
+			if err != datastore.ErrNotFound {
+				logger.Error(err)
+				return;
+			}
+		} else {
+			currentSubnetCount = encoder.NumberFromByte(val)
+		}
+		
+		cycleCount, err := eventCounterStore.Get(*ctx, cycleKey)
+		
+		if err != nil  {
+			if err != datastore.ErrNotFound {
+				logger.Error(err)
+				return;
+			}
+		} else {
+			currentCycleCount = encoder.NumberFromByte(cycleCount)
+		}
+		logger.Debugf("CURRENTCYCLE %d, %d", cycleCount, currentCycleCount)
+		// if event.Payload.Validator == entities.PublicKeyString(cfg.NetworkPublicKey) {
+		// 	subnetCycleClaimed := uint64(0);
+		// 	subnetClaimStatusKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s/claimed", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
+		// 	claimStatus, err := eventCounterStore.Get(*ctx, subnetClaimStatusKey)
+		// 	logger.Debugf("CURRENTCYCLECLAIM %d", claimStatus)
+		// 	if err != nil  {
+		// 		if err != badger.ErrKeyNotFound {
+		// 			logger.Error(err)
+		// 			return;
+		// 		} else {
+		// 			err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(0))
+		// 			if err != nil {
+		// 				panic(err)
+		// 			}	
+		// 		}
+		// 	} else {
+		// 		subnetCycleClaimed = encoder.NumberFromByte(claimStatus)
+		// 	}
+		// 	if subnetCycleClaimed == 0 {
+		// 		err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(1))
+		// 		if err != nil {
+		// 			panic(err)
+		// 		}	
+		// 	}
+		// }
+
+		
+
+		err = batch.Put(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount))
+		if err != nil {
+			panic(err)
+		}
+		err = batch.Put(*ctx, cycleKey, encoder.NumberToByte(1+currentCycleCount))
+		if err != nil {
+			panic(err)
+		}
+
+		
+		// err = eventCounterStore.Set(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount), true)
+		err = batch.Commit(*ctx)
+		if err != nil {
+			panic(err)
+		}
+		
+	} else {
+		logger.Error(err)
+	}
+
 }
 
 // func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
@@ -291,7 +441,7 @@ func FinalizeEvent [ T entities.Payload, State any] (
 					isMoreRecent = true
 				}
 				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
+					// logger.Debugf("Current state %v", currentStateEvent.Payload)
 					csN := new(big.Int)
 					csN.SetString(currentStateEventHash[56:], 16)
 					nsN := new(big.Int)
@@ -327,10 +477,10 @@ func FinalizeEvent [ T entities.Payload, State any] (
 
 	// Save stuff permanently
 	tx := sql.Db.Begin()
-	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
+	logger.Debug(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -387,10 +537,10 @@ func FinalizeEvent [ T entities.Payload, State any] (
 	// if err != nil {
 	// 	logger.Errorf("Invalid event payload")
 	// }
-	//data.Event = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
-	//state["event"] = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
+	//data.Event = *entities.NewEventPath(event.Validator, entities.SubnetModel, event.Hash)
+	//state["event"] = *entities.NewEventPath(event.Validator, entities.SubnetModel, event.Hash)
 	//data.Account = event.Payload.Account
-	//state["account"] = *entities.NewEventPath(event.Validator, entities.SubnetEventModel, event.Hash)
+	//state["account"] = *entities.NewEventPath(event.Validator, entities.SubnetModel, event.Hash)
 	// logger.Error("data.Public ", data.Public)
 
 	if updateState {
@@ -408,10 +558,10 @@ func FinalizeEvent [ T entities.Payload, State any] (
 	}
 	tx.Commit()
 
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
-			logger.Info("Unable to get dependent events", err)
+			logger.Debug("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
 			go HandleNewPubSubSubnetEvent(&dep, ctx)
@@ -451,13 +601,13 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	// hash, _ := event.GetHash()
 	
 
-	logger.Infof("Event is a valid event %s", event.PayloadHash)
+	logger.Debugf("Event is a valid event %s", event.PayloadHash)
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	// Extract and validate the Data of the paylaod which is an Events Payload Data,
 	data := event.Payload.Data.(entities.Payload)
 	stateMap := map[string]interface{}{}
-	logger.Infof("NEWTOPICEVENT: %s", event.Hash)
+	logger.Debugf("NEWTOPICEVENT: %s", event.Hash)
 
 	err := ValidateEvent(*event)
 
@@ -473,7 +623,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	currentState, err := validator(data)
 	if err != nil {
 		// penalize node for broadcasting invalid data
-		logger.Infof("Invalid topic data %v. Node should be penalized", err)
+		logger.Debugf("Invalid topic data %v. Node should be penalized", err)
 		return
 	}
 
@@ -513,7 +663,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 					isMoreRecent = true
 				}
 				if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Infof("Current state %v", currentStateEvent.Payload)
+					// logger.Debugf("Current state %v", currentStateEvent.Payload)
 					csN := new(big.Int)
 					csN.SetString(currentState.Event.Hash[56:], 16)
 					nsN := new(big.Int)
@@ -579,10 +729,10 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 
 	// Save stuff permanently
 	tx := sql.Db.Begin()
-	logger.Info(":::::updateState: Db Error", updateState, currentState == nil)
+	logger.Debug(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -632,7 +782,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	if err != nil {
 		logger.Errorf("Invalid event payload")
 	}
-	data.Event = *entities.NewEventPath(event.Validator, entities.TopicEventModel, event.Hash)
+	data.Event = *entities.NewEventPath(event.Validator, entities.TopicModel, event.Hash)
 	data.Agent = entities.DIDString(agent)
 	data.Account = event.Payload.Account
 	// logger.Error("data.Public ", data.Public)
@@ -651,10 +801,10 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	}
 	tx.Commit()
 
-	if string(event.Validator) != (*cfg).NetworkPublicKey {
+	if string(event.Validator) != (*cfg).PublicKey  {
 		dependent, err := query.GetDependentEvents(*event)
 		if err != nil {
-			logger.Info("Unable to get dependent events", err)
+			logger.Debug("Unable to get dependent events", err)
 		}
 		for _, dep := range *dependent {
 			go HandleNewPubSubTopicEvent(&dep, ctx)

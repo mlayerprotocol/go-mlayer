@@ -9,6 +9,7 @@ import (
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
@@ -19,19 +20,22 @@ type Subscription struct {
 
 	ID         string    `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
 	Topic      string    `json:"top" binding:"required"  gorm:"not null;uniqueIndex:idx_sub_topic;type:char(36);index"`
-	Ref        string    `json:"ref" gorm:"unique;type:varchar(100);default:null"`
+	Ref        string    `json:"ref" gorm:"uniqueIndex:idx_ref_subnet;type:varchar(100);default:null"`
 	Meta       string    `json:"meta"  gorm:"type:varchar(100);"`
-	Subnet     string    `json:"snet"  binding:"required" gorm:"not null;type:varchar(36)"`
+	Subnet     string    `json:"snet"  binding:"required" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(36)"`
 	Subscriber DIDString `json:"sub"  gorm:"not null;uniqueIndex:idx_sub_topic;type:varchar(100);index"`
 	// Device     DeviceString                  `json:"dev,omitempty" binding:"required"  gorm:"not null;uniqueIndex:idx_acct_dev_topic;type:varchar(100);index"`
 	Status *constants.SubscriptionStatus `json:"st"  gorm:"not null;type:smallint;default:2"`
 	Role   *constants.SubscriberRole  `json:"rol" gorm:"default:0"`
 
 	//Signature string                         `json:"sig"`
-	Timestamp uint64       `json:"ts"`
+	Timestamp *uint64       `json:"ts"`
 	Hash      string       `json:"h" gorm:"unique" `
 	Event     EventPath    `json:"e" gorm:"index;char(64);"`
 	Agent     DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
+	BlockNumber uint64          `json:"blk"`
+	Cycle   	uint64			`json:"cy"`
+	Epoch		uint64			`json:"ep"`
 
 }
 
@@ -72,7 +76,7 @@ func SubscriptionFromBytes(b []byte) (Subscription, error) {
 }
 func UnpackSubscription(b []byte) (Subscription, error) {
 	var sub Subscription
-	err := encoder.MsgPackUnpackStruct(b, sub)
+	err := encoder.MsgPackUnpackStruct(b, &sub)
 	return sub, err
 }
 
@@ -97,8 +101,8 @@ func (sub Subscription) EncodeBytes() ([]byte, error) {
 
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Ref},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *sub.Role},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: *sub.Status},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(sub.Role, 0)},
+		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(sub.Status, 0)},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Subscriber.ToString()},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: sub.Topic},
 	)

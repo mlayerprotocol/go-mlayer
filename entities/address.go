@@ -3,6 +3,7 @@ package entities
 import (
 	// "errors"
 
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,13 +16,17 @@ type PublicKeyString string
 type DIDString string
 type DeviceString DIDString
 
+func (s PublicKeyString) Bytes() []byte {
+	b, _ := hex.DecodeString(string(s))
+	return b
+}
 func (address *DIDString) ToString() string {
 
 	return string(*address)
 }
 
 type DID struct {
-	Prefix string `json:"pre"`
+	Prefix string  `json:"pre"`
 	Addr   string `json:"addr"`
 	// Platform string    `json:"p"`
 	Chain string `json:"ch"`
@@ -45,6 +50,10 @@ func (address DID) ToDeviceString() DeviceString {
 	return DeviceString(address.ToString())
 }
 
+func StringToDeviceString(str string) (DeviceString) {
+	return AddressFromString(str).ToDeviceString()
+}
+
 func AddressFromBytes(b []byte) (DID, error) {
 	var address DID
 	err := json.Unmarshal(b, &address)
@@ -52,7 +61,7 @@ func AddressFromBytes(b []byte) (DID, error) {
 }
 func MsgUnpack(b []byte) (DID, error) {
 	var address DID
-	err := encoder.MsgPackUnpackStruct(b, address)
+	err := encoder.MsgPackUnpackStruct(b, &address)
 	return address, err
 }
 

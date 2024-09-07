@@ -3,10 +3,11 @@ package query
 import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
+	"gorm.io/gorm"
 )
 
 // func GetManyWithEvent[T any, U any](filter T, event entities.Event, data *U) error {
-// 	err := db.Db.Where(&filter).Joins().Find(data).Error
+// 	err := db.SqlDb.Where(&filter).Joins().Find(data).Error
 // 	if err != nil {
 // 		return err
 // 	}
@@ -17,7 +18,7 @@ import (
 // func GetEvent(grantor string, agent string) (*models.Config, error) {
 
 // 	data := models.Config{}
-// 	err := db.Db.Where(&models.AuthorizationState{Grantor: grantor, Agent: agent}).First(&data).Error
+// 	err := db.SqlDb.Where(&models.AuthorizationState{Grantor: grantor, Agent: agent}).First(&data).Error
 // 	if err != nil {
 // 		return nil, err
 // 	}
@@ -26,7 +27,7 @@ import (
 
 // func SaveEvent(event entities.Event, data models.Event) (*models.Event, error) {
 
-// 	tx := db.Db.Begin()
+// 	tx := db.SqlDb.Begin()
 // 	err := tx.Where(models.Event{
 // 			Hash: event.Hash,
 // 			}).Assign(models.Event{
@@ -49,6 +50,8 @@ import (
 // 	return &data, nil
 // }
 
+var ErrorNotFound = gorm.ErrRecordNotFound
+
 func EventExist(ePath *entities.EventPath) bool {
 	if ePath.Hash == "" {
 		return true
@@ -58,10 +61,15 @@ func EventExist(ePath *entities.EventPath) bool {
 }
 
 func GetEventFromPath(ePath *entities.EventPath) (*entities.Event, error) {
-	if ePath.Model == entities.SubscriptionEventModel {
+	if  ePath == nil || len(ePath.Hash) == 0  {
+		return nil, nil
+	}
+	if ePath.Model == entities.SubscriptionModel {
 		var data *models.SubscriptionEvent
-		err := GetOne(models.SubscriptionEvent{
+		err := GetOneWithOr(models.SubscriptionEvent{
 			Event: entities.Event{Hash: ePath.Hash},
+		}, models.SubscriptionEvent{
+			Event: entities.Event{ID: ePath.Hash},
 		}, &data)
 		if err != nil {
 			return nil, err
@@ -69,10 +77,12 @@ func GetEventFromPath(ePath *entities.EventPath) (*entities.Event, error) {
 		return &data.Event, nil
 	}
 
-	if ePath.Model == entities.TopicEventModel {
+	if ePath.Model == entities.TopicModel {
 		var data *models.TopicEvent
-		err := GetOne(models.TopicEvent{
+		err := GetOneWithOr(models.TopicEvent{
 			Event: entities.Event{Hash: ePath.Hash},
+		}, models.TopicEvent{
+			Event: entities.Event{ID: ePath.Hash},
 		}, &data)
 		if err != nil {
 			return nil, err
@@ -80,10 +90,12 @@ func GetEventFromPath(ePath *entities.EventPath) (*entities.Event, error) {
 		return &data.Event, nil
 	}
 
-	if ePath.Model == entities.SubnetEventModel {
+	if ePath.Model == entities.SubnetModel {
 		var data *models.SubnetEvent
-		err := GetOne(models.SubnetEvent{
+		err := GetOneWithOr(models.SubnetEvent{
 			Event: entities.Event{Hash: ePath.Hash},
+		}, models.SubnetEvent{
+			Event: entities.Event{ID: ePath.Hash},
 		}, &data)
 		if err != nil {
 			return nil, err
@@ -91,10 +103,12 @@ func GetEventFromPath(ePath *entities.EventPath) (*entities.Event, error) {
 		return &data.Event, nil
 	}
 
-	if ePath.Model == entities.AuthEventModel {
+	if ePath.Model == entities.AuthModel {
 		var data *models.AuthorizationEvent
-		err := GetOne(models.AuthorizationEvent{
+		err := GetOneWithOr(models.AuthorizationEvent{
 			Event: entities.Event{Hash: ePath.Hash},
+		}, models.AuthorizationEvent{
+			Event: entities.Event{ID: ePath.Hash},
 		}, &data)
 		if err != nil {
 			return nil, err
@@ -102,15 +116,79 @@ func GetEventFromPath(ePath *entities.EventPath) (*entities.Event, error) {
 		return &data.Event, nil
 	}
 
-	if ePath.Model == entities.MessageEventModel {
+	if ePath.Model == entities.MessageModel {
 		var data *models.MessageEvent
-		err := GetOne(models.MessageEvent{
+		err := GetOneWithOr(models.MessageEvent{
 			Event: entities.Event{Hash: ePath.Hash},
+		}, models.MessageEvent{
+			Event: entities.Event{ID: ePath.Hash},
 		}, &data)
 		if err != nil {
 			return nil, err
 		}
 		return &data.Event, nil
+	}
+
+	return nil, nil
+}
+
+func GetStateFromPath(ePath *entities.EntityPath) (any, error) {
+	if  ePath == nil || len(ePath.Hash) == 0  {
+		return nil, nil
+	}
+	if ePath.Model == entities.SubscriptionModel {
+		var data *models.SubscriptionState
+		err := GetOne(models.SubscriptionState{
+			Subscription: entities.Subscription{ID: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Subscription, nil
+	}
+
+	if ePath.Model == entities.TopicModel {
+		var data *models.TopicState
+		err := GetOne(models.TopicState{
+			Topic: entities.Topic{ID: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Topic, nil
+	}
+
+	if ePath.Model == entities.SubnetModel {
+		var data *models.SubnetState
+		err := GetOne(models.SubnetState{
+			Subnet: entities.Subnet{ID: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Subnet, nil
+	}
+
+	if ePath.Model == entities.AuthModel {
+		var data *models.AuthorizationState
+		err := GetOne(models.AuthorizationState{
+			Authorization: entities.Authorization{ID: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Authorization, nil
+	}
+
+	if ePath.Model == entities.MessageModel {
+		var data *models.MessageState
+		err := GetOne(models.MessageState{
+			Message: entities.Message{ID: ePath.Hash},
+		}, &data)
+		if err != nil {
+			return nil, err
+		}
+		return &data.Message, nil
 	}
 
 	return nil, nil

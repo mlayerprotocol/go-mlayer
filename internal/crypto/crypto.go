@@ -1,12 +1,22 @@
 package crypto
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/rand"
 	cryptoSha256 "crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
@@ -15,6 +25,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ripemd160"
+	"golang.org/x/crypto/scrypt"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -28,24 +39,23 @@ func GetPublicKeyECC(privKey string) string {
 	return crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
 }
 
-func GetPublicKeySECP(privKey string) string {
-	privateKey, err := hex.DecodeString(privKey)
-	if err != nil {
-		logger.Errorf("Invlaid node network key %v", err)
-	}
-	_, pub := btcec.PrivKeyFromBytes(btcec.S256(), privateKey)
 
+func GetPublicKeySECP(privateKey []byte) string {
+	_, pub := btcec.PrivKeyFromBytes(btcec.S256(), privateKey)
+	
+	// logger.Debugf("PUBKEY %d %d %d", pub.X, pub.Y)
+	
 	return hex.EncodeToString(pub.SerializeCompressed())
 }
 
-func GetPublicKeyEDD(privKey string) string {
-	if len(privKey) != 128 {
-		logger.Fatal("Invalid private key length")
-	}
-	return privKey[64:]
+func GetPublicKeyEDD(privKey [64]byte) [32]byte {
+	// if len(privKey) != 128{
+	// 	logger.Fatal("Invalid private key length")
+    // }
+	return [32]byte(privKey[32:])
 }
 
-func NetworkPrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
+func PrivateKeyFromString(privKey string) (*ecdsa.PrivateKey, error) {
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
 		logger.Fatalf("Invalid private key %o", err)
@@ -75,27 +85,20 @@ func SignECC(message []byte, privKey string) ([]byte, string) {
 	return signature, hexutil.Encode(signature)
 }
 
-func SignEDD(message []byte, privKey string) ([]byte, string) {
-	key, err := hex.DecodeString(privKey)
-	if err != nil {
-		logger.Fatalf("Invalid private key string %o", err)
-	}
-	pKey := ed25519.PrivateKey(key)
+func SignEDD(message []byte, privKey []byte) ([]byte, string) {
+	
+	pKey := ed25519.PrivateKey(privKey)
 	hash := Sha256(message)
 	// logger.WithFields(logrus.Fields{"action": "crypto.Sign", "message": message}).Infof("Message hash: %s", hash.Hex())
 	signature := ed25519.Sign(pKey, hash)
-	if err != nil {
-		logger.Fatal(err)
-	}
+	
 	// signer, err := crypto.Ecrecover(hash.Bytes(), signature[:len(signature)-1])
 	return signature, hex.EncodeToString(signature)
 }
 
-func SignSECP(message []byte, privKey string) ([]byte, string) {
-	privateKeyByte, err := hex.DecodeString(privKey)
-	if err != nil {
-		logger.Fatalf("Invalid private key %o", err)
-	}
+
+func SignSECP(message []byte, privateKeyByte []byte) (signatureByte []byte, signatureString string) {
+
 	privateKey, _ := btcec.PrivKeyFromBytes(btcec.S256(), privateKeyByte)
 	signature, err := privateKey.Sign(Sha256(message)[:])
 	if err != nil {
@@ -118,7 +121,7 @@ func GetSignerECC(message *[]byte, signature *string) (string, error) {
 		return "", err
 	}
 	hash := Keccak256Hash(*message)
-	logger.Info("Keccak256Hash Hash:: ", hex.EncodeToString(hash))
+	logger.Debug("Keccak256Hash Hash:: ", hex.EncodeToString(hash))
 	if decoded[crypto.RecoveryIDOffset] == 27 || decoded[crypto.RecoveryIDOffset] == 28 {
 		decoded[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
 	}
@@ -140,21 +143,20 @@ func VerifySignatureECC(signer string, message *[]byte, signature string) bool {
 	return strings.EqualFold(decodedSigner, signer)
 }
 
-func VerifySignatureEDD(signer string, message *[]byte, signature string) (bool, error) {
-	logger.Infof("NODESIGNER %s; Signature: %s; message: %s", signer, signature, hex.EncodeToString(*message))
-	signatureByte, err := hex.DecodeString(signature)
-	if err != nil {
-		logger.WithFields(logrus.Fields{"signature": signature}).Infof("Unable to decode signature %v", err)
-		return false, err
-	}
-	publicKeyBytes, err := hex.DecodeString(signer)
-	if err != nil {
-		logger.WithFields(logrus.Fields{"signer": signer}).Infof("Unable to decode signer %v", err)
-		return false, err
-	}
-
+func VerifySignatureEDD(signer []byte, message *[]byte, signature []byte) (bool, error) {
+	// signatureByte, err := hex.DecodeString(signature)
+	// if err != nil {
+	// 	logger.WithFields(logrus.Fields{"signature": signature}).Infof("Unable to decode signature %v", err)
+	// 	return false, err
+	// }
+	// publicKeyBytes, err := hex.DecodeString(signer)
+	// if err != nil {
+	// 	logger.WithFields(logrus.Fields{"signer": signer}).Infof("Unable to decode signer %v", err)
+	// 	return false, err
+	// }
+	
 	msg := Sha256(*message)
-	return ed25519.Verify(publicKeyBytes, msg[:], signatureByte), nil
+	return  ed25519.Verify(signer, msg[:], signature), nil
 }
 
 func VerifySignatureSECP(publicKeyBytes []byte, message []byte, signatureByte []byte) (bool, error) {
@@ -172,13 +174,13 @@ func VerifySignatureSECP(publicKeyBytes []byte, message []byte, signatureByte []
 	msg := Sha256(message)
 	// v, _ := hex.DecodeString(fmt.Sprintf("%s%s",  parsedSign.R.Text(16), parsedSign.S.Text(16)))
 	// sig := encoder.ToBase64Padded(v)
-	print("HASSEHD ", parsedSign.R.Text(16), parsedSign.S.Text(16))
+	
 	return parsedSign.Verify(msg[:], pubKey), nil
 }
 
-func Bech32AddressFromPrivateKeyEDD(privateKey string) string {
-	decoded, _ := hex.DecodeString(GetPublicKeyEDD(privateKey))
-	return ToBech32Address(decoded, "ml")
+func Bech32AddressFromPrivateKeyEDD(privateKey [64]byte) string {
+	decoded := GetPublicKeyEDD(privateKey)
+	return ToBech32Address(decoded[:], "ml")
 }
 
 /*
@@ -228,7 +230,7 @@ func ToBtcecSignature(sigHex string) (*[]byte, error) {
 		return nil, err
 	}
 	R := sigHex[:64]
-	logger.Infof("SIGNA %s", R)
+	logger.Debugf("SIGNA %s", R)
 	S := sigHex[64:]
 	rByte, err := hex.DecodeString(R)
 	if err != nil {
@@ -273,6 +275,92 @@ func HashMessageEth(message []byte) []byte {
 	return hashed.Sum(nil)
 }
 
+func GetPrivateKeyFromKeyStore(ksPath string, account accounts.Account, password string) ([]byte, error) {
+	keyPath := filepath.Join(ksPath, filepath.Base(account.URL.Path)) 
+    keyJSON, err := os.ReadFile(keyPath)
+    if err != nil {
+        return nil, err
+    }
+
+    // Decrypt the key using the password
+    key, err := keystore.DecryptKey(keyJSON, string(password))
+    if err != nil {
+        return nil, err
+    }
+	privateKey := key.PrivateKey
+	return crypto.FromECDSA(privateKey), nil
+}
+
+const saltSize = 16
+const keySize = 32 // AES-256
+const n = 32768    // CPU/memory cost parameter for scrypt (higher values are more secure but slower)
+const r = 8        // Block size parameter
+const p = 1        // Parallelization parameter
+
+// Encrypts a private key using a password and scrypt
+func EncryptPrivateKey(privateKey []byte, password string) (cypher []byte, salt []byte, err error) {
+	// Generate a random salt
+	salt = make([]byte, saltSize)
+	if _, err := rand.Read(salt); err != nil {
+		return nil, nil, err
+	}
+
+	// Derive a key from the password using scrypt
+	key, err := scrypt.Key([]byte(password), salt, n, r, p, keySize)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Generate a random nonce for AES-GCM
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, nil, err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, nil, err
+	}
+
+	// Encrypt the private key
+	ciphertext := gcm.Seal(nonce, nonce, privateKey, nil)
+
+	// Return the encrypted key and the salt used for encryption
+	return ciphertext, salt, nil
+}
+
+// Decrypts the private key using a password and the original salt
+func DecryptPrivateKey(encryptedKey []byte, password string, salt []byte) ([]byte, error) {
+	// Derive the same key from the password using scrypt
+	key, err := scrypt.Key([]byte(password), salt, n, r, p, keySize)
+	if err != nil {
+		return nil, err
+	}
+	// Initialize AES-GCM for decryption
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	// Extract the nonce from the encrypted key
+	nonceSize := gcm.NonceSize()
+	if len(encryptedKey) < nonceSize {
+		return nil, errors.New("ciphertext too short")
+	}
+	nonce, ciphertext := encryptedKey[:nonceSize], encryptedKey[nonceSize:]
+	// Decrypt the private key
+	plainKey, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+	return plainKey, nil
+}
 func EthMessage(message []byte) []byte {
 	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(message))
 	byteArr := []byte(prefix)

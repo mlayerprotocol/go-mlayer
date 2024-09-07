@@ -15,7 +15,7 @@ import (
 type DeliveryProof struct {
 	MessageHash   string `json:"mH"`
 	MessageSender string `json:"mS"`
-	NodeAddress   string `json:"nA"`
+	OperatorAddress   string `json:"nA"`
 	Timestamp     int    `json:"ts"`
 	Signature     string `json:"sig"`
 	Block         string `json:"bl"`
@@ -41,7 +41,7 @@ func (msg *DeliveryProof) BlockKey() string {
 func (msg DeliveryProof) ToString() string {
 	values := []string{}
 	values = append(values, fmt.Sprintf("%s", string(msg.MessageHash)))
-	values = append(values, fmt.Sprintf("%s", msg.NodeAddress))
+	values = append(values, fmt.Sprintf("%s", msg.OperatorAddress))
 	values = append(values, fmt.Sprintf("%s", strconv.Itoa(msg.Timestamp)))
 	return strings.Join(values, "")
 }
@@ -49,7 +49,7 @@ func (msg DeliveryProof) ToString() string {
 func (msg DeliveryProof) EncodeBytes() ([]byte, error) {
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.MessageHash},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.NodeAddress},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.OperatorAddress},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Timestamp},
 	)
 }

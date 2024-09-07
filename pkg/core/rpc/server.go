@@ -88,7 +88,7 @@ func (p *RpcService) SendMessage(param []byte, reply *RpcResponse) error {
 	// 	return err
 	// }
 
-	logger.Infof("ipfs address %s", p.Cfg.Ipfs.Host)
+	logger.Debugf("ipfs address %s", p.Cfg.Ipfs.Host)
 	//client := NewClient(p.Cfg.Ipfs.ProjectId, p.Cfg.Ipfs.ProjectSecret)
 	//sh := shell.NewShellWithClient(p.Cfg.Ipfs.Host, client)
 	//chatMsg, err := entities.CreateMessageFromJson(request)
@@ -108,7 +108,7 @@ func (p *RpcService) SendMessage(param []byte, reply *RpcResponse) error {
 	// 		logger.Errorf("ipfs error:: %o", err)
 	// 	}
 	// 	chatMsg.Body.CID = cid
-	// 	logger.Infof("IPFS messageCID::: %s", cid)
+	// 	logger.Debugf("IPFS messageCID::: %s", cid)
 	// }
 
 	//c, err := (*p.MessageService).Send(chatMsg, request.Signature)

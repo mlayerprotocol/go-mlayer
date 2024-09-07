@@ -63,7 +63,7 @@ var upgrader = websocket.Upgrader{
 func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	c, err := upgrader.Upgrade(w, r, nil)
-	logger.Info("New ServeWebSocket c : ", c.RemoteAddr())
+	logger.Debug("New ServeWebSocket c : ", c.RemoteAddr())
 
 	if err != nil {
 		logger.Debug("WS connection error:", err)
@@ -95,8 +95,8 @@ func (p *WsService) ServeWebSocket(w http.ResponseWriter, r *http.Request) {
 					}
 					*p.ClientHandshakeChannel <- verifiedRequest
 					
-					logger.Infof("message:", string(message))
-					logger.Infof("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
+					logger.Debugf("message:", string(message))
+					logger.Debugf("recv: %s - %d - %s\n", message, mt, c.RemoteAddr())
 					continue
 				}
 				// process message

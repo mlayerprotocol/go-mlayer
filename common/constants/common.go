@@ -10,21 +10,27 @@ const (
 	VALID_HANDSHAKE_SECONDS = 15 // time interval within which to accept a handshake
 )
 
-var VALID_PROTOCOLS = []string{"/proto/1.0.0"}
+var VALID_PROTOCOLS = []string{"/mlayer/1.0.0"}
 
+const (
+	DefaultPKeyPath string = "./data/.local.key"
+)
 const (
 	DefaultRPCPort            string = "9525"
 	DefaultWebSocketAddress   string = "127.0.0.1:8088"
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data/store"
 	DefaultMLBlockchainAPIUrl string = ":9520"
-	DefaultProtocolVersion           string = "/proto/1.0.0"
-)
-const (
-	RelayNodeType     uint = 0
-	ValidatorNodeType uint = 1
+	DefaultProtocolVersion           string = "/mlayer/1.0.0"
 )
 
+type NodeType uint
+const (
+	ValidatorNodeType NodeType = 1
+    SentryNodeType     NodeType = 2
+)
+
+const ADDRESS_ZERO = "0000000000000000000000000000000000000000"
 const MaxBlockSize = 1000
 
 const (
@@ -33,48 +39,12 @@ const (
 	ErrorForbidden    = "4003"
 )
 
-type DataStore string
-
-const (
-	UnprocessedClientPayloadStore DataStore = "unprocessed-client-payload-store"
-	ValidMessageStore             DataStore = "valid-messages"
-	UnsentMessageStore                      = "unsent-messages"
-	SentMessageStore                        = "sent-messages"
-	NewTopicSubscriptionStore               = "new-topic-subscription"
-	TopicSubscriptionStore                  = "top-subscriptions"
-	TopicSubscriptionCountStore             = "topic-subscription-count"
-	DeliveryProofStore                      = "delivery-proof-store"
-	UnconfirmedDeliveryProofStore           = "unconfirmed-delivery-proof-store"
-	DeliveryProofBlockStateStore            = "delivery-proof-block-state-store"
-	SubscriptionBlockStateStore             = "subscription-block-state-store"
-	DeliveryProofBlockStore                 = "dp-block-store"
-	SubscriptionBlockStore                  = "sub-block-store"
-	ConnectedSubscribersMap                 = "connected-subscribers-map"
-)
 
 // Channel Ids within main context
+type ChannelId string
 const (
-	ConfigKey                       string = "Config"
-	BroadcastAuthorizationEventChId string = "BroadcastAuthorizationEventChannel"
-	BroadcastTopicEventChId                = "BroadcastTopicEventChannel"
-	BroadcastSubnetEventChId               = "BroadcastSubnetEventChannel"
-	// IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
-	IncomingTopicEventChId = "IncomingTopicEventChannel"
-
-	OutgoingMessageChId     = "OutgoingMessageChannel"
-	OutgoingMessageDP2PChId = "OutgoingMessageDP2PChannel"
-	IncomingMessageChId     = "IncomingMessageChannel"
-
-	PublishMessageChId              = "PublishMessageChannel"
-	SubscribeChId                   = "SubscribeChannel"
-	SubscriptionDP2PChId            = "SubscriptionDP2PChannel"
-	ClientHandShackChId             = "ClientHandshakeChannel"
-	OutgoingDeliveryProof_BlockChId = "OutgoingDeliveryProofBlockChannel"
-	OutgoingDeliveryProofChId       = "OutgoinDeliveryProofChannel"
-	PubSubBlockChId                 = "PubSubBlockChannel"
-	PubsubDeliverProofChId          = "PubsubProofChannel"
-	PublishedSubChId                = "PublishedSubChannel"
-	SQLDB                           = "sqldb"
+	ConfigKey                       ChannelId = "Config"
+	SQLDB                         ChannelId  = "sqldb"
 )
 
 // State store key
@@ -90,7 +60,6 @@ const (
 	MQTT Protocol = "mqtt"
 	RPC  Protocol = "rpc"
 )
-
 
 type SubnetCategory int16
 
@@ -162,7 +131,7 @@ MessageHash     = mH
 MessageSender   = mS
 Name            = nm
 Node            = n
-NodeAddress     = nA
+OperatorAddress     = nA
 NodeHeight      = nH
 NodeSignature   = nS
 NodeType        = nT

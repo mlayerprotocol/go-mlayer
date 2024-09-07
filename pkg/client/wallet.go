@@ -94,6 +94,23 @@ func GetWallets() (*[]models.WalletState, error) {
 	return &WalletStates, nil
 }
 
+func GetWalletEventById(id string) (*models.WalletEvent, error) {
+	var WalletEvent models.WalletEvent
+
+	err := query.GetOne(models.WalletEvent{
+		Event: entities.Event{
+			ID: id,
+		},
+	}, &WalletEvent)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &WalletEvent, nil
+}
+
 func GetWalletEvents() (*[]models.WalletEvent, error) {
 	var WalletEvents []models.WalletEvent
 

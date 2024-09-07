@@ -53,7 +53,7 @@ type Stats struct {
 // 	// 	actions = append(actions, ac.EncodeBytes()...)
 // 	// }
 
-// 	// logger.Info("Mesage....", string(msg.Data))
+// 	// logger.Debug("Mesage....", string(msg.Data))
 // 	// dataByte, _ := hex.DecodeString(msg.Data)
 // 	return encoder.EncodeBytes(
 // 		// encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.TopicId},

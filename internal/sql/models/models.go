@@ -17,6 +17,7 @@ type BaseModel struct {
 //  does not include `*gorm.DB` and `error`
 
 var Models = []interface{}{
+	EventCounter{},
 	Config{},
 	TopicState{},
 	TopicEvent{},
@@ -33,6 +34,6 @@ var Models = []interface{}{
 
 	WalletState{},
 	WalletEvent{},
-
+	
 	MigrationState{},
 }
