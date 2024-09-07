@@ -204,10 +204,15 @@ func Run(mainCtx *context.Context) {
 	// if !ok {
 
 	// }
-
-	privKey, _, err := crypto.GenerateKeyPair(
+	pk, err := hex.DecodeString(cfg.PrivateKey)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	seedReader := bytes.NewReader(pk)
+	privKey, _, err := crypto.GenerateKeyPairWithReader(
 		crypto.Ed25519, // Select your key type. Ed25519 are nice short
-		2048,           // Select key length when possible (i.e. RSA).
+		2048,           // Select key length when possible (i.e. RSA).,
+		seedReader,
 	)
 	if err != nil {
 		panic(err)
