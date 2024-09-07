@@ -10,16 +10,18 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
 	"gorm.io/gorm"
 )
 
 type NodeInfo struct {
 	Account string `json:"account"` 
 	NodeType constants.NodeType `json:"node_type"` 
-	NetworkPublicKey string `json:"network_pubkey"` 
-	ChainPublicKey string `json:"chain_pubkey"` 
+	NodePublicKey string `json:"network_pubkey"` 
+	// ChainPublicKey string `json:"chain_pubkey"` 
 	ChainId string `json:"chain_id"`
 	CurrentCycle uint64 `json:"current_cycle"`
+	Listeners []string `json:"listeners"`
 }
 
 func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
@@ -44,9 +46,10 @@ func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
 	return &NodeInfo{
 		Account: hex.EncodeToString(owner),
 		NodeType: nodeType,
-		NetworkPublicKey: hex.EncodeToString(cfg.PublicKeySECP),
-		ChainPublicKey: hex.EncodeToString(cfg.PublicKeyEDD),
+		NodePublicKey: hex.EncodeToString(cfg.PublicKeySECP),
+		//ChainPublicKey: hex.EncodeToString(cfg.PublicKeyEDD),
 		ChainId: string(cfg.ChainId),
+		Listeners: p2p.GetMultiAddresses(p2p.Host),
 		CurrentCycle: info.CurrentCycle.Uint64(),
 	}, nil
 	
