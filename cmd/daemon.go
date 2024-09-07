@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"time"
 
 	"sync"
 
@@ -95,6 +96,8 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	defer node.Start(&ctx)
 	defer func () {
 		// chain.Network = chain.Init(&cfg)
+		fmt.Println("Initializing chain...")
+		time.Sleep(1*time.Second)
 		chain.RegisterProvider(
 			"31337", api.NewGenericAPI(),
 		)
@@ -122,6 +125,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 			logger.Debugf("Operator not yet deligated. Running is archive mode.")
 		}
 		cfg.OwnerAddress = common.BytesToAddress(ownerAddress)
+		fmt.Println("Chain initialized!")
 	}()
 	defer sql.Init(&cfg)
 	

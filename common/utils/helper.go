@@ -166,6 +166,10 @@ func RandomString(length int) string {
 	}
 	return str
 }
+
+func AddressToHex(addr string) string {
+ return strings.ToLower(strings.Replace(addr, "0x", "", 1))
+}
 func RandomAplhaNumString(length int) string {
 	var str string;
 	var err error;

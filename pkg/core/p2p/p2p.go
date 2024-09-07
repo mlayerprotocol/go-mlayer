@@ -394,6 +394,7 @@ func Run(mainCtx *context.Context) {
 	fmt.Println("- Host started with ID: ", Host.ID())
 	fmt.Println("- Host Network: ", p2pProtocolId)
 	fmt.Println("- Host Listening on: ", Host.Addrs())
+	fmt.Println("---------------------------------------------------------------------------")
 
 	// Subscrbers
 	authPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
@@ -873,7 +874,7 @@ func GetMultiAddresses(h host.Host) []string {
 	for _, addr := range addrs {
 		m = append(m, fmt.Sprintf("%s/p2p/%s", addr, h.ID().String()))
 	}
-	logger.Debugf("MULTI %v", m)
+	// logger.Debugf("MULTI %v", m)
 	return m
 }
 

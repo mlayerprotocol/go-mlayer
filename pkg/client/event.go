@@ -25,16 +25,7 @@ import (
 
 func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *context.Context) (model S, err error) {
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-
-	// check if client payload is valid
-	// if err := payload.Validate(entities.PublicKeyString(cfg.NetworkPublicKey)); err != nil {
-	// 	return  err
-	// }
-	// if err != nil {
-	// 	return nil, apperror.Internal(err.Error())
-	// }
-	logger.Debugf("OWNERADDRESS: %s", cfg.OwnerAddress.String())
-	if !strings.EqualFold(strings.Replace(payload.Validator, "0x", "", 1), strings.Replace(cfg.OwnerAddress.String(), "0x", "", 1)) {
+	if !strings.EqualFold(utils.AddressToHex(payload.Validator), utils.AddressToHex(cfg.OwnerAddress.String())) {
 		return nil, apperror.Forbidden("Validator not authorized to procces this request")
 	}
 
