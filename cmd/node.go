@@ -194,7 +194,6 @@ func getKeyStoreFilePath(keystoreName string, ksPath string) (string) {
 }
 
 func loadPrivateKeyFromKeyStore(password string, name string, ksPath string) ([]byte, error) {
-	logger.Debugf("PATH %s", ksPath)
 	path := filepath.Join(ksPath, ".goml", fmt.Sprintf("%s.json", name))
 	if !strings.HasPrefix(path, "./") && !strings.HasPrefix(path, "../") && !filepath.IsAbs(ksPath) {
 		path = "./" + path
@@ -214,5 +213,9 @@ func loadPrivateKeyFromKeyStore(password string, name string, ksPath string) ([]
 	if err != nil {
 		return nil, err
 	}
-	return mlCrypto.DecryptPrivateKey(cypher, password, salt )
+	decrypt, err := mlCrypto.DecryptPrivateKey(cypher, password, salt )
+	if err != nil {
+		return nil, fmt.Errorf("error: invalid keystore password")
+	}
+	return decrypt, nil
 }

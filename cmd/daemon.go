@@ -8,6 +8,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"slices"
 
 	"sync"
@@ -45,8 +46,8 @@ const (
 	REST_ADDRESS        Flag = "rest-address"
 	DATA_DIR            Flag = "data-dir"
 	LISTENERS            Flag = "listen"
-	KEYSTORE_DIR         Flag = "key_store_dir"
-	KEYSTORE_PASSWORD         Flag = "key_store_password"
+	KEYSTORE_DIR         Flag = "keystore-dir"
+	KEYSTORE_PASSWORD         Flag = "keystore-password"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -98,7 +99,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		)
 		ethAPI, err := api.NewEthAPI(cfg.ChainId, cfg.EvmRpcConfig[string(cfg.ChainId)], &cfg.PrivateKeySECP)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err)
 		}
 		chain.RegisterProvider(
 			"84532", ethAPI,
@@ -149,8 +150,9 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	if len(prefix) > 0 {
 		cfg.AddressPrefix = prefix
 	}
+	
 	cfg = injectPrivateKey(&cfg, cmd)
-
+	logger.Info("ks: ", hex.EncodeToString(cfg.PrivateKeyEDD))
 	if len(wsAddress) > 0 {
 		cfg.WSAddress = wsAddress
 	}
@@ -179,7 +181,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	}
 
 	if !slices.Contains(constants.VALID_PROTOCOLS, cfg.ProtocolVersion) {
-		panic("Invalid protocol version provided")
+		logger.Fatal("Invalid protocol version provided")
 	}
 
 	if rpcPort == constants.DefaultRPCPort && len(cfg.RPCPort) > 0 {
@@ -249,10 +251,13 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) config
 		//check the keystore
 		password, _ := cmd.Flags().GetString(string(KEYSTORE_PASSWORD))
 		if password == "" {
+			password = os.Getenv("ML_KEYSTORE_PASSWORD")
+		}
+		if password == "" {
 			fmt.Println("Enter your keystore password: ")
 			inputPass, err := readInputSecurely()
 			if err!= nil {
-				panic("provide a keystore password")
+				logger.Fatal("provide a keystore password")
 			}
 			password = string(inputPass)
 		}
@@ -265,20 +270,25 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) config
 		}
 		privKey, err := loadPrivateKeyFromKeyStore(string(password), "account", ksDir)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err)
+		}
+		
+		if len(privKey) == 0 {
+			// logger.Fatal("error loading private key. please check password.")
+			logger.Fatal("error loading private key. please check password.")
 		}
 		cfg.PrivateKey = hex.EncodeToString(privKey)
 	}
 	
 	if  len(cfg.PrivateKey) != 64 {
-		panic("--private-key must be 32 bytes long")
+		logger.Fatal("--private-key must be 32 bytes long")
 	}
 	
 
 	// conver private key to edd
 	pk, err :=  hex.DecodeString(cfg.PrivateKey)
 	if err != nil {
-		panic( err)
+		logger.Fatal( err)
 	}
 	// SECP KEYS
 	cfg.PrivateKeySECP = pk
