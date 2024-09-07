@@ -20,34 +20,13 @@ import (
 	"gorm.io/gorm"
 )
 
-func ValidateAuthPayloadData(auth *entities.Authorization, addressPrefix configs.ChainId) (prevAuthState *models.AuthorizationState, grantorAuthState *models.AuthorizationState, subnet *models.SubnetState, err error) {
-	
-	b, err := auth.EncodeBytes()
+func ValidateAuthPayloadData(clientPayload *entities.ClientPayload, chainId configs.ChainId) (prevAuthState *models.AuthorizationState, grantorAuthState *models.AuthorizationState, subnet *models.SubnetState, err error) {
+	auth  := clientPayload.Data.(entities.Authorization)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	logger.Debug("auth.SignatureData.Signature:: ", auth.SignatureData.Signature)
 	var valid bool
-
-	// if string(auth.Account) == string(auth.Grantor) {
-	// 	valid, err = crypto.VerifySignatureEDD(string(auth.Account), &b, auth.Signature );
-	// 	if err != nil {
-	// 		return nil, nil, err
-	// 	}
-	// } else {
-	// 	valid = crypto.VerifySignatureECC(string(auth.Grantor), &b, auth.Signature );
-	// 	if valid {
-	// 		// check if the grantor is authorized
-	// 		grantorAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: string(auth.Grantor)})
-	// 		if err == gorm.ErrRecordNotFound {
-	// 			return nil, nil, apperror.Unauthorized( "Grantor not authorized agent")
-	// 		}
-	// 		if grantorAuthState.Authorization.Priviledge != constants.AdminPriviledge {
-	// 			return nil, grantorAuthState, apperror.Forbidden(" Grantor does not have enough permission")
-	// 		}
-
-	// 	}
-	// }
 	if auth.Subnet == "" {
 		return nil, nil, nil, apperror.BadRequest("Subnet is required")
 	}
@@ -71,14 +50,22 @@ func ValidateAuthPayloadData(auth *entities.Authorization, addressPrefix configs
 	if account.Addr == agent.Addr {
 		return nil, nil, subnet, apperror.Internal("cannot reassign subnet owner role")
 	}
-
+	msg, err := clientPayload.GetHash()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	switch auth.SignatureData.Type {
 	case entities.EthereumPubKey:
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, "AuthorizeAgent", chainId, agent.Addr, encoder.ToBase64Padded(msg))
+		logger.Debug("MSG:: ", authMsg)
+		
+		msgByte := crypto.EthMessage([]byte(authMsg))
 		signer := utils.IfThenElse(len(string(auth.Grantor)) == 0, account.Addr,  grantor.Addr )
-		if len(agent.Addr) > 0 {
-			signer = agent.Addr
-		} 
-		valid = crypto.VerifySignatureECC(signer, &b, auth.SignatureData.Signature)
+		// if len(agent.Addr) > 0 {
+		// 	signer = agent.Addr
+		// } 
+		// logger.Debug("Signer:: ", signer)
+		valid = crypto.VerifySignatureECC(signer, &msgByte, auth.SignatureData.Signature)
 		if valid {
 			// check if the grantor is authorized
 			if auth.Grantor != auth.Account {
@@ -91,28 +78,20 @@ func ValidateAuthPayloadData(auth *entities.Authorization, addressPrefix configs
 				}
 			}
 			// check if agent is authorized by grantor
-			if agent.Addr != "" {
-				agentAuthState, err := query.GetOneAuthorizationState(entities.Authorization{Account: entities.DIDString(grantor.ToDeviceString()), Subnet: auth.Subnet, Agent: agent.ToDeviceString()})
-				if err == gorm.ErrRecordNotFound {
-					return nil, nil, subnet, apperror.Unauthorized("Agent not authorized to act on behalf of grantor")
-				}
-				if *agentAuthState.Authorization.Priviledge != constants.AdminPriviledge {
-					return nil, grantorAuthState,  subnet, apperror.Forbidden("Agent does not have enough permission")
-				}
-			}
+			// if agent.Addr != "" {
+			// 	agentAuthState, err := query.GetOneAuthorizationState(entities.Authorization{Account: entities.DIDString(grantor.ToDeviceString()), Subnet: auth.Subnet, Agent: agent.ToDeviceString()})
+			// 	if err == gorm.ErrRecordNotFound {
+			// 		return nil, nil, subnet, apperror.Unauthorized("Agent not authorized to act on behalf of grantor")
+			// 	}
+			// 	if *agentAuthState.Authorization.Priviledge != constants.AdminPriviledge {
+			// 		return nil, grantorAuthState,  subnet, apperror.Forbidden("Agent does not have enough permission")
+			// 	}
+			// }
 		}
 
 	case entities.TendermintsSecp256k1PubKey:
 
 		decodedSig, err := base64.StdEncoding.DecodeString(auth.SignatureData.Signature)
-		if err != nil {
-			return nil, nil, subnet, err
-		}
-
-		msg, err := auth.GetHash()
-
-		logger.Debug("MSG:: ", msg)
-
 		if err != nil {
 			return nil, nil, subnet, err
 		}
@@ -131,7 +110,7 @@ func ValidateAuthPayloadData(auth *entities.Authorization, addressPrefix configs
 		// if err == nil {
 		// 	address = crypto.ToBech32Address(decoded, "cosmos")
 		// }
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, "AuthorizeAgent", addressPrefix, agent.Addr, encoder.ToBase64Padded(msg))
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, "AuthorizeAgent", chainId, agent.Addr, encoder.ToBase64Padded(msg))
 
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, grantor.Addr, publicKeyBytes)
 		if err != nil {
@@ -253,7 +232,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 	}
 	logger.Debugf("Processing 2...: %v,  %v", previousEventUptoDate, authEventUpToDate)
 	if previousEventUptoDate  && authEventUpToDate {
-		_, _, _, err = ValidateAuthPayloadData(&data, cfg.ChainId)
+		_, _, _, err = ValidateAuthPayloadData(&event.Payload, cfg.ChainId)
 		if err != nil {
 			// update error and mark as synced
 			// notify validator of error
@@ -300,3 +279,6 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 		}
 	}
 }
+
+
+// {"action":"AuthorizeAgent","network":"84532","identifier":"0xD466f0C2506b69e091b4356cd55b55f6DF00491b","hash":"kXTFkj7NkzQt5VQKvTcxXq6RHd5KvhO7eEDxtcsy+Ec="}
