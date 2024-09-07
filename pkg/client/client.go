@@ -17,10 +17,12 @@ import (
 type NodeInfo struct {
 	Account string `json:"account"` 
 	NodeType constants.NodeType `json:"node_type"` 
-	NodePublicKey string `json:"network_pubkey"` 
+	NodePublicKey string `json:"node_pubkey"` 
 	// ChainPublicKey string `json:"chain_pubkey"` 
 	ChainId string `json:"chain_id"`
 	CurrentCycle uint64 `json:"current_cycle"`
+	CurrentBlock uint64 `json:"current_block"`
+	CurrentEpoch uint64 `json:"current_epoch"`
 	Listeners []string `json:"listeners"`
 }
 
@@ -51,6 +53,8 @@ func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
 		ChainId: string(cfg.ChainId),
 		Listeners: p2p.GetMultiAddresses(p2p.Host),
 		CurrentCycle: info.CurrentCycle.Uint64(),
+		CurrentEpock: info.CurrentEpoch.Uint64(),
+		CurrentBlock: info.CurrentBlock.Uint64(),
 	}, nil
 	
 

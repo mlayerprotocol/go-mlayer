@@ -134,7 +134,7 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 				if h.Network().Connectedness(p.ID) != network.Connected {
 					_, err = h.Network().DialPeer(ctx, p.ID)
 					if err != nil {
-						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.String(), err.Error())
+						// logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.String(), err.Error())
 						h.Peerstore().RemovePeer(p.ID)
 						kdht.ForceRefresh()
 						continue
