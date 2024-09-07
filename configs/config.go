@@ -158,6 +158,7 @@ func LoadConfig() (*MainConfiguration, error) {
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {
 			if _, err := toml.DecodeFile(path, &config); err != nil {
+				fmt.Println(fmt.Errorf("invalid config file: %s", path))
 				panic(err)
 				//return nil, fmt.Errorf("failed to decode config file %s: %w", path, err)
 			}
