@@ -53,7 +53,7 @@ func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
 		ChainId: string(cfg.ChainId),
 		Listeners: p2p.GetMultiAddresses(p2p.Host),
 		CurrentCycle: info.CurrentCycle.Uint64(),
-		CurrentEpock: info.CurrentEpoch.Uint64(),
+		CurrentEpoch: info.CurrentEpoch.Uint64(),
 		CurrentBlock: info.CurrentBlock.Uint64(),
 	}, nil
 	
