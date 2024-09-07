@@ -289,14 +289,14 @@ func (entity Message) GetAgent() DeviceString {
 	return entity.Agent
 }
 
-func MessageFromBytes(b []byte) Message {
+func MessageFromBytes(b []byte) *Message {
 	var message Message
 	if err := json.Unmarshal(b, &message); err != nil {
-		panic(err)
+		logger.Error(err)
 	}
-	return message
+	return &message
 }
 
-func MessageFromString(msg string) Message {
+func MessageFromString(msg string) *Message {
 	return MessageFromBytes([]byte(msg))
 }

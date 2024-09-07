@@ -87,18 +87,18 @@ func licenseListFunc(_cmd *cobra.Command, _args []string) {
 	)
 	ethAPI, err := api.NewEthAPI(cfg.ChainId, cfg.EvmRpcConfig[string(cfg.ChainId)], &cfg.PrivateKeySECP)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 	chain.RegisterProvider(
 		"84532", ethAPI,
 	)
 	chainIfo, err := ethAPI.GetChainInfo()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 	sentryLicense, err := ethAPI.GetSentryLicenses(cfg.PublicKeySECP, chainIfo.CurrentCycle)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 	
 	fmt.Printf("\nSENTRY LICENSES [%d]\n", len(sentryLicense))
@@ -115,7 +115,7 @@ func licenseListFunc(_cmd *cobra.Command, _args []string) {
 
 	valLicense, err := ethAPI.GetValidatorLicenses(cfg.PublicKeySECP, chainIfo.CurrentCycle)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 	fmt.Printf("\nVALIDATOR LICENSES [%d]\n", len(valLicense))
 	fmt.Println("-----------------------")

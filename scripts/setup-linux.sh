@@ -34,7 +34,7 @@ env GOOS=linux GOARCH=amd64 CGO_ENABLED=1  CXX="x86_64-linux-musl-g++" /usr/loca
 
 # Function to replace placeholders in the service file
 replace_placeholders() {
-    sed -i "s#your_pkey#$PRIVATE_KEY#g" /etc/systemd/system/$SERVICE_NAME
+    #sed -i "s#your_pkey#$PRIVATE_KEY#g" /etc/systemd/system/$SERVICE_NAME
     sed -i "s#address_prefix#$NETWORK_ADDRESS_PREFIX#g" /etc/systemd/system/$SERVICE_NAME
     sed -i "s#/path/to/executable#$EXECUTABLE_PATH#g" /etc/systemd/system/$SERVICE_NAME
     sed -i "s#/path/to/workingdir#$WORKING_DIRECTORY#g" /etc/systemd/system/$SERVICE_NAME
@@ -54,7 +54,8 @@ cp -n $CONFIG_FILE $WORKING_DIRECTORY/config
 
 # Replace placeholders in the service file
 replace_placeholders
-
+echo "KS: $1"
+sudo systemctl set-environment ML_KEYSTORE_PASSWORD=$1
 # Reload systemd to recognize the new service
 sudo systemctl daemon-reload
 
