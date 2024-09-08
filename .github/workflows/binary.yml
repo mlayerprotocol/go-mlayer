@@ -15,7 +15,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Create Release
-      id: create_release
+      id: create_release_step
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -24,8 +24,8 @@ jobs:
         release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    outputs: 
+      upload_url: ${{ steps.create_release_step.outputs.upload_url }}
 
   build:
     runs-on: ubuntu-latest
@@ -51,29 +51,16 @@ jobs:
       #   run: go test
       - name: Archive binary
         run: cd build && tar -zcvf go-mlayer-linux-amd64.tar.gz go-mlayer-linux-amd64
-      # - name: Upload go-mlayer Binary Build Artifacts
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     path: |
-      #       build/
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: build/
+          asset_path: ./build/
           asset_name: go-mlayer-linux-amd64.tar.gz
           asset_content_type: application/gzip
-      # - name: Upload Release Asset
-      #   uses: actions/upload-release-asset@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{  steps.create_release.outputs.upload_url }}
-      #     asset_path: ./go-mlayer.tar.gz
-      #     asset_name: go-mlayer.tar.gz
-      #     asset_content_type: application/gzip
+     
 
   
 
