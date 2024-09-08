@@ -39,7 +39,6 @@ jobs:
       - name: Build
         run: |
           build_time=$(date "+%Y-%m-%d_%H:%M:%S")
-          echo "RELEASE_TIME=$build_time" >> $GITHUB_ENV
           go build -ldflags="-X main.version=1.2.2 -X main.releaseDate=$build_time"  -v -o build/go-mlayer-linux-amd64
         env:
           GOOS: linux
@@ -55,15 +54,15 @@ jobs:
       #   with:
       #     path: |
       #       build/
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: build/
-          asset_name: go-mlayer-linux-amd64.tar.gz
-          asset_content_type: application/gzip
+      # - name: Upload Release Asset
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: build/
+      #     asset_name: go-mlayer-linux-amd64.tar.gz
+      #     asset_content_type: application/gzip
       # - name: Upload Release Asset
       #   uses: actions/upload-release-asset@v1
       #   env:
