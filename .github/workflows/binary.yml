@@ -8,10 +8,7 @@ on:
 jobs:
   create_release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      repository-projects: write
+    permissions: write-all
     
     steps:
     - name: Checkout code
@@ -42,7 +39,7 @@ jobs:
       - name: Build
         run: |
           build_time=$(date "+%Y-%m-%d_%H:%M:%S")
-          go build -ldflags="-X main.version=${{ github.ref }} -X main.releaseDate=$build_time"  -v -o build/go-mlayer-linux-amd64
+          go build -ldflags="-X main.version=1.2.2 -X main.releaseDate=$build_time"  -v -o build/go-mlayer-linux-amd64
         env:
           GOOS: linux
           GOARCH: amd64
