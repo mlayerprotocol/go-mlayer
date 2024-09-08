@@ -1,7 +1,6 @@
 package p2p
 
 import (
-
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -367,11 +366,15 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			var buffer bytes.Buffer
 			models := []any{
 				models.SubnetEvent{},
+				models.SubnetState{},
 				models.AuthorizationEvent{},
+				models.AuthorizationState{},
 				models.TopicEvent{},
-				models.TopicEvent{},
+				models.TopicState{},
 				models.SubscriptionEvent{},
+				models.SubscriptionState{},
 				models.MessageEvent{},
+				models.MessageState{},
 			}
 			fromBlock :=  new(big.Int).SetBytes(blocks[0])
 			toBlock :=  new(big.Int).SetBytes(blocks[1])
@@ -385,7 +388,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 					break
 				}
 				buffer.Write(b)
-				buffer.Write([]byte{'|'})
+				buffer.Write([]byte(":|"))
 			}
 				response.Data = buffer.Bytes()
 			//	logger.Debugf("FILEPATH: %s", sql)

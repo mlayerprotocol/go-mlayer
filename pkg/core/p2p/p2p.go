@@ -9,10 +9,18 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ipfs/go-datastore"
+	record "github.com/libp2p/go-libp2p-record"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -20,14 +28,8 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/p2p/notifee"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
-
-	record "github.com/libp2p/go-libp2p-record"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
-	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
-	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
-	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/multiformats/go-multiaddr"
 
 	"github.com/libp2p/go-libp2p"
@@ -630,10 +632,9 @@ func handleHandshake(stream network.Stream) {
 				return
 			}
 		}
-		if !chain.NetworkInfo.Synced {
-			go chain.NetworkInfo.Sync(MainContext, func () bool {
-				return true
-			})
+		if !chain.NetworkInfo.Synced && handshake.Synced {
+			syncNode(handshake.Signer)	
+			chain.NetworkInfo.Synced = true
 		}
 		// b, _ := hexutil.Decode(handshake.Signer)
 		// PeerPubKeys[p] = b
@@ -641,6 +642,59 @@ func handleHandshake(stream network.Stream) {
 		logger.WithFields(logrus.Fields{"peer": peerId, "pubKey": handshake.Signer}).Info("Successfully connected peer with valid handshake")
 		delete(DisconnectFromPeer, peerId)
 	}
+}
+
+func syncNode(pubKey string) error {
+	
+	eventCounterStore, ok := (*MainContext).Value(constants.EventCountStore).(*db.Datastore)
+	if !ok {
+		logger.Fatalf("syncNode: unable to load eventCounterStore from context")
+	}
+	lastBlockKey :=  datastore.NewKey("/syncedBlock")
+	lastBlockByte, err := eventCounterStore.Get(*MainContext, lastBlockKey)
+	if err != nil && err != datastore.ErrNotFound {
+		logger.Fatalf("syncNode: %v", err)
+	}
+	lastBlock := new(big.Int).SetBytes(lastBlockByte)
+	// if chain.NetworkInfo.CurrentBlock != new(big.Int).SetBytes(lastBlock) {
+	for i := lastBlock.Int64(); i <= chain.NetworkInfo.CurrentBlock.Int64(); i++ {
+			d, _ := encoder.MsgPackStruct(
+				Range{ 
+					From: big.NewInt(i).Bytes(),
+					To:  big.NewInt(i).Bytes(),
+				})
+			syncPayload := NewP2pPayload(config, P2pActionSyncBlock, d)
+			response, err := syncPayload.SendSyncRequest(pubKey)
+			if err != nil {
+				logger.Fatalf("syncNode: %v", err)
+			}
+			parts := bytes.Split(response.Data, []byte(":|"))
+			for _, p := range parts {
+				sqlBytes, err := utils.DecompressGzip(p)
+				if err != nil {
+					logger.Fatalf("syncNode: %v", err)
+				}
+				sqlQuery := string(sqlBytes)
+				// execute it
+				stringReader := strings.NewReader(sqlQuery)
+
+				// Create a new scanner from the stringReader
+				scanner := bufio.NewScanner(stringReader)
+
+				// Scan the string line by line
+				for scanner.Scan() {
+					line := scanner.Text()
+					if len(line) == 0 || line[0] == '-' || line[0] == '#' {
+						continue
+					}
+					fmt.Println(line)
+					sql.SqlDb.Exec(line)
+				}
+				
+			}
+			eventCounterStore.Set(*MainContext, lastBlockKey, big.NewInt(i).Bytes(), true)
+	}
+	return nil
 }
 
 func sendHandshake(stream network.Stream, data []byte) {
@@ -749,8 +803,19 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 		if config.Validator {
 			nodeType = constants.ValidatorNodeType
 		}
+		eventCounterStore, ok := (*MainContext).Value(constants.EventCountStore).(*db.Datastore)
+		if !ok {
+			logger.Fatalf("syncNode: unable to load eventCounterStore from context")
+		}
 		hs, _ := NewNodeHandshake(config, handShakeProtocolId, config.PrivateKeyEDD, nodeType)
 		// b, _ := hs.EncodeBytes()
+		lastBlockKey :=  datastore.NewKey("/syncedBlock")
+		lastBlockByte, err := eventCounterStore.Get(*MainContext, lastBlockKey)
+		if err != nil && err != datastore.ErrNotFound {
+			logger.Fatalf("syncNode: %v", err)
+		}
+		lastBlock := new(big.Int).SetBytes(lastBlockByte)
+		hs.Synced = chain.NetworkInfo.CurrentBlock.Uint64() == lastBlock.Uint64()
 		logger.Debugf("Created handshake with salt %s", hs.Salt)
 		logger.Debugf("Created new stream %s with peer %s", handshakeStream.ID(), pairAddr.ID)
 		defer func(pairID peer.ID) {
