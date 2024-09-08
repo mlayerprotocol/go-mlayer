@@ -45,7 +45,7 @@ jobs:
         env:
           GOOS: linux
           GOARCH: amd64
-          CGO_ENABLED: 1
+          CGO_ENABLED: 0
           CXX: "x86_64-linux-musl-g++"
       # - name: Test with the Go CLI
       #   run: go test
