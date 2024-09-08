@@ -6,11 +6,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 var version string
+var releaseData string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "goml",
@@ -40,15 +42,17 @@ var versionCmd = &cobra.Command{
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("goml", version)
+		fmt.Println("Version:", version)
+		fmt.Println("Release Date:", strings.Replace(releaseData, "_", " ", -1))
 	},
 }
 
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute(_version string) {
+func Execute(_version string, _releaseData string) {
 	version = _version
+	releaseData = _releaseData
 	rootCmd.AddCommand(versionCmd)
 	err := rootCmd.Execute()
 	if err != nil {

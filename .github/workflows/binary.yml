@@ -26,6 +26,7 @@ jobs:
         prerelease: false
     outputs: 
       upload_url: ${{ steps.create_release_step.outputs.upload_url }}
+      ref: ${{ github.ref }}
 
   build:
     runs-on: ubuntu-latest
@@ -41,7 +42,7 @@ jobs:
       - name: Build
         run: |
           build_time=$(date "+%Y-%m-%d_%H:%M:%S")
-          go build -ldflags="-X main.version=1.2.2 -X main.releaseDate=$build_time"  -v -o ./build/go-mlayer-linux-amd64
+          go build -ldflags="-X main.version=${{ needs.create_release.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/go-mlayer-linux-amd64
         env:
           GOOS: linux
           GOARCH: amd64
