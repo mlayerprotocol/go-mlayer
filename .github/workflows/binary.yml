@@ -14,6 +14,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Extract the tag
+      id: get_tag
+      run: |
+        tag=${GITHUB_REF#refs/tags/}  # Strip 'refs/tags/' to get the tag name
+        echo "Tag is: $tag"
+        echo "::set-output name=tag::$tag"  # Set the output as the tag
     - name: Create Release
       id: create_release_step
       uses: actions/create-release@v1
@@ -26,7 +32,7 @@ jobs:
         prerelease: false
     outputs: 
       upload_url: ${{ steps.create_release_step.outputs.upload_url }}
-      ref: ${GITHUB_REF#refs/tags/}
+      ref: ${{ steps.get_tag.outputs.tag }}
 
   build:
     runs-on: ubuntu-latest
