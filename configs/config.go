@@ -105,6 +105,7 @@ type MainConfiguration struct {
 	PublicKeySECP []byte 
 
 	OwnerAddress common.Address 
+	NoSync bool 
 	Context *context.Context
 
 }

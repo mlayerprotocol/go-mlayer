@@ -50,6 +50,7 @@ const (
 	LISTENERS            Flag = "listen"
 	KEYSTORE_DIR         Flag = "keystore-dir"
 	KEYSTORE_PASSWORD         Flag = "keystore-password"
+	NO_SYNC         Flag = "no-sync"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -86,6 +87,7 @@ func init() {
 	daemonCmd.Flags().StringSliceP(string(LISTENERS), "l", []string{}, "libp2p multiaddress array eg. [\"/ip4/127.0.0.1/tcp/5000/ws\", \"/ip4/127.0.0.1/tcp/5001\"]")
 	daemonCmd.Flags().StringP(string(KEYSTORE_DIR), "K", "", "path to keystore directory")
 	daemonCmd.Flags().StringP(string(KEYSTORE_PASSWORD), "P", "", "password for decripting key store")
+	daemonCmd.Flags().StringP(string(NO_SYNC), "n", "", "do not sync db")
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {

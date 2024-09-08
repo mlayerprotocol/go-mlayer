@@ -38,7 +38,9 @@ jobs:
       - name: Install dependencies
         run: go get .
       - name: Build
-        run: go build -v -o build/go-mlayer-linux-amd64
+        run: |
+          build_time=$(date "+%Y-%m-%d %H:%M:%S")
+          go build -ldflags="-X main.version=${{ github.ref }} -X main.releaseDate=$build_time"  -v -o build/go-mlayer-linux-amd64
         env:
           GOOS: linux
           GOARCH: amd64
