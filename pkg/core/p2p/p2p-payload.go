@@ -20,6 +20,11 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 )
+
+type Range struct {
+	From json.RawMessage `json:"f"`
+	To json.RawMessage `json:"t"`
+}
 type P2pAction int8
 
 type P2pEventResponse struct {
@@ -212,7 +217,6 @@ func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.M
 			logger.Debugf("UnpackREadBYtes: %v", err)
 			return resp, err
 		}
-		logger.Debugf("REadBYtes 1: %v", err)
 		if !resp.IsValid(p.ChainId) {
 			return nil, apperror.Unauthorized("response is invalid")
 		}

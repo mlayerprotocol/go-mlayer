@@ -315,3 +315,20 @@ func CompressToGzip(inputText string) ([]byte, error) {
 	// Return the compressed data as a byte slice
 	return compressedData.Bytes(), nil
 }
+
+func DecompressGzip(compressedData []byte) ([]byte, error) {
+	byteReader := bytes.NewReader(compressedData)
+	gzipReader, err := gzip.NewReader(byteReader)
+	if err != nil {
+		return nil, err
+	}
+	defer gzipReader.Close()
+
+	// Decompress the data into a buffer
+	var result bytes.Buffer
+	_, err = io.Copy(&result, gzipReader)
+	if err != nil {
+		return result.Bytes(), nil
+	}
+	return nil, err
+}

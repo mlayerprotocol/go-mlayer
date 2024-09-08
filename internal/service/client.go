@@ -124,7 +124,7 @@ func ValidateEvent(event interface{}) error {
 		return err
 	}
 	// logger.Debugf("Payload Validator: %s; Event Signer: %s; Validatos: %v", e.Payload.Validator, e.GetValidator(), chain.NetworkInfo.Validators)
-	if strings.EqualFold(utils.AddressToHex(chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))]),utils.AddressToHex(e.Payload.Validator)) {
+	if !strings.EqualFold(utils.AddressToHex(chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))]),utils.AddressToHex(e.Payload.Validator)) {
 		return apperror.Forbidden("payload validator does not match event validator")
 	}
 	logger.Debugf("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())

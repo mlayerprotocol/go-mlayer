@@ -80,7 +80,7 @@ func Start(mainCtx *context.Context) {
 	// defer p2pDataStore.Close()
 	// ctx = context.WithValue(ctx, constants.P2PDataStore, p2pDataStore)
 	defer func () {
-		if chain.NetworkInfo.Synced && !eventCountStore.DB.IsClosed() {
+		if chain.NetworkInfo.Synced && eventCountStore != nil && !eventCountStore.DB.IsClosed() {
 			lastBlockKey :=  datastore.NewKey("/syncedBlock")
 			eventCountStore.Set(ctx, lastBlockKey, chain.NetworkInfo.CurrentBlock.Bytes(), true)
 		}

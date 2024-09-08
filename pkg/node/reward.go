@@ -29,12 +29,13 @@ import (
 
 // Keep a record of all messages sent within a cycle per subnet
 func TrackReward(ctx *context.Context) {
-	logger.Debug("Tracking Reward Batches...")
+	
 	defer TrackReward(ctx) 
 	defer time.Sleep(5 * time.Second)
 	if !chain.NetworkInfo.Synced {
 		return
 	}
+	logger.Debug("Tracking Reward Batches...")
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	// validator := (*cfg).PublicKey  
 	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
@@ -359,13 +360,13 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 }
 
 func ProcessPendingClaims(ctx *context.Context) {
-	logger.Debug("Processing pending claims...")
 	waitPeriod := 10 * time.Second
 	defer ProcessPendingClaims(ctx) 
 	defer time.Sleep(waitPeriod)
 	if !chain.NetworkInfo.Synced {
 		return
 	}
+	logger.Debug("Processing pending claims...")
 	pendingClaimsKey :=  datastore.NewKey("validClaim/")
 	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
