@@ -26,7 +26,7 @@ jobs:
         prerelease: false
     outputs: 
       upload_url: ${{ steps.create_release_step.outputs.upload_url }}
-      ref: ${{ github.ref }}
+      ref: ${GITHUB_REF#refs/tags/}
 
   build:
     runs-on: ubuntu-latest
