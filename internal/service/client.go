@@ -19,12 +19,12 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
 var logger = &log.Logger
-var	eventCounterStore *db.Datastore
+var	eventCounterStore *ds.Datastore
 
 func ConnectClient(message []byte, protocol constants.Protocol, client interface{}) (*entities.ClientHandshake, error) {
 	verifiedRequest, _ := entities.UnpackClientHandshake(message)
@@ -197,11 +197,12 @@ func HandleNewPubSubEvent (event *entities.Event, ctx *context.Context) {
 func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPath, subnetId *string, err error) {
 	
 	event, err := query.GetEventFromPath(eventPath)
-	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
-	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*ds.Datastore)
+
 	if !ok {
 		panic("Unable to connect to counter data store")
 	}
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if err == nil || event != nil {
 		
 		// increment count
@@ -294,10 +295,10 @@ func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPat
 
 // func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 // 	proof *entities.DeliveryProof,
-// 	deliveryProofStore *db.Datastore,
-// 	channelSubscriberStore *db.Datastore,
-// 	stateStore *db.Datastore,
-// 	localBlockStore *db.Datastore,
+// 	deliveryProofStore *ds.Datastore,
+// 	channelSubscriberStore *ds.Datastore,
+// 	stateStore *ds.Datastore,
+// 	localBlockStore *ds.Datastore,
 // 	MaxBlockSize int,
 // 	mutex *sync.RWMutex,
 // ) {

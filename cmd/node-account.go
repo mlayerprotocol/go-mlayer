@@ -68,6 +68,23 @@ var accountImportCmd = &cobra.Command{
 	Run: accountImportFunc,
 }
 
+var accountExportCmd = &cobra.Command{
+	Use:   "export",
+	Short: "Export node account private key",
+	Long: `Export private key of node account:
+
+	mLayer (message layer) is an open, decentralized 
+	communication network that enables the creation, 
+	transmission and termination of data of all sizes, 
+	leveraging modern protocols. mLayer is a comprehensive 
+	suite of communication protocols designed to evolve with 
+	the ever-advancing realm of cryptography. 
+	Visit the mLayer [documentation](https://mlayer.gitbook.io/introduction/what-is-mlayer) to learn more
+	.`,
+	Run: accountExportFunc,
+}
+
+
 
 func accountInitFunc(_cmd *cobra.Command, _args []string) {
 	logger.Debugf("APRAMS %v", _args)
@@ -112,5 +129,19 @@ func accountImportFunc(_cmd *cobra.Command, _args []string) {
 	copy(privKeyBytes,[]byte{})
 	privateKeySECP = nil
 	privateKeyBytesEDD = nil
+	fmt.Println("")
+}
+
+// Import your private key or mnemonic
+func accountExportFunc(_cmd *cobra.Command, _args []string) {
+	dir, _ := _cmd.Flags().GetString(string(KEYSTORE_DIR))	
+	privKeyBytes, err := exportKey("account", dir)
+	if err != nil {
+		fmt.Println(formatError(fmt.Sprint("Error:", err.Error())))
+		return
+	}
+	
+	fmt.Println("")
+	fmt.Println(hex.EncodeToString(privKeyBytes))
 	fmt.Println("")
 }

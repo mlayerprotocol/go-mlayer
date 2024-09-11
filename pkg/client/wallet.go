@@ -34,7 +34,7 @@ import (
 
 // 	// validate before storing
 // 	if entities.IsValidSubscription(*sub, true) {
-// 		WalletSubscriberStore, ok := p.Ctx.Value(constants.NewWalletSubscriptionStore).(*db.Datastore)
+// 		WalletSubscriberStore, ok := p.Ctx.Value(constants.NewWalletSubscriptionStore).(*ds.Datastore)
 // 		if !ok {
 // 			return errors.New("Could not connect to subscription datastore")
 // 		}

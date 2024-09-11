@@ -1,9 +1,15 @@
 package query
 
 import (
+	dbsql "database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -11,7 +17,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var logger = &log.Logger
@@ -62,7 +67,6 @@ const (
 func GetMany[T any, U any](item T, data *U, order *map[string]Order) error {
 	tx := GetManyTx(item)
 	if order != nil {
-		logger.Debugf("ORDER BY")
 		for k := range *order {
 			logger.Debugf("%s %s", k, (*order)[k])
 			tx = tx.Order(fmt.Sprintf("%s %s", k, (*order)[k]))
@@ -77,7 +81,6 @@ func GetMany[T any, U any](item T, data *U, order *map[string]Order) error {
 func GetManyWithLimit[T any, U any](item T, data *U, order *map[string]Order, limit int, offset int) error {
 	tx := GetManyTx(item)
 	if order != nil {
-		logger.Debugf("ORDER BY")
 		for k := range *order {
 			logger.Debugf("%s %s", k, (*order)[k])
 			tx = tx.Order(fmt.Sprintf("%s %s", k, (*order)[k]))
@@ -355,34 +358,171 @@ func GetAccountSubscriptions(account string) {
 	logger.Debugf("%s", subscriptions)
 
 }
-
-func GenerateImportScript[T any](db *gorm.DB, model T, where any, fileName string, cfg *configs.MainConfiguration ) (string, error) {
-    var sqlScript string
-	var rows []T
-    result := db.Where(where).Order("created_at DESC").Find(&rows)
-    if result.Error != nil {
-        logger.Error(result.Error)
-		return "", result.Error
-    }
-    for _, row := range rows {
-        // Create a new DB session with DryRun mode
-        stmt := db.Session(&gorm.Session{DryRun: true}).Clauses(clause.OnConflict{
-            DoNothing: true, // To generate INSERT OR IGNORE, use DoNothing
-        }).Create(&row).Statement
-
-        sql := stmt.SQL.String()
-
-        // Replace "INSERT" with "INSERT OR REPLACE" in the generated SQL query
-        sql = "INSERT OR REPLACE" + sql[len("INSERT"):]
-
-        // Append the generated SQL query to the script
-        sqlScript += sql + ";\n"
-    } 
-	if fileName != "" {
-		fileName = fmt.Sprintf("/tmp/%s.sql", fileName)
-		return fileName, SaveToFile(fileName, sqlScript)
+func FormatSQL(vars []interface{}) string {
+	query := ""
+	for i:=0; i< len(vars); i++ {
+		query = fmt.Sprintf("%s%s, ", query, "?")
 	}
-    return sqlScript, nil
+	query = query[0:strings.LastIndex(query, ",")]
+	for _, v := range vars {
+		// Convert each variable to a string and safely replace `?` with it
+		if( reflect.ValueOf(v).Kind() == reflect.String || reflect.TypeOf(v) == reflect.TypeOf(time.Time{}))  {
+			query = strings.Replace(query, "?", fmt.Sprintf("'%v'", v), 1)
+		} else {
+			if reflect.TypeOf(v) == nil {
+				query = strings.Replace(query, "?", "NULL", 1)
+			} else {
+				if reflect.TypeOf(v) == reflect.TypeOf(dbsql.NullTime{}) {
+					query = strings.Replace(query, "?", fmt.Sprintf("%v", v.(dbsql.NullTime).Time), 1)
+				}
+				if reflect.TypeOf(v) == reflect.TypeOf(dbsql.NullBool{}) {
+					query = strings.Replace(query, "?", fmt.Sprintf("%v", v.(dbsql.NullBool).Bool), 1)
+				}
+				if reflect.TypeOf(v) == reflect.TypeOf(dbsql.NullFloat64{}) {
+					query = strings.Replace(query, "?", fmt.Sprintf("%v", v.(dbsql.NullFloat64).Float64), 1)
+				}
+				query = strings.Replace(query, "?", fmt.Sprintf("%v", v), 1)
+			}
+		}
+		
+	}
+	return query
+}
+
+type ExportData struct {
+	Table string `json:"table"`
+	Columns string `json:"cols"`
+	Data [][]interface{} `json:"d"`
+}
+func GenerateImportScript[T any](db *gorm.DB, model T, where string, fileName string, cfg *configs.MainConfiguration ) ([]byte, error) {
+    // var sqlScript string
+	// var rows  []T	
+	
+	//result := sql.SqlDb.Table(GetTableName(model)).Where(where).Order("created_at DESC").Find(&rows)
+    // if result.Error != nil {
+    //     logger.Error(result.Error)
+	// 	return nil, result.Error
+    // }
+	tableName := GetTableName(model)
+	Db, err := sql.SqlDb.DB()
+	if err != nil {
+		return nil, err
+	}
+	if strings.HasSuffix(tableName, "_event") {
+		where += " AND synced = true AND broadcasted = true"
+	}
+
+	query := fmt.Sprintf("SELECT * FROM %s WHERE %s ORDER BY created_at DESC", tableName, where)
+	
+	
+	rows, err := Db.Query(query)
+    if err != nil {
+        logger.Error(err)
+		return nil, err
+    }
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+        logger.Error(err)
+		return nil, err
+    }
+	var results [][]interface{}
+	for rows.Next() {
+        // Create a slice of interfaces to hold values for the current row
+        values := make([]interface{}, len(columns))
+        valuePtrs := make([]interface{}, len(columns))
+
+        for i := range values {
+            valuePtrs[i] = &values[i]
+        }
+
+        // Scan the row into the value pointers
+        if err := rows.Scan(valuePtrs...); err != nil {
+            return nil, err
+        }
+
+        // Create a map for the current row
+        // rowMap := make(map[string]interface{})
+		var row []interface{}
+        for i := 0;  i<len(columns); i++ {
+            row = append(row, values[i])
+        }
+        // Append the map to results
+        results = append(results, row)
+    }
+	
+   
+	data := ExportData{Table: tableName}
+	data.Columns = strings.Join(columns, ",")
+	data.Data = results
+	s, err := encoder.MsgPackStruct(data)
+	if err != nil {
+		return nil, err
+	}
+// 	data := ExportData{Table: GetTableName(model)}
+// 	if (len(rows) > 0) {
+// 		stmt := db.Session(&gorm.Session{DryRun: true}).Clauses(clause.OnConflict{
+//             DoNothing: true, // To generate INSERT OR IGNORE, use DoNothing
+//         }).Model(model).Create(&rows[0]).Statement
+		
+//         sql := stmt.SQL.String()
+// 		columns := sql[strings.Index(sql, "(")+1:]
+// 		data.Columns = columns[0:strings.Index(columns,")")]
+// 	}
+	
+	
+//      for _, row := range rows {
+// 		// rowsData, err :=  json.Marshal(row)
+// 		// if err != nil {
+// 		// 	logger.Fatal(err)
+// 		// }
+// 		// row2 := map[string]interface{}{}
+// 		// err = json.Unmarshal(rowsData, &row2)
+// 		// if err != nil{
+// 		// 	logger.Fatal(err)
+// 		// }
+//         // Create a new DB session with DryRun mode
+// 		utils.SetDefaultValues(&row)
+		
+// 		// columArray := strings.Split(data.Columns, ",")
+//         stmt := db.Session(&gorm.Session{DryRun: true}).Clauses(clause.OnConflict{
+//             DoNothing: true, // To generate INSERT OR IGNORE, use DoNothing
+//         }).Model(model).Create(&row).Statement
+// 		data.Data = append(data.Data, stmt.Vars)
+// 		logger.Infof("STATMENT %s", stmt.SQL.String(),stmt.Statement.Vars)
+// 		// rowByte, _ := json.Marshal(row)
+// 		// rowMap := map[string]any{}
+// 		// json.Unmarshal(rowByte, &rowMap)
+// 		// _vars := []any{}
+// 		// for _, col := range columArray {
+// 		// 	logger.Infof("COLLLL", col, rowMap)
+// 		// 	_vars = append(_vars, utils.GetFieldValueByName(row, col))
+// 		// }
+// 		logger.Infof("ROWLLEN %d, %d, %v", len(strings.Split(data.Columns, ",")), len(stmt.Statement.Vars))
+		
+//         // sql := stmt.SQL.String()
+// 		// columns := sql[strings.Index(sql, "(")+1:]
+// 		// columns = columns[0:strings.Index(columns,")")]
+// 		// logger.Debug("COLUMNS",  columns)
+// 		// sql = formatSQL(sql, stmt.Vars)
+// 		// // 	logger.Debug("QUERY",  stmt.Vars)
+// 		// 	// break
+//         // // Replace "INSERT" with "INSERT OR REPLACE" in the generated SQL query
+//         // sql = "INSERT OR REPLACE" + sql[len("INSERT"):]
+		
+//         // // Append the generated SQL query to the script
+//         // sqlScript += sql + ";\n"
+//    } 
+//    s, err :=  json.Marshal(data)
+//    if err != nil {
+// 	return nil, err
+//    }
+// 	if fileName != "" {
+// 		fileName = fmt.Sprintf("/tmp/%s", fileName)
+// 		return s, SaveToFile(fileName, string(s))
+// 	}
+    return s, nil
 }
 
 func SaveToFile(filename, data string) (error) {
@@ -399,3 +539,65 @@ func SaveToFile(filename, data string) (error) {
 
     return nil
 }
+
+func ImportDataPostgres(cfg *configs.MainConfiguration, table string, columns []string, data [][]string) (error) {
+	// if sql.Driver(cfg.SQLDB.DbDialect) != sql.Postgres {
+	// 	return fmt.Errorf("invalid db")
+	// }
+	dir := filepath.Join(cfg.DataDir, "tmp")
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return  err
+	}
+	header := [][]string{columns}
+	csvFile := filepath.Join(dir,  utils.RandomAplhaNumString(6))
+	err = utils.WriteToCSV(csvFile, header)
+	if err != nil {
+		return err
+	}
+	err = utils.WriteToCSV(csvFile, data)
+	if err != nil {
+		return err
+	}
+	query := fmt.Sprintf("COPY %s FROM '%s' DELIMITER ',' CSV HEADER;", table, csvFile)
+	result :=  sql.SqlDb.Exec(query)
+	if result.Error == nil {
+		os.Remove(csvFile)
+	} 
+	return result.Error
+}
+
+// func ImportDataSqlite(cfg *configs.MainConfiguration, tableName string, rows [][]interface{}) (error) {
+// 	if sql.Driver(cfg.SQLDB.DbDialect) != sql.Sqlite {
+// 		return fmt.Errorf("invalid db")
+// 	}
+// 	// err = sql.SqlDb.Transaction(func(tx *gorm.DB) error {
+// 	// 	// Prepare SQL for bulk insert without using structs
+// 	// 	valueStrings := make([]string, 0, len(rows))
+// 	// 	valueArgs := make([]interface{}, 0, len(rows[0]))
+// 	// 	values := []interface{}
+// 	// 	for _, row := range rows {
+// 	// 		values = append(values, FormatSQL(row))
+// 	// 	}
+// 	// 		if i==len(b.Data)-1 || i+1 % batchSize == 0 {
+// 	// 			// save it
+// 	// 			// sql.SqlDb.Exec()
+// 	// 			query := fmt.Sprintf("INSERT INTO %s (%s) values %s", b.Table, b.Columns, values)
+// 	// 			logger.Debug("QUERYYY", query)
+// 	// 			values = ""
+// 	// 		}
+// 	// 	}
+
+// 	// 	// Join the value placeholders and construct the final SQL query
+// 	// 	insertSQL := fmt.Sprintf("INSERT INTO %s (name) VALUES %s", tableName, strings.Join(valueStrings, ","))
+
+// 	// 	// Execute the raw SQL query with arguments inside the transaction
+// 	// 	if err := tx.Exec(insertSQL, valueArgs...).Error; err != nil {
+// 	// 		return err // Rollback the transaction if an error occurs
+// 	// 	}
+
+// 	// 	// Commit the transaction
+// 	// 	return nil
+// 	// })
+// 	return result.Error
+// }

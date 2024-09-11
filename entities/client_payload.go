@@ -1,8 +1,11 @@
 package entities
 
 import (
+	"context"
+	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	// "math"
@@ -12,6 +15,8 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Payload interface {
@@ -83,8 +88,13 @@ func MsgUnpackClientPayload(b []byte) (ClientPayload, error) {
 	return p, err
 }
 
-func (msg ClientPayload) ToString() string {
-	return fmt.Sprintf("Data: %s, EventType: %d, Authority: %s", (msg.Data).(Payload).ToString(), msg.EventType, msg.Account)
+func (msg *ClientPayload) ToString() (string, error) {
+	// return fmt.Sprintf("Data: %s, EventType: %d, Authority: %s", (msg.Data).(Payload).ToString(), msg.EventType, msg.Account)
+	b, err := json.Marshal(msg)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func (msg ClientPayload) GetHash() ([]byte, error) {
@@ -175,5 +185,47 @@ type SyncRequest struct {
 }
 
 
-// 0000000000007a69 684f9c7f9ba3f01e94c4599362a3266b7fa9d92b569dd2b53127f676b525ca36 00000000000004b133c981003bd204eb9fdfb17cb32a08416469643a636f736d6f73317a3770757836706574663666766e67646b6170306370796e657a746a3577776d6c76377a39662bd13f459be8acf7750609db22c4c3daa55fa9509f43e54ad59a0c38107db372000000000000000000000191227711b8
-// 0000000000007a69 793e5e986a8a3e29ca7b75d04df840740d948c2fa37d9e57c2ed8ed520021899 00000000000004b133c981003bd204eb9fdfb17cb32a08416469643a636f736d6f73317a3770757836706574663666766e67646b6170306370796e657a746a3577776d6c76377a39662bd13f459be8acf7750609db22c4c3daa55fa9509f43e54ad59a0c38107db372000000000000000000000191227711b8
+func (eP ClientPayload) GormDataType() string {
+	return "varchar"
+}
+func (eP ClientPayload) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+
+	// asString := encoder.ToBase64Padded(eP.MsgPack())
+	asString := string(eP.ToJSON())
+	return clause.Expr{
+		SQL:                "?",
+		Vars:               []interface{}{asString},
+		WithoutParentheses: false,
+	}
+}
+
+func (sD *ClientPayload) Scan(value interface{}) error {
+	data, ok := value.(string)
+	if !ok {
+		return errors.New(fmt.Sprint("Value not instance of string:", value))
+	}
+	//if strings.HasPrefix(data, "{") {
+		d, err := ClientPayloadFromBytes([]byte(data))
+		if err != nil {
+			return err
+		}
+		*sD = d
+	// } else {
+	// 	d, err := base64.RawStdEncoding.DecodeString(data)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	b, err := MsgUnpackClientPayload(d)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	*sD = b
+	// }
+	
+	return nil
+}
+
+func (sD *ClientPayload) Value() (driver.Value, error) {
+	// return encoder.ToBase64Padded(sD.MsgPack()), nil
+	return string(sD.ToJSON()), nil
+}

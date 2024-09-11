@@ -49,7 +49,7 @@ var walletInitCmd = &cobra.Command{
 var walletImportCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Imports private key",
-	Long: `Import private key to  walletkeystore:
+	Long: `Import private key to  wallet keystore:
 
 	mLayer (message layer) is an open, decentralized 
 	communication network that enables the creation, 
@@ -61,6 +61,22 @@ var walletImportCmd = &cobra.Command{
 	.`,
 	Run: accountImportFunc,
 }
+var walletExportCmd = &cobra.Command{
+	Use:   "export",
+	Short: "Export private key",
+	Long: `Export private key from wallet keystore:
+
+	mLayer (message layer) is an open, decentralized 
+	communication network that enables the creation, 
+	transmission and termination of data of all sizes, 
+	leveraging modern protocols. mLayer is a comprehensive 
+	suite of communication protocols designed to evolve with 
+	the ever-advancing realm of cryptography. 
+	Visit the mLayer [documentation](https://mlayer.gitbook.io/introduction/what-is-mlayer) to learn more
+	.`,
+	Run: walletExportFunc,
+}
+
 
 func init() {
 	walletInitCmd.Flags().StringP(string(KEYSTORE_DIR), "", "", "The keystore directory. This is the directory the keys are stored")
@@ -104,5 +120,20 @@ func walletImportFunc(_cmd *cobra.Command, _args []string) {
 	copy(privKeyBytes,[]byte{})
 	privateKeySECP = nil
 	privateKeyBytesEDD = nil
+	fmt.Println("")
+}
+
+
+// Import your private key or mnemonic
+func walletExportFunc(_cmd *cobra.Command, _args []string) {
+	dir, _ := _cmd.Flags().GetString(string(KEYSTORE_DIR))	
+	privKeyBytes, err := exportKey("wallet", dir)
+	if err != nil {
+		fmt.Println(formatError(fmt.Sprint("Error:", err.Error())))
+		return
+	}
+	
+	fmt.Println("")
+	fmt.Println(hex.EncodeToString(privKeyBytes))
 	fmt.Println("")
 }

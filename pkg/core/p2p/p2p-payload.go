@@ -56,6 +56,7 @@ const (
 	P2pActionGetTokenProof P2pAction = 4
 	P2pActionGetState P2pAction = 5
 	P2pActionSyncBlock P2pAction = 6
+	P2pActionGetCert P2pAction = 7
 	
 )
 type P2pPayload struct {
@@ -131,7 +132,7 @@ const (
 func (p *P2pPayload) SendDataRequest(receiverPublicKey string) (*P2pPayload, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Recovered from panic:", r)
+			logger.Error("Recovered from panic:", r)
 		}
 	}()
 	
@@ -144,11 +145,11 @@ func (p *P2pPayload) SendDataRequest(receiverPublicKey string) (*P2pPayload, err
 }
 func (p *P2pPayload) SendSyncRequest(receiverPublicKey string) (*P2pPayload, error) {
 	p.Action = P2pActionSyncBlock
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered from panic:", r)
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		logger.Errorf("Recovered from panic:", r)
+	// 	}
+	// }()
 	address, err := GetNodeAddress(p.config.Context, receiverPublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("p2p.GetNodeAddress: %v", err)
@@ -156,6 +157,26 @@ func (p *P2pPayload) SendSyncRequest(receiverPublicKey string) (*P2pPayload, err
 	
 	return p.SendRequestToAddress(p.config.PrivateKeyEDD, address, SyncRequest)
 }
+
+func (p *P2pPayload) SendQuicSyncRequest(hostAddress string, validSigner entities.PublicKeyString) (*P2pPayload, error) {
+	p.Action = P2pActionSyncBlock
+	p.Sign(p.config.PrivateKeyEDD)
+	// addr := "127.0.0.1:9533"
+	data, err := SendSecureQuicRequest(p.config, hostAddress, validSigner, p.MsgPack())
+	if err != nil {
+		return nil, err
+	}
+	response, err := UnpackP2pPayload(data)
+	if err != nil {
+		return nil, err
+	}
+	// if !response.IsValid(p.config.ChainId) {
+	// 	return nil, fmt.Errorf("invalid response signature")
+	// }
+	return response, err
+}
+
+
 func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.Multiaddr, _type RequestType) (*P2pPayload, error) {
 	p.Sign(privateKey)
 	peer,  dataStream, syncStream, err := connectToNode(address, *p.config.Context)
@@ -227,6 +248,9 @@ func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.M
 }
 
 func NewP2pPayload(config *configs.MainConfiguration, action P2pAction, data []byte) (*P2pPayload) {
+	if len(data) == 0 {
+		data = []byte{'0'}
+	}
 	pl := P2pPayload{Action: action, Data: data,  Id: utils.RandomString(12), ChainId: config.ChainId}
 	pl.config = config
 	return &pl

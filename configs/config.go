@@ -96,6 +96,7 @@ type MainConfiguration struct {
 	MLBlockchainAPIUrl       string         `toml:"mlayer_api_url"`
 	PrivateKey               string         `toml:"private_key"`
 	EvmRpcConfig			 map[string]EthConfig `toml:"evm_rpc"`
+	QuicHost                 string         `toml:"quic_host"`
 	PublicKey        string
 	OperatorAddress          string
 	
@@ -107,6 +108,7 @@ type MainConfiguration struct {
 	OwnerAddress common.Address 
 	NoSync bool 
 	Context *context.Context
+	SyncBatchSize uint
 
 }
 

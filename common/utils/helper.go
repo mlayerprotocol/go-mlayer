@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/binary"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -118,6 +119,47 @@ func StructToMap(input interface{}) map[string]interface{} {
 	return output
 }
 
+func GetFieldValueByName(s interface{}, fieldName string) interface{} {
+	// Get the reflect.Value of the struct
+	v := reflect.ValueOf(s)
+
+	// Ensure that the provided interface is a struct
+	if v.Kind() == reflect.Struct {
+		// Get the field by name
+		field := v.FieldByName(fieldName)
+		if field.IsValid() && field.CanInterface() {
+			// Return the field value as an interface{}
+			return field.Interface()
+		}
+	}
+
+	// Return nil if the field doesn't exist or can't be accessed
+	return nil
+}
+func SetDefaultValues(s interface{}) {
+	v := reflect.ValueOf(s).Elem() // Get the actual value of the struct
+	 t := v.Type()
+
+	// Iterate over all fields in the struct
+	logger.Debugf("SETTINGDEFAUTVALUE:  %v, %v", v.Addr(), t )
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		// fieldName := t.Field(i).Name
+		
+		// Check if the field is empty (has zero value)
+		if reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface()) {
+			// Assign default values based on field type
+			
+			switch field.Kind() {
+			case reflect.String:
+				field.SetString("Default___")
+			case reflect.Int:
+				field.SetInt(-99999)
+			// Add other types as necessary (e.g., bool, float64, etc.)
+			}
+		}
+	}
+}
 func To256Bits(b []byte) []byte {
 	const size = 32
 	padded := make([]byte, size)
@@ -240,6 +282,17 @@ func SafePointerValue[T any](b *T, defaultValue T) T {
 	return *b
 }
 
+func ToStringSlice(slice []interface{}) []string {
+	stringSlice := make([]string, len(slice))
+
+	// Convert each element from interface{} to string using type assertion
+	for i, v := range slice {
+		// Assert that the value is a string
+		str := fmt.Sprintf("%v", v)
+		stringSlice[i] = str
+	}
+	return stringSlice
+}
 func ParseQueryString(c *gin.Context) (*[]byte, error) {
 	rawQuery := c.Request.URL.Query()
 	logger.Debug("rawQuery:: ", rawQuery)
@@ -280,7 +333,35 @@ func ReadJSONFromFile(filePath string) (map[string]interface{}, error) {
 
 	return data, nil
 }
+func WriteToCSV(filePath string, data [][]string) error {
+	
 
+
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	
+    if err != nil {
+       return fmt.Errorf("failed to create file: %v", err)
+    }
+    defer file.Close()
+
+    // Initialize the CSV writer
+    writer := csv.NewWriter(file)
+
+    // Write all data to the CSV at once
+    err = writer.WriteAll(data)
+    if err != nil {
+        return fmt.Errorf("failed to write data to CSV: %v", err)
+    }
+
+    // Flush any buffered data to the file
+    writer.Flush()
+
+    // Check for any errors during flushing
+    if err := writer.Error(); err != nil {
+        return fmt.Errorf("failed to flush data to CSV: %v", err)
+    }
+	return nil
+}
 // writeJSON writes the given map as JSON to a file.
 func WriteJSONToFile(filePath string, data map[string]interface{}) error {
 	// Marshal the map into JSON bytes
@@ -293,7 +374,17 @@ func WriteJSONToFile(filePath string, data map[string]interface{}) error {
 	return os.WriteFile(filePath, bytes, 0644)
 }
 
-func CompressToGzip(inputText string) ([]byte, error) {
+func Find[T any](slice []T, predicate func(T) bool) (T, bool) {
+	for _, v := range slice {
+		if predicate(v) {
+			return v, true
+		}
+	}
+	var zero T
+	return zero, false
+}
+
+func CompressToGzip(input []byte) ([]byte, error) {
 	// Create a buffer to hold the compressed data
 	var compressedData bytes.Buffer
 
@@ -302,7 +393,7 @@ func CompressToGzip(inputText string) ([]byte, error) {
 	defer gzipWriter.Close() // Ensure the writer is closed to finish writing
 
 	// Stream the input text into the Gzip writer
-	_, err := io.WriteString(gzipWriter, inputText)
+	_, err := io.Writer.Write(gzipWriter, input)
 	if err != nil {
 		return nil, fmt.Errorf("error writing to gzip writer: %w", err)
 	}
@@ -330,5 +421,5 @@ func DecompressGzip(compressedData []byte) ([]byte, error) {
 	if err != nil {
 		return result.Bytes(), nil
 	}
-	return nil, err
+	return result.Bytes(), err
 }

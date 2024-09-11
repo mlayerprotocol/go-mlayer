@@ -13,7 +13,8 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
-	db "github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
+	db "github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 )
 
@@ -37,7 +38,7 @@ func ValidateMessageClient(
 	ctx context.Context,
 	connectedSubscribers *map[string]map[string][]interface{},
 	clientHandshake *entities.ClientHandshake,
-	channelSubscriberStore *db.Datastore) {
+	channelSubscriberStore *ds.Datastore) {
 	// VALIDATE AND DISTRIBUTE
 	logger.Debugf("Signer:  %s\n", clientHandshake.Signer)
 	results, err := channelSubscriberStore.Query(ctx, query.Query{
@@ -60,10 +61,10 @@ func ValidateMessageClient(
 
 func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
 	proof *entities.DeliveryProof,
-	deliveryProofStore *db.Datastore,
-	channelSubscriberStore *db.Datastore,
-	stateStore *db.Datastore,
-	localBlockStore *db.Datastore,
+	deliveryProofStore *ds.Datastore,
+	channelSubscriberStore *ds.Datastore,
+	stateStore *ds.Datastore,
+	localBlockStore *ds.Datastore,
 	MaxBlockSize int,
 	mutex *sync.RWMutex,
 ) {

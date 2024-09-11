@@ -242,7 +242,7 @@ func (n EthereumAPI) ClaimReward(claim *entities.ClaimData) (hash []byte, err er
 		// Create an authenticated transactor
 		privateKey, err := crypto.ToECDSA(*n.signer)
 		if err != nil {
-			log.Fatalf("Failed to load private key: %v", err)
+			return nil, err
 		}
 		auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1)) // Mainnet chain ID
 		if err != nil {
@@ -250,7 +250,7 @@ func (n EthereumAPI) ClaimReward(claim *entities.ClaimData) (hash []byte, err er
 		}
 		auth.GasLimit = uint64(300000) // Adjust gas limit if needed
 	
-	
+		
 	signers := []subnet.LibSecp256k1Point{}
 	for _, d := range claim.Signers {
 		signers = append(signers, subnet.LibSecp256k1Point{X: d.X, Y: d.Y})

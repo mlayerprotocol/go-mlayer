@@ -51,6 +51,7 @@ const (
 	KEYSTORE_DIR         Flag = "keystore-dir"
 	KEYSTORE_PASSWORD         Flag = "keystore-password"
 	NO_SYNC         Flag = "no-sync"
+	SYNC_BATCH_SIZE         Flag = "sync-batch-size"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -87,7 +88,8 @@ func init() {
 	daemonCmd.Flags().StringSliceP(string(LISTENERS), "l", []string{}, "libp2p multiaddress array eg. [\"/ip4/127.0.0.1/tcp/5000/ws\", \"/ip4/127.0.0.1/tcp/5001\"]")
 	daemonCmd.Flags().StringP(string(KEYSTORE_DIR), "K", "", "path to keystore directory")
 	daemonCmd.Flags().StringP(string(KEYSTORE_PASSWORD), "P", "", "password for decripting key store")
-	daemonCmd.Flags().StringP(string(NO_SYNC), "n", "", "do not sync db")
+	daemonCmd.Flags().BoolP(string(NO_SYNC), "n", false, "do not sync db")
+	daemonCmd.Flags().UintP(string(SYNC_BATCH_SIZE), "b", 100, "number of blocks within a sync request. Default 100")
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {
@@ -158,20 +160,32 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		cfg.AddressPrefix = prefix
 	}
 	
+	
 	cfg = injectPrivateKey(&cfg, cmd)
-	logger.Info("ks: ", hex.EncodeToString(cfg.PrivateKeyEDD))
 	if len(wsAddress) > 0 {
 		cfg.WSAddress = wsAddress
 	}
 
+	cfg.SyncBatchSize, _ = cmd.Flags().GetUint(string(SYNC_BATCH_SIZE))
+	
+
+	cfg.NoSync, _ = cmd.Flags().GetBool(string(NO_SYNC))
+	
+
 	if len(restAddress) > 0 {
 		cfg.RestAddress = restAddress
 	}
+	if len(cfg.QuicHost) == 0 {
+		cfg.QuicHost = constants.DefaultQuickHost
+	}
 
 	dataDir, _ := cmd.Flags().GetString(string(DATA_DIR))
-	if len(dataDir) > 0 {
+	if len(cfg.DataDir) == 0  {
 		cfg.DataDir = dataDir
 	}
+
+	
+	
 
 	if len(cfg.SQLDB.DbStoragePath) == 0 {
 		cfg.SQLDB.DbStoragePath = fmt.Sprintf("%s/store/sql", cfg.DataDir)

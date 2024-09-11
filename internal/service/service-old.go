@@ -66,7 +66,7 @@ package service
 
 // 	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 // 	logger.WithFields(logrus.Fields{"event": eventPayloadDataType}).Debug("New topic event from pubsub channel")
-// 	// _, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
+// 	// _, ok := (*ctx).Value(constants.EventCountStore).(*ds.Datastore)
 // 	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 // 	if !ok {

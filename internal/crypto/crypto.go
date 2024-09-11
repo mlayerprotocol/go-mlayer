@@ -1,27 +1,39 @@
 package crypto
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	cryptoSha256 "crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ipfs/go-datastore"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	mlds "github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ripemd160"
@@ -182,6 +194,7 @@ func Bech32AddressFromPrivateKeyEDD(privateKey [64]byte) string {
 	decoded := GetPublicKeyEDD(privateKey)
 	return ToBech32Address(decoded[:], "ml")
 }
+
 
 /*
 {
@@ -348,17 +361,21 @@ func DecryptPrivateKey(encryptedKey []byte, password string, salt []byte) ([]byt
 	if err != nil {
 		return nil, err
 	}
+	
 	// Extract the nonce from the encrypted key
 	nonceSize := gcm.NonceSize()
 	if len(encryptedKey) < nonceSize {
 		return nil, errors.New("ciphertext too short")
 	}
+	
 	nonce, ciphertext := encryptedKey[:nonceSize], encryptedKey[nonceSize:]
 	// Decrypt the private key
 	plainKey, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
+		
 		return nil, err
 	}
+	
 	return plainKey, nil
 }
 func EthMessage(message []byte) []byte {
@@ -366,4 +383,126 @@ func EthMessage(message []byte) []byte {
 	byteArr := []byte(prefix)
 	byteArr = append(byteArr, message...)
 	return byteArr
+}
+
+
+// Generate a self-signed certificate and save it to files
+func GenerateCertData() (cd *CertData, err error) {
+	// Generate an ECDSA private key
+	cd = &CertData{}
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a certificate template
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"Example Org"},
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(365 * 24 * time.Hour), // 1 year validity
+
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true, // Self-signed certificate
+	}
+
+	// Create the certificate
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encode the private key into PEM format and write to file
+	privBytes, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return nil,  err
+	}
+	cd.Key = hex.EncodeToString(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privBytes}))
+
+
+	// Encode the certificate into PEM format and write to file
+	cd.Cert = hex.EncodeToString(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes}))
+	return cd, nil
+}
+func GenerateTLSConfig(keyPEM []byte, certPEM []byte) (*tls.Config, error) {
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, err
+	}	
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		NextProtos:   []string{"libp2p", "mlayer-p2p", "mlayer-cli",}, // This is required for libp2p with QUIC
+		
+	}, nil
+}
+func ValidateCert(cert []byte) error {
+	block, _ := pem.Decode(cert)
+	if block == nil {
+		return fmt.Errorf("failed to parse certificate PEM")
+	}
+	parsedCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return  err
+	}
+	// Check if the certificate has expired
+	if time.Now().AddDate(0, 6, 0).After(parsedCert.NotAfter) {
+		return fmt.Errorf("expired or almost expired")
+	}
+	return nil
+}
+
+type CertData struct {
+	Cert string `json:"cert"`
+	Key string `json:"key"`
+}
+func GetOrGenerateCert(ctx *context.Context) *CertData {
+	cd := &CertData{}
+	systemStore, ok := (*ctx).Value(constants.SystemStore).(*mlds.Datastore)
+	if !ok {
+		logger.Fatal("Unable to connect to counter data store")
+	}
+	certKey := datastore.NewKey("/cert")
+		certData, err := systemStore.Get(*ctx, certKey)
+		if err != nil  && err != datastore.ErrNotFound {
+			logger.Fatal("unable to load server certdata")
+		}
+		generated := false
+		if certData == nil {
+			logger.Debugf("NILLCERT")
+			// generate new ones ans save them
+			cd, err = GenerateCertData()
+			generated = true
+			if err != nil  && err != datastore.ErrNotFound {
+				logger.Fatal("unable to generate certdata")
+			}
+		} else {
+			if err = json.Unmarshal(certData, &cd); err != nil {
+				logger.Fatal(err)
+			}
+			b, _ := hex.DecodeString(cd.Cert)
+			if err = ValidateCert(b); err != nil {
+				logger.Debugf("INVALID CERT")
+				cd, err = GenerateCertData()
+				if err != nil {
+					logger.Fatal(err)
+				}
+				generated = true
+			} 
+
+		}
+		if generated { // store the new cert
+			logger.Debug("Generated New Cert", cd)
+			cdBytes, err := json.Marshal(*cd)
+			if err != nil {
+				logger.Fatal(cd, err)
+			}
+			if err = systemStore.Set(*ctx, certKey, cdBytes, true); err != nil {
+				logger.Fatal(err)
+			}
+		}
+		return cd
 }

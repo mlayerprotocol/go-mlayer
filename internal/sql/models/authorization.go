@@ -13,7 +13,7 @@ type AuthorizationEvent struct {
 	entities.Event	 `msgpack:",noinline"`
 	//IsValid   bool `gorm:"default:false" json:"isVal"`
 	// EventType int16 `json:"t"`
-	// Payload entities.ClientPayload  `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
+	// Payload entities.ClientPayload  `json:"pld"  msgpack:",noinline"`
 	BaseModel `msgpack:",noinline"`
 }
 func (AuthorizationEvent) TableName() string {

@@ -22,7 +22,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto/schnorr"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 )
@@ -32,20 +32,18 @@ func TrackReward(ctx *context.Context) {
 	
 	defer TrackReward(ctx) 
 	defer time.Sleep(5 * time.Second)
+	logger.Debug("Tracking Reward Batches...")
 	if !chain.NetworkInfo.Synced {
 		return
 	}
-	logger.Debug("Tracking Reward Batches...")
+	
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	// validator := (*cfg).PublicKey  
-	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*ds.Datastore)
 	if !ok {
 		panic("Unable to load claimedRewardStore") 
 	}
-	// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
-	// if !ok {
-	// 	panic("Unable to load eventCounterStore")
-	// }
+
 	currentCycle, err := chain.DefaultProvider(cfg).GetCurrentCycle()
 	
 	if err != nil {
@@ -132,7 +130,7 @@ func generateBatch(cycle uint64, index int, ctx *context.Context) (*entities.Rew
 			return nil, err
 		}
 		// defer subnetList.Close()
-		logger.Debugf("ListLen: %d", len(subnetList))
+		// logger.Debugf("ListLen: %d", len(subnetList))
 		if len(subnetList) == 0 {
 			return nil, query.ErrorNotFound //do not change because error string "empty" is checked above
 		}
@@ -157,7 +155,7 @@ func generateBatch(cycle uint64, index int, ctx *context.Context) (*entities.Rew
 
 func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguration, batch *entities.RewardBatch) {
 	logger.Debugf("Processing Batch....: %v", batch.Id)
-	claimedRewardStore, ok := (ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	claimedRewardStore, ok := (ctx).Value(constants.ClaimedRewardStore).(*ds.Datastore)
 	if !ok {
 		panic("Unable to load claimedRewardStore") 
 	}
@@ -360,36 +358,50 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 }
 
 func ProcessPendingClaims(ctx *context.Context) {
-	waitPeriod := 10 * time.Second
-	defer ProcessPendingClaims(ctx) 
-	defer time.Sleep(waitPeriod)
-	if !chain.NetworkInfo.Synced {
-		return
-	}
-	logger.Debug("Processing pending claims...")
-	pendingClaimsKey :=  datastore.NewKey("validClaim/")
-	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
-	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		logger.Errorf("error: failed loading claimRewardStore")
 	}
+	if !cfg.Validator {
+		return
+	}
+	waitPeriod := 10 * time.Second
+	defer ProcessPendingClaims(ctx) 
+	defer time.Sleep(waitPeriod)
+	// if !chain.NetworkInfo.Synced {
+	// 	return
+	// }
+	logger.Debug("Processing pending claims...")
+	
+	pendingClaimsKey :=  datastore.NewKey("validClaim/")
+	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*ds.Datastore)
+	if !ok {
+		logger.Errorf("error: failed loading claimRewardStore")
+	}
+	
 	results, err := claimedRewardStore.Query(*ctx, dsquery.Query{
 		Prefix: pendingClaimsKey.String(),
 	})
 	
 	if err != nil {
+		logger.Error("ProcessPendingClaim/claimRwardStore", err)
 		return
 	}
+	
 	batchLoop:
 	for {
 			result, ok := <-results.Next()
 			if !ok {
 				return
 			}
+			
+			
 			batch, err := entities.UnpackRewardBatch(result.Entry.Value)
 			if err != nil {
 				continue
 			}
+			
+			
 			proofData := batch.GetProofData(batch.ChainId)
 			signers := []schnorr.Point{}
 			sIds := []string{}
@@ -403,14 +415,16 @@ func ProcessPendingClaims(ctx *context.Context) {
 				}
 				signers = append(signers, schnorr.Point{X: pubK.X(), Y: pubK.Y()})
 			}
+			
 			cycle := new(big.Int).SetBytes(utils.ToUint256(big.NewInt(int64(proofData.Cycle))))
 			index :=  new(big.Int).SetBytes(utils.ToUint256(big.NewInt(int64(proofData.Index))))
 			claimed, err := chain.Provider(cfg.ChainId).Claimed(batch.Validator, cycle, index);
 			if err != nil {
 				continue
 			}
+			
 			if !claimed {
-				_, err = chain.Provider(cfg.ChainId).ClaimReward(&entities.ClaimData{
+				claimData := &entities.ClaimData{
 					Cycle: new(big.Int).SetBytes(utils.ToUint256(big.NewInt(int64(proofData.Cycle)))),
 					Signature: proofData.Signature,
 					Commitment: proofData.Commitment,
@@ -419,9 +433,14 @@ func ProcessPendingClaims(ctx *context.Context) {
 					Validator: proofData.Validator,
 					ClaimData: batch.Data,
 					TotalCost: new(big.Int).SetBytes(utils.ToUint256(new(big.Int).SetBytes(proofData.TotalCost))),
-				})
+				}
+				
+				_, err = chain.Provider(cfg.ChainId).ClaimReward(claimData)
+				
+				
 			}
-			if claimed || err != nil {
+			
+			if claimed || err == nil {
 				claimedRewardStore.Delete(*ctx, datastore.NewKey(result.Key))
 				var claimed = true
 				result := sql.SqlDb.Where(

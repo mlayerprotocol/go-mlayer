@@ -19,5 +19,6 @@ const (
 	ConnectedSubscribersMap          DataStore       = "connected-subscribers-map"
 	EventCountStore                 DataStore		= "event-count-store"
 	ClaimedRewardStore               DataStore  		= "claimed-reward-store"
-	P2PDataStore                 DataStore		= "p2p-data-store"
+	P2PDhtStore                 DataStore		= "p2p-data-store"
+	SystemStore                 DataStore		= "system-store"
 )

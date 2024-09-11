@@ -13,7 +13,7 @@ type SubscriptionEvent struct {
 	Status         string `gorm:"index" json:"st"`
 	//IsValid   bool `gorm:"default:false" json:"isVal"`
 	// EventType int16 `json:"t"`
-	// Payload entities.ClientPayload  `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
+	// Payload entities.ClientPayload  `json:"pld"  msgpack:",noinline"`
 }
 
 type SubscriptionState struct {

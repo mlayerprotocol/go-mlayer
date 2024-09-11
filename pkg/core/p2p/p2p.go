@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ipfs/go-datastore"
@@ -26,11 +27,13 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/p2p/notifee"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"github.com/multiformats/go-multiaddr"
+	"gorm.io/gorm"
 
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -40,6 +43,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/core/routing"
+	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
+	"github.com/libp2p/go-libp2p/p2p/transport/quicreuse"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	webtransport "github.com/libp2p/go-libp2p/p2p/transport/webtransport"
+
 	noise "github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	"github.com/sirupsen/logrus"
@@ -66,7 +74,7 @@ var handShakeProtocolId = "mlayer/handshake/1.0.0"
 var p2pProtocolId string
 var syncProtocolId = "mlayer/sync/1.0.0"
 // var P2pComChannels = make(map[string]map[P2pChannelFlow]chan P2pPayload)
-
+var syncMutex sync.Mutex
 
 const (
 	AuthorizationChannel string = "ml-authorization-channel"
@@ -103,12 +111,6 @@ func shortID(p peer.ID) string {
 }
 
 func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string) {
-	// kdht.PutValue(ctx, "user/name", []byte("femi"))
-	// v, err := kdht.GetValue(ctx, "user/name")
-	// if err != nil {
-	// 	logger.Error("KDHTERROR", err)
-	// }
-	// logger.Debugf("VALUEEEEE %s", string(v))
 	routingDiscovery := drouting.NewRoutingDiscovery(kdht)
 	dutil.Advertise(ctx, routingDiscovery, rendezvous)
 
@@ -166,9 +168,11 @@ func Run(mainCtx *context.Context) {
 	if !ok {
 		panic("Unable to load config from context")
 	}
-
-	p2pDataStore := db.New(&ctx, string(constants.P2PDataStore))
-	defer p2pDataStore.Close()
+	p2pDhtStore, ok := (*MainContext).Value(constants.P2PDhtStore).(*ds.Datastore)
+	if !ok {
+		logger.Fatalf("node.Run: unable to load p2pDhtStore from context")
+	}
+	
 
 	if !ok {
 		panic("Unable to load data store from context")
@@ -242,6 +246,7 @@ func Run(mainCtx *context.Context) {
 	// 	400,         // HighWater,
 	// 	time.Minute, // GracePeriod
 	// )
+	
 
 	Host, err = libp2p.New(
 		// Use the keypair we generated
@@ -252,9 +257,11 @@ func Run(mainCtx *context.Context) {
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
 		libp2p.Security(noise.ID, noise.New),
-		// support any other default transports (TCP)
-		libp2p.DefaultTransports,
-		// libp2p.Transport(ws.New),
+		libp2p.QUICReuse(quicreuse.NewConnManager),
+		libp2p.Transport(quic.NewTransport),
+		libp2p.Transport(webtransport.New),
+		libp2p.Transport(tcp.NewTCPTransport),
+	
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
 
@@ -283,7 +290,7 @@ func Run(mainCtx *context.Context) {
 				dht.ProtocolPrefix(protocol.ID(p2pProtocolId)),
 				dht.ProtocolPrefix(protocol.ID(handShakeProtocolId)),
 				dht.ProtocolPrefix(protocol.ID(syncProtocolId)),
-				dht.Datastore(p2pDataStore),
+				dht.Datastore(p2pDhtStore),
 				dht.NamespacedValidator("pk", record.PublicKeyValidator{}),
 				dht.NamespacedValidator("ipns", record.PublicKeyValidator{}),
 				dht.NamespacedValidator("ml", &DhtValidator{config: cfg}),
@@ -371,7 +378,7 @@ func Run(mainCtx *context.Context) {
 
 	go discover(ctx, Host, idht, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 	Host.Network().Notify(&notifee.ConnectionNotifee{Dht: idht})
 
@@ -381,12 +388,12 @@ func Run(mainCtx *context.Context) {
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, Host)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 	// setup local mDNS discovery
 	err = setupDiscovery(Host, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 
 	// node = &h
@@ -449,7 +456,7 @@ func Run(mainCtx *context.Context) {
 	// if err != nil {
 	// 	panic(err)
 	// }
-
+	
 	// Publishers
 	go publishChannelEventToNetwork(channelpool.AuthorizationEventPublishC, &entities.AuthorizationPubSub, mainCtx)
 	go publishChannelEventToNetwork(channelpool.TopicEventPublishC, &entities.TopicPubSub, mainCtx)
@@ -460,95 +467,9 @@ func Run(mainCtx *context.Context) {
 	// go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
 	// go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
-	// Subscribers
-
-	
-	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, unsubscribePubSub, mainCtx, service.HandleNewPubSubUnSubscribeEvent)
-	// go ProcessEventsReceivedFromOtherNodes(&entities.Subscription{}, approveSubscriptionPubSub, mainCtx, service.HandleNewPubSubApproveSubscriptionEvent)
-
-	// messagePubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), MessageChannel, config.ChannelMessageBufferSize)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// batchPubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), BatchChannel, config.ChannelMessageBufferSize)
-	// if err != nil {
-	// 	panic(err)
-	//}
-	// delieveryProofPubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), DeliveryProofChannel, config.ChannelMessageBufferSize)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// go func() {
-	// 	time.Sleep(5 * time.Second)
-	// 	for {
-	// 		select {
-
-	// 		case authEvent, ok := <-authorizationPubSub.Messages:
-	// 			if !ok {
-	// 				cancel()
-	// 				logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
-	// 				return
-	// 			}
-	// 			// !validating message
-	// 			// !if not a valid message continue
-	// 			// _, err := inMessage.MsgPack()
-	// 			// if err != nil {
-	// 			// 	continue
-	// 			// }
-	// 			//TODO:
-	// 			// if not a valid message, continue
-
-	// 			logger.Debugf("Received new message %s\n", authEvent.ToString())
-	// 			cm := models.AuthorizationEvent{}
-	// 			err = encoder.MsgPackUnpackStruct(authEvent.Data, cm)
-	// 			if err != nil {
-
-	// 			}
-	// 			*incomingAuthorizationC <- &cm
-	// 		case inMessage, ok := <-batchPubSub.Messages:
-	// 			if !ok {
-	// 				cancel()
-	// 				logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
-	// 				return
-	// 			}
-	// 			// !validating message
-	// 			// !if not a valid message continue
-	// 			// _, err := inMessage.MsgPack()
-	// 			// if err != nil {
-	// 			// 	continue
-	// 			// }
-	// 			//TODO:
-	// 			// if not a valid message, continue
-
-	// 			logger.Debugf("Received new message %s\n", inMessage.ToString())
-	// 			cm, err := entities.MsgUnpackClientPayload(inMessage.Data)
-	// 			if err != nil {
-
-	// 			}
-	// 			*incomingMessagesC <- &cm
-	// 		case sub, ok := <-subscriptionPubSub.Messages:
-	// 			if !ok {
-	// 				cancel()
-	// 				logger.Fatalf("Primary Message channel closed. Please restart server to try or adjust buffer size in config")
-	// 				return
-	// 			}
-	// 			// logger.Debug("Received new message %s\n", inMessage.Message.Body.Message)
-	// 			cm, err := entities.UnpackSubscription(sub.Data)
-	// 			if err != nil {
-
-	// 			}
-	// 			logger.Debug("New subscription updates:::", string(cm.ToJSON()))
-	// 			// *incomingMessagesC <- &cm
-	// 			cm.Broadcasted = false
-	// 			*publishedSubscriptionC <- &cm
-	// 		}
-	// 	}
-	// }()
 	// if config.Validator {
-		
-		storeAddress(&ctx, &Host)
+			
+	storeAddress(&ctx, &Host)
 	// }
 	defer forever()
 
@@ -632,9 +553,21 @@ func handleHandshake(stream network.Stream) {
 				return
 			}
 		}
-		if !chain.NetworkInfo.Synced && handshake.Synced {
-			syncNode(handshake.Signer)	
-			chain.NetworkInfo.Synced = true
+		lastSync, err := ds.GetLastSyncedBlock(MainContext)
+		if err == nil {
+			if !chain.NetworkInfo.Synced && new(big.Int).SetBytes(handshake.LastSyncedBlock).Cmp(lastSync) == 1 {
+				syncMutex.Lock()
+				defer syncMutex.Unlock()
+				if !chain.NetworkInfo.Synced  {
+					hostIP, err := extractIP((stream).Conn().RemoteMultiaddr())
+					if err == nil {
+						SyncNode(config, hostIP, handshake.Signer)	
+					}
+					chain.NetworkInfo.Synced = true
+				}
+			}
+		} else {
+			logger.Errorf("handshke: %v", err)
 		}
 		// b, _ := hexutil.Decode(handshake.Signer)
 		// PeerPubKeys[p] = b
@@ -644,56 +577,102 @@ func handleHandshake(stream network.Stream) {
 	}
 }
 
-func syncNode(pubKey string) error {
-	
-	eventCounterStore, ok := (*MainContext).Value(constants.EventCountStore).(*db.Datastore)
-	if !ok {
-		logger.Fatalf("syncNode: unable to load eventCounterStore from context")
-	}
-	lastBlockKey :=  datastore.NewKey("/syncedBlock")
-	lastBlockByte, err := eventCounterStore.Get(*MainContext, lastBlockKey)
-	if err != nil && err != datastore.ErrNotFound {
-		logger.Fatalf("syncNode: %v", err)
-	}
-	lastBlock := new(big.Int).SetBytes(lastBlockByte)
-	// if chain.NetworkInfo.CurrentBlock != new(big.Int).SetBytes(lastBlock) {
-	for i := lastBlock.Int64(); i <= chain.NetworkInfo.CurrentBlock.Int64(); i++ {
-			d, _ := encoder.MsgPackStruct(
-				Range{ 
-					From: big.NewInt(i).Bytes(),
-					To:  big.NewInt(i).Bytes(),
-				})
-			syncPayload := NewP2pPayload(config, P2pActionSyncBlock, d)
-			response, err := syncPayload.SendSyncRequest(pubKey)
+// sync block range
+func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer string, _range Range) {
+		packedRange, _ := encoder.MsgPackStruct(_range) 
+		payload := NewP2pPayload(cfg, P2pActionSyncBlock, packedRange )
+		resp, err := payload.SendQuicSyncRequest(hostQuicAddress, entities.PublicKeyString(signer))
+		if err != nil || resp == nil{
+			logger.Error(err)
+			return
+		}
+		if len(resp.Error) == 0 {
+		data, err := utils.DecompressGzip(resp.Data)
+		if err != nil {
+			logger.Error(err)
+			return
+		}
+		 parts := bytes.Split(data, []byte(":|"))
+		 for _, part := range parts {
+			if len(part) < 2 {
+				continue
+			}
+			
+			b := query.ExportData{}
+			err := encoder.MsgPackUnpackStruct(part, &b)
 			if err != nil {
-				logger.Fatalf("syncNode: %v", err)
+				logger.Error(err)
+				continue
 			}
-			parts := bytes.Split(response.Data, []byte(":|"))
-			for _, p := range parts {
-				sqlBytes, err := utils.DecompressGzip(p)
-				if err != nil {
-					logger.Fatalf("syncNode: %v", err)
-				}
-				sqlQuery := string(sqlBytes)
-				// execute it
-				stringReader := strings.NewReader(sqlQuery)
-
-				// Create a new scanner from the stringReader
-				scanner := bufio.NewScanner(stringReader)
-
-				// Scan the string line by line
-				for scanner.Scan() {
-					line := scanner.Text()
-					if len(line) == 0 || line[0] == '-' || line[0] == '#' {
-						continue
+			batchSize := 100
+			var postgresData [][]string
+			values := ""
+			for i, row := range b.Data {
+				if sql.Driver(cfg.SQLDB.DbDialect) == sql.Postgres {
+					postgresData = append(postgresData, utils.ToStringSlice(row))
+					if i==len(b.Data)-1 || i+1 % batchSize == 0 {
+						err := query.ImportDataPostgres(cfg, b.Table, strings.Split(b.Columns, ","), postgresData)
+						if err != nil {
+							logger.Fatal(err)
+						}
+						postgresData = [][]string{}
 					}
-					fmt.Println(line)
-					sql.SqlDb.Exec(line)
 				}
-				
+				if sql.Driver(cfg.SQLDB.DbDialect) == sql.Sqlite {
+					values = fmt.Sprintf("%s%s, \n", values, fmt.Sprintf("(%s)", query.FormatSQL(row)))
+					if i==len(b.Data)-1 || i+1 % batchSize == 0 {
+						query := fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) values %s", b.Table, b.Columns, values)
+						
+						query = query[0:strings.LastIndex(query, ",")]
+						err = sql.SqlDb.Transaction(func(tx *gorm.DB) error {
+							return tx.Exec(query).Error
+						})
+						if err != nil {
+							logger.Fatal(err)
+						}
+						values = ""
+					}
+				}
 			}
-			eventCounterStore.Set(*MainContext, lastBlockKey, big.NewInt(i).Bytes(), true)
+		   }
+		 }
+}
+
+func SyncNode(cfg *configs.MainConfiguration, hostQuicAddress string, pubKey string) error {
+	if cfg.NoSync {
+		return nil
 	}
+	
+	if !strings.Contains(hostQuicAddress, ":") {
+		hostQuicAddress = fmt.Sprintf("%s%s", hostQuicAddress, cfg.QuicHost[strings.Index(cfg.QuicHost,":"):])
+	}
+	
+	lastBlock, err := ds.GetLastSyncedBlock(MainContext)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	// logger.Infof("LASTSYNCEDBLOC", lastBlock,  chain.NetworkInfo.StartBlock)
+	if lastBlock.Cmp(chain.NetworkInfo.StartBlock) == -1 {
+		lastBlock = chain.NetworkInfo.StartBlock
+	}
+	fmt.Println("Starting node sync from block: ", lastBlock)
+	// if chain.NetworkInfo.CurrentBlock != new(big.Int).SetBytes(lastBlock) {
+	batchSize := int64(100)
+
+	// logger.Info("BLOCK NILL %v, %v", lastBlock==nil, chain.NetworkInfo.CurrentBlock==nil)
+	_range := Range{}
+	for i := int64(0); i <= (chain.NetworkInfo.CurrentBlock.Int64() - lastBlock.Int64())/batchSize; i++ {
+			from := (i*batchSize)+lastBlock.Int64()+1
+			_range = Range{ 
+				From: big.NewInt(from).Bytes(),
+				To:  big.NewInt(from+batchSize).Bytes(),
+			}
+			syncBlocks(cfg, hostQuicAddress,pubKey, _range)
+			
+			ds.SetLastSyncedBlock(MainContext, new(big.Int).SetBytes(_range.To) )
+			logger.Debugf("Synced blocks %s to %s",  new(big.Int).SetBytes(_range.From), new(big.Int).SetBytes(_range.To))
+	}
+	fmt.Println("Completed node sync at block: ", new(big.Int).SetBytes(_range.To))
 	return nil
 }
 
@@ -721,8 +700,6 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		// logger.Debug("Iamavalidator")
-		
 		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyEDD, GetMultiAddresses(*h), config.PublicKeyEDD)
 		if err != nil {
 			logger.Error(err)
@@ -803,19 +780,13 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 		if config.Validator {
 			nodeType = constants.ValidatorNodeType
 		}
-		eventCounterStore, ok := (*MainContext).Value(constants.EventCountStore).(*db.Datastore)
-		if !ok {
-			logger.Fatalf("syncNode: unable to load eventCounterStore from context")
-		}
+		
 		hs, _ := NewNodeHandshake(config, handShakeProtocolId, config.PrivateKeyEDD, nodeType)
-		// b, _ := hs.EncodeBytes()
-		lastBlockKey :=  datastore.NewKey("/syncedBlock")
-		lastBlockByte, err := eventCounterStore.Get(*MainContext, lastBlockKey)
-		if err != nil && err != datastore.ErrNotFound {
-			logger.Fatalf("syncNode: %v", err)
+		lastSynced, err := ds.GetLastSyncedBlock(&ctx)
+		if err != nil {
+			logger.Fatal(err)
 		}
-		lastBlock := new(big.Int).SetBytes(lastBlockByte)
-		hs.Synced = chain.NetworkInfo.CurrentBlock.Uint64() == lastBlock.Uint64()
+		hs.LastSyncedBlock = lastSynced.Bytes()
 		logger.Debugf("Created handshake with salt %s", hs.Salt)
 		logger.Debugf("Created new stream %s with peer %s", handshakeStream.ID(), pairAddr.ID)
 		defer func(pairID peer.ID) {
@@ -890,7 +861,7 @@ func setupDiscovery(h host.Host, serviceName string) error {
 func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *peer.AddrInfo, p2pStream *network.Stream, syncStream *network.Stream,  err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Recovered from panic:", r)
+			logger.Error("Recovered from panic:", r)
 		}
 	}()
 	
@@ -942,9 +913,20 @@ func GetMultiAddresses(h host.Host) []string {
 	addrs := h.Addrs()
 
 	for _, addr := range addrs {
-		m = append(m, fmt.Sprintf("%s/p2p/%s", addr, h.ID().String()))
+		if strings.Contains(addr.String(), "127.0.0.1") || 
+		strings.Contains(addr.String(), "localhost") || 
+		strings.Contains(addr.String(), "/::/") ||  
+		strings.Contains(addr.String(), "/::1/") ||
+		strings.Contains(addr.String(), "0.0.0.0") {
+			continue
+		}
+		m = append(m, fmt.Sprintf("%s/p2p/%s", addr.String(), h.ID().String()))
 	}
-	// logger.Debugf("MULTI %v", m)
+	if len(m) == 0 {
+		for _, addr := range addrs {
+			m = append(m, fmt.Sprintf("%s/p2p/%s", addr, h.ID().String()))
+		}
+	}
 	return m
 }
 
@@ -1004,7 +986,7 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 			(stream).Reset()
 			return
 		}
-		response, err := processP2pPayload(config, payload)
+		response, err := processP2pPayload(config, payload, true)
 		if err != nil {
 			logger.Debugf("readPayload: %v", err)
 		}
@@ -1053,7 +1035,7 @@ func GetCycleMessageCost(ctx context.Context, cycle uint64) (*big.Int, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to load config")
 	}
-	claimedRewardStore, ok := (ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	claimedRewardStore, ok := (ctx).Value(constants.ClaimedRewardStore).(*ds.Datastore)
 	if !ok {
 		return nil, fmt.Errorf("failed to load store")
 	}
@@ -1064,10 +1046,6 @@ func GetCycleMessageCost(ctx context.Context, cycle uint64) (*big.Int, error) {
 		return nil, err
 	}
 	if len(priceByte) > 0 && err == nil {
-		// priceData, err := UnpackMessagePrice(priceByte)
-		// if err != nil {
-		// 	return GetAndSaveMessageCostFromChain(ctx, cycle)
-		// }
 		return big.NewInt(0).SetBytes(priceByte), nil
 	} else {
 		return GetAndSaveMessageCostFromChain(&ctx, cycle)
@@ -1077,7 +1055,7 @@ func GetCycleMessageCost(ctx context.Context, cycle uint64) (*big.Int, error) {
 func GetAndSaveMessageCostFromChain(ctx *context.Context, cycle uint64) (*big.Int, error) {
 	
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*ds.Datastore)
 	if !ok {
 		return nil, fmt.Errorf("GetAndSaveMessageCostFromChain: failed to load store")
 	}
@@ -1098,6 +1076,16 @@ func GetNodeAddress(ctx *context.Context, pubKey string) (multiaddr.Multiaddr, e
 		logger.Error("KDHT_GET_ERROR: ", err)
 		return nil, err
 	}
-
-	return multiaddr.StringCast(mad.Addresses[0]), nil
+	addr, found := utils.Find(mad.Addresses, func (ma string) bool  {
+		return strings.Contains(ma, "/quic") && !strings.Contains(ma, "/webtransport")
+	}) 
+	if !found {
+		addr, found = utils.Find(mad.Addresses, func (ma string) bool  {
+			return strings.Contains(ma, "/webtransport")
+		}) 
+	}
+	if !found {
+		addr = mad.Addresses[0]
+	}
+	return multiaddr.StringCast(addr), nil
 }
