@@ -1,13 +1,9 @@
 package cmd
 
 import (
-	"encoding/hex"
 	"fmt"
-	"time"
 
-	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
-	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain/api"
 	"github.com/spf13/cobra"
@@ -101,13 +97,13 @@ func licenseListFunc(_cmd *cobra.Command, _args []string) {
 		logger.Fatal(err)
 	}
 	
-	fmt.Printf("\nSENTRY LICENSES [%d]\n", len(sentryLicense))
-	fmt.Println("-----------------------")
+	fmt.Printf("\nS/N   |  SENTRY LICENSE ID [%d]\n", len(sentryLicense))
+	fmt.Println("---------------------------")
 	if len(sentryLicense) == 0 {
 		println("0 assigned")
 	}
-	for _, license := range sentryLicense {
-		fmt.Println(license)
+	for i, license := range sentryLicense {
+		fmt.Println(fmt.Sprintf("%d       %d", i+1, license))
 	}
 
 	fmt.Println()
@@ -117,13 +113,14 @@ func licenseListFunc(_cmd *cobra.Command, _args []string) {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	fmt.Printf("\nVALIDATOR LICENSES [%d]\n", len(valLicense))
-	fmt.Println("-----------------------")
+	
+	fmt.Printf("\nS/N   |  VALIDATOR LICENSE ID [%d]\n", len(valLicense))
+	fmt.Println("-----------------------------")
 	if len(valLicense) == 0 {
 		println("0 assigned")
 	}
-	for _, license := range valLicense {
-		fmt.Println(license)
+	for i, license := range valLicense {
+		fmt.Println(fmt.Sprintf("%d       %d", i+1, license))
 	}
 	fmt.Println()
 	fmt.Println()
@@ -135,28 +132,3 @@ func licenseListFunc(_cmd *cobra.Command, _args []string) {
 
 
 
-// Import your private key or mnemonic
-func licenseRegisterFunc(_cmd *cobra.Command, _args []string) {
-	cfg := configs.Config
-	cfg = injectPrivateKey(&cfg, _cmd)
-	regData := entities.RegisterationData{
-		ChainId: cfg.ChainId,
-		Timestamp: uint64(time.Now().UnixMilli()),
-		PubKeyEDD: cfg.PublicKeyEDD,
-	}
-	signature, commitment, _ := regData.Sign(cfg.PrivateKeySECP)
-	fmt.Println(hex.EncodeToString(commitment),cfg.ChainId )
-	
-	data := fmt.Sprintf("%s3A5C%s3A5C%s3A5C%s3A5C%s",
-
-	hex.EncodeToString(cfg.PublicKeySECP),
-	hex.EncodeToString(utils.Uint64ToUint256(regData.Timestamp)),
-	hex.EncodeToString(commitment),
-	hex.EncodeToString(regData.PubKeyEDD),
-	hex.EncodeToString(signature))
-	fmt.Println("------------------")
-	fmt.Println("Registration Data")
-	fmt.Println("------------------")
-	fmt.Println(data)
-
-}

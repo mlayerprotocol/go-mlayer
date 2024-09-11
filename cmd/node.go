@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
+	"github.com/mlayerprotocol/go-mlayer/entities"
 	mlCrypto "github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/spf13/cobra"
 
@@ -48,8 +50,9 @@ func init() {
 	nodeWalletCmd.AddCommand(walletImportCmd)
 	nodeWalletCmd.AddCommand(walletExportCmd)
 
+	nodeCmd.AddCommand(licenseRegisterCmd)
+
 	nodeCmd.AddCommand(nodeLicenseCmd)
-	nodeLicenseCmd.AddCommand(licenseRegisterCmd)
 	nodeLicenseCmd.AddCommand(licenseListCmd)
 	
 	rootCmd.AddCommand(nodeCmd)
@@ -254,4 +257,32 @@ func loadPrivateKeyFromKeyStore(password string, name string, ksPath string) ([]
 		return nil, fmt.Errorf("error: invalid keystore password")
 	}
 	return decrypt, nil
+}
+
+
+// Import your private key or mnemonic
+func licenseRegisterFunc(_cmd *cobra.Command, _args []string) {
+	cfg := configs.Config
+	
+	cfg = injectPrivateKey(&cfg, _cmd)
+	regData := entities.RegisterationData{
+		ChainId: cfg.ChainId,
+		Timestamp: uint64(time.Now().UnixMilli()),
+		PubKeyEDD: cfg.PublicKeyEDD,
+	}
+	signature, commitment, _ := regData.Sign(cfg.PrivateKeySECP)
+	fmt.Println(hex.EncodeToString(commitment),cfg.ChainId )
+	
+	data := fmt.Sprintf("%s3A5C%s3A5C%s3A5C%s3A5C%s",
+
+	hex.EncodeToString(cfg.PublicKeySECP),
+	hex.EncodeToString(utils.Uint64ToUint256(regData.Timestamp)),
+	hex.EncodeToString(commitment),
+	hex.EncodeToString(regData.PubKeyEDD),
+	hex.EncodeToString(signature))
+	fmt.Println("------------------")
+	fmt.Println("Registration Data")
+	fmt.Println("------------------")
+	fmt.Println(data)
+
 }
