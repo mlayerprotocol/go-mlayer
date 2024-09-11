@@ -38,7 +38,7 @@ import (
 
 // 	// validate before storing
 // 	if entities.IsValidSubscription(*sub, true) {
-// 		SubnetSubscriberStore, ok := p.Ctx.Value(constants.NewSubnetSubscriptionStore).(*db.Datastore)
+// 		SubnetSubscriberStore, ok := p.Ctx.Value(constants.NewSubnetSubscriptionStore).(*ds.Datastore)
 // 		if !ok {
 // 			return errors.New("Could not connect to subscription datastore")
 // 		}

@@ -22,14 +22,21 @@ var SqlDb *gorm.DB
 var SqlDBErr error
 
 var logger = &log.Logger
+type Driver string
 
-func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
+const (
+	Postgres Driver = "postgres"
+	MySQL Driver = "mysql"
+	Sqlite Driver = "sqlite"
+)
+
+func InitializeDb(driver Driver, dsn string) (*gorm.DB, error) {
 	logger.Debugf("Initializing %s db", driver)
 	var dialect gorm.Dialector
 	switch driver {
-	case "postgres":
+	case Postgres:
 		dialect = postgres.Open(dsn)
-	case "mysql":
+	case MySQL:
 		dialect = mysql.Open(dsn)
 	default:
 		dialect = sqlite.Open(dsn)
@@ -49,7 +56,7 @@ func InitializeDb(driver string, dsn string) (*gorm.DB, error) {
 	for _, model := range models.Models {
 		err := SqlDb.AutoMigrate(&model)
 		if err != nil {
-			logger.Errorf("SQLD_BERROR: %v", err)
+			logger.Errorf("SQL_MIGRATION_ERROR: %v", err)
 		}
 	}
 	
@@ -65,7 +72,7 @@ func GetTableName(table any, db *gorm.DB) string {
 
 func Init(cfg *configs.MainConfiguration) {
 	
-	SqlDb, SqlDBErr = InitializeDb(config.Config.SQLDB.DbDialect, getDSN(cfg))
+	SqlDb, SqlDBErr = InitializeDb(Driver(config.Config.SQLDB.DbDialect), getDSN(cfg))
 	if SqlDBErr != nil {
 		panic(SqlDBErr)
 	}

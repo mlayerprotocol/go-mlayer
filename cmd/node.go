@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/hex"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -42,10 +41,12 @@ func init() {
 	nodeCmd.AddCommand(nodeAccountCmd)
 	nodeAccountCmd.AddCommand(accountInitCmd)
 	nodeAccountCmd.AddCommand(accountImportCmd)
+	nodeAccountCmd.AddCommand(accountExportCmd)
 
 	nodeCmd.AddCommand(nodeWalletCmd)
 	nodeWalletCmd.AddCommand(walletInitCmd)
 	nodeWalletCmd.AddCommand(walletImportCmd)
+	nodeWalletCmd.AddCommand(walletExportCmd)
 
 	nodeCmd.AddCommand(nodeLicenseCmd)
 	nodeLicenseCmd.AddCommand(licenseRegisterCmd)
@@ -68,7 +69,8 @@ func initKey(keystoreName string, ksPath string) ([]byte, error) {
 	}
 	privateKeySECP, err := btcec.NewPrivateKey()
 	if err != nil {
-		log.Fatalf("Error creating keystore directory at %s", err.Error())
+		fmt.Println("Error creating keystore directory at %s", err.Error())
+		return nil, nil
 	}
 	return saveKey(privateKeySECP.Serialize(), storeFilePath)
 }
@@ -87,7 +89,7 @@ func importKey( keystoreName string, ksPath string) ([]byte, error) {
 	fmt.Println("\nEnter private key to be import (hex string format): ")
 	privateKeyStringByte, err := readInputSecurely()
 	if err != nil {
-		log.Fatal(formatError("Error reading new keystore password:"), err)
+		fmt.Println(formatError("Error reading new keystore password:"), err)
 		return nil, err
 	}
 	
@@ -97,25 +99,59 @@ func importKey( keystoreName string, ksPath string) ([]byte, error) {
 	}
 	privKey, err := hex.DecodeString(privateKeyString)
 	if err != nil {
-		log.Fatal(formatError("Error parsing private key:"), err)
+		fmt.Println(formatError("Error parsing private key:"), err)
 		return nil, err
 	}
 	return saveKey(privKey, storeFilePath)
+}
+
+func exportKey( keystoreName string, ksPath string) ([]byte, error) {
+	storeFilePath := getKeyStoreFilePath(keystoreName, ksPath)
+	fmt.Printf("Keystore File Path (%s): %s", keystoreName, storeFilePath)
+	fmt.Println()
+	fmt.Println()
+	keyData, err := utils.ReadJSONFromFile(storeFilePath)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("\nEnter keystore password: ")
+	password, err := readInputSecurely()
+	if err != nil {
+		// fmt.Println(formatError("Error reading new keystore password:"), err)
+		return nil, err
+	}
+	cypher, err := hex.DecodeString(fmt.Sprint(keyData["c"]))
+	if err != nil {
+		// fmt.Println(formatError("Error reading key:"), err)
+		return nil, err
+	}
+	salt, err := hex.DecodeString(fmt.Sprint(keyData["s"]))
+	if err != nil {
+		// fmt.Println(formatError("Error reading salt:"), err)
+		return nil, err
+	}
+	k, err := mlCrypto.DecryptPrivateKey(cypher, string(password),  salt)
+	if err != nil {
+		// fmt.Println(formatError(fmt.Sprint("Error:", "invalid passphrase")))
+		return nil, err
+	}
+	return k, nil
 }
 
 func saveKey(privateKey []byte, storeFilePath string) ([]byte, error) {
 	fmt.Println("\nEnter key store password: ")
 	password, err := readInputSecurely()
 	if err != nil {
-		log.Fatal("Error reading new keystore password:", err)
+		fmt.Println("Error reading new keystore password:", err)
+		return nil, nil
 	}
 	fmt.Println("Confirm new key store password: ")
 	newPass2, err := readInputSecurely()
 	if err != nil {
-		log.Fatal("Error reading new keystore password:", err)
+		fmt.Println("Error reading new keystore password:", err)
+		return nil, nil
 	}
 	if !strings.EqualFold(string(password), string(newPass2)) {
-		
 		return nil, fmt.Errorf(formatError("error: passwords don't match!"))
 	}
 	fmt.Println("Initializing keystore...")

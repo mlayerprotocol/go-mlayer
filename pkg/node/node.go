@@ -20,17 +20,18 @@ import (
 	// "net/rpc/jsonrpc"
 
 	"github.com/gorilla/websocket"
-	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
+	"github.com/quic-go/quic-go"
 
 	// "github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 	p2p "github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/rest"
 	rpcServer "github.com/mlayerprotocol/go-mlayer/pkg/core/rpc"
@@ -53,41 +54,51 @@ var logger = &log.Logger
 func Start(mainCtx *context.Context) {
 	time.Sleep(1*time.Second)
 	fmt.Println("Starting network...")
-	ctx, cancel := context.WithCancel(*mainCtx)
+	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
+	
+	cfg, ok := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		panic(apperror.Internal("Unable to load main config"))
 	}
+	
 	connectedSubscribers := make(map[string]map[string][]interface{})
 
 	// incomingEventsC := make(chan types.Log)
 
 	var wg sync.WaitGroup
-	eventCountStore := db.New(&ctx,   string(constants.EventCountStore))
+	systemStore := ds.New(mainCtx,  string(constants.SystemStore))
+	defer  systemStore.Close()
+	ctx := context.WithValue(*mainCtx, constants.SystemStore, systemStore)
+
+
+	eventCountStore := ds.New(&ctx,   string(constants.EventCountStore))
 	defer eventCountStore.Close()
 	ctx = context.WithValue(ctx, constants.EventCountStore, eventCountStore)
 
-	claimedRewardStore := db.New(&ctx,   string(constants.ClaimedRewardStore))
+	claimedRewardStore := ds.New(&ctx,   string(constants.ClaimedRewardStore))
 	defer claimedRewardStore.Close()
 	ctx = context.WithValue(ctx, constants.ClaimedRewardStore, claimedRewardStore)
 	// ctx = context.WithValue(ctx, constants.NewTopicSubscriptionStore, newTopicSubscriptionStore)
 	// ctx = context.WithValue(ctx, constants.UnprocessedClientPayloadStore, unProcessedClientPayloadStore)
 	ctx = context.WithValue(ctx, constants.ConnectedSubscribersMap, connectedSubscribers)
 
-	// p2pDataStore := db.New(&ctx,   string(constants.P2PDataStore))
-	// defer p2pDataStore.Close()
-	// ctx = context.WithValue(ctx, constants.P2PDataStore, p2pDataStore)
-	defer func () {
-		if chain.NetworkInfo.Synced && eventCountStore != nil && !eventCountStore.DB.IsClosed() {
-			lastBlockKey :=  datastore.NewKey("/syncedBlock")
-			eventCountStore.Set(ctx, lastBlockKey, chain.NetworkInfo.CurrentBlock.Bytes(), true)
-		}
-	}()
+	p2pDhtStore := ds.New(&ctx,   string(constants.P2PDhtStore))
+	defer p2pDhtStore.Close()
+	ctx = context.WithValue(ctx, constants.P2PDhtStore, p2pDhtStore)
+
+	// defer func () {
+	// 	if chain.NetworkInfo.Synced && systemStore != nil && !systemStore.DB.IsClosed() {
+	// 		lastBlockKey :=  ds.Key(ds.SyncedBlockKey)
+	// 		systemStore.Set(ctx, lastBlockKey, chain.NetworkInfo.CurrentBlock.Bytes(), true)
+	// 	}
+	// }()
+	
+
 	if err := loadChainInfo(cfg); err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
+	
 	defer wg.Wait()
 
 	//  wg.Add(1)
@@ -103,7 +114,7 @@ func Start(mainCtx *context.Context) {
 
 	wg.Add(1)
 	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		defer wg.Done()
 		for {
@@ -135,36 +146,15 @@ func Start(mainCtx *context.Context) {
 
 		}
 	}()
-
-	// wg.Add(1)
-	// go func() {
-	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
-	// 	defer cancel()
-	// 	defer wg.Done()
-	// 	subscription.ProcessNewSubscription(
-	// 		ctx,
-	// 		subscriptionBlockStateStore,
-	// 		topicSubscriptionCountStore,
-	// 		newTopicSubscriptionStore,
-	// 		topicSubscriptionStore,
-	// 		&wg)
-	// }()
-
-	// wg.Add(1)
-	// go func() {
-	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
-	// 	defer cancel()
-	// 	defer wg.Done()
-	// 	message.ProcessNewMessageEvent(ctx, unsentMessageP2pStore, &wg)
-	// }()
+	
 
 	// load network params
 	wg.Add(1)
 	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		defer wg.Done()
-		time.Sleep(10 * time.Minute)
+		time.Sleep(1 * time.Minute)
 		for {
 			if err := loadChainInfo(cfg); err != nil {
 				logger.Error(err)
@@ -175,38 +165,33 @@ func Start(mainCtx *context.Context) {
 		}
 	}()
 
+	// load data
+	// wg.Add(1)
+	// go func() {
+	// 	_, cancel := context.WithCancel(context.Background())
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	time.Sleep(5 * time.Second)
+	// 	p2p.SyncNode(cfg, cfg.QuicHost, hex.EncodeToString(cfg.PublicKeyEDD))
+	// }()
+
 	wg.Add(1)
 	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		defer wg.Done()
 		TrackReward(&ctx)
 	}()
 
+	
+
 	wg.Add(1)
 	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		defer wg.Done()
 		ProcessPendingClaims(&ctx)
 		
-		// for {
-		// 	time.Sleep(5 * time.Second)
-		// 	logger.Debug("Generating batch...")
-		// 	batch, err := generateBatch(0, 0, &ctx)
-		// 	processPendingClaims(&ctx)
-		// 	if batch == nil {
-				
-		// 		break
-		// 	}
-		// 	if err != nil {
-				
-		// 	} else {
-				
-		// 		processSentryRewardBatch(ctx, cfg, batch)
-		// 	}
-		// 	time.Sleep(5 * time.Second)
-		// }
 	}()
 
 	
@@ -242,7 +227,7 @@ func Start(mainCtx *context.Context) {
 
 	// wg.Add(1)
 	// go func() {
-	// 	_, cancel := context.WithTimeout(context.Background(), time.Second)
+	// 	_, cancel := context.withCancel(context.Background(), time.Second)
 	// 	defer cancel()
 	// 	defer wg.Done()
 	// 	_, client, contractAddress, err := evm.StakeContract(cfg.EVMRPCWss, cfg.StakeContract)
@@ -282,9 +267,10 @@ func Start(mainCtx *context.Context) {
 
 	// }()
 
+	// start the RPC server
 	wg.Add(1)
 	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		defer wg.Done()
 		rpc.Register(rpcServer.NewRpcService(&ctx))
@@ -308,11 +294,45 @@ func Start(mainCtx *context.Context) {
 		}
 	}()
 
+	wg.Add(1)
+	// starting quick server
+	go func() {
+		_, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		defer wg.Done()
+		if !cfg.Validator {
+			return
+		}
+		// get the certificate from store
+		
+		cd := crypto.GetOrGenerateCert(&ctx)
+		keyByte, _ := hex.DecodeString(cd.Key)
+		certByte, _ := hex.DecodeString(cd.Cert)
+		tlsConfig, err :=  crypto.GenerateTLSConfig(keyByte, certByte)
+		if err != nil {
+			logger.Fatal("QuicTLSError", err)
+		}
+		listener, err := quic.ListenAddr(cfg.QuicHost, tlsConfig, nil)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		defer listener.Close()
+		
 
+		for {
+			connection, err := listener.Accept(ctx)
+			if err != nil {
+				logger.Fatal(err)
+			}
+			go p2p.HandleQuicConnection(&ctx, cfg, connection)
+		}
+	}()
+
+	// start the websocket server
 	wg.Add(1)
 	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
-		
+		_, cancel := context.WithCancel(context.Background())
+		logger.Debugf("Starting Websocket server on: %s", cfg.WSAddress)
 		defer cancel()
 		defer wg.Done()
 		wss := ws.NewWsService(&ctx)
@@ -323,30 +343,27 @@ func Start(mainCtx *context.Context) {
 	}()
 
 	wg.Add(1)
+	// start the REST server
 	go func() {
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		defer wg.Done()
 		rest := rest.NewRestService(&ctx)
 
 		router := rest.Initialize()
 		logger.Debugf("Starting REST api on: %s", cfg.RestAddress)
-		logger.Fatal(router.Run(cfg.RestAddress))
+		err := router.Run(cfg.RestAddress)
+		logger.Fatal(err)
 	
 	}()
-
-	
-
 }
 
 func loadChainInfo(cfg *configs.MainConfiguration) error {
+	
 	info, err := chain.Provider(cfg.ChainId).GetChainInfo()
 			if err != nil {
 				return fmt.Errorf("pkg/node/NodeInfo/GetChainInfo: %v", err)
 			}
-
-			// if active license counts have been updated
-			logger.Debugf("NetworINFO %d, %d", chain.NetworkInfo.ActiveValidatorLicenseCount, info.ValidatorActiveLicenseCount.Uint64())
 			if (chain.NetworkInfo.ActiveValidatorLicenseCount != info.ValidatorActiveLicenseCount.Uint64()) {
 				// if chain.NetworkInfo.Validators == nil {
 					chain.NetworkInfo.Validators = map[string]string{}
@@ -364,7 +381,6 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 					
 					for _, val := range validators {
 						pubKey := hex.EncodeToString(val.PublicKey)
-						logger.Debugf("NetworINFOVals: %v, %v", pubKey, hex.EncodeToString(val.EddKey[:]))
 						// chain.NetworkInfo.Validators[pubKey] = val.LicenseOwner
 						chain.NetworkInfo.Validators[val.LicenseOwner] = "true"
 						chain.NetworkInfo.Validators[fmt.Sprintf("secp/%s/edd", pubKey)] = hex.EncodeToString(val.EddKey[:])
@@ -379,44 +395,16 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 				}
 			}
 
+			// if cfg.NoSync {
+			// 	chain.NetworkInfo.Synced = true
+			// }
 			chain.NetworkInfo.StartBlock = info.StartBlock
 			chain.NetworkInfo.StartTime = info.StartTime
 			chain.NetworkInfo.CurrentCycle = info.CurrentCycle
+			chain.NetworkInfo.CurrentBlock = info.CurrentBlock
+			// chain.NetworkInfo.CurrentEpoch = info.CurrentEpoch
 			chain.NetworkInfo.ActiveValidatorLicenseCount = info.ValidatorActiveLicenseCount.Uint64()
 			chain.NetworkInfo.ActiveSentryLicenseCount = info.SentryActiveLicenseCount.Uint64()
 			
 			return err
 }
-
-// func parserEvent(vLog types.Log, eventName string) {
-// 	event := stake.StakeStakeEvent{}
-// 	contractAbi, err := abi.JSON(strings.NewReader(string(stake.StakeMetaData.ABI)))
-
-// 	if err != nil {
-// 		logger.Fatal("contractAbi, err", err)
-// 	}
-// 	_err := contractAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
-// 	if _err != nil {
-// 		logger.Fatal("_err :  ", _err)
-// 	}
-
-// 	logger.Debugf("Event Account: %s", event.Account) // foo
-// 	logger.Debugf("Event Amount: %d", event.Amount)
-// 	logger.Debugf("Event Timestamp: %d",event.Timestamp)
-// }
-
-// var lobbyConn = []*websocket.Conn{}
-// var verifiedConn = []*websocket.Conn{}
-// func GenerateRegsitrationData(cfg *configs.MainConfiguration) {
-// 	regData := entities.RegisterationData{ChainId: "31337"}
-// 	regData.Timestamp = 1723776438802; // uint64(time.Now().UnixMilli())
-// 	// pkBig := new(big.Int).SetBytes(cfg.PublicKeySECP)
-// 	// if !ok {
-// 	// 	panic("Unable to generate big number")
-// 	// }
-// 	dHash := regData.GetHash()
-// 	logger.Debugf("DATAHHASH %s", new(big.Int).SetBytes(dHash))
-// 	//pk, _ := hex.DecodeString(cfg.PrivateKey)
-// 	signature, commitment, _ := regData.Sign(cfg.PrivateKeySECP)
-// 	logger.Debugf("RegData %s, %s, %s, %d, %s", hex.EncodeToString(signature),cfg.PrivateKey, hex.EncodeToString(commitment), regData.Timestamp, hex.EncodeToString(cfg.PublicKeySECP))
-// }

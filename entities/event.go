@@ -33,6 +33,8 @@ const (
 	WalletModel       EntityModel = "wal"
 )
 
+
+
 /*
 *
 Event paths define the unique path to an event and its relation to the entitie
@@ -113,6 +115,7 @@ func EventPathFromString(path string) *EventPath {
 	b := EntityPathFromString(path)
 	return &EventPath{EntityPath: *b}
 }
+
 func (eP EntityPath) GormDataType() string {
 	return "varchar"
 }
@@ -151,7 +154,7 @@ type Event struct {
 	// Primary
 	ID string `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
 
-	Payload           ClientPayload `json:"pld" gorm:"serializer:json" msgpack:",noinline"`
+	Payload           ClientPayload `json:"pld"  msgpack:",noinline"`
 	Nonce             string        `json:"nonce" gorm:"type:varchar(80);default:null" msgpack:",noinline"`
 	Timestamp         uint64        `json:"ts"`
 	EventType         uint16        `json:"t"`

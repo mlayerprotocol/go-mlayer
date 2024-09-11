@@ -29,7 +29,7 @@ type NodeHandshake struct {
 	Salt      string `json:"salt"`
 	Signature json.RawMessage        `json:"s"`
 	Signer    string        `json:"sigr"`
-	Synced  bool `json:"synced"`
+	LastSyncedBlock  json.RawMessage `json:"lSy"`
 	config 	*configs.MainConfiguration `json:"-" msgpack:"-"`
 }
 
@@ -46,7 +46,7 @@ func (hsd NodeHandshake) EncodeBytes() ([]byte, error) {
     return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: hsd.NodeType},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hsd.ChainId.Bytes()},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: hsd.Synced},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hsd.LastSyncedBlock},
         encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: hsd.Protocol},
         encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: hsd.Salt},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: hsd.Timestamp},

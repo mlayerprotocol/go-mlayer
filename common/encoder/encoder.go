@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -75,7 +74,7 @@ func EncodeBytes(args ...EncoderParam) (data []byte, err error) {
 	defer func() {
 		// recover from panic if one occurred. Set err to nil otherwise.
 		if pan := recover(); pan != nil {
-			err = errors.New(fmt.Sprintf("%v", pan))
+			logger.Errorf("encodbytes: %v", fmt.Errorf("%v", pan))
 		}
 	}()
 	m := make(map[int][]byte)

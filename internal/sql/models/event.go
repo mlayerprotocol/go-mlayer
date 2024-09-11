@@ -15,7 +15,7 @@ type DeleteEvent struct {
 }
 
 
-func GetModelFromModelType(modelType entities.EntityModel) (any) {
+func GetStateModelFromModelType(modelType entities.EntityModel) (any) {
 	var table any
 	switch modelType  {
 	case entities.TopicModel:
@@ -24,6 +24,22 @@ func GetModelFromModelType(modelType entities.EntityModel) (any) {
 		table = AuthorizationState{}
 	case entities.SubnetModel:
 		table = SubnetState{}
+	case entities.SubscriptionModel:
+		table = SubnetState{}
+	case entities.WalletModel:
+		table = WalletState{}
+	}
+	return table
+}
+func GetEventModelFromModelType(modelType entities.EntityModel) (any) {
+	var table any
+	switch modelType  {
+	case entities.TopicModel:
+		table = TopicEvent{}
+	case entities.AuthModel:
+		table = AuthorizationEvent{}
+	case entities.SubnetModel:
+		table = SubnetEvent{}
 	case entities.SubscriptionModel:
 		table = SubscriptionEvent{}
 	case entities.WalletModel:

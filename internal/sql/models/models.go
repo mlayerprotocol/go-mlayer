@@ -37,3 +37,16 @@ var Models = []interface{}{
 	
 	MigrationState{},
 }
+
+var SyncModels = []any{
+	SubnetEvent{},
+	SubnetState{},
+	 AuthorizationEvent{},
+	AuthorizationState{},
+	TopicEvent{},
+	TopicState{},
+	SubscriptionEvent{},
+	SubscriptionState{},
+	MessageEvent{},
+	MessageState{},
+}

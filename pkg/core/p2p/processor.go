@@ -6,8 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"math/big"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -18,11 +21,14 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto/schnorr"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
-	"github.com/mlayerprotocol/go-mlayer/pkg/core/db"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
+	"github.com/multiformats/go-multiaddr"
+	"github.com/quic-go/quic-go"
 	// rest "messagingprotocol/pkg/core/rest"
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
@@ -43,8 +49,9 @@ import (
 /***
 Publish Events to a specified p2p broadcast channel
 *****/
+var syncedBlockMutex sync.Mutex
 func publishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChannel *entities.Channel, mainCtx *context.Context) {
-	_, cancel := context.WithCancel(*mainCtx)
+	_, cancel := context.WithCancel(context.Background())
 	cfg, ok := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	
 	defer cancel()
@@ -119,13 +126,12 @@ func publishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChanne
 func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPubSubChannel *entities.Channel, mainCtx *context.Context, process func(event *entities.Event, ctx *context.Context)) {
 	// time.Sleep(5 * time.Second)
 	
-	_, cancel := context.WithCancel(*mainCtx)
+	_, cancel := context.WithCancel(context.Background())
 	
 	defer cancel()
 	
 	for {
 		if fromPubSubChannel == nil || fromPubSubChannel.Messages == nil {
-			logger.Debug("Channel is nil")
 			time.Sleep(1 * time.Second)
 			continue
 		}
@@ -194,8 +200,20 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 				return
 			}
 		}
+		go func() {
+			syncedBlockMutex.Lock()
+			defer syncedBlockMutex.Unlock()
+			if chain.NetworkInfo.Synced {
+				lastSynced, err := ds.GetLastSyncedBlock(mainCtx)
+				eventBlock := new(big.Int).SetUint64(event.BlockNumber)
+				if err == nil && lastSynced.Cmp(eventBlock) == -1 {
+					ds.SetLastSyncedBlock(mainCtx, eventBlock)
+				}
+			}
+		}()
 		go process(event, mainCtx)
 	}
+	logger.Debugf("Done processing event: %s", modelType)
 	// for {
 	// 	select {
 
@@ -266,12 +284,12 @@ type IState interface {
 }
 
 //process the payload based on the type of request
-func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (response *P2pPayload, err error) {
+func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, mustSign bool) (response *P2pPayload, err error) {
 	ctx := MainContext
 	
 	response = NewP2pPayload(config, P2pActionResponse, []byte{})
 	response.Id = payload.Id
-	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*db.Datastore)
+	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*ds.Datastore)
 	if !ok {
 		response.ResponseCode = 500
 		response.Error = "Internal error"
@@ -298,7 +316,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 				response.Error = err.Error()
 				}
 			} else {
-				d := models.GetModelFromModelType(eventPath.Model)
+				d := models.GetEventModelFromModelType(eventPath.Model)
 				result := []IState{}
 				states := []json.RawMessage{}
 				// states := query.GetMany(d, &result)
@@ -355,34 +373,45 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			}
 		case P2pActionSyncBlock:
 			
-			blocks := [][]byte{}
+			blocks := Range{}
 			encoder.MsgPackUnpackStruct(payload.Data, &blocks)
-			// cycleKey :=  fmt.Sprintf("%s/%d", response.Signer, batch.Cycle)
 	
-			// subnetList, err := eventCounterStore.Query(*ctx, dsQuery.Query{
-			// 	Prefix: cycleKey,
-			// })
-			
 			var buffer bytes.Buffer
-			models := []any{
-				models.SubnetEvent{},
-				models.SubnetState{},
-				models.AuthorizationEvent{},
-				models.AuthorizationState{},
-				models.TopicEvent{},
-				models.TopicState{},
-				models.SubscriptionEvent{},
-				models.SubscriptionState{},
-				models.MessageEvent{},
-				models.MessageState{},
-			}
-			fromBlock :=  new(big.Int).SetBytes(blocks[0])
-			toBlock :=  new(big.Int).SetBytes(blocks[1])
-			for _, m := range models {
-				// get events from each cycle
-				// block := new(big.Int).SetBytes(blockByte)
-				b, err := generateImportScript(m, fromBlock.Uint64(), toBlock.Uint64())
+			
+			
+			// fromBlock :=  new(big.Int).SetBytes(blocks.From)
+			// toBlock :=  new(big.Int).SetBytes(blocks.To)
+			var b []byte
+			// var where =  fmt.Sprintf("block_number >= %d AND block_number <= %d",  fromBlock.Uint64(), toBlock.Uint64())
+			var where ="1=1"
+			fileName := ""
+			for _, m := range models.SyncModels {
+				switch m.(type) {
+				case models.SubnetEvent:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.SubnetEvent{}, where, fileName, config )
+				case models.SubnetState:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.SubnetState{}, where, fileName, config )
+				case models.AuthorizationEvent:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.AuthorizationEvent{}, where, fileName, config )
+				case models.AuthorizationState:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.AuthorizationState{}, where, fileName, config )
+				case models.TopicEvent:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.TopicEvent{}, where, fileName, config )
+				case models.TopicState:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.TopicState{}, where, fileName, config )
+				case models.SubscriptionEvent:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.SubscriptionEvent{}, where, fileName, config )
+				case models.SubscriptionState:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.SubscriptionState{}, where, fileName, config )
+				case models.MessageEvent:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.MessageEvent{}, where, fileName, config )
+				case models.MessageState:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.MessageState{}, where, fileName, config )
+				default:
+					fmt.Println("Unknown type or not a struct")
+				}
 				if err != nil {
+					logger.Error("SQLERROR", err)
 					response.ResponseCode = 404
 					response.Error = "Event not found"
 					break
@@ -390,17 +419,15 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 				buffer.Write(b)
 				buffer.Write([]byte(":|"))
 			}
-				response.Data = buffer.Bytes()
-			//	logger.Debugf("FILEPATH: %s", sql)
+				response.Data, err = utils.CompressToGzip(buffer.Bytes())
+				if err != nil {
+					logger.Error("GZIP", err)
+					response.ResponseCode = 404
+					response.Error = err.Error()
+				}
 			
 		case P2pActionGetCommitment:
-			// logger.Debug("ReceivedCommitmentRequest")
-			// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
-			// if !ok {
-			// 	panic("Unable to load eventCounterStore")
-			// }
-			// TODO check if you own any of the next 20? licenses that should validate this, if you dont, no need to commit
-			
+
 			realBatch, err := entities.UnpackRewardBatch(payload.Data)
 			batchCopy := *realBatch
 			batch := &batchCopy
@@ -490,10 +517,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 	
 		case P2pActionGetSentryProof:
 			logger.Debug("ReceivedProoftRequest")
-			// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*db.Datastore)
-			// if !ok {
-			// 	panic("Unable to load eventCounterStore")
-			// }
+			
 			
 			sigData, err := entities.UnpackSignatureRequestData(payload.Data)
 			
@@ -533,25 +557,101 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload) (
 			// 2. Loop through the Data field and check your /validator/cycle/subnetId/{batchId} to get the last time a proof was requested
 			// 3. If this is less than 10 minutes ago, respond with error - proof requested too early
 			// 4. If non exists or most recent is more than 10 minutes
-			
+		case P2pActionGetCert:
+			certData := crypto.GetOrGenerateCert(ctx)
+			//cert, _ := hex.DecodeString(certData.Cert)
+			keyByte, _ := hex.DecodeString(certData.Key)
+			certByte, _ := hex.DecodeString(certData.Cert)
+			tlsConfig, _ :=  crypto.GenerateTLSConfig(keyByte, certByte)
+			response.Data = crypto.Keccak256Hash(tlsConfig.Certificates[0].Certificate[0])
+			response.Sign(config.PrivateKeyEDD)
 		default:
 			response.Error = "invalid action type"
 			response.ResponseCode = 400
 			
 	}
-	response.Sign(config.PrivateKeyEDD)
+	if mustSign && len(response.Signature) == 0 {
+		response.Sign(config.PrivateKeyEDD)
+	}
 	return response, err
 }
 
-func generateImportScript(model any, fromBlock uint64, toBlock uint64) ([]byte, error) {
+// func generateImportScript(model any, fromBlock uint64, toBlock uint64) ([]byte, error) {
 
-	sql, err := query.GenerateImportScript(sql.SqlDb, model, sql.SqlDb.Where("block_number >= ? AND block_number <= ?",  fromBlock, toBlock), "", config )
-				if err != nil {
-					logger.Debugf("SQLFILEERROR: %v", err)
-				}
-				d, err := utils.CompressToGzip(sql)
-				if err != nil {
-					return nil, err
-				}
-				return d, nil
+// 	sql, err := query.GenerateImportScript(sql.SqlDb, models.SubnetEvent{}, sql.SqlDb.Where("block_number >= ? AND block_number <= ?",  fromBlock, toBlock), "", config )
+// 				if err != nil {
+// 					logger.Debugf("SQLFILEERROR: %v", err)
+// 				}
+// 				d, err := utils.CompressToGzip(sql)
+// 				if err != nil {
+// 					return nil, err
+// 				}
+// 				return d, nil
+// }
+
+
+func HandleQuicConnection(ctx *context.Context, cfg *configs.MainConfiguration, connection quic.Connection) {
+	
+    stream, err := connection.AcceptStream(*ctx)
+	
+    if err != nil {
+        logger.Fatal(err)
+    }
+	defer stream.Close()
+	
+    // Read the client's request (the filename)
+    buf := make([]byte, 1024)
+	data := bytes.Buffer{}
+	for {
+		
+		n, err := stream.Read(buf)  // Read into the buffer
+		data.Write(buf[:n])
+		if n < len(buf) || n == 0 || err == io.EOF {
+			break  // End of file, stop reading
+		}
+		if err != nil  {
+			logger.Error(err)  // Handle error
+			return
+		}
+	}
+	
+	payload, err := UnpackP2pPayload(data.Bytes())
+	
+	if err != nil {
+			logger.Error(err)
+			return
+	}
+	if !payload.IsValid(cfg.ChainId) {
+		logger.Error(fmt.Errorf("HandleQuicConnection: invalid payload signature for action %d", payload.Action))
+		return
+	}
+	response, err := processP2pPayload(cfg, payload, false)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+    _, err = stream.Write(response.MsgPack())
+    if err != nil {
+        log.Fatalf("Failed to send file: %v", err)
+    }
+}
+
+func extractIP(maddr multiaddr.Multiaddr) (string, error) {
+	
+	// Extract the transport protocol and address parts
+	components := maddr.Protocols()
+
+	for _, component := range components {
+		// Check if the protocol is IP4, IP6, or DNS
+		if component.Name == "ip4" || component.Name == "ip6" || component.Name == "dns" {
+			// Extract the value for the IP or hostname
+			addrValue, err := maddr.ValueForProtocol(component.Code)
+			if err != nil {
+				return "", err
+			}
+			return addrValue, nil
+		}
+	}
+
+	return "", fmt.Errorf("no valid IP or DNS found in the multiaddress")
 }
