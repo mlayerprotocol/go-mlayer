@@ -62,7 +62,6 @@ jobs:
           GOOS: darwin
           GOARCH: amd64
           CGO_ENABLED: 0
-          CXX: "x86_64-linux-musl-g++"
       - name: Build iOS silicon
         run: |
           build_time=$(date "+%Y-%m-%d_%H:%M:%S")
@@ -71,14 +70,14 @@ jobs:
           GOOS: darwin
           GOARCH: arm64
           CGO_ENABLED: 0
-          CXX: "x86_64-linux-musl-g++"
       # - name: Test with the Go CLI
       #   run: go test
       - name: Archive binary
         run: |
-          cd ./build && tar -zcvf go-mlayer-${{ needs.create_release.outputs.ref }}-linux-amd64.tar.gz go-mlayer-linux-amd64 \
-          tar -zcvf go-mlayer-${{ needs.create_release.outputs.ref }}-ios-intel.tar.gz go-mlayer-ios-intel \
-          tar -zcvf go-mlayer-${{ needs.create_release.outputs.ref }}-ios-silicon.tar.gz go-mlayer-ios-silicon \
+          cd ./build
+          tar -zcvf go-mlayer-${{ needs.create_release.outputs.ref }}-linux-amd64.tar.gz go-mlayer-linux-amd64
+          tar -zcvf go-mlayer-${{ needs.create_release.outputs.ref }}-ios-intel.tar.gz go-mlayer-ios-intel
+          tar -zcvf go-mlayer-${{ needs.create_release.outputs.ref }}-ios-silicon.tar.gz go-mlayer-ios-silicon
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
