@@ -51,6 +51,8 @@ const (
 	KEYSTORE_PASSWORD         Flag = "keystore-password"
 	NO_SYNC         Flag = "no-sync"
 	SYNC_BATCH_SIZE         Flag = "sync-batch-size"
+	TESTNET_MODE         Flag = "testnet"
+	MAINNET_MODE         Flag = "mainnet"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -89,9 +91,17 @@ func init() {
 	daemonCmd.Flags().StringP(string(KEYSTORE_PASSWORD), "P", "", "password for decripting key store")
 	daemonCmd.Flags().BoolP(string(NO_SYNC), "n", false, "do not sync db")
 	daemonCmd.Flags().UintP(string(SYNC_BATCH_SIZE), "b", 100, "number of blocks within a sync request. Default 100")
+	daemonCmd.Flags().BoolP(string(TESTNET_MODE), "", true, "Run in testnet mode")
+	daemonCmd.Flags().BoolP(string(MAINNET_MODE), "", false, "Run in mainnet mode")
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {
+	testnet, _ := cmd.Flags().GetBool(string(TESTNET_MODE))
+	mainnet, _ := cmd.Flags().GetBool(string(MAINNET_MODE))
+	if mainnet {
+		testnet = false
+	}
+	configs.Init(testnet)
 	cfg := configs.Config
 	ctx := context.Background()
 

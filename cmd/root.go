@@ -60,14 +60,15 @@ func Execute(_version string, _releaseData string) {
 	}
 }
 
-func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
+// func init() {
+// 	// Here you will define your flags and configuration settings.
+// 	// Cobra supports persistent flags, which, if defined here,
+// 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.splanch.yaml)")
+// 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.splanch.yaml)")
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().StringP("version", "v", "", "Prints out the build version")
-}
+// 	// Cobra also supports local flags, which will only run
+// 	// when this action is called directly.
+// 	rootCmd.Flags().StringP("version", "v", "", "Prints out the build version")
+	
+// }

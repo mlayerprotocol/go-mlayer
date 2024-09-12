@@ -405,9 +405,9 @@ func Run(mainCtx *context.Context) {
 	fmt.Println("------------------------------- MLAYER -----------------------------------")
 	fmt.Println("- Licence Operator Public Key (SECP): ", hex.EncodeToString(cfg.PublicKeySECP))
 	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKey)
-	fmt.Println("- Host started with ID: ", Host.ID())
+	fmt.Println("- Host started with ID: ", Host.ID().String())
 	fmt.Println("- Host Network: ", p2pProtocolId)
-	fmt.Println("- Host Listening on: ", Host.Addrs())
+	fmt.Println("- Host MultiAddresses: ", GetMultiAddresses(Host))
 	fmt.Println("---------------------------------------------------------------------------")
 
 	// Subscrbers
