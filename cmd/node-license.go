@@ -77,7 +77,9 @@ var licenseRegisterCmd = &cobra.Command{
 
 func licenseListFunc(_cmd *cobra.Command, _args []string) {
 	cfg := configs.Config
-	cfg = injectPrivateKey(&cfg, _cmd)
+	dir, _ := _cmd.Flags().GetString(string(KEYSTORE_DIR))	
+	storeFilePath := getKeyStoreFilePath("account", dir)
+	cfg = injectPrivateKey(&cfg, _cmd, storeFilePath)
 	chain.RegisterProvider(
 		"31337", api.NewGenericAPI(),
 	)

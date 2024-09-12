@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"time"
 
@@ -160,8 +159,8 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		cfg.AddressPrefix = prefix
 	}
 	
-	
-	cfg = injectPrivateKey(&cfg, cmd)
+	dir, _ := cmd.Flags().GetString(string(KEYSTORE_DIR))	
+	cfg = injectPrivateKey(&cfg, cmd, getKeyStoreFilePath("account", dir))
 	if len(wsAddress) > 0 {
 		cfg.WSAddress = wsAddress
 	}
@@ -258,7 +257,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 
 }
 
-func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) configs.MainConfiguration {
+func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command, storeFilePath string ) configs.MainConfiguration {
 	operatorPrivateKey, _ := cmd.Flags().GetString(string(PRIVATE_KEY))
 	// if err != nil || len(operatorPrivateKey) == 0 {
 	// 	logger.Fatal("operators private_key is required. Use --private-key flag or environment var ML_PRIVATE_KEY")
@@ -268,6 +267,7 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) config
 	if pkFlagLen > 0 {
 		cfg.PrivateKey = operatorPrivateKey
 	}
+	
 	if len(cfg.PrivateKey) == 0 {
 		//check the keystore
 		password, _ := cmd.Flags().GetString(string(KEYSTORE_PASSWORD))
@@ -282,14 +282,14 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) config
 			}
 			password = string(inputPass)
 		}
-		ksDir, _ := cmd.Flags().GetString(string(KEYSTORE_DIR))
-		if len(ksDir) == 0 {
-			ksDir = cfg.KeyStoreDir
-		}
-		if len(ksDir) == 0 {
-			ksDir = filepath.Join(cfg.DataDir, "keystores")
-		}
-		privKey, err := loadPrivateKeyFromKeyStore(string(password), "account", ksDir)
+		// ksDir, _ := cmd.Flags().GetString(string(KEYSTORE_DIR))
+		// if len(ksDir) == 0 {
+		// 	ksDir = cfg.KeyStoreDir
+		// }
+		// if len(ksDir) == 0 {
+		// 	ksDir = filepath.Join(cfg.DataDir, "keystores")
+		// }
+		privKey, err := loadPrivateKeyFromKeyStore(string(password), storeFilePath)
 		if err != nil {
 			logger.Fatal(err)
 		}

@@ -38,8 +38,7 @@ jobs:
       - name: Build Linux
         run: |
           build_time=$(date "+%Y-%m-%d_%H:%M:%S")
-          mkdir ./build/goml-linux-amd64
-          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-linux-amd64/goml
+          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64/goml
         env:
           GOOS: linux
           GOARCH: amd64
@@ -48,8 +47,7 @@ jobs:
       - name: Build iOS intel
         run: |
           build_time=$(date "+%Y-%m-%d_%H:%M:%S")
-          mkdir ./build/goml-ios-intel
-          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-ios-intel/goml
+          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-${{ needs.extract_tag.outputs.ref }}-ios-intel/goml
         env:
           GOOS: darwin
           GOARCH: amd64
@@ -57,8 +55,7 @@ jobs:
       - name: Build iOS silicon
         run: |
           build_time=$(date "+%Y-%m-%d_%H:%M:%S")
-          mkdir ./build/goml-ios-silicon
-          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-ios-silicon/goml
+          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon/goml
         env:
           GOOS: darwin
           GOARCH: arm64
@@ -68,9 +65,9 @@ jobs:
       - name: Archive binary
         run: |
           cd ./build
-          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64.tar.gz goml-linux-amd64
-          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-ios-intel.tar.gz goml-ios-intel
-          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon.tar.gz goml-ios-silicon
+          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64.tar.gz goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64
+          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-ios-intel.tar.gz goml-${{ needs.extract_tag.outputs.ref }}-ios-intel
+          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon.tar.gz goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon
       - name: Create Release
         id: create_release_step
         uses: actions/create-release@v1

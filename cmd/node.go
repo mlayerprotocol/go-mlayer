@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -166,7 +165,9 @@ func saveKey(privateKey []byte, storeFilePath string) ([]byte, error) {
 	
 	keyData := map[string]interface{}{"s": hex.EncodeToString(salt), "c":hex.EncodeToString(cypher)}
 	err = utils.WriteJSONToFile(storeFilePath, keyData)
-	fmt.Println("Initializing keystore...", err, storeFilePath)
+	if err != nil {
+		fmt.Println(formatError(err.Error()))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -232,15 +233,15 @@ func getKeyStoreFilePath(keystoreName string, ksPath string) (string) {
 	return fmt.Sprintf("%s/%s.json", ksPath, keystoreName)
 }
 
-func loadPrivateKeyFromKeyStore(password string, name string, ksPath string) ([]byte, error) {
-	path := filepath.Join(ksPath, ".goml", fmt.Sprintf("%s.json", name))
-	if !strings.HasPrefix(path, "./") && !strings.HasPrefix(path, "../") && !filepath.IsAbs(ksPath) {
-		path = "./" + path
-		if strings.HasPrefix(ksPath, "../") {
-			path = "." + path
-		}
-	}
-	store, err := utils.ReadJSONFromFile(path)
+func loadPrivateKeyFromKeyStore(password string, ksPath string) ([]byte, error) {
+	// path := filepath.Join(ksPath, ".goml", fmt.Sprintf("%s.json", name))
+	// if !strings.HasPrefix(path, "./") && !strings.HasPrefix(path, "../") && !filepath.IsAbs(ksPath) {
+	// 	path = "./" + path
+	// 	if strings.HasPrefix(ksPath, "../") {
+	// 		path = "." + path
+	// 	}
+	// }
+	store, err := utils.ReadJSONFromFile(ksPath)
 	if err != nil {
 		return nil, err
 	}
@@ -263,8 +264,9 @@ func loadPrivateKeyFromKeyStore(password string, name string, ksPath string) ([]
 // Import your private key or mnemonic
 func licenseRegisterFunc(_cmd *cobra.Command, _args []string) {
 	cfg := configs.Config
-	
-	cfg = injectPrivateKey(&cfg, _cmd)
+	dir, _ := _cmd.Flags().GetString(string(KEYSTORE_DIR))	
+	storeFilePath := getKeyStoreFilePath("account", dir)
+	cfg = injectPrivateKey(&cfg, _cmd, storeFilePath)
 	regData := entities.RegisterationData{
 		ChainId: cfg.ChainId,
 		Timestamp: uint64(time.Now().UnixMilli()),
