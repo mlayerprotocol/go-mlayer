@@ -130,6 +130,7 @@ type MainConfiguration struct {
 	NoSync bool 
 	Context *context.Context
 	SyncBatchSize uint
+	TestMode bool
 
 }
 
