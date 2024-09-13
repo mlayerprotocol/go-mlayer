@@ -22,7 +22,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/multiformats/go-multiaddr"
 	"github.com/quic-go/quic-go"
 
 	// "github.com/mlayerprotocol/go-mlayer/entities"
@@ -168,28 +167,28 @@ func Start(mainCtx *context.Context) {
 	}()
 
 	// load data
-	wg.Add(1)
-	go func() {
-		_, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		defer wg.Done()
-		time.Sleep(5 * time.Second)
-		// p2p.SyncNode(cfg, "154.12.228.25:9533", "57ba26ca619898bd6fa73c859918e7c9272d5cc7f7226d97ed5bec2d2787973b")
-		certPayload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetCert, []byte{'0'})
-		// err := certPayload.Sign(cfg.PrivateKeyEDD)
-		// if err != nil {
-		// 	logger.Error(err)
-		// }
-		addr, err := multiaddr.NewMultiaddr("/ip4/154.12.228.25/tcp/6001/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in")
-		if err != nil {
-			logger.Error(err)
-		}
-		certResponse, err := certPayload.SendRequestToAddress(cfg.PrivateKeyEDD, addr, p2p.DataRequest )
-		if err != nil {
-			logger.Error(err)
-		}
-		logger.Debugf("RESPONSEEEEE: %d", certResponse.Action)
-	}()
+	// wg.Add(1)
+	// go func() {
+	// 	_, cancel := context.WithCancel(context.Background())
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	time.Sleep(5 * time.Second)
+	// 	// p2p.SyncNode(cfg, "154.12.228.25:9533", "57ba26ca619898bd6fa73c859918e7c9272d5cc7f7226d97ed5bec2d2787973b")
+	// 	certPayload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetCert, []byte{'0'})
+	// 	// err := certPayload.Sign(cfg.PrivateKeyEDD)
+	// 	// if err != nil {
+	// 	// 	logger.Error(err)
+	// 	// }
+	// 	addr, err := multiaddr.NewMultiaddr("/ip4/154.12.228.25/tcp/6001/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in")
+	// 	if err != nil {
+	// 		logger.Error(err)
+	// 	}
+	// 	certResponse, err := certPayload.SendRequestToAddress(cfg.PrivateKeyEDD, addr, p2p.DataRequest )
+	// 	if err != nil {
+	// 		logger.Error(err)
+	// 	}
+	// 	logger.Debugf("RESPONSEEEEE: %d", certResponse.Action)
+	// }()
 
 	wg.Add(1)
 	go func() {
