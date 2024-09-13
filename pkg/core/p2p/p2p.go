@@ -827,7 +827,7 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 		}
 		
 		go handleSync(syncStream)
-		logger.Debug("NewConnectionFromPeer: %s", pairAddr.ID)
+		logger.Debugf("NewConnectionFromPeer: %s", pairAddr.ID)
 		// _, pub, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
 		//time.Sleep(5 * time.Second)
 		// peerID, _ := peer.IDFromPublicKey(pub)
