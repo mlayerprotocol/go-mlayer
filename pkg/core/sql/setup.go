@@ -10,10 +10,10 @@ import (
 	config "github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql/migration"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql/sqlite"
 	"github.com/mlayerprotocol/go-mlayer/pkg/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	dbLogger "gorm.io/gorm/logger"
 )
@@ -39,14 +39,15 @@ func InitializeDb(driver Driver, dsn string) (*gorm.DB, error) {
 	case MySQL:
 		dialect = mysql.Open(dsn)
 	default:
-		dialect = sqlite.Open(dsn)
+		// dialect = sqlite.Open(dsn)
+		dialect = sqlite.NewSQLiteDialector(dsn)
 	}
 	SqlDb, err := gorm.Open(dialect, &gorm.Config{
 		Logger: dbLogger.Default.LogMode(logLevel()),
 	})
 
 	if err != nil {
-		return nil, err
+		logger.Fatal(err)
 	}
 	
 	if driver == "sqlite" {

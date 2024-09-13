@@ -26,7 +26,7 @@ import (
 func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *context.Context) (model S, err error) {
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !strings.EqualFold(utils.AddressToHex(payload.Validator), utils.AddressToHex(cfg.OwnerAddress.String())) {
-		return nil, apperror.Forbidden("Validator not authorized to procces this request")
+		return nil, apperror.Forbidden(fmt.Sprintf("Validator (%s) not authorized to procces this request", cfg.OwnerAddress.String()))
 	}
 
 	

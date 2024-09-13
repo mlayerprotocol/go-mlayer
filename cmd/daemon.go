@@ -53,6 +53,9 @@ const (
 	SYNC_BATCH_SIZE         Flag = "sync-batch-size"
 	TESTNET_MODE         Flag = "testnet"
 	MAINNET_MODE         Flag = "mainnet"
+	VALIDATOR_MODE         Flag = "validator"
+	SENTRY_MODE         Flag = "sentry"
+	ARCHIVE_MODE         Flag = "archive"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -81,7 +84,7 @@ func init() {
 	rootCmd.AddCommand(daemonCmd)
 	daemonCmd.Flags().StringP(string(NETWORK_ADDRESS_PRFIX), "p", "", "The network address prefix. This determines the operational network e.g. ml=>mainnet, mldev=>devnet,mltest=>testnet")
 	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "k", "", "The deligated operators private key. This is the key used to sign handshakes and messages. The coresponding public key must be assigned to the validator")
-	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "v", constants.DefaultProtocolVersion, "Protocol version")
+	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "", constants.DefaultProtocolVersion, "Protocol version")
 	daemonCmd.Flags().StringP(string(RPC_PORT), "r", constants.DefaultRPCPort, "RPC server port")
 	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", constants.DefaultWebSocketAddress, "ws service address")
 	daemonCmd.Flags().StringP(string(REST_ADDRESS), "R", constants.DefaultRestAddress, "rest api service address")
@@ -93,6 +96,7 @@ func init() {
 	daemonCmd.Flags().UintP(string(SYNC_BATCH_SIZE), "b", 100, "number of blocks within a sync request. Default 100")
 	daemonCmd.Flags().BoolP(string(TESTNET_MODE), "", true, "Run in testnet mode")
 	daemonCmd.Flags().BoolP(string(MAINNET_MODE), "", false, "Run in mainnet mode")
+	daemonCmd.Flags().BoolP(string(VALIDATOR_MODE), "v", false, "Run as validator")
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {
@@ -121,6 +125,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		chain.RegisterProvider(
 			"84532", ethAPI,
 		)
+		
 		// chain.DefaultProvider = chain.Network.Default()
 		ownerAddress, _ := hex.DecodeString(constants.ADDRESS_ZERO)
 		if cfg.Validator {
@@ -226,6 +231,11 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	
 	if len(listeners) > 0 {
 		cfg.ListenerAdresses = listeners
+	}
+
+	validator, _ := cmd.Flags().GetBool(string(VALIDATOR_MODE))	
+	if validator  {
+		cfg.Validator = true
 	}
 
 	
