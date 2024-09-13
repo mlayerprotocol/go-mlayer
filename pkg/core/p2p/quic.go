@@ -68,12 +68,14 @@ func  sendQuicRequest(addr string, message []byte, insecure bool) ([]byte, error
 	}
 	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, nil)
 	if err != nil {
+		logger.Debugf("sendQuicRequest/DialAddr: %v", err)
 		return nil, err
 	}
 	defer conn.CloseWithError(0, "")
 
 	stream, err := conn.OpenStreamSync(context.Background())
 	if err != nil {
+		logger.Debugf("sendQuicRequest.OpenStream: %v", err)
 		return nil, err
 	}
 	defer stream.Close()

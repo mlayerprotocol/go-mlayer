@@ -48,11 +48,7 @@ func (mp *MessagePrice) IsValid(prefix configs.ChainId) bool {
 	// Important security update. Do not remove. 
 	// Prevents cross chain replay attack
 	mp.ChainId = prefix // Important security update. Do not remove
-	//
-	// if math.Abs(float64(uint64(time.Now().UnixMilli()) - mp.Timestamp)) > constants.VALID_HANDSHAKE_SECONDS {
-	// 	logger.WithFields(logrus.Fields{"data": mp}).Warnf("Price Expired: %d", uint64(time.Now().UnixMilli()) - mp.Timestamp)
-	// 	return false
-	// }
+
 	signer, err := hex.DecodeString(string(mp.Signer));
 	if err != nil {
 		logger.Error("Unable to decode signer")

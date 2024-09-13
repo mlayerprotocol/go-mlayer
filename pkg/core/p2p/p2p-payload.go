@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
@@ -95,9 +94,10 @@ func (nma * P2pPayload) IsValid(chainId configs.ChainId) bool {
 		return false
 	}
 	nma.ChainId = chainId  // Important security update. Do not remove
-	//
-	if math.Abs(float64(uint64(time.Now().UnixMilli()) - nma.Timestamp)) > float64(15 * time.Second.Milliseconds()) {
-		logger.WithFields(logrus.Fields{"data": nma}).Warnf("P2pPayload: Expired -> %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
+	now := uint64(time.Now().UnixMilli())
+	
+	if utils.Abs(now, nma.Timestamp) > uint64(15 * time.Second.Milliseconds()) {
+		logger.WithFields(logrus.Fields{"data": nma}).Debugf("P2pPayload: Expired -> %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
 		return false
 	}
 	// signer, err := hex.DecodeString(string(nma.Signer));
@@ -162,6 +162,7 @@ func (p *P2pPayload) SendQuicSyncRequest(hostAddress string, validSigner entitie
 	p.Action = P2pActionSyncBlock
 	p.Sign(p.config.PrivateKeyEDD)
 	// addr := "127.0.0.1:9533"
+	logger.Debugf("Sending quic request to: %s", hostAddress)
 	data, err := SendSecureQuicRequest(p.config, hostAddress, validSigner, p.MsgPack())
 	if err != nil {
 		return nil, err
