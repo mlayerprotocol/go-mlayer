@@ -56,6 +56,7 @@ const (
 	VALIDATOR_MODE         Flag = "validator"
 	SENTRY_MODE         Flag = "sentry"
 	ARCHIVE_MODE         Flag = "archive"
+	TEST_MODE         Flag = "testing"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -97,6 +98,7 @@ func init() {
 	daemonCmd.Flags().BoolP(string(TESTNET_MODE), "", true, "Run in testnet mode")
 	daemonCmd.Flags().BoolP(string(MAINNET_MODE), "", false, "Run in mainnet mode")
 	daemonCmd.Flags().BoolP(string(VALIDATOR_MODE), "v", false, "Run as validator")
+	daemonCmd.Flags().BoolP(string(TEST_MODE), "", false, "Run test functions")
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {
@@ -199,7 +201,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		cfg.DataDir = dataDir
 	}
 
-	
+	cfg.TestMode, _ = cmd.Flags().GetBool(string(TEST_MODE))
 	
 
 	if len(cfg.SQLDB.DbStoragePath) == 0 {
