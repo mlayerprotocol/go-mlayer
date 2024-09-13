@@ -106,6 +106,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		testnet = false
 	}
 	configs.Init(testnet)
+	log.Initialize()
 	cfg := configs.Config
 	ctx := context.Background()
 

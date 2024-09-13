@@ -18,5 +18,4 @@ jobs:
           password: ${{ secrets.SSH_PASS }}
 
           script: |
-            KEYSTORE_PASSWORD="999999"
-            ./mlayer-deploy_v2.sh "$KEYSTORE_PASSWORD"
+            ./mlayer-deploy_v2.sh
