@@ -7,6 +7,8 @@ import (
 
 
  func AddClaimedFieldToEventCount(db *gorm.DB) (err error) {
-	err = db.Migrator().AddColumn(&models.EventCounter{}, "Claimed")
+	if !db.Migrator().HasColumn(&models.EventCounter{}, "Claimed") {
+		err = db.Migrator().AddColumn(&models.EventCounter{}, "Claimed")
+	}
 	return err
  }
