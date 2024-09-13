@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/mlayerprotocol/go-mlayer/configs"
@@ -17,7 +18,7 @@ const (
 
 var Logger = *log.New()
 
-func init() {
+func Initialize() {
 	c := configs.Config
 	Logger.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
@@ -25,6 +26,7 @@ func init() {
 	if c.LogLevel == "" {
 		c.LogLevel = "info"
 	}
+	fmt.Println("LOGLEVEVVVV", c.LogLevel)
 	Logger.SetOutput(os.Stdout) // load from config file
 	level, _ := log.ParseLevel(c.LogLevel)
 	Logger.SetLevel(level)

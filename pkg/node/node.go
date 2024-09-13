@@ -167,14 +167,14 @@ func Start(mainCtx *context.Context) {
 	}()
 
 	// load data
-	// wg.Add(1)
-	// go func() {
-	// 	_, cancel := context.WithCancel(context.Background())
-	// 	defer cancel()
-	// 	defer wg.Done()
-	// 	time.Sleep(5 * time.Second)
-	// 	p2p.SyncNode(cfg, cfg.QuicHost, hex.EncodeToString(cfg.PublicKeyEDD))
-	// }()
+	wg.Add(1)
+	go func() {
+		_, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		defer wg.Done()
+		time.Sleep(5 * time.Second)
+		p2p.SyncNode(cfg, cfg.QuicHost, hex.EncodeToString(cfg.PublicKeyEDD))
+	}()
 
 	wg.Add(1)
 	go func() {

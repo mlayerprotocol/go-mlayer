@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -23,6 +24,27 @@ type IpfsConfig struct {
 	ProjectSecret string `toml:"ipfs_password"`
 }
 
+
+func copyStructValues(src, dst interface{}) error {
+	srcVal := reflect.ValueOf(src)
+	dstVal := reflect.ValueOf(dst).Elem()
+
+	if srcVal.Kind() != reflect.Struct || dstVal.Kind() != reflect.Struct {
+		return fmt.Errorf("input types must be structs")
+	}
+
+	for i := 0; i < srcVal.NumField(); i++ {
+		fieldName := srcVal.Type().Field(i).Name
+		srcField := srcVal.Field(i)
+		dstField := dstVal.FieldByName(fieldName)
+
+		if dstField.IsValid() && dstField.CanSet() && srcField.Type() == dstField.Type() {
+			dstVal.FieldByName(fieldName).Set(srcField)
+		}
+	}
+
+	return nil
+}
 type EthConfig struct {
 	Name string  `toml:"name"`
 	Http  string `toml:"http"`
@@ -157,12 +179,17 @@ func initViper() *viper.Viper {
 func LoadConfig(testnet bool) (*MainConfiguration, error) {
 	var config MainConfiguration
 
-	
+	if testnet {
+		config =  TestNetConfig
+	} else {
+		config = MainNetConfig
+	}
 
 	// Try loading the configuration file from the possible paths
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {
-			if _, err := toml.DecodeFile(path, &config); err != nil {
+			configData := MainConfiguration{}
+			if _, err := toml.DecodeFile(path, &configData); err != nil {
 				fmt.Println(fmt.Errorf("invalid config file: %s", path))
 				panic(err)
 				//return nil, fmt.Errorf("failed to decode config file %s: %w", path, err)
@@ -170,15 +197,13 @@ func LoadConfig(testnet bool) (*MainConfiguration, error) {
 			log.Infof("Loaded configuration from: %s",path)
 			// Override with environment variables
 			// kong.Parse(&config)
+			if err = copyStructValues(configData, &config); err != nil {
+				panic(err)
+			}
 			
-			return &config, nil
 		}
 	}
-	if testnet {
-		return &TestNetConfig, nil
-	} else {
-		return &MainNetConfig, nil
-	}
+	return &config, nil
 	// return nil, fmt.Errorf("no valid configuration file found in paths: %v", possiblePaths)
 }
 func Init(testnet bool) *MainConfiguration {

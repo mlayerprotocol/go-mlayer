@@ -284,6 +284,7 @@ func Run(mainCtx *context.Context) {
 				pi, _ := peer.AddrInfoFromP2pAddr(addr)
 				bootstrapPeers = append(bootstrapPeers, *pi)
 			}
+			
 			var dhtOptions []dht.Option
 			dhtOptions = append(dhtOptions,
 				dht.BootstrapPeers(bootstrapPeers...),
@@ -319,12 +320,12 @@ func Run(mainCtx *context.Context) {
 			// }
 			// dhtOptions = append(dhtOptions, dht.NamespacedValidator("subsc", customValidator))
 
-			//if cfg.BootstrapNode {
+			if cfg.BootstrapNode {
 			if err = kdht.Bootstrap(ctx); err != nil {
 				logger.Fatalf("Error starting bootstrap node %o", err)
 				return nil, err
 			}
-			// }
+			}
 
 			idht = kdht
 
@@ -584,19 +585,19 @@ func handleHandshake(stream network.Stream) {
 }
 
 // sync block range
-func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer string, _range Range) {
+func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer string, _range Range) error {
 		packedRange, _ := encoder.MsgPackStruct(_range) 
 		payload := NewP2pPayload(cfg, P2pActionSyncBlock, packedRange )
 		resp, err := payload.SendQuicSyncRequest(hostQuicAddress, entities.PublicKeyString(signer))
 		if err != nil || resp == nil{
 			logger.Error(err)
-			return
+			return err
 		}
 		if len(resp.Error) == 0 {
 		data, err := utils.DecompressGzip(resp.Data)
 		if err != nil {
 			logger.Error(err)
-			return
+			return err
 		}
 		 parts := bytes.Split(data, []byte(":|"))
 		 for _, part := range parts {
@@ -619,7 +620,8 @@ func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer s
 					if i==len(b.Data)-1 || i+1 % batchSize == 0 {
 						err := query.ImportDataPostgres(cfg, b.Table, strings.Split(b.Columns, ","), postgresData)
 						if err != nil {
-							logger.Fatal(err)
+							logger.Error(err)
+							return err
 						}
 						postgresData = [][]string{}
 					}
@@ -634,7 +636,8 @@ func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer s
 							return tx.Exec(query).Error
 						})
 						if err != nil {
-							logger.Fatal(err)
+							logger.Error(err)
+							return err
 						}
 						values = ""
 					}
@@ -642,6 +645,7 @@ func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer s
 			}
 		   }
 		 }
+		 return nil
 }
 
 func SyncNode(cfg *configs.MainConfiguration, hostQuicAddress string, pubKey string) error {
@@ -673,8 +677,11 @@ func SyncNode(cfg *configs.MainConfiguration, hostQuicAddress string, pubKey str
 				From: big.NewInt(from).Bytes(),
 				To:  big.NewInt(from+batchSize).Bytes(),
 			}
-			syncBlocks(cfg, hostQuicAddress,pubKey, _range)
-			
+			err := syncBlocks(cfg, hostQuicAddress,pubKey, _range)
+			if err != nil {
+				logger.Fatal(err)
+				panic(err)
+			}
 			ds.SetLastSyncedBlock(MainContext, new(big.Int).SetBytes(_range.To) )
 			logger.Debugf("Synced blocks %s to %s",  new(big.Int).SetBytes(_range.From), new(big.Int).SetBytes(_range.To))
 	}
