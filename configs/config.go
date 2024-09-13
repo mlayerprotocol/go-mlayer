@@ -126,7 +126,9 @@ var possiblePaths = []string{
 	"$HOME/.mlayer/config",
 }
 
-func Init() *viper.Viper {
+func initViper() *viper.Viper {
+	
+	
 	v := viper.New()
 	v.AutomaticEnv()
 	v.SetEnvPrefix("ml")
@@ -147,12 +149,12 @@ func Init() *viper.Viper {
 	v.SetDefault("db_max_conn_lifetime_seconds", 120)
 	return v
 }
-func init() {
-	c := LoadMainConfig()
+// func init() {
+// 	c := LoadMainConfig(true)
 	
-	Config = *c
-}
-func LoadConfig() (*MainConfiguration, error) {
+// 	Config = *c
+// }
+func LoadConfig(testnet bool) (*MainConfiguration, error) {
 	var config MainConfiguration
 
 	
@@ -172,12 +174,16 @@ func LoadConfig() (*MainConfiguration, error) {
 			return &config, nil
 		}
 	}
-	
-	return nil, fmt.Errorf("no valid configuration file found in paths: %v", possiblePaths)
+	if testnet {
+		return &TestNetConfig, nil
+	} else {
+		return &MainNetConfig, nil
+	}
+	// return nil, fmt.Errorf("no valid configuration file found in paths: %v", possiblePaths)
 }
-func LoadMainConfig() *MainConfiguration {
-	v := Init()
-	parsed, _ := LoadConfig()
+func Init(testnet bool) *MainConfiguration {
+	v := initViper()
+	parsed, _ := LoadConfig(testnet)
 	m, err := json.Marshal(parsed)
 	d := make(map[string]interface{})
 	json.Unmarshal(m, &d)
@@ -203,6 +209,6 @@ func LoadMainConfig() *MainConfiguration {
 		c.DataDir = v.GetString("data_dir") // needed to load from environment var
 	}
 
-	
+	Config = c
 	return &c
 }

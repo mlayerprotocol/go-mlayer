@@ -112,6 +112,7 @@ func Start(mainCtx *context.Context) {
 	// 	// go client.ListenForNewTopicEventFromPubSub(&ctx)
 	//  }()
 
+	// distribute message to event listeners and topic subscribers
 	wg.Add(1)
 	go func() {
 		_, cancel := context.WithCancel(context.Background())
@@ -268,96 +269,98 @@ func Start(mainCtx *context.Context) {
 	// }()
 
 	// start the RPC server
-	wg.Add(1)
-	go func() {
-		_, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		defer wg.Done()
-		rpc.Register(rpcServer.NewRpcService(&ctx))
-		rpc.HandleHTTP()
-		host :=  cfg.RPCHost
-		if host == "" {
-			host = "127.0.0.1"
-		}
-		listener, err := net.Listen("tcp", host+":"+cfg.RPCPort)
-		if err != nil {
-			logger.Fatal("RPC failed to listen on TCP port: ", err)
-		}
-		defer listener.Close()
-		logger.Debugf("RPC server runing on: %+s", host+":"+cfg.RPCPort)
-		go http.Serve(listener, nil)
-		time.Sleep(time.Second) 
-		sendHttp := rpcServer.NewHttpService(&ctx)
-		err = sendHttp.Start(cfg.RPCPort)
-		if err != nil {
-			logger.Fatal("Http error: ", err)
-		}
-	}()
-
-	wg.Add(1)
-	// starting quick server
-	go func() {
-		_, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		defer wg.Done()
-		if !cfg.Validator {
-			return
-		}
-		// get the certificate from store
-		
-		cd := crypto.GetOrGenerateCert(&ctx)
-		keyByte, _ := hex.DecodeString(cd.Key)
-		certByte, _ := hex.DecodeString(cd.Cert)
-		tlsConfig, err :=  crypto.GenerateTLSConfig(keyByte, certByte)
-		if err != nil {
-			logger.Fatal("QuicTLSError", err)
-		}
-		listener, err := quic.ListenAddr(cfg.QuicHost, tlsConfig, nil)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		defer listener.Close()
+	if cfg.Validator {
+		wg.Add(1)
+		go func() {
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer wg.Done()
+			rpc.Register(rpcServer.NewRpcService(&ctx))
+			rpc.HandleHTTP()
+			host :=  cfg.RPCHost
+			if host == "" {
+				host = "127.0.0.1"
+			}
+			listener, err := net.Listen("tcp", host+":"+cfg.RPCPort)
+			if err != nil {
+				logger.Fatal("RPC failed to listen on TCP port: ", err)
+			}
+			defer listener.Close()
+			logger.Debugf("RPC server runing on: %+s", host+":"+cfg.RPCPort)
+			go http.Serve(listener, nil)
+			time.Sleep(time.Second) 
+			sendHttp := rpcServer.NewHttpService(&ctx)
+			err = sendHttp.Start(cfg.RPCPort)
+			if err != nil {
+				logger.Fatal("Http error: ", err)
+			}
+		}()
 		
 
-		for {
-			connection, err := listener.Accept(ctx)
+		wg.Add(1)
+		// starting quick server
+		go func() {
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer wg.Done()
+			if !cfg.Validator {
+				return
+			}
+			// get the certificate from store
+			
+			cd := crypto.GetOrGenerateCert(&ctx)
+			keyByte, _ := hex.DecodeString(cd.Key)
+			certByte, _ := hex.DecodeString(cd.Cert)
+			tlsConfig, err :=  crypto.GenerateTLSConfig(keyByte, certByte)
+			if err != nil {
+				logger.Fatal("QuicTLSError", err)
+			}
+			listener, err := quic.ListenAddr(cfg.QuicHost, tlsConfig, nil)
 			if err != nil {
 				logger.Fatal(err)
 			}
-			go p2p.HandleQuicConnection(&ctx, cfg, connection)
-		}
-	}()
+			defer listener.Close()
+			
 
-	// start the websocket server
-	wg.Add(1)
-	go func() {
-		_, cancel := context.WithCancel(context.Background())
-		logger.Debugf("Starting Websocket server on: %s", cfg.WSAddress)
-		defer cancel()
-		defer wg.Done()
-		wss := ws.NewWsService(&ctx)
-		logger.Debugf("WsAddress: %s\n", cfg.WSAddress)
-		http.HandleFunc("/echo", wss.ServeWebSocket)
+			for {
+				connection, err := listener.Accept(ctx)
+				if err != nil {
+					logger.Fatal(err)
+				}
+				go p2p.HandleQuicConnection(&ctx, cfg, connection)
+			}
+		}()
 
-		logger.Fatal(http.ListenAndServe(cfg.WSAddress, nil))
-	}()
+		// start the websocket server
+		wg.Add(1)
+		go func() {
+			_, cancel := context.WithCancel(context.Background())
+			logger.Debugf("Starting Websocket server on: %s", cfg.WSAddress)
+			defer cancel()
+			defer wg.Done()
+			wss := ws.NewWsService(&ctx)
+			logger.Debugf("WsAddress: %s\n", cfg.WSAddress)
+			http.HandleFunc("/echo", wss.ServeWebSocket)
 
-	wg.Add(1)
-	// start the REST server
-	go func() {
-		_, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		defer wg.Done()
-		rest := rest.NewRestService(&ctx)
+			logger.Fatal(http.ListenAndServe(cfg.WSAddress, nil))
+		}()
 
-		router := rest.Initialize()
-		logger.Debugf("Starting REST api on: %s", cfg.RestAddress)
-		err := router.Run(cfg.RestAddress)
-		logger.Fatal(err)
-	
-	}()
+		wg.Add(1)
+		// start the REST server
+		go func() {
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer wg.Done()
+			rest := rest.NewRestService(&ctx)
+
+			router := rest.Initialize()
+			logger.Debugf("Starting REST api on: %s", cfg.RestAddress)
+			err := router.Run(cfg.RestAddress)
+			logger.Fatal(err)
+		
+		}()
+	}
 }
-
 func loadChainInfo(cfg *configs.MainConfiguration) error {
 	
 	info, err := chain.Provider(cfg.ChainId).GetChainInfo()

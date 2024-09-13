@@ -403,11 +403,17 @@ func Run(mainCtx *context.Context) {
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
 	fmt.Println("------------------------------- MLAYER -----------------------------------")
+	fmt.Println("- Server Mode: ", utils.IfThenElse(config.Validator, "Validator", "Sentry/Archive"))
 	fmt.Println("- Licence Operator Public Key (SECP): ", hex.EncodeToString(cfg.PublicKeySECP))
 	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKey)
-	fmt.Println("- Host started with ID: ", Host.ID())
+	fmt.Println("- Host started with ID: ", Host.ID().String())
 	fmt.Println("- Host Network: ", p2pProtocolId)
-	fmt.Println("- Host Listening on: ", Host.Addrs())
+	fmt.Println("- Host MultiAddresses: ", GetMultiAddresses(Host))
+	if cfg.Validator {
+		fmt.Println("- RPC server started on: ", cfg.RPCHost+":"+cfg.RPCPort)
+		fmt.Println("- HTTP/REST server started on: ", cfg.RestAddress)
+		fmt.Println("- QUIC server started on: ", cfg.QuicHost)
+	}
 	fmt.Println("---------------------------------------------------------------------------")
 
 	// Subscrbers

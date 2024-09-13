@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"time"
 
@@ -52,6 +51,11 @@ const (
 	KEYSTORE_PASSWORD         Flag = "keystore-password"
 	NO_SYNC         Flag = "no-sync"
 	SYNC_BATCH_SIZE         Flag = "sync-batch-size"
+	TESTNET_MODE         Flag = "testnet"
+	MAINNET_MODE         Flag = "mainnet"
+	VALIDATOR_MODE         Flag = "validator"
+	SENTRY_MODE         Flag = "sentry"
+	ARCHIVE_MODE         Flag = "archive"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -80,7 +84,7 @@ func init() {
 	rootCmd.AddCommand(daemonCmd)
 	daemonCmd.Flags().StringP(string(NETWORK_ADDRESS_PRFIX), "p", "", "The network address prefix. This determines the operational network e.g. ml=>mainnet, mldev=>devnet,mltest=>testnet")
 	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "k", "", "The deligated operators private key. This is the key used to sign handshakes and messages. The coresponding public key must be assigned to the validator")
-	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "v", constants.DefaultProtocolVersion, "Protocol version")
+	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "", constants.DefaultProtocolVersion, "Protocol version")
 	daemonCmd.Flags().StringP(string(RPC_PORT), "r", constants.DefaultRPCPort, "RPC server port")
 	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", constants.DefaultWebSocketAddress, "ws service address")
 	daemonCmd.Flags().StringP(string(REST_ADDRESS), "R", constants.DefaultRestAddress, "rest api service address")
@@ -90,9 +94,18 @@ func init() {
 	daemonCmd.Flags().StringP(string(KEYSTORE_PASSWORD), "P", "", "password for decripting key store")
 	daemonCmd.Flags().BoolP(string(NO_SYNC), "n", false, "do not sync db")
 	daemonCmd.Flags().UintP(string(SYNC_BATCH_SIZE), "b", 100, "number of blocks within a sync request. Default 100")
+	daemonCmd.Flags().BoolP(string(TESTNET_MODE), "", true, "Run in testnet mode")
+	daemonCmd.Flags().BoolP(string(MAINNET_MODE), "", false, "Run in mainnet mode")
+	daemonCmd.Flags().BoolP(string(VALIDATOR_MODE), "v", false, "Run as validator")
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {
+	testnet, _ := cmd.Flags().GetBool(string(TESTNET_MODE))
+	mainnet, _ := cmd.Flags().GetBool(string(MAINNET_MODE))
+	if mainnet {
+		testnet = false
+	}
+	configs.Init(testnet)
 	cfg := configs.Config
 	ctx := context.Background()
 
@@ -112,6 +125,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		chain.RegisterProvider(
 			"84532", ethAPI,
 		)
+		
 		// chain.DefaultProvider = chain.Network.Default()
 		ownerAddress, _ := hex.DecodeString(constants.ADDRESS_ZERO)
 		if cfg.Validator {
@@ -160,8 +174,8 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		cfg.AddressPrefix = prefix
 	}
 	
-	
-	cfg = injectPrivateKey(&cfg, cmd)
+	dir, _ := cmd.Flags().GetString(string(KEYSTORE_DIR))	
+	cfg = injectPrivateKey(&cfg, cmd, getKeyStoreFilePath("account", dir))
 	if len(wsAddress) > 0 {
 		cfg.WSAddress = wsAddress
 	}
@@ -219,6 +233,11 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		cfg.ListenerAdresses = listeners
 	}
 
+	validator, _ := cmd.Flags().GetBool(string(VALIDATOR_MODE))	
+	if validator  {
+		cfg.Validator = true
+	}
+
 	
 
 	// ****** INITIALIZE CONTEXT ****** //
@@ -258,7 +277,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 
 }
 
-func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) configs.MainConfiguration {
+func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command, storeFilePath string ) configs.MainConfiguration {
 	operatorPrivateKey, _ := cmd.Flags().GetString(string(PRIVATE_KEY))
 	// if err != nil || len(operatorPrivateKey) == 0 {
 	// 	logger.Fatal("operators private_key is required. Use --private-key flag or environment var ML_PRIVATE_KEY")
@@ -268,6 +287,7 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) config
 	if pkFlagLen > 0 {
 		cfg.PrivateKey = operatorPrivateKey
 	}
+	
 	if len(cfg.PrivateKey) == 0 {
 		//check the keystore
 		password, _ := cmd.Flags().GetString(string(KEYSTORE_PASSWORD))
@@ -282,14 +302,14 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command) config
 			}
 			password = string(inputPass)
 		}
-		ksDir, _ := cmd.Flags().GetString(string(KEYSTORE_DIR))
-		if len(ksDir) == 0 {
-			ksDir = cfg.KeyStoreDir
-		}
-		if len(ksDir) == 0 {
-			ksDir = filepath.Join(cfg.DataDir, "keystores")
-		}
-		privKey, err := loadPrivateKeyFromKeyStore(string(password), "account", ksDir)
+		// ksDir, _ := cmd.Flags().GetString(string(KEYSTORE_DIR))
+		// if len(ksDir) == 0 {
+		// 	ksDir = cfg.KeyStoreDir
+		// }
+		// if len(ksDir) == 0 {
+		// 	ksDir = filepath.Join(cfg.DataDir, "keystores")
+		// }
+		privKey, err := loadPrivateKeyFromKeyStore(string(password), storeFilePath)
 		if err != nil {
 			logger.Fatal(err)
 		}

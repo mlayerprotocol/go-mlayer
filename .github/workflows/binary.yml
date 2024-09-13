@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  create_release:
+  extract_tag:
     runs-on: ubuntu-latest
     permissions: write-all
     
@@ -20,23 +20,13 @@ jobs:
         tag=${GITHUB_REF#refs/tags/}  # Strip 'refs/tags/' to get the tag name
         echo "Tag is: $tag"
         echo "::set-output name=tag::$tag"  # Set the output as the tag
-    - name: Create Release
-      id: create_release_step
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
+   
     outputs: 
-      upload_url: ${{ steps.create_release_step.outputs.upload_url }}
       ref: ${{ steps.get_tag.outputs.tag }}
 
   build:
     runs-on: ubuntu-latest
-    needs: create_release
+    needs: extract_tag
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go
@@ -45,27 +35,75 @@ jobs:
           go-version: '1.21.x'
       - name: Install dependencies
         run: go get .
-      - name: Build
+      - name: Build Linux
         run: |
           build_time=$(date "+%Y-%m-%d_%H:%M:%S")
-          go build -ldflags="-X main.version=${{ needs.create_release.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/go-mlayer-linux-amd64
+          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64/goml
         env:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: 0
           CXX: "x86_64-linux-musl-g++"
+      - name: Build iOS intel
+        run: |
+          build_time=$(date "+%Y-%m-%d_%H:%M:%S")
+          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-${{ needs.extract_tag.outputs.ref }}-ios-intel/goml
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+          CGO_ENABLED: 0
+      - name: Build iOS silicon
+        run: |
+          build_time=$(date "+%Y-%m-%d_%H:%M:%S")
+          go build -ldflags="-X main.version=${{ needs.extract_tag.outputs.ref }} -X main.releaseDate=$build_time"  -v -o ./build/goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon/goml
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+          CGO_ENABLED: 0
       # - name: Test with the Go CLI
       #   run: go test
       - name: Archive binary
-        run: cd ./build && tar -zcvf go-mlayer-${{ needs.create_release.outputs.ref }}-linux-amd64.tar.gz go-mlayer-linux-amd64
+        run: |
+          cd ./build
+          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64.tar.gz goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64
+          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-ios-intel.tar.gz goml-${{ needs.extract_tag.outputs.ref }}-ios-intel
+          tar -zcvf goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon.tar.gz goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon
+      - name: Create Release
+        id: create_release_step
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./build/go-mlayer-${{ needs.create_release.outputs.ref }}-linux-amd64.tar.gz
-          asset_name: go-mlayer-${{ needs.create_release.outputs.ref }}-linux-amd64.tar.gz
+          upload_url: ${{ steps.create_release_step.outputs.upload_url }}
+          asset_path: ./build/goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64.tar.gz
+          asset_name: goml-${{ needs.extract_tag.outputs.ref }}-linux-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset iOS Intel
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release_step.outputs.upload_url  }}
+          asset_path: ./build/goml-${{ needs.extract_tag.outputs.ref }}-ios-intel.tar.gz
+          asset_name: goml-${{ needs.extract_tag.outputs.ref }}-ios-intel.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset iOS Silicon
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release_step.outputs.upload_url  }}
+          asset_path: ./build/goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon.tar.gz
+          asset_name: goml-${{ needs.extract_tag.outputs.ref }}-ios-silicon.tar.gz
           asset_content_type: application/gzip
      
 
