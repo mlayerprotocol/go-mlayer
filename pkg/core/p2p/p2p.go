@@ -946,6 +946,7 @@ func GetMultiAddresses(h host.Host) []string {
 }
 
 func handlePayload(stream network.Stream) {
+	logger.Debugf("HandlingPayload: %v", stream.Conn().RemotePeer())
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 	peerId := stream.Conn().RemotePeer()
 	// go writePayload(rw, peerId, stream)
@@ -953,6 +954,7 @@ func handlePayload(stream network.Stream) {
 }
 
 func handleSync(stream network.Stream) {
+	logger.Debugf("HandlingSYnc: %v", stream.Conn().RemotePeer())
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 	peerId := stream.Conn().RemotePeer()
 	// go writePayload(rw, peerId, stream)

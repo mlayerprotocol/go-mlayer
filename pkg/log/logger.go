@@ -1,7 +1,6 @@
 package log
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/mlayerprotocol/go-mlayer/configs"
@@ -26,7 +25,6 @@ func Initialize() {
 	if c.LogLevel == "" {
 		c.LogLevel = "info"
 	}
-	fmt.Println("LOGLEVEVVVV", c.LogLevel)
 	Logger.SetOutput(os.Stdout) // load from config file
 	level, _ := log.ParseLevel(c.LogLevel)
 	Logger.SetLevel(level)
