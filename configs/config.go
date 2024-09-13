@@ -12,7 +12,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -194,7 +193,7 @@ func LoadConfig(testnet bool) (*MainConfiguration, error) {
 				panic(err)
 				//return nil, fmt.Errorf("failed to decode config file %s: %w", path, err)
 			}
-			log.Infof("Loaded configuration from: %s",path)
+			fmt.Printf("Loaded configuration from: %s",path)
 			// Override with environment variables
 			// kong.Parse(&config)
 			if err = copyStructValues(configData, &config); err != nil {

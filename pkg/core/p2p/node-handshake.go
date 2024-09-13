@@ -3,7 +3,6 @@ package p2p
 import (
 	"encoding/hex"
 	"encoding/json"
-	"math"
 	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -70,7 +69,7 @@ func (handshake *NodeHandshake) IsValid(chainId configs.ChainId) bool {
 	// Prevents cross chain replay attack
 	handshake.ChainId = chainId // Important security update. Do not remove
 	//
-	if math.Abs(float64(uint64(time.Now().UnixMilli()) - handshake.Timestamp)) > constants.VALID_HANDSHAKE_SECONDS {
+	if utils.Abs(uint64(time.Now().UnixMilli()), handshake.Timestamp) > uint64(constants.VALID_HANDSHAKE_SECONDS * uint(time.Second.Milliseconds())) {
 		logger.WithFields(logrus.Fields{"data": handshake}).Warnf("Node Handshake Expired: %d", uint64(time.Now().UnixMilli()) - handshake.Timestamp)
 		return false
 	}

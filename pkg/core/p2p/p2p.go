@@ -590,7 +590,6 @@ func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer s
 		payload := NewP2pPayload(cfg, P2pActionSyncBlock, packedRange )
 		resp, err := payload.SendQuicSyncRequest(hostQuicAddress, entities.PublicKeyString(signer))
 		if err != nil || resp == nil{
-			logger.Error(err)
 			return err
 		}
 		if len(resp.Error) == 0 {
@@ -679,7 +678,7 @@ func SyncNode(cfg *configs.MainConfiguration, hostQuicAddress string, pubKey str
 			}
 			err := syncBlocks(cfg, hostQuicAddress,pubKey, _range)
 			if err != nil {
-				logger.Fatal(err)
+				logger.Fatalf("Error Syncing Block %d-%d: %v", from, from+batchSize, err)
 				panic(err)
 			}
 			ds.SetLastSyncedBlock(MainContext, new(big.Int).SetBytes(_range.To) )
@@ -820,13 +819,15 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 		}
 		go handlePayload(networkStream)
 
+
 		syncStream, err := host.NewStream(idht.Context(), pairAddr.ID, protocol.ID(syncProtocolId))
 		if err != nil {
 			(syncStream).Reset()
 			return
 		}
+		
 		go handleSync(syncStream)
-
+		logger.Debug("NewConnectionFromPeer: %s", pairAddr.ID)
 		// _, pub, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
 		//time.Sleep(5 * time.Second)
 		// peerID, _ := peer.IDFromPublicKey(pub)
@@ -888,6 +889,7 @@ func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *pe
 		
 	// }
 	// logger.Debugf("P2PCHANNELIDS %v", P2pComChannels[targetInfo.ID.String()][P2pChannelOut] == nil)
+	
 	h := idht.Host()
 	if  h.Network().Connectedness(targetInfo.ID) != network.Connected {
 		err = h.Connect(ctx, *targetInfo)
@@ -992,7 +994,7 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 			// break
 		}
 		validPayload := payload.IsValid(config.ChainId)
-		logger.Debugf("Received Data from remote peer: %v", validPayload)
+		logger.Debugf("Received Data from remote peer with valid payload: %v", validPayload)
 		if !validPayload {
 			logger.Debugf("Invalid payload received from peer %s", peerId)
 			// delete(P2pComChannels, payload.Id)

@@ -39,8 +39,7 @@ var nodeCmd = &cobra.Command{
 
 
 func init() {
-
-	configs.Init(true)
+	configs.Init(false)
 	nodeCmd.AddCommand(nodeAccountCmd)
 	nodeAccountCmd.AddCommand(accountInitCmd)
 	nodeAccountCmd.AddCommand(accountImportCmd)

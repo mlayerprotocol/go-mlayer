@@ -79,6 +79,10 @@ func CheckEmpty(s interface{}) error {
 	}
 	return nil
 }
+// get absolute difference
+func Abs(a uint64, b uint64) uint64 {
+	return IfThenElse(a >b, a-b,b-a)
+}
 
 func CopyStructValues(src, dst interface{}) error {
 	srcVal := reflect.ValueOf(src)
