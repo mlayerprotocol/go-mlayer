@@ -194,7 +194,7 @@ func LoadConfig(testnet bool) (*MainConfiguration, error) {
 				panic(err)
 				//return nil, fmt.Errorf("failed to decode config file %s: %w", path, err)
 			}
-			fmt.Printf("Loaded configuration from: %s",path)
+			fmt.Printf("\nLoaded configuration from: %s",path)
 			// Override with environment variables
 			// kong.Parse(&config)
 			if err = copyStructValues(configData, &config); err != nil {

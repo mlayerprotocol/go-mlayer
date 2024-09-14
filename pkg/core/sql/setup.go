@@ -31,7 +31,7 @@ const (
 )
 
 func InitializeDb(driver Driver, dsn string) (*gorm.DB, error) {
-	logger.Debugf("Initializing %s db", driver)
+	logger.Debugf("\nInitializing %s db", driver)
 	var dialect gorm.Dialector
 	switch driver {
 	case Postgres:

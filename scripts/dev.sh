@@ -1,6 +1,7 @@
 #!/bin/bash
 
-go run . daemon     \
+go run . daemon \
+--validator   \
 --private-key a12b76e5ab05842dd110b9cf709a3ca4e965ec149a1e6d40f09f55a4fc6279d1
 
 

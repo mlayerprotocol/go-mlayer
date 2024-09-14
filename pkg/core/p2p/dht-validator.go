@@ -86,7 +86,7 @@ func (v *DhtValidator) validateValidatorListKey(parts []string, value []byte ) e
     if parts[3] != hex.EncodeToString(addresses.Signer) && parts[3] != hex.EncodeToString(addresses.PubKeyEDD) {
         return errors.New("DhtValidator: Signer and PubKeySecp does not match key public key")
     }
-    isValidator,  err := chain.NetworkInfo.IsValidator(hex.EncodeToString(addresses.Signer))
+    isValidator,  _ := chain.NetworkInfo.IsValidator(hex.EncodeToString(addresses.Signer))
     if !isValidator {
         return errors.New("DhtValidator: Signer is not a validator")
     }
@@ -118,8 +118,9 @@ func (v *DhtValidator) selectFromValidatorList(parts []string, value [][]byte ) 
         result = append(result, NodeMultiAddressDataIndexed{Data: d, Index: idx})
     }
     if len(result) == 0 {
-        return 0, errors.New("DhtValidator: Record not found")
+        return 0, nil
     }
+    logger.Debug("DHTLEN", len(result))
     sort.Slice(result, func(i, j int) bool {
         return result[i].Data.Timestamp > result[j].Data.Timestamp
     })

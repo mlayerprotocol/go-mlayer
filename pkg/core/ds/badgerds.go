@@ -113,6 +113,7 @@ var _ ds.Batching = (*Datastore)(nil)
 // DO NOT set the Dir and/or ValuePath fields of opt, they will be set for you.
 func NewDatastore(path string, options *Options) (*Datastore, error) {
 	// Copy the options because we modify them.
+	
 	var opt badger.Options
 	var gcDiscardRatio float64
 	var gcSleep time.Duration

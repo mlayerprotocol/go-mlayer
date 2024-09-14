@@ -24,6 +24,7 @@ func New(mainCtx *context.Context, keyStore string) (*Datastore) {
 		panic(fmt.Errorf("ds.New: could not retrieve config from context"))
 		// return nil, fmt.Errorf("ds.New: could not retrieve config from context")
 	}
+	
 	dir := filepath.Join(cfg.DataDir, "store", "kv", keyStore)
 	if !strings.HasPrefix(dir, "./") && !strings.HasPrefix(dir, "../") && !filepath.IsAbs(dir) {
 		dir = "./" + dir
