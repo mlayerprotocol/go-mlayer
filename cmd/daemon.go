@@ -45,6 +45,7 @@ const (
 	RPC_PORT            Flag = "rpc-port"
 	WS_ADDRESS          Flag = "ws-address"
 	REST_ADDRESS        Flag = "rest-address"
+	QUIC_HOST        Flag = "quic-host"
 	DATA_DIR            Flag = "data-dir"
 	LISTENERS            Flag = "listen"
 	KEYSTORE_DIR         Flag = "keystore-dir"
@@ -89,7 +90,7 @@ func init() {
 	daemonCmd.Flags().StringP(string(RPC_PORT), "r", constants.DefaultRPCPort, "RPC server port")
 	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", constants.DefaultWebSocketAddress, "ws service address")
 	daemonCmd.Flags().StringP(string(REST_ADDRESS), "R", constants.DefaultRestAddress, "rest api service address")
-	daemonCmd.Flags().StringP(string(DATA_DIR), "d", constants.DefaultDataDir, "data storage directory")
+	daemonCmd.Flags().StringP(string(DATA_DIR), "d", "", "data storage directory")
 	daemonCmd.Flags().StringSliceP(string(LISTENERS), "l", []string{}, "libp2p multiaddress array eg. [\"/ip4/127.0.0.1/tcp/5000/ws\", \"/ip4/127.0.0.1/tcp/5001\"]")
 	daemonCmd.Flags().StringP(string(KEYSTORE_DIR), "K", "", "path to keystore directory")
 	daemonCmd.Flags().StringP(string(KEYSTORE_PASSWORD), "P", "", "password for decripting key store")
@@ -99,6 +100,7 @@ func init() {
 	daemonCmd.Flags().BoolP(string(MAINNET_MODE), "", false, "Run in mainnet mode")
 	daemonCmd.Flags().BoolP(string(VALIDATOR_MODE), "v", false, "Run as validator")
 	daemonCmd.Flags().BoolP(string(TEST_MODE), "", false, "Run test functions")
+	daemonCmd.Flags().StringP(string(QUIC_HOST), "", "", "Quic server listening address")
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {
@@ -112,7 +114,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	cfg := configs.Config
 	ctx := context.Background()
 
-	
+	chain.NetworkInfo = &chain.NetworkParams{Config: &cfg}
 	defer node.Start(&ctx)
 	defer func () {
 		// chain.Network = chain.Init(&cfg)
@@ -183,6 +185,9 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		cfg.WSAddress = wsAddress
 	}
 
+	
+	
+
 	cfg.SyncBatchSize, _ = cmd.Flags().GetUint(string(SYNC_BATCH_SIZE))
 	
 
@@ -192,13 +197,21 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	if len(restAddress) > 0 {
 		cfg.RestAddress = restAddress
 	}
+
+	quicHost, _ := cmd.Flags().GetString(string(QUIC_HOST))
+	if len(quicHost) > 0 {
+		cfg.QuicHost = quicHost
+	}
 	if len(cfg.QuicHost) == 0 {
 		cfg.QuicHost = constants.DefaultQuickHost
 	}
 
 	dataDir, _ := cmd.Flags().GetString(string(DATA_DIR))
-	if len(cfg.DataDir) == 0  {
+	if len(dataDir) != 0  {
 		cfg.DataDir = dataDir
+	}
+	if len(cfg.DataDir) == 0 {
+		cfg.DataDir = constants.DefaultDataDir
 	}
 
 	cfg.TestMode, _ = cmd.Flags().GetBool(string(TEST_MODE))

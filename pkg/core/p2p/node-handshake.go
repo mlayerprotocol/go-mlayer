@@ -90,20 +90,13 @@ func (handshake *NodeHandshake) IsValid(chainId configs.ChainId) bool {
 		logger.Error(err)
 		return false
 	}
-	logger.Debugf("Validating handshake data %v", isValid)
+	logger.Debugf("Validating handshake signature for %s:  %v",  hex.EncodeToString(signer), isValid)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": handshake.Protocol, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
 		return false
 	}
 	return true
 }
-// func (handshake *NodeHandshake) hasValidStake(cfg *configs.MainConfiguration) bool {
-// 	if handshake.NodeType == constants.ValidatorNodeType && cfg.Validator {
-// 		return chain.HasValidStake(handshake.Signer, cfg)
-// 	}
-// 	return true
-// }
-
 
 func NodeHandshakeFromJSON(json string) (NodeHandshake, error) {
 	data := NodeHandshake{}

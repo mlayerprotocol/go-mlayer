@@ -181,7 +181,7 @@ func Start(mainCtx *context.Context) {
 			// if err != nil {
 			// 	logger.Error(err)
 			// }
-			addr, err := multiaddr.NewMultiaddr("/ip4/154.12.228.25/tcp/6001/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in")
+			addr, err := multiaddr.NewMultiaddr("/ip4/127.0.0.1/udp/5002/quic-v1/p2p/12D3KooWCmQkyjH22h2W8J2XgP87rzwPZKS1oTvK64uy3hDpBy7w")
 			if err != nil {
 				logger.Error(err)
 			}
@@ -189,7 +189,9 @@ func Start(mainCtx *context.Context) {
 			if err != nil {
 				logger.Error(err)
 			}
-			logger.Debugf("RESPONSEEEEE: %d", certResponse.Action)
+			if certResponse != nil {
+				logger.Debugf("RESPONSEEEEE: %d", certResponse.Action)
+			}
 		}()
 	}
 

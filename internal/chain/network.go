@@ -28,15 +28,18 @@ func (n *NetworkParams) IsValidator(key string) (bool, error) {
 	if len(key) == 0 {
 		return false, fmt.Errorf("IsValidator: invalid key")
 	}
+	
+	
 	if len(n.Validators[key]) > 0 || len(n.Validators[fmt.Sprintf("edd/%s/addr",key)]) > 0 || len(n.Validators[fmt.Sprintf("secp/%s/addr",key)]) > 0 {
 		return true, nil
 	} 
 		// check chain
-		p, err := hex.DecodeString(key)
-		if err != nil {
-			return false, err
-		}
-		return DefaultProvider(n.Config).IsValidatorNodeOperator(p, n.CurrentCycle)	
+		// p, err := hex.DecodeString(key)
+		// if err != nil {
+		// 	return false, err
+		// }
+		return false, fmt.Errorf("IsValidator: not a validator")
+		// return DefaultProvider(n.Config).IsValidatorNodeOperator(p, n.CurrentCycle)	
 }
 func (n *NetworkParams) IsValidatorOwner(address string) (bool, error) {
 	if len(n.Validators[address]) > 0 {
@@ -76,22 +79,22 @@ func (n *NetworkParams) Sync(ctx *context.Context, syncFunc func () bool) {
 		}
 		n.Synced = syncFunc()
 }
-var networkInfo NetworkParams
+var networkInfo NetworkParams 
 var NetworkInfo = &networkInfo
-var apis map[configs.ChainId]*api.IChainAPI = map[configs.ChainId]*api.IChainAPI{}
+var APIs map[configs.ChainId]*api.IChainAPI = map[configs.ChainId]*api.IChainAPI{}
 
 func DefaultProvider(cfg *configs.MainConfiguration) api.IChainAPI {
-	return *apis[cfg.ChainId]
+	return *APIs[cfg.ChainId]
 }
 // func (n MLChainAPI)  RegisterNetwork(chainId configs.ChainId, api api.IChainAPI) {
 // 	n.apis[chainId] = &api
 // }
 
 func RegisterProvider (chainId configs.ChainId, api api.IChainAPI) {
-	apis[chainId] = &api
+	APIs[chainId] = &api
 }
 func Provider (chainId configs.ChainId) api.IChainAPI {
-	return *apis[chainId]
+	return *APIs[chainId]
 }
 
 

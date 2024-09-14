@@ -27,7 +27,7 @@ func GetLastSyncedBlock(ctx *context.Context) (*big.Int, error) {
 func SetLastSyncedBlock(ctx *context.Context, value *big.Int) (error) {
 	systemStore, ok := (*ctx).Value(constants.SystemStore).(*Datastore)
 	if !ok {
-		return  fmt.Errorf("GetLastSyncBlock: unable to load systemStore from context")
+		return  fmt.Errorf("SetLastSyncedBlock: unable to load systemStore from context")
 	}
 	return systemStore.Set(*ctx, Key(SyncedBlockKey), value.Bytes(), true)
 }
