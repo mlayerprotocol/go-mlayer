@@ -402,6 +402,7 @@ func Run(mainCtx *context.Context) {
 	// connect to bootstrap peers
 	
 	for _, addr := range config.BootstrapPeers {
+		logger.Infof("Connecting to bootStrapPeer: %s", addr)
 		addr, _ := multiaddr.NewMultiaddr(addr)
 		connectToNode(addr, *mainCtx)
 	}
@@ -811,14 +812,14 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 	// 	return
 	// }
 	// defer peerDiscoverySyncMap[id].Unlock()
-	logger.Infof("NewPeerDetected")
+	logger.Debug("NewPeerDetected: ", pairAddr.ID)
 	if (*h).ID() == pairAddr.ID {
 		return
 	}
 	peerDiscoveryMutex.Lock()
 	
 	defer peerDiscoveryMutex.Unlock()
-	logger.Debugf("My multiaddress: %s", GetMultiAddresses(*h))
+	logger.Debug("My multiaddress: ", GetMultiAddresses(*h))
 	if pairAddr == nil {
 		return
 	}
