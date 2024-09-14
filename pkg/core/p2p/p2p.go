@@ -324,10 +324,7 @@ func Run(mainCtx *context.Context) {
 			// dhtOptions = append(dhtOptions, dht.NamespacedValidator("subsc", customValidator))
 
 			// if cfg.BootstrapNode {
-			if err = kdht.Bootstrap(ctx); err != nil {
-				logger.Fatalf("Error starting bootstrap node %o", err)
-				return nil, err
-			}
+			
 			// }
 
 			idht = kdht
@@ -375,15 +372,19 @@ func Run(mainCtx *context.Context) {
 		//
 		// This service is highly rate-limited and should not cause any
 		// performance issues.
+		libp2p.EnableRelay(),
 		libp2p.EnableNATService(),
 	)
-
-	// gater := NetworkGater{host: h, config: config, blockPeers: make(map[peer.ID]struct{})}
-
-	go discover(ctx, Host, idht, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
 	if err != nil {
 		logger.Fatal(err)
 	}
+	if err = idht.Bootstrap(ctx); err != nil {
+		logger.Fatalf("Error starting bootstrap node %o", err)
+	}
+	
+	// gater := NetworkGater{host: h, config: config, blockPeers: make(map[peer.ID]struct{})}
+	go discover(ctx, Host, idht, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
+	
 	Host.Network().Notify(&notifee.ConnectionNotifee{Dht: idht})
 
 	Host.SetStreamHandler(protocol.ID(handShakeProtocolId), handleHandshake)
@@ -400,7 +401,7 @@ func Run(mainCtx *context.Context) {
 		logger.Fatal(err)
 	}
 	// connect to bootstrap peers
-	
+	time.Sleep(10 * time.Second)
 	for _, addr := range config.BootstrapPeers {
 		logger.Infof("Connecting to bootStrapPeer: %s", addr)
 		addr, _ := multiaddr.NewMultiaddr(addr)
@@ -737,9 +738,11 @@ func sendHandshake(stream network.Stream, data []byte) {
 
 func storeAddress(ctx *context.Context, h *host.Host) {
 	for {
-		if (*h).Peerstore().PeersWithAddrs().Len() < 2 {
-			logger.Debug("NOPEERS ", (*h).Peerstore().PeersWithAddrs().Len())
-			time.Sleep(1 * time.Second)
+		peers := idht.RoutingTable().ListPeers()
+		logger.Debug("NOPEERS ", len(peers))
+		if len(peers) < 2 {
+			// logger.Debug("NOPEERS ", (*h).Peerstore().PeersWithAddrs().Len())
+			time.Sleep(5 * time.Second)
 			continue
 		}
 
