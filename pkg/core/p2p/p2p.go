@@ -284,9 +284,10 @@ func Run(mainCtx *context.Context) {
 				pi, _ := peer.AddrInfoFromP2pAddr(addr)
 				bootstrapPeers = append(bootstrapPeers, *pi)
 			}
-			
+			logger.Debugf("BootStrapPeers %v", bootstrapPeers)
 			var dhtOptions []dht.Option
 			dhtOptions = append(dhtOptions,
+				
 				dht.BootstrapPeers(bootstrapPeers...),
 				dht.ProtocolPrefix(protocol.ID(p2pProtocolId)),
 				dht.ProtocolPrefix(protocol.ID(handShakeProtocolId)),
@@ -297,7 +298,7 @@ func Run(mainCtx *context.Context) {
 				dht.NamespacedValidator("ml", &DhtValidator{config: cfg}),
 			)
 			if !config.BootstrapNode {
-				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeServer))
+				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeAutoServer))
 			}
 			// dhtOptions = append(dhtOptions,  dht.Datastore(syncDatastore))
 
@@ -320,12 +321,12 @@ func Run(mainCtx *context.Context) {
 			// }
 			// dhtOptions = append(dhtOptions, dht.NamespacedValidator("subsc", customValidator))
 
-			if cfg.BootstrapNode {
+			// if cfg.BootstrapNode {
 			if err = kdht.Bootstrap(ctx); err != nil {
 				logger.Fatalf("Error starting bootstrap node %o", err)
 				return nil, err
 			}
-			}
+			// }
 
 			idht = kdht
 
@@ -396,7 +397,12 @@ func Run(mainCtx *context.Context) {
 	if err != nil {
 		logger.Fatal(err)
 	}
-
+	// connect to bootstrap peers
+	
+	for _, addr := range config.BootstrapPeers {
+		addr, _ := multiaddr.NewMultiaddr(addr)
+		connectToNode(addr, *mainCtx)
+	}
 	// node = &h
 
 	// The last step to get fully up and running would be to connect to
@@ -405,6 +411,7 @@ func Run(mainCtx *context.Context) {
 	// it is unnecessary to put strain on the network.
 	fmt.Println("------------------------------- MLAYER -----------------------------------")
 	fmt.Println("- Server Mode: ", utils.IfThenElse(config.Validator, "Validator", "Sentry/Archive"))
+	fmt.Println("- Bootstrap Node: ", config.BootstrapNode)
 	fmt.Println("- Licence Operator Public Key (SECP): ", hex.EncodeToString(cfg.PublicKeySECP))
 	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKey)
 	fmt.Println("- Host started with ID: ", Host.ID().String())
@@ -475,8 +482,12 @@ func Run(mainCtx *context.Context) {
 	// go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
 	// if config.Validator {
+		
+		
 			
 	storeAddress(mainCtx, &Host)
+
+	
 	// }
 	defer forever()
 	
