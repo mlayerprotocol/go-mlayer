@@ -46,6 +46,7 @@ import (
 	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/libp2p/go-libp2p/p2p/transport/quicreuse"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
 	webtransport "github.com/libp2p/go-libp2p/p2p/transport/webtransport"
 
 	noise "github.com/libp2p/go-libp2p/p2p/security/noise"
@@ -257,10 +258,11 @@ func Run(mainCtx *context.Context) {
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
 		libp2p.Security(noise.ID, noise.New),
-		libp2p.QUICReuse(quicreuse.NewConnManager),
 		libp2p.Transport(quic.NewTransport),
-		libp2p.Transport(webtransport.New),
+		libp2p.QUICReuse(quicreuse.NewConnManager),
+		libp2p.Transport(websocket.New),
 		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.Transport(webtransport.New),
 	
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
@@ -809,6 +811,7 @@ func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
 	// 	return
 	// }
 	// defer peerDiscoverySyncMap[id].Unlock()
+	logger.Infof("NewPeerDetected")
 	if (*h).ID() == pairAddr.ID {
 		return
 	}
@@ -967,7 +970,7 @@ func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *pe
 func GetMultiAddresses(h host.Host) []string {
 	m := []string{}
 	addrs := h.Addrs()
-
+	logger.Printf("HOSTMLA %v", addrs)
 	for _, addr := range addrs {
 		if strings.Contains(addr.String(), "127.0.0.1") || 
 		strings.Contains(addr.String(), "localhost") || 
