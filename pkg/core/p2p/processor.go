@@ -586,7 +586,6 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 			if err != nil {
 				lastSync = big.NewInt(0)
 			}
-			logger.Debugf("PUBIKESSSSS: %s", hex.EncodeToString(cfg.PublicKeyEDD))
 			handshake, err := NewNodeHandshake(cfg, cfg.ProtocolVersion, cfg.PrivateKeySECP, cfg.PublicKeyEDD, utils.IfThenElse(cfg.Validator, constants.ValidatorNodeType, constants.SentryNodeType), lastSync, payload.Id)
 			if err != nil {
 				response.Error = "invalid action type"

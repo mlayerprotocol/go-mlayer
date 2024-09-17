@@ -413,7 +413,7 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 					page = new(big.Int).Add(page, big.NewInt(1))
 				}
 			}
-			logger.Infof("NOSYNC: %v", cfg.NoSync)
+			
 
 			if cfg.NoSync {
 				chain.NetworkInfo.Synced = true

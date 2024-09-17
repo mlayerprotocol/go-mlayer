@@ -66,6 +66,7 @@ var peerDiscoverySyncMap = map[string]*sync.Mutex{}
 var peerDiscoveryMutex= sync.Mutex{}
 // var config configs.MainConfiguration
 type P2pChannelFlow int8
+var connectedPeer = map[string]bool{}
 
 const (
 	P2pChannelOut P2pChannelFlow = 1
@@ -162,10 +163,14 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 			}
 			
 			for p := range peers {
+				logger.Debugf("Found peer: %s \n", p.ID.String())
 				if p.ID == h.ID() {
 					continue
 				}
-				 if h.Network().Connectedness(p.ID) != network.Connected {
+				 // if h.Network().Connectedness(p.ID) != network.Connected {
+				if !connectedPeer[p.ID.String()] {
+					connectedPeer[p.ID.String()] = true
+					logger.Debugf("Attempting to connect to peer: %s \n", p.ID.String())
 					h.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.PermanentAddrTTL)
 					err := h.Connect(ctx, p)
 					// _, err = h.Network().DialPeer(ctx, p.ID)
@@ -173,6 +178,7 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.String(), err.Error())
 						h.Peerstore().ClearAddrs(p.ID)
 						kdht.ForceRefresh()
+						connectedPeer[p.ID.String()] = false
 						continue
 					}
 					if len(p.ID) == 0 {
@@ -464,8 +470,8 @@ func Run(mainCtx *context.Context) {
 	fmt.Println("------------------------------- MLAYER -----------------------------------")
 	fmt.Println("- Server Mode: ", utils.IfThenElse(cfg.Validator, "Validator", "Sentry/Archive"))
 	fmt.Println("- Bootstrap Node: ", cfg.BootstrapNode)
-	fmt.Println("- Licence Operator Public Key (SECP): ", hex.EncodeToString(cfg.PublicKeySECP))
-	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKeyEDD)
+	fmt.Println("- Licence Operator Public Key (SECP): ", cfg.PublicKeySECPHex)
+	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKeyEDDHex)
 	fmt.Println("- Host started with ID: ", Host.ID().String())
 	fmt.Println("- Host Network: ", p2pProtocolId)
 	fmt.Println("- Host MultiAddresses: ", GetMultiAddresses(Host))
@@ -614,7 +620,7 @@ func validateHandShake(cfg *configs.MainConfiguration, handshake NodeHandshake, 
 		if handshake.NodeType == constants.ValidatorNodeType {
 			
 			validHandshake, err := chain.NetworkInfo.IsValidator(hex.EncodeToString(handshake.Signer))
-			
+			logger.Debugf("IsValidator: %v; OnchainValidator: %v", handshake.NodeType == constants.ValidatorNodeType, validHandshake)
 			if err != nil || !validHandshake {
 				logger.Error(err)
 				return false
@@ -907,7 +913,7 @@ func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 		logger.Debug("Attempt to respond to self")
 		return
 	}
-	logger.Debug("NODEADDRESS: ", quicmad.String(), " ", hex.EncodeToString(pubk))
+	// logger.Debug("NODEADDRESS: ", quicmad.String(), " ", hex.EncodeToString(pubk))
 	// response, err := SendSecureQuicRequest(cfg, quicmad, entities.PublicKeyString(hex.EncodeToString(pubk)), payload.MsgPack())
 	// if err != nil {
 		
@@ -966,6 +972,7 @@ func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 			logger.Errorf("handshke: %v", err)
 		}
 	} else {
+		logger.Errorf("Invalid signer")
 		disconnect(pairAddr.ID)
 	}
 }
@@ -1258,23 +1265,7 @@ func GetDhtValue(key string)  ([]byte, error) {
 	return idht.GetValue(*MainContext, key)
 }
 
-// func GetOperatorMultiAddress(pubKey string, chainId configs.ChainId ) (multiaddr.Multiaddr, error) {
-// 	key := "/ml/val/" + pubKey
-// 	d, err := GetDhtValue(key)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	md, err := UnpackNodeMultiAddressData(d)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-	
-// 	if md.IsValid(chainId) {
-// 		return multiaddr.NewMultiaddr(md.Addresses[0])
-// 	}
-// 	return nil, fmt.Errorf("invalid multiaddress ")
-// }
-// check the dht before going onchain
+
 func GetCycleMessageCost(ctx context.Context, cycle uint64) (*big.Int, error) {
 	_, ok := (ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
