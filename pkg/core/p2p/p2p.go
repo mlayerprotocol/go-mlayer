@@ -163,10 +163,11 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 			}
 			
 			for p := range peers {
-				logger.Debugf("Found peer: %s \n", p.ID.String())
+			
 				if p.ID == h.ID() {
 					continue
 				}
+				logger.Debugf("Found peer: %s \n", p.ID.String())
 				 // if h.Network().Connectedness(p.ID) != network.Connected {
 				if !connectedPeer[p.ID.String()] {
 					connectedPeer[p.ID.String()] = true
