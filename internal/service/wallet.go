@@ -135,7 +135,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	logger.Debug(":::::updateState: Db Error", updateState, currentState == nil)
 
 	// If the event was not signed by your node
-	if string(event.Validator) != (*cfg).PublicKey  {
+	if string(event.Validator) != (*cfg).PublicKeyEDDHex  {
 		// save the event
 		event.Error = eventError
 		event.IsValid = markAsSynced && len(eventError) == 0.
@@ -213,7 +213,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	}
 	tx.Commit()
 
-	if string(event.Validator) != (*cfg).PublicKey  {
+	if string(event.Validator) != (*cfg).PublicKeyEDDHex  {
 		dependent, err := query.GetDependentEvents(event)
 		if err != nil {
 			logger.Debug("Unable to get dependent events", err)

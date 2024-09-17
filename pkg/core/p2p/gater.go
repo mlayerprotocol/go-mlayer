@@ -10,7 +10,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -62,10 +64,11 @@ func (g *NetworkGater) performHandshake(p peer.ID) bool {
 
     // Send a handshake message
     nodeType := constants.SentryNodeType
-		if config.Validator {
+		if cfg.Validator {
 			nodeType = constants.ValidatorNodeType
 		}
-    message, err := NewNodeHandshake(g.config, handShakeProtocolId, g.config.PrivateKeyEDD, nodeType)
+        lastSync, _ := ds.GetLastSyncedBlock(g.config.Context)
+    message, err := NewNodeHandshake(g.config, handShakeProtocolId, g.config.PrivateKeySECP, g.config.PublicKeyEDD, nodeType, lastSync, utils.RandomAplhaNumString(6))
     if err != nil {
         logger.Error(err)
     }

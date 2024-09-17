@@ -10,42 +10,62 @@ import (
 	"io"
 	"strings"
 
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/quic-go/quic-go"
 )
 
 var ValidCerts  = map[string]string{}
 
-func  SendSecureQuicRequest(config *configs.MainConfiguration, addr string, validSigner entities.PublicKeyString,  message []byte) ([]byte, error) {
-	if ValidCerts[addr] == "" {
+func  SendSecureQuicRequest(config *configs.MainConfiguration, maddr multiaddr.Multiaddr, validSigner entities.PublicKeyString,  message []byte) ([]byte, error) {
+	ip, _, err := extractQuicAddress(config, []multiaddr.Multiaddr{maddr})
+	if err != nil {
+		return nil, err
+	}
+	addr := ip
+	
+	if ValidCerts[ip] == "" || ValidCerts[fmt.Sprintf("%s/addr", ip)] == "" {
 		// get the cert
 		certPayload := NewP2pPayload(config, P2pActionGetCert, []byte{'0'})
 		err := certPayload.Sign(config.PrivateKeyEDD)
 		if err != nil {
 			return nil, err
 		}
-		certResponseByte, err := SendInsecureQuicRequest(addr, certPayload.MsgPack())
+			
+		certResponse, err := certPayload.SendRequestToAddress(config.PrivateKeyEDD, maddr, DataRequest)
 		if err != nil {
 			return nil, err
 		}
-		certResponse, err := UnpackP2pPayload(certResponseByte)
-		if err != nil {
-			return nil, err
-		}
+		
 		if certResponse.IsValid(config.ChainId) && strings.EqualFold(hex.EncodeToString(certResponse.Signer), string(validSigner)) {
-			ValidCerts[addr] = hex.EncodeToString(certResponse.Data)
+			crd := CertResponseData{}
+			err := encoder.MsgPackUnpackStruct(certResponse.Data,&crd)
+			if err != nil {
+				return nil, err
+			}
+			addr = fmt.Sprintf("%s%s", addr[:(strings.Index(addr,":"))], crd.QuicHost[strings.Index(crd.QuicHost,":"):])
+			ValidCerts[addr] = hex.EncodeToString(crd.CertHash)
+			ValidCerts[ip] = hex.EncodeToString(crd.CertHash)
+			ValidCerts[fmt.Sprintf("%s/addr", ip)] = addr
+			
 		} else {
 			return nil, fmt.Errorf("quic: invalid signer")
 		}
+	} else {
+		addr = ValidCerts[fmt.Sprintf("%s/addr", ip)]
 	}
+	
 	b, err := sendQuicRequest(addr, message, false)
+	
 	if err == ErrInvalidCert {
 		ValidCerts[addr] = ""
 	}
 	return b, err
 }
+
 func  SendInsecureQuicRequest(addr string, message []byte) ([]byte, error) {
 	return sendQuicRequest(addr, message, true)
 }
@@ -59,7 +79,7 @@ func  sendQuicRequest(addr string, message []byte, insecure bool) ([]byte, error
 				return nil
 			}
 			for _, cert := range rawCerts {
-				if((ValidCerts)[addr] != hex.EncodeToString(crypto.Keccak256Hash(cert))) {
+				if(ValidCerts[addr] != hex.EncodeToString(crypto.Keccak256Hash(cert))) {
 					return ErrInvalidCert
 				}
 			}
@@ -68,7 +88,7 @@ func  sendQuicRequest(addr string, message []byte, insecure bool) ([]byte, error
 	}
 	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, nil)
 	if err != nil {
-		logger.Debugf("sendQuicRequest/DialAddr: %v", err)
+		logger.Debugf("sendQuicRequest/DialAddr: %s, %v", addr, err)
 		return nil, err
 	}
 	defer conn.CloseWithError(0, "")
@@ -88,6 +108,7 @@ func  sendQuicRequest(addr string, message []byte, insecure bool) ([]byte, error
 	data := bytes.Buffer{}
 	for {
 		n, err := stream.Read(buf)  // Read into the buffer
+		
 		data.Write(buf[:n])
 		if n == 0 || err == io.EOF {
 			break  // End of file, stop reading

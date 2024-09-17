@@ -49,13 +49,15 @@ func UnpackP2pEventResponse(b []byte) ( P2pEventResponse, error) {
 
 const (
 	P2pActionResponse P2pAction = 0
-	P2pActionGetEvent P2pAction = 1
-	P2pActionGetCommitment P2pAction = 2
-	P2pActionGetSentryProof P2pAction = 3
-	P2pActionGetTokenProof P2pAction = 4
-	P2pActionGetState P2pAction = 5
-	P2pActionSyncBlock P2pAction = 6
-	P2pActionGetCert P2pAction = 7
+	P2pActionGetHandshake P2pAction = 1
+	P2pActionGetEvent P2pAction = 2
+	P2pActionGetCommitment P2pAction = 3
+	P2pActionGetSentryProof P2pAction = 4
+	P2pActionGetTokenProof P2pAction = 5
+	P2pActionGetState P2pAction = 6
+	P2pActionSyncBlock P2pAction = 7
+	P2pActionGetCert P2pAction = 8
+	
 	
 )
 type P2pPayload struct {
@@ -97,7 +99,8 @@ func (nma * P2pPayload) IsValid(chainId configs.ChainId) bool {
 	now := uint64(time.Now().UnixMilli())
 	
 	if utils.Abs(now, nma.Timestamp) > uint64(15 * time.Second.Milliseconds()) {
-		logger.WithFields(logrus.Fields{"data": nma}).Debugf("P2pPayload: Expired -> %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
+		panic(fmt.Errorf("expired"))
+		logger.WithFields(logrus.Fields{"data": *nma, "d": 15 * time.Second.Milliseconds(), "t": utils.Abs(now, nma.Timestamp)}).Debugf("P2pPayload: Expired -> %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
 		return false
 	}
 	// signer, err := hex.DecodeString(string(nma.Signer));
@@ -108,7 +111,7 @@ func (nma * P2pPayload) IsValid(chainId configs.ChainId) bool {
 	
 	data, err := nma.EncodeBytes()
 	if err != nil {
-		logger.Error("Unable to decode signer")
+		logger.Error("Unable to encode message", err)
 		return false
 	}
 	
@@ -158,18 +161,21 @@ func (p *P2pPayload) SendSyncRequest(receiverPublicKey string) (*P2pPayload, err
 	return p.SendRequestToAddress(p.config.PrivateKeyEDD, address, SyncRequest)
 }
 
-func (p *P2pPayload) SendQuicSyncRequest(hostAddress string, validSigner entities.PublicKeyString) (*P2pPayload, error) {
+func (p *P2pPayload) SendQuicSyncRequest(hostAddress multiaddr.Multiaddr, validSigner entities.PublicKeyString) (*P2pPayload, error) {
 	p.Action = P2pActionSyncBlock
 	p.Sign(p.config.PrivateKeyEDD)
 	// addr := "127.0.0.1:9533"
-	logger.Debugf("Sending quic request to: %s", hostAddress)
+	// logger.Debugf("Sending quic request to: %s", hostAddress)
 	data, err := SendSecureQuicRequest(p.config, hostAddress, validSigner, p.MsgPack())
 	if err != nil {
 		return nil, err
 	}
 	response, err := UnpackP2pPayload(data)
-	if err != nil {
+	if err != nil ||  response == nil || len(response.Error) > 0 {
 		return nil, err
+	}
+	if len(response.Error) > 0 {
+		return nil, fmt.Errorf(response.Error)
 	}
 	// if !response.IsValid(p.config.ChainId) {
 	// 	return nil, fmt.Errorf("invalid response signature")
@@ -235,6 +241,7 @@ func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.M
 		}
 		
 		resp, err := UnpackP2pPayload(payloadBuf.Bytes()[:payloadBuf.Len()-1])
+		
 		if err != nil {
 			logger.Debugf("UnpackREadBYtes: %v", err)
 			return resp, err
@@ -252,7 +259,7 @@ func NewP2pPayload(config *configs.MainConfiguration, action P2pAction, data []b
 	if len(data) == 0 {
 		data = []byte{'0'}
 	}
-	pl := P2pPayload{Action: action, Data: data,  Id: utils.RandomString(12), ChainId: config.ChainId}
+	pl := P2pPayload{Action: action, Data: data, Timestamp: uint64(time.Now().UnixMilli()),  Id: utils.RandomString(12), ChainId: config.ChainId}
 	pl.config = config
 	return &pl
 }
@@ -268,12 +275,10 @@ func GetState(config *configs.MainConfiguration, path entities.EntityPath,  vali
 	if err != nil {
 		return nil, err
 	}
-	
 	if resp == nil {
 		return nil, apperror.Internal("timedout")
 	}
 	data, err := UnpackP2pEventResponse(resp.Data)
-	
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +318,7 @@ func GetEvent(config *configs.MainConfiguration, eventPath entities.EventPath, v
 	return event, &data, err
 }
 
-func (p *P2pPayload) Sign (privateKey []byte) (error) {
+func (p *P2pPayload) Sign (privateKey []byte) (err error) {
 	p.Timestamp = uint64(time.Now().UnixMilli())
 	b, err := p.EncodeBytes();
 	if(err != nil) {
@@ -321,8 +326,9 @@ func (p *P2pPayload) Sign (privateKey []byte) (error) {
 	}
 	p.Signature, _  = crypto.SignEDD(b, privateKey)
 	// singer := crypto.GetPublicKeyEDD([64]byte(privateKey))
-    p.Signer = privateKey[32:]
-	return nil
+	d := crypto.GetPublicKeyEDD(privateKey)
+    p.Signer = d[:]
+	return err
 }
 
 

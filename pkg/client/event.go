@@ -177,7 +177,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		BlockNumber:       chainInfo.CurrentBlock.Uint64(),
 		Cycle: 				chainInfo.CurrentCycle.Uint64(),
 		Epoch: 				chainInfo.CurrentEpoch.Uint64(),		
-		Validator:         entities.PublicKeyString(cfg.PublicKey),
+		Validator:         entities.PublicKeyString(cfg.PublicKeyEDDHex),
 		Subnet: subnet,
 	}
 

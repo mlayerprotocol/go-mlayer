@@ -3,6 +3,7 @@ package p2p
 import (
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -20,6 +21,7 @@ NODE HANDSHAKE MESSAGE
 */
 
 
+
 type NodeHandshake struct {
     Timestamp  uint64    `json:"ts"`
 	Protocol string `json:"pro"`
@@ -27,8 +29,9 @@ type NodeHandshake struct {
 	NodeType   constants.NodeType   `json:"nT"`
 	Salt      string `json:"salt"`
 	Signature json.RawMessage        `json:"s"`
-	Signer    string        `json:"sigr"`
+	Signer    json.RawMessage        `json:"sigr"`
 	LastSyncedBlock  json.RawMessage `json:"lSy"`
+	PubKeyEDD json.RawMessage `json:"pubK"`
 	config 	*configs.MainConfiguration `json:"-" msgpack:"-"`
 }
 
@@ -47,6 +50,7 @@ func (hsd NodeHandshake) EncodeBytes() ([]byte, error) {
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hsd.ChainId.Bytes()},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hsd.LastSyncedBlock},
         encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: hsd.Protocol},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hsd.PubKeyEDD},
         encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: hsd.Salt},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: hsd.Timestamp},
 	)
@@ -73,24 +77,18 @@ func (handshake *NodeHandshake) IsValid(chainId configs.ChainId) bool {
 		logger.WithFields(logrus.Fields{"data": handshake}).Warnf("Node Handshake Expired: %d", uint64(time.Now().UnixMilli()) - handshake.Timestamp)
 		return false
 	}
-	signer, err := hex.DecodeString(string(handshake.Signer));
-	if err != nil {
-		logger.Error("Unable to decode signer")
-		return false
-	}
-
 	data, err := handshake.EncodeBytes()
 	if err != nil {
-		logger.Error("Unable to decode signer")
+		logger.Error("Unable to encode handshake", err)
 		return false
 	}
 	
-	isValid, err := crypto.VerifySignatureSECP(signer, data, handshake.Signature)
+	isValid, err := crypto.VerifySignatureSECP(handshake.Signer, data, handshake.Signature)
 	if err != nil {
 		logger.Error(err)
 		return false
 	}
-	logger.Debugf("Validating handshake signature for %s:  %v",  hex.EncodeToString(signer), isValid)
+	logger.Debugf("Validating handshake signature for %s:  %v",  hex.EncodeToString(handshake.Signer), isValid)
 	if !isValid {
 		logger.WithFields(logrus.Fields{"message": handshake.Protocol, "signature": handshake.Signature}).Warnf("Invalid signer %s", handshake.Signer)
 		return false
@@ -116,14 +114,15 @@ func NodeHandshakeFromJSON(json string) (NodeHandshake, error) {
 // 	return NodeHandshakeFromBytes([]byte(hs))
 // }
 
-func NewNodeHandshake(config *configs.MainConfiguration, protocolId string, privateKey []byte, nodeType constants.NodeType) (*NodeHandshake, error) {
-	pubKey := crypto.GetPublicKeySECP(privateKey)
-	handshake := NodeHandshake{ config: config, Protocol: protocolId, Salt: utils.RandomString(6), ChainId: config.ChainId, NodeType: nodeType, Timestamp: uint64(time.Now().UnixMilli())}
+func NewNodeHandshake(config *configs.MainConfiguration, protocolId string, privateKeySECP []byte, pubKeyEDD []byte, nodeType constants.NodeType, lastSyncBlock *big.Int, salt string) (*NodeHandshake, error) {
+	_, pubKey := crypto.GetPublicKeySECP(privateKeySECP)
+	handshake := NodeHandshake{ config: config, Protocol: protocolId, Salt: salt, PubKeyEDD: pubKeyEDD, ChainId: config.ChainId, LastSyncedBlock: lastSyncBlock.Bytes(), NodeType: nodeType, Timestamp: uint64(time.Now().UnixMilli())}
 	b, err := handshake.EncodeBytes();
 	if(err != nil) {
 		return nil, err
 	}
-	handshake.Signature, _ = crypto.SignSECP(b, privateKey)
+
+	handshake.Signature, _ = crypto.SignSECP(b, privateKeySECP)
     handshake.Signer = pubKey
 	return &handshake, nil
 }

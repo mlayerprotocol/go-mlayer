@@ -27,17 +27,22 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 )
 
+// Validator node only
 // Keep a record of all messages sent within a cycle per subnet
 func TrackReward(ctx *context.Context) {
-	
+	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	if !cfg.Validator {
+		return
+	}
 	defer TrackReward(ctx) 
 	defer time.Sleep(5 * time.Second)
-	logger.Debug("Tracking Reward Batches...")
+	
 	if !chain.NetworkInfo.Synced {
 		return
 	}
+	logger.Debug("Tracking Reward Batches...")
 	
-	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	
 	// validator := (*cfg).PublicKey  
 	claimedRewardStore, ok := (*ctx).Value(constants.ClaimedRewardStore).(*ds.Datastore)
 	if !ok {
@@ -125,7 +130,7 @@ func generateBatch(cycle uint64, index int, ctx *context.Context) (*entities.Rew
 	
 	subnetList := []models.EventCounter{}
 		claimed := false
-		err := query.GetManyWithLimit(models.EventCounter{Cycle: &cycle, Validator: entities.PublicKeyString(cfg.PublicKey), Claimed: &claimed }, &subnetList, &map[string]query.Order{"count": query.OrderDec}, entities.MaxBatchSize, index*entities.MaxBatchSize)
+		err := query.GetManyWithLimit(models.EventCounter{Cycle: &cycle, Validator: entities.PublicKeyString(cfg.PublicKeyEDDHex), Claimed: &claimed }, &subnetList, &map[string]query.Order{"count": query.OrderDec}, entities.MaxBatchSize, index*entities.MaxBatchSize)
 		if err != nil {
 			return nil, err
 		}
@@ -357,10 +362,12 @@ func processSentryRewardBatch(ctx context.Context, cfg *configs.MainConfiguratio
 
 }
 
+// Validator only
+// Claim rewards after each cycle
 func ProcessPendingClaims(ctx *context.Context) {
 	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
-		logger.Errorf("error: failed loading claimRewardStore")
+		logger.Errorf("error: failed loading config")
 	}
 	if !cfg.Validator {
 		return
@@ -445,7 +452,7 @@ func ProcessPendingClaims(ctx *context.Context) {
 				var claimed = true
 				result := sql.SqlDb.Where(
 					models.EventCounter{Cycle: &batch.Cycle,
-						Validator: entities.PublicKeyString(cfg.PublicKey),
+						Validator: entities.PublicKeyString(cfg.PublicKeyEDDHex),
 						}).Where("subnet IN ?", sIds).Updates(models.EventCounter{Claimed: &claimed})
 				if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 					continue

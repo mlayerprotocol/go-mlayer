@@ -17,7 +17,7 @@ type MessagePrice struct {
 	ChainId configs.ChainId `json:"pre"`
 	Price             json.RawMessage        `json:"pr"`
 	Signature            json.RawMessage        `json:"sig"`
-	Signer string        `json:"sign"`
+	Signer json.RawMessage        `json:"sign"`
 	Timestamp uint64 `json:"ts"`
 	config *configs.MainConfiguration `json:"-"`
 }
@@ -81,7 +81,7 @@ func (mp *MessagePrice) IsValid(prefix configs.ChainId) bool {
 
 
 func NewMessagePrice(config *configs.MainConfiguration, privateKey []byte, price []byte, cycle []byte) (*MessagePrice, error) {
-	pubKey := crypto.GetPublicKeySECP(privateKey)
+	_, pubKey := crypto.GetPublicKeySECP(privateKey)
 	mp := MessagePrice{config: config, Cycle: cycle,  ChainId: config.ChainId, Price: price, Timestamp: uint64(time.Now().UnixMilli())}
 	b, err := mp.EncodeBytes();
 	if(err != nil) {

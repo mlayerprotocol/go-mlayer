@@ -10,6 +10,7 @@ import (
 	"log"
 	"math/big"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,6 +50,10 @@ import (
 /***
 Publish Events to a specified p2p broadcast channel
 *****/
+type CertResponseData struct {
+	CertHash json.RawMessage `json:"cer"`
+	QuicHost	string 	`json:"quic"`
+}
 var syncedBlockMutex sync.Mutex
 func publishChannelEventToNetwork(channelPool chan *entities.Event, pubsubChannel *entities.Channel, mainCtx *context.Context) {
 	_, cancel := context.WithCancel(context.Background())
@@ -407,6 +412,8 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 					b, err = query.GenerateImportScript(sql.SqlDb, models.MessageEvent{}, where, fileName, config )
 				case models.MessageState:
 					b, err = query.GenerateImportScript(sql.SqlDb, models.MessageState{}, where, fileName, config )
+				case models.EventCounter:
+					b, err = query.GenerateImportScript(sql.SqlDb, models.EventCounter{}, where, fileName, config )
 				default:
 					fmt.Println("Unknown type or not a struct")
 				}
@@ -563,8 +570,32 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 			keyByte, _ := hex.DecodeString(certData.Key)
 			certByte, _ := hex.DecodeString(certData.Cert)
 			tlsConfig, _ :=  crypto.GenerateTLSConfig(keyByte, certByte)
-			response.Data = crypto.Keccak256Hash(tlsConfig.Certificates[0].Certificate[0])
+			resp := CertResponseData{
+				CertHash: crypto.Keccak256Hash(tlsConfig.Certificates[0].Certificate[0]),
+				QuicHost: config.QuicHost,
+			}
+			response.Data, err = encoder.MsgPackStruct(resp)
+			if err != nil {
+				response.Error = err.Error()
+				response.ResponseCode = 400
+				break
+			}
 			response.Sign(config.PrivateKeyEDD)
+		case P2pActionGetHandshake:
+			lastSync, err := ds.GetLastSyncedBlock(ctx)
+			if err != nil {
+				lastSync = big.NewInt(0)
+			}
+			logger.Debugf("PUBIKESSSSS: %s", hex.EncodeToString(cfg.PublicKeyEDD))
+			handshake, err := NewNodeHandshake(cfg, cfg.ProtocolVersion, cfg.PrivateKeySECP, cfg.PublicKeyEDD, utils.IfThenElse(cfg.Validator, constants.ValidatorNodeType, constants.SentryNodeType), lastSync, payload.Id)
+			if err != nil {
+				response.Error = "invalid action type"
+				response.ResponseCode = 400
+				break
+			}
+
+			
+			response.Data = handshake.MsgPack()
 		default:
 			response.Error = "invalid action type"
 			response.ResponseCode = 400
@@ -636,6 +667,39 @@ func HandleQuicConnection(ctx *context.Context, cfg *configs.MainConfiguration, 
     }
 }
 
+func extractQuicAddress(cfg *configs.MainConfiguration, maddrs []multiaddr.Multiaddr)  (string, multiaddr.Multiaddr, error){
+	var idx int
+	var found bool
+	for i, addr := range maddrs {
+		if !isRemote(addr) {
+			continue
+		}
+		if strings.Contains(addr.String(), "/quic-v1/") {
+			idx = i
+			found = true
+			break
+		}
+	}
+	if !found {
+		for j, addr := range maddrs {
+			if strings.Contains(addr.String(), "/quic-v1/") {
+				idx = j
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		return "", nil, fmt.Errorf("invalid quic address")
+	}
+	ip, err := extractIP(maddrs[idx])
+	if err != nil {
+		return "", nil, err
+	}
+
+	return fmt.Sprintf("%s%s", ip, cfg.QuicHost[strings.Index(cfg.QuicHost,":"):]), maddrs[idx], nil
+	
+}
 func extractIP(maddr multiaddr.Multiaddr) (string, error) {
 	
 	// Extract the transport protocol and address parts
