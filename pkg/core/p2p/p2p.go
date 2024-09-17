@@ -903,6 +903,10 @@ func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 	// logger.Debugf("HOSTPUBKEY2 %s ", hex.EncodeToString(pubk))
 
 	_, quicmad, err :=  extractQuicAddress(cfg, pairAddr.Addrs)
+	if err != nil {
+		logger.Debugf("No address found %v", err)
+		return
+	}
 	if !strings.Contains(quicmad.String(), "/p2p/") {
 		quicmad, _ = multiaddr.NewMultiaddr(fmt.Sprintf("%s/p2p/%s", quicmad.String(), pairAddr.ID.String()))
 	}
