@@ -153,7 +153,6 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	}
 
 	var params []encoder.EncoderParam
-	logger.Debugf("ChainID %s", hex.EncodeToString(msg.ChainId.Bytes()))
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()})
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
