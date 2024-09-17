@@ -904,7 +904,8 @@ func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 
 	_, quicmad, err :=  extractQuicAddress(cfg, pairAddr.Addrs)
 	if err != nil {
-		logger.Debugf("No address found %v", err)
+		logger.Debugf("No quic address found %v", err)
+		disconnect(pairAddr.ID)
 		return
 	}
 	if !strings.Contains(quicmad.String(), "/p2p/") {
