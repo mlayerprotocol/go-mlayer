@@ -911,10 +911,6 @@ func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 	if !strings.Contains(quicmad.String(), "/p2p/") {
 		quicmad, _ = multiaddr.NewMultiaddr(fmt.Sprintf("%s/p2p/%s", quicmad.String(), pairAddr.ID.String()))
 	}
-	if err != nil {
-		logger.Error(err)
-		return
-	}
 	if hex.EncodeToString(pubk) == hex.EncodeToString(cfg.PublicKeyEDD) {
 		logger.Debug("Attempt to respond to self")
 		return
