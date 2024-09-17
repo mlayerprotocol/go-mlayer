@@ -430,11 +430,7 @@ func Run(mainCtx *context.Context) {
 	Host.SetStreamHandler(protocol.ID(p2pProtocolId), handlePayload)
 	Host.SetStreamHandler(protocol.ID(syncProtocolId), handleSync)
 	hostPubKey, _ := Host.ID().ExtractPublicKey()
-	raw, _ := hostPubKey.Raw()"/ip4/0.0.0.0/udp/5002/quic-v1",
-		"/ip4/0.0.0.0/udp/5002/quic-v1/webtransport",
-		"/ip4/0.0.0.0/tcp/6001",
-		"/ip4/0.0.0.0/tcp/7001/ws",
-     	"/ip6/::1/tcp/7001/ws",
+	raw, _ := hostPubKey.Raw()
 	logger.Debugf("HOSTPUBKEY %s, %s ", hex.EncodeToString(raw), hex.EncodeToString(cfg.PublicKeyEDD))
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, Host)
