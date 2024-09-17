@@ -933,7 +933,17 @@ func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 	if validateHandShake(cfg, handshake, pairAddr.ID) {
 		lastSync, err := ds.GetLastSyncedBlock(MainContext)
 		if err == nil {
-			if !chain.NetworkInfo.Synced && new(big.Int).SetBytes(handshake.LastSyncedBlock).Cmp(lastSync) == 1 {
+			if handshake.NodeType == constants.ValidatorNodeType && !chain.NetworkInfo.Synced && new(big.Int).SetBytes(handshake.LastSyncedBlock).Cmp(lastSync) == 1 {
+				isBootStrap := false
+				for _, p := range cfg.BootstrapPeers {
+					if strings.Contains(p, pairAddr.ID.String()) {
+						isBootStrap = true
+						break
+					}
+				}
+				if !isBootStrap {
+					return
+				}
 				syncMutex.Lock()
 				defer syncMutex.Unlock()
 				if !chain.NetworkInfo.Synced  {
@@ -955,6 +965,8 @@ func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 		} else {
 			logger.Errorf("handshke: %v", err)
 		}
+	} else {
+		disconnect(pairAddr.ID)
 	}
 }
 // called when a peer connects
