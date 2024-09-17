@@ -10,7 +10,7 @@ var TestNetConfig = MainConfiguration{
 		"/ip4/0.0.0.0/udp/5002/quic-v1",
 		"/ip4/0.0.0.0/udp/5002/quic-v1/webtransport",
 		"/ip4/0.0.0.0/tcp/6001",
-		"/ip4/0.0.0.0/tcp/8080/ws",
+		"/ip4/0.0.0.0/tcp/7001/ws",
      	"/ip6/::1/tcp/7001/ws",
 	},
 	BootstrapPeers: []string{

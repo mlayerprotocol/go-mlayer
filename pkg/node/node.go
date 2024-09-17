@@ -414,9 +414,9 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 				}
 			}
 
-			// if cfg.NoSync {
-			// 	chain.NetworkInfo.Synced = true
-			// }
+			if cfg.NoSync {
+				chain.NetworkInfo.Synced = true
+			}
 			chain.NetworkInfo.StartBlock = info.StartBlock
 			chain.NetworkInfo.StartTime = info.StartTime
 			chain.NetworkInfo.CurrentCycle = info.CurrentCycle

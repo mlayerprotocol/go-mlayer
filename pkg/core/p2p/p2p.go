@@ -430,7 +430,11 @@ func Run(mainCtx *context.Context) {
 	Host.SetStreamHandler(protocol.ID(p2pProtocolId), handlePayload)
 	Host.SetStreamHandler(protocol.ID(syncProtocolId), handleSync)
 	hostPubKey, _ := Host.ID().ExtractPublicKey()
-	raw, _ := hostPubKey.Raw()
+	raw, _ := hostPubKey.Raw()"/ip4/0.0.0.0/udp/5002/quic-v1",
+		"/ip4/0.0.0.0/udp/5002/quic-v1/webtransport",
+		"/ip4/0.0.0.0/tcp/6001",
+		"/ip4/0.0.0.0/tcp/7001/ws",
+     	"/ip6/::1/tcp/7001/ws",
 	logger.Debugf("HOSTPUBKEY %s, %s ", hex.EncodeToString(raw), hex.EncodeToString(cfg.PublicKeyEDD))
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, Host)
@@ -933,7 +937,7 @@ func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 	if validateHandShake(cfg, handshake, pairAddr.ID) {
 		lastSync, err := ds.GetLastSyncedBlock(MainContext)
 		if err == nil {
-			if handshake.NodeType == constants.ValidatorNodeType && !chain.NetworkInfo.Synced && new(big.Int).SetBytes(handshake.LastSyncedBlock).Cmp(lastSync) == 1 {
+			if handshake.NodeType == constants.ValidatorNodeType && new(big.Int).SetBytes(handshake.LastSyncedBlock).Cmp(lastSync) == 1 {
 				isBootStrap := false
 				for _, p := range cfg.BootstrapPeers {
 					if strings.Contains(p, pairAddr.ID.String()) {
