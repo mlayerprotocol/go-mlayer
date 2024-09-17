@@ -455,12 +455,12 @@ func Run(mainCtx *context.Context) {
 	// bootstrap peers (or any other peers). We leave this commented as
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
-	// for {
-	// 	if chain.NetworkInfo.Synced {
-	// 		break
-	// 	}
-	// 	time.Sleep(5 * time.Second)
-	// }
+	for {
+		if chain.NetworkInfo.Synced {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
 	fmt.Println("------------------------------- MLAYER -----------------------------------")
 	fmt.Println("- Server Mode: ", utils.IfThenElse(cfg.Validator, "Validator", "Sentry/Archive"))
 	fmt.Println("- Bootstrap Node: ", cfg.BootstrapNode)
