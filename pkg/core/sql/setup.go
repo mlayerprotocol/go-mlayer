@@ -78,19 +78,25 @@ func Init(cfg *configs.MainConfiguration) {
 		panic(SqlDBErr)
 	}
 	for _, migration := range migration.Migrations {
-		var m models.MigrationState;
-		key := strings.ToLower(fmt.Sprintf("%s:%s", migration.DateTime,  migration.Id))
-		err := SqlDb.Where(models.MigrationState{Key: key }).First(&m).Error
-		if err == gorm.ErrRecordNotFound {
-			err := migration.Migrate(SqlDb)
+		err := migration.Migrate(SqlDb)
 			
-			if err == nil {
-				SqlDb.Create(&models.MigrationState{Key: key })
-			} else {
+			if err != nil {
 				log.Logger.Error("Migration Error", err)
 				panic(err)
 			}
-		}
+		// var m models.MigrationState;
+		// key := strings.ToLower(fmt.Sprintf("%s:%s", migration.DateTime,  migration.Id))
+		// err := SqlDb.Where(models.MigrationState{Key: key }).First(&m).Error
+		// if err == gorm.ErrRecordNotFound {
+		// 	err := migration.Migrate(SqlDb)
+			
+		// 	if err == nil {
+		// 		SqlDb.Create(&models.MigrationState{Key: key })
+		// 	} else {
+		// 		log.Logger.Error("Migration Error", err)
+		// 		panic(err)
+		// 	}
+		// }
 	}
 	db, err := SqlDb.DB()
 	if err != nil {
