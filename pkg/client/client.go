@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/hex"
+	"os"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -24,6 +25,9 @@ type NodeInfo struct {
 	CurrentBlock uint64 `json:"current_block"`
 	CurrentEpoch uint64 `json:"current_epoch"`
 	Listeners []string `json:"listeners"`
+	Client string `json:"client"`
+	ClientVersion string `json:"client_version"`
+	ClientReleaseDate string `json:"client_release_date"`
 }
 
 func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
@@ -55,6 +59,9 @@ func Info(cfg *configs.MainConfiguration) (*NodeInfo, error) {
 		CurrentCycle: info.CurrentCycle.Uint64(),
 		CurrentEpoch: info.CurrentEpoch.Uint64(),
 		CurrentBlock: info.CurrentBlock.Uint64(),
+		Client: "goml",
+		ClientVersion: os.Getenv("CLIENT_VERSION"),
+		ClientReleaseDate: os.Getenv("RELEASE_DATE"),
 	}, nil
 	
 

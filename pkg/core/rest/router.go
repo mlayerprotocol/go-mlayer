@@ -35,6 +35,7 @@ type RestResponse struct {
 	Data   interface{} `json:"data"`
 }
 
+
 func NewRestService(mainCtx *context.Context) *RestService {
 	cfg, _ := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	clientVerificationc, _ := (*mainCtx).Value(constants.ClientHandShackChId).(*chan *entities.ClientHandshake)
