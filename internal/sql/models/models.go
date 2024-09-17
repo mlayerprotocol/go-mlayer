@@ -49,4 +49,5 @@ var SyncModels = []any{
 	SubscriptionState{},
 	MessageEvent{},
 	MessageState{},
+	EventCounter{},
 }

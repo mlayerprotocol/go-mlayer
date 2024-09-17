@@ -195,25 +195,22 @@ func Start(mainCtx *context.Context) {
 		}()
 	}
 
-	wg.Add(1)
-	go func() {
-		_, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		defer wg.Done()
-		TrackReward(&ctx)
-	}()
-
-	
-
-	wg.Add(1)
-	go func() {
-		_, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		defer wg.Done()
-		ProcessPendingClaims(&ctx)
-		
-	}()
-
+	if cfg.Validator {
+		wg.Add(1)
+		go func() {
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer wg.Done()
+			TrackReward(&ctx)
+		}()
+		wg.Add(1)
+		go func() {
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer wg.Done()
+			ProcessPendingClaims(&ctx)
+		}()
+	}
 	
 
 	wg.Add(1)

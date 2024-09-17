@@ -118,13 +118,15 @@ type MainConfiguration struct {
 	PrivateKey               string         `toml:"private_key"`
 	EvmRpcConfig			 map[string]EthConfig `toml:"evm_rpc"`
 	QuicHost                 string         `toml:"quic_host"`
-	PublicKey        string
+	// PublicKey        string
 	OperatorAddress          string
 	
 	PrivateKeyEDD  []byte 
 	PublicKeyEDD []byte 
+	PublicKeyEDDHex string
 	PrivateKeySECP  []byte 
 	PublicKeySECP []byte 
+	PublicKeySECPHex string
 
 	OwnerAddress common.Address 
 	NoSync bool 

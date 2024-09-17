@@ -118,6 +118,7 @@ type Message struct {
 	ID string `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	// Timestamp      uint64   `json:"ts"`
 	Topic string        `json:"top,omitempty"`
+	
 	Sender  DIDString `json:"s"`
 	// OwnerAddress  string              `json:"oA"`
 	Receiver DIDString   `json:"r,omitempty"`
@@ -140,6 +141,10 @@ type Message struct {
 	BlockNumber uint64          `json:"blk"`
 	Cycle   	uint64			`json:"cy"`
 	Epoch		uint64			`json:"ep"`
+
+	// DEPRECATED FIELDS
+	TopicId string        `json:"_" gorm:"topic_id" msgpack:"-"`
+	Attachments  string `json:"_" gorm:"attachments" msgpack:"-"`
 }
 
 func (chatMessage Message) ToString() string {

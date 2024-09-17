@@ -71,7 +71,8 @@ func (v *DhtValidator) validateValidatorListKey(parts []string, value []byte ) e
     if len(parts) != 4 {
 		return errors.New("DhtValidator: key parts too short or long")
 	}
-	if len(parts[3]) != 66 && len(parts[3]) != 64 {
+
+    if len(parts[3]) != 66 && len(parts[3]) != 64 {
 		return errors.New("DhtValidator: key value must be a valid public key")
 	}
     addresses, err := UnpackNodeMultiAddressData(value)
@@ -82,6 +83,7 @@ func (v *DhtValidator) validateValidatorListKey(parts []string, value []byte ) e
     if !addresses.IsValid(v.config.ChainId) {
         return errors.New("DhtValidator: Invalid validator address signature")
     }
+   
    
     if parts[3] != hex.EncodeToString(addresses.Signer) && parts[3] != hex.EncodeToString(addresses.PubKeyEDD) {
         return errors.New("DhtValidator: Signer and PubKeySecp does not match key public key")
@@ -109,7 +111,7 @@ func (v *DhtValidator) selectFromValidatorList(parts []string, value [][]byte ) 
         if len(d.Signer) != 32 {
             continue
         }
-        if !d.IsValid(config.ChainId) {
+        if !d.IsValid(cfg.ChainId) {
            continue
         }
         if parts[3] != hex.EncodeToString(d.Signer) && parts[3] != hex.EncodeToString(d.PubKeyEDD) {
@@ -142,7 +144,7 @@ func (v *DhtValidator) validatePriceKey(parts []string, value []byte ) error {
     if parts[3] != fmt.Sprintf("%d", new(big.Int).SetBytes(priceData.Cycle)) {
         return errors.New("DhtValidator: price data cycle does not match key cycle")
     }
-    if !priceData.IsValid(config.ChainId) {
+    if !priceData.IsValid(cfg.ChainId) {
         return errors.New("DhtValidator: Invalid price signature")
     }
    

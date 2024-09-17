@@ -72,7 +72,7 @@ func (nma * NodeMultiAddressData) IsValid(prefix configs.ChainId) bool {
 	
 	data, err := nma.EncodeBytes()
 	if err != nil {
-		logger.Error("Unable to decode signer")
+		logger.Error("Unable to encode message", err)
 		return false
 	}
 	// signature, err := hex.DecodeString(nma.Signature);
@@ -96,14 +96,14 @@ func (nma * NodeMultiAddressData) IsValid(prefix configs.ChainId) bool {
 }
 
 
-func NewNodeMultiAddressData(config *configs.MainConfiguration, privateKey []byte, addresses []string, pubKeyEDD []byte) (*NodeMultiAddressData, error) {
+func NewNodeMultiAddressData(config *configs.MainConfiguration, privateKeySECP []byte, addresses []string, pubKeyEDD []byte) (*NodeMultiAddressData, error) {
 	//pubKey := crypto.GetPublicKeySECP(privateKey)
 	nma := NodeMultiAddressData{config: config, PubKeyEDD: pubKeyEDD, ChainId: config.ChainId, Addresses: addresses,   Timestamp: uint64(time.Now().UnixMilli())}
 	b, err := nma.EncodeBytes();
 	if(err != nil) {
 		return nil, err
 	}
-	signature, _ := crypto.SignSECP(b, config.PrivateKeySECP)
+	signature, _ := crypto.SignSECP(b, privateKeySECP)
     nma.Signature = signature
     nma.Signer = config.PublicKeySECP
 	return &nma, nil

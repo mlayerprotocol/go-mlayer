@@ -412,7 +412,7 @@ func GenerateImportScript[T any](db *gorm.DB, model T, where string, fileName st
 		where += " AND synced = true AND broadcasted = true"
 	}
 
-	query := fmt.Sprintf("SELECT * FROM %s WHERE %s ORDER BY created_at DESC", tableName, where)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE %s", tableName, where)
 	
 	
 	rows, err := Db.Query(query)

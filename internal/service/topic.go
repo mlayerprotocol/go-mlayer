@@ -174,7 +174,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 			}
 			
 			
-			if string(event.Validator) != cfg.PublicKey {
+			if string(event.Validator) != cfg.PublicKeyEDDHex {
 				go func () {
 				dependent, err := query.GetDependentEvents(event)
 				if err != nil {

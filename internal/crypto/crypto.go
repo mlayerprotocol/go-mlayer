@@ -52,15 +52,15 @@ func GetPublicKeyECC(privKey string) string {
 }
 
 
-func GetPublicKeySECP(privateKey []byte) string {
+func GetPublicKeySECP(privateKey []byte) (string, []byte) {
 	_, pub := btcec.PrivKeyFromBytes(btcec.S256(), privateKey)
 	
 	// logger.Debugf("PUBKEY %d %d %d", pub.X, pub.Y)
-	
-	return hex.EncodeToString(pub.SerializeCompressed())
+	key := pub.SerializeCompressed()
+	return hex.EncodeToString(key), key
 }
 
-func GetPublicKeyEDD(privKey [64]byte) [32]byte {
+func GetPublicKeyEDD(privKey []byte) [32]byte {
 	// if len(privKey) != 128{
 	// 	logger.Fatal("Invalid private key length")
     // }
@@ -156,17 +156,6 @@ func VerifySignatureECC(signer string, message *[]byte, signature string) bool {
 }
 
 func VerifySignatureEDD(signer []byte, message *[]byte, signature []byte) (bool, error) {
-	// signatureByte, err := hex.DecodeString(signature)
-	// if err != nil {
-	// 	logger.WithFields(logrus.Fields{"signature": signature}).Infof("Unable to decode signature %v", err)
-	// 	return false, err
-	// }
-	// publicKeyBytes, err := hex.DecodeString(signer)
-	// if err != nil {
-	// 	logger.WithFields(logrus.Fields{"signer": signer}).Infof("Unable to decode signer %v", err)
-	// 	return false, err
-	// }
-	
 	msg := Sha256(*message)
 	return  ed25519.Verify(signer, msg[:], signature), nil
 }
@@ -190,7 +179,7 @@ func VerifySignatureSECP(publicKeyBytes []byte, message []byte, signatureByte []
 	return parsedSign.Verify(msg[:], pubKey), nil
 }
 
-func Bech32AddressFromPrivateKeyEDD(privateKey [64]byte) string {
+func Bech32AddressFromPrivateKeyEDD(privateKey []byte) string {
 	decoded := GetPublicKeyEDD(privateKey)
 	return ToBech32Address(decoded[:], "ml")
 }
@@ -495,7 +484,12 @@ func GetOrGenerateCert(ctx *context.Context) *CertData {
 
 		}
 		if generated { // store the new cert
-			logger.Debug("Generated New Cert", cd)
+			fmt.Println("Generated New Cert")
+			fmt.Println("------------------------")
+			fmt.Println(cd.Cert)
+			fmt.Println("------------------------")
+
+			
 			cdBytes, err := json.Marshal(*cd)
 			if err != nil {
 				logger.Fatal(cd, err)
@@ -503,6 +497,8 @@ func GetOrGenerateCert(ctx *context.Context) *CertData {
 			if err = systemStore.Set(*ctx, certKey, cdBytes, true); err != nil {
 				logger.Fatal(err)
 			}
+		} else {
+			logger.Debug("Using Saved Certificate")
 		}
 		return cd
 }

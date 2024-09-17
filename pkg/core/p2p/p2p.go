@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -56,8 +57,10 @@ import (
 	// dhtConfig "github.com/libp2p/go-libp2p-kad-dht/internal/config"
 )
 
+
+
 var logger = &log.Logger
-var Delimiter = []byte{'0'}
+var Delimiter = []byte{'\n'}
 var Host host.Host
 var peerDiscoverySyncMap = map[string]*sync.Mutex{}
 var peerDiscoveryMutex= sync.Mutex{}
@@ -71,7 +74,7 @@ const (
 
 
 // var privKey crypto.PrivKey
-var config *configs.MainConfiguration
+var cfg *configs.MainConfiguration
 var handShakeProtocolId = "mlayer/handshake/1.0.0"
 var p2pProtocolId string
 var syncProtocolId = "mlayer/sync/1.0.0"
@@ -115,8 +118,35 @@ func shortID(p peer.ID) string {
 func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous string) {
 	routingDiscovery := drouting.NewRoutingDiscovery(kdht)
 	dutil.Advertise(ctx, routingDiscovery, rendezvous)
+	// peers, err := routingDiscovery.FindPeers(ctx, rendezvous)
+	// if err != nil {
+	// 	logger.Error(err)
+	// 	time.Sleep(2 * time.Second)
+	// 	discover(ctx, h, kdht, rendezvous)
+	// }
+	// for p := range peers {
+	// 	if p.ID == h.ID() {
+	// 		continue
+	// 	}
+	// 	// if h.Network().Connectedness(p.ID) != network.Connected {
+	// 		h.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.PermanentAddrTTL)
+	// 		err := h.Connect(ctx, p)
+	// 		// _, err = h.Network().DialPeer(ctx, p.ID)
+	// 		if err != nil {
+	// 			logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.String(), err.Error())
+	// 			h.Peerstore().ClearAddrs(p.ID)
+	// 			kdht.ForceRefresh()
+	// 			continue
+	// 		}
+	// 		if len(p.ID) == 0 {
+	// 			continue
+	// 		}
+	// 		logger.Debugf("Connected to discovered peer: %s \n", p.ID.String())
+	// 		// go handleConnect(&h, &p)
+	// 	// }
+	// }
 
-	ticker := time.NewTicker(time.Second * 1)
+	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
 
 	for {
@@ -124,23 +154,24 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-
+			logger.Debug("Finding Peer at rendezvous: ", rendezvous)
 			peers, err := routingDiscovery.FindPeers(ctx, rendezvous)
 			if err != nil {
 				logger.Error(err)
 				continue
 			}
-
+			
 			for p := range peers {
-				if p.ID == h.Network().LocalPeer() {
+				if p.ID == h.ID() {
 					continue
 				}
-				if h.Network().Connectedness(p.ID) != network.Connected {
+				 if h.Network().Connectedness(p.ID) != network.Connected {
 					h.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.PermanentAddrTTL)
-					_, err = h.Network().DialPeer(ctx, p.ID)
+					err := h.Connect(ctx, p)
+					// _, err = h.Network().DialPeer(ctx, p.ID)
 					if err != nil {
-						// logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.String(), err.Error())
-						h.Peerstore().RemovePeer(p.ID)
+						logger.Debugf("Failed to connect to peer: %s \n%s", p.ID.String(), err.Error())
+						h.Peerstore().ClearAddrs(p.ID)
 						kdht.ForceRefresh()
 						continue
 					}
@@ -148,7 +179,7 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 						continue
 					}
 					logger.Debugf("Connected to discovered peer: %s \n", p.ID.String())
-					go handleConnect(&h, &p)
+					go handleConnectV2(&h, &p)
 				}
 			}
 		}
@@ -159,16 +190,22 @@ func Run(mainCtx *context.Context) {
 	// fmt.Printf("publicKey %s", privateKey)
 	// The context governs the lifetime of the libp2p node.
 	// Cancelling it will stop the the host.
-	logger.Debugf("LoadedChainInfo: %v", chain.NetworkInfo)
+	info, err := json.Marshal(chain.NetworkInfo)
+	if err != nil {
+		logger.Debugf("LoadedChainInfo: %v", chain.NetworkInfo)
+	} else {
+		logger.Debugf("LoadedChainInfo: %v", string(info))
+	}
+	
 	ctx, cancel := context.WithCancel(*mainCtx)
 	MainContext = &ctx
 	defer cancel()
-
-	cfg, ok := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
-	config = cfg
+	ok := false
+	cfg, ok = ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		panic("Unable to load config from context")
 	}
+	discoveryService := fmt.Sprintf("%s/%s", constants.NETWORK_NAME, cfg.ChainId)
 	p2pDhtStore, ok := (*MainContext).Value(constants.P2PDhtStore).(*ds.Datastore)
 	if !ok {
 		logger.Fatalf("node.Run: unable to load p2pDhtStore from context")
@@ -179,7 +216,7 @@ func Run(mainCtx *context.Context) {
 		panic("Unable to load data store from context")
 	}
 
-	p2pProtocolId = config.ProtocolVersion
+	p2pProtocolId = cfg.ProtocolVersion
 
 	// incomingAuthorizationC, ok := ctx.Value(constants.IncomingAuthorizationEventChId).(*chan *entities.Event)
 	// if !ok {
@@ -211,12 +248,12 @@ func Run(mainCtx *context.Context) {
 	// if !ok {
 
 	// }
-	pk, err := hex.DecodeString(cfg.PrivateKey)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	seedReader := bytes.NewReader(pk)
-	privKey, _, err := crypto.GenerateKeyPairWithReader(
+	
+	// if err != nil {
+	// 	logger.Fatal(err)
+	// }
+	seedReader := bytes.NewReader(cfg.PrivateKeySECP)
+	privKey, pubKey, err := crypto.GenerateKeyPairWithReader(
 		crypto.Ed25519, // Select your key type. Ed25519 are nice short
 		2048,           // Select key length when possible (i.e. RSA).,
 		seedReader,
@@ -224,8 +261,10 @@ func Run(mainCtx *context.Context) {
 	if err != nil {
 		panic(err)
 	}
+	d, err := pubKey.Raw()
+	logger.Debugf("EDDUBPUBKEYS %s, %s", hex.EncodeToString(cfg.PublicKeyEDD), hex.EncodeToString(d))
 
-	// if len(config.NodePrivateKey) == 0 {
+	// if len(cfg.NodePrivateKey) == 0 {
 	// 	priv, _, err := crypto.GenerateKeyPair(
 	// 		crypto.Ed25519, // Select your key type. Ed25519 are nice short
 	// 		-1,             // Select key length when possible (i.e. RSA).
@@ -235,7 +274,7 @@ func Run(mainCtx *context.Context) {
 	// 	}
 	// 	privKey = priv
 	// } else {
-	// 	priv, err := crypto.UnmarshalECDSAPrivateKey(hexutil.MustDecode(config.NodePrivateKey))
+	// 	priv, err := crypto.UnmarshalECDSAPrivateKey(hexutil.MustDecode(cfg.NodePrivateKey))
 	// 	if err != nil {
 	// 		panic(err)
 	// 	}
@@ -253,7 +292,7 @@ func Run(mainCtx *context.Context) {
 		// Use the keypair we generated
 		libp2p.Identity(privKey),
 		// Multiple listen addresses
-		libp2p.ListenAddrStrings(config.ListenerAdresses...),
+		libp2p.ListenAddrStrings(cfg.ListenerAdresses...),
 		// support TLS connections
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
@@ -281,7 +320,7 @@ func Run(mainCtx *context.Context) {
 
 			var bootstrapPeers []peer.AddrInfo
 
-			for _, addr := range config.BootstrapPeers {
+			for _, addr := range cfg.BootstrapPeers {
 				addr, _ := multiaddr.NewMultiaddr(addr)
 				pi, _ := peer.AddrInfoFromP2pAddr(addr)
 				bootstrapPeers = append(bootstrapPeers, *pi)
@@ -299,7 +338,7 @@ func Run(mainCtx *context.Context) {
 				dht.NamespacedValidator("ipns", record.PublicKeyValidator{}),
 				dht.NamespacedValidator("ml", &DhtValidator{config: cfg}),
 			)
-			if !config.BootstrapNode {
+			if !cfg.BootstrapNode {
 				dhtOptions = append(dhtOptions, dht.Mode(dht.ModeAutoServer))
 			}
 			// dhtOptions = append(dhtOptions,  dht.Datastore(syncDatastore))
@@ -329,7 +368,7 @@ func Run(mainCtx *context.Context) {
 
 			idht = kdht
 
-			// for _, addr := range config.BootstrapPeers {
+			// for _, addr := range cfg.BootstrapPeers {
 			// 	addr, _ := multiaddr.NewMultiaddr(addr)
 			// 	pi, err := peer.AddrInfoFromP2pAddr(addr)
 			// 	if err != nil {
@@ -383,41 +422,50 @@ func Run(mainCtx *context.Context) {
 	}
 	
 	// gater := NetworkGater{host: h, config: config, blockPeers: make(map[peer.ID]struct{})}
-	go discover(ctx, Host, idht, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
+	go discover(ctx, Host, idht, discoveryService)
 	
 	Host.Network().Notify(&notifee.ConnectionNotifee{Dht: idht})
 
 	Host.SetStreamHandler(protocol.ID(handShakeProtocolId), handleHandshake)
 	Host.SetStreamHandler(protocol.ID(p2pProtocolId), handlePayload)
 	Host.SetStreamHandler(protocol.ID(syncProtocolId), handleSync)
+	hostPubKey, _ := Host.ID().ExtractPublicKey()
+	raw, _ := hostPubKey.Raw()
+	logger.Debugf("HOSTPUBKEY %s, %s ", hex.EncodeToString(raw), hex.EncodeToString(cfg.PublicKeyEDD))
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, Host)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	// setup local mDNS discovery
-	err = setupDiscovery(Host, fmt.Sprintf("%s-%s", constants.NETWORK_NAME, config.ChainId))
+	err = setupMDNSDiscovery(Host, discoveryService)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	// connect to bootstrap peers
 	time.Sleep(10 * time.Second)
-	for _, addr := range config.BootstrapPeers {
-		logger.Infof("Connecting to bootStrapPeer: %s", addr)
-		addr, _ := multiaddr.NewMultiaddr(addr)
-		connectToNode(addr, *mainCtx)
-	}
+	// for _, addr := range cfg.BootstrapPeers {
+	// 	logger.Infof("Connecting to bootStrapPeer: %s", addr)
+	// 	addr, _ := multiaddr.NewMultiaddr(addr)
+	// 	connectToNode(addr, *mainCtx)
+	// }
 	// node = &h
 
 	// The last step to get fully up and running would be to connect to
 	// bootstrap peers (or any other peers). We leave this commented as
 	// this is an example and the peer will die as soon as it finishes, so
 	// it is unnecessary to put strain on the network.
+	for {
+		if chain.NetworkInfo.Synced {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
 	fmt.Println("------------------------------- MLAYER -----------------------------------")
-	fmt.Println("- Server Mode: ", utils.IfThenElse(config.Validator, "Validator", "Sentry/Archive"))
-	fmt.Println("- Bootstrap Node: ", config.BootstrapNode)
+	fmt.Println("- Server Mode: ", utils.IfThenElse(cfg.Validator, "Validator", "Sentry/Archive"))
+	fmt.Println("- Bootstrap Node: ", cfg.BootstrapNode)
 	fmt.Println("- Licence Operator Public Key (SECP): ", hex.EncodeToString(cfg.PublicKeySECP))
-	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKey)
+	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKeyEDD)
 	fmt.Println("- Host started with ID: ", Host.ID().String())
 	fmt.Println("- Host Network: ", p2pProtocolId)
 	fmt.Println("- Host MultiAddresses: ", GetMultiAddresses(Host))
@@ -429,48 +477,48 @@ func Run(mainCtx *context.Context) {
 	fmt.Println("---------------------------------------------------------------------------")
 
 	// Subscrbers
-	authPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), AuthorizationChannel, config.ChannelMessageBufferSize)
+	authPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), AuthorizationChannel, cfg.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.AuthorizationPubSub = *authPubSub
 
-	topicPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), TopicChannel, config.ChannelMessageBufferSize)
+	topicPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), TopicChannel, cfg.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.TopicPubSub = *topicPubSub
 
-	subnetPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), SubnetChannel, config.ChannelMessageBufferSize)
+	subnetPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), SubnetChannel, cfg.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.SubnetPubSub = *subnetPubSub
 
-	walletPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), WalletChannel, config.ChannelMessageBufferSize)
+	walletPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), WalletChannel, cfg.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.WalletPubSub = *walletPubSub
 
-	subscriptionPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), SubscriptionChannel, config.ChannelMessageBufferSize)
+	subscriptionPubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), SubscriptionChannel, cfg.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.SubscriptionPubSub = *subscriptionPubSub
 
-	messagePubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), MessageChannel, config.ChannelMessageBufferSize)
+	messagePubSub, err := entities.JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), MessageChannel, cfg.ChannelMessageBufferSize)
 	if err != nil {
 		panic(err)
 	}
 	entities.MessagePubSub = *messagePubSub
 
-	// unsubscribePubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), UnSubscribeChannel, config.ChannelMessageBufferSize)
+	// unsubscribePubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), UnSubscribeChannel, cfg.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	// approveSubscriptionPubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), ApproveSubscriptionChannel, config.ChannelMessageBufferSize)
+	// approveSubscriptionPubSub, err := JoinChannel(ctx, ps, Host.ID(), defaultNick(Host.ID()), ApproveSubscriptionChannel, cfg.ChannelMessageBufferSize)
 	// if err != nil {
 	// 	panic(err)
 	// }
@@ -485,7 +533,7 @@ func Run(mainCtx *context.Context) {
 	// go PublishChannelEventToNetwork(channelpool.UnSubscribeEventPublishC, unsubscribePubSub, mainCtx)
 	// go PublishChannelEventToNetwork(channelpool.ApproveSubscribeEventPublishC, approveSubscriptionPubSub, mainCtx)
 
-	// if config.Validator {
+	// if cfg.Validator {
 		
 		
 			
@@ -526,7 +574,7 @@ func handleHandshake(stream network.Stream) {
 	// ctx, _ := context.WithCancel(context.Background())
 	// config, _ := ctx.Value(constants.ConfigKey).(*configs.MainConfiguration)
 	// defer delete(DisconnectFromPeer, p )
-	peerId := (stream).Conn().RemotePeer()
+	// peerId := (stream).Conn().RemotePeer()
 
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
@@ -542,70 +590,62 @@ func handleHandshake(stream network.Stream) {
 			return
 		}
 
+		
 		handshake, err := UnpackNodeHandshake(hsData)
-
 		if err != nil && err != io.EOF {
 			logger.WithFields(logrus.Fields{"data": handshake}).Warnf("Failed to parse handshake: %o", err)
 			return
 			// break
 		}
-		validHandshake := handshake.IsValid(config.ChainId)
-
-		
-		if !validHandshake {
+		if !validateHandShake(cfg, handshake, stream.Conn().RemotePeer() ) {
 			disconnect((stream).Conn().RemotePeer())
 			return
 		}
-		if handshake.NodeType == constants.ValidatorNodeType {
-			
-			validHandshake, err = chain.NetworkInfo.IsValidator(handshake.Signer)
-			
-			if err != nil || !validHandshake {
-				disconnect((stream).Conn().RemotePeer())
-				return
-			}
-			// Validate stake as well
-
-			// validStake := isValidStake(handshake, p, config)
-			// if !validStake {
-			// 	// disconnect(*node, p)
-			// 	logger.WithFields(logrus.Fields{"address": handshake.Signer, "data": hsData}).Infof("Disconnecting from peer (%s) with inadequate stake in network", p)
-			// 	return
-			// }
-		} else {
-			validHandshake, err = chain.NetworkInfo.IsSentry(handshake.Signer, nil)
-			if err != nil || !validHandshake {
-				disconnect((stream).Conn().RemotePeer())
-				return
-			}
-		}
-		logger.Debug("HandleHan-GetLastSynced")
-		lastSync, err := ds.GetLastSyncedBlock(MainContext)
-		if err == nil {
-			if !chain.NetworkInfo.Synced && new(big.Int).SetBytes(handshake.LastSyncedBlock).Cmp(lastSync) == 1 {
-				syncMutex.Lock()
-				defer syncMutex.Unlock()
-				if !chain.NetworkInfo.Synced  {
-					hostIP, err := extractIP((stream).Conn().RemoteMultiaddr())
-					if err == nil {
-						SyncNode(config, hostIP, handshake.Signer)	
-					}
-					chain.NetworkInfo.Synced = true
-				}
-			}
-		} else {
-			logger.Errorf("handshke: %v", err)
-		}
-		// b, _ := hexutil.Decode(handshake.Signer)
-		// PeerPubKeys[p] = b
-		// break
-		logger.WithFields(logrus.Fields{"peer": peerId, "pubKey": handshake.Signer}).Info("Successfully connected peer with valid handshake")
-		delete(DisconnectFromPeer, peerId)
 	}
 }
 
+
+func validateHandShake(cfg *configs.MainConfiguration, handshake NodeHandshake, id peer.ID) bool {
+		validHandshake := handshake.IsValid(cfg.ChainId)
+		if !validHandshake {
+			return false
+		}
+		
+		if handshake.NodeType == constants.ValidatorNodeType {
+			
+			validHandshake, err := chain.NetworkInfo.IsValidator(hex.EncodeToString(handshake.Signer))
+			
+			if err != nil || !validHandshake {
+				logger.Error(err)
+				return false
+			}
+		} else {
+			
+			validHandshake, err := chain.NetworkInfo.IsSentry(hex.EncodeToString(handshake.Signer), nil)
+			if err != nil || !validHandshake {
+				logger.Error(err)
+				return false
+			}
+		}
+		
+		// b, _ := hexutil.Decode(handshake.Signer)
+		// PeerPubKeys[p] = b
+		// break
+		//logger.WithFields(logrus.Fields{"peer": peerId, "pubKey": handshake.Signer}).Info("Successfully connected peer with valid handshake")
+		delete(DisconnectFromPeer, id)
+		return true
+}
+
+type SqliteColumnInfo struct {
+	Cid        int    `gorm:"column:cid"`
+	Name       string `gorm:"column:name"`
+	Type       string `gorm:"column:type"`
+	NotNull    int    `gorm:"column:notnull"`
+	DfltValue  string `gorm:"column:dflt_value"`
+	Pk         int    `gorm:"column:pk"`
+}
 // sync block range
-func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer string, _range Range) error {
+func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress multiaddr.Multiaddr, signer string, _range Range) error {
 		packedRange, _ := encoder.MsgPackStruct(_range) 
 		payload := NewP2pPayload(cfg, P2pActionSyncBlock, packedRange )
 		resp, err := payload.SendQuicSyncRequest(hostQuicAddress, entities.PublicKeyString(signer))
@@ -634,6 +674,7 @@ func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer s
 			var postgresData [][]string
 			values := ""
 			for i, row := range b.Data {
+				logger.Debugf("DATAROW: %v", row)
 				if sql.Driver(cfg.SQLDB.DbDialect) == sql.Postgres {
 					postgresData = append(postgresData, utils.ToStringSlice(row))
 					if i==len(b.Data)-1 || i+1 % batchSize == 0 {
@@ -647,7 +688,32 @@ func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer s
 				}
 				if sql.Driver(cfg.SQLDB.DbDialect) == sql.Sqlite {
 					values = fmt.Sprintf("%s%s, \n", values, fmt.Sprintf("(%s)", query.FormatSQL(row)))
+					
+
 					if i==len(b.Data)-1 || i+1 % batchSize == 0 {
+						// var columns []SqliteColumnInfo
+						// colNames := map[string]bool
+						// colQuery := fmt.Sprintf("PRAGMA table_info(%s);", b.Table)
+
+						// // Execute the query using GORM's Raw method
+						// err = sql.SqlDb.Raw(colQuery).Scan(&columns).Error
+						// if err != nil {
+						// 	logger.Fatal("error executing query:", err)
+						// }
+						// for i, col := range currentCols {
+						// 	colNames[col.Name] = true
+						// }
+						// validColumns := []string{}
+						// validColumns := []string{}
+						// validColumnsMap := map[string]bool
+						
+						// var validValues []interface{}
+						// currentCols := strings.Split(b.Columns, ",")
+						// for _, col := range currentCols {
+						// 	if colNames[col] {
+						// 		validColumns = append(validColumns, col)
+						// 	}
+						// }
 						query := fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) values %s", b.Table, b.Columns, values)
 						
 						query = query[0:strings.LastIndex(query, ",")]
@@ -667,15 +733,15 @@ func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress string, signer s
 		 return nil
 }
 
-func SyncNode(cfg *configs.MainConfiguration, hostQuicAddress string, pubKey string) error {
+func SyncNode(cfg *configs.MainConfiguration, endBlock *big.Int, hostMaddr multiaddr.Multiaddr, pubKey string) error {
 	if cfg.NoSync {
 		return nil
 	}
+	// hostQuicAddress, _, _ := extractQuicAddress(cfg, []multiaddr.Multiaddr{hostMaddr})
+	// if !strings.Contains(hostQuicAddress, ":") {
+	// 	hostQuicAddress = fmt.Sprintf("%s%s", hostQuicAddress, cfg.QuicHost[strings.Index(cfg.QuicHost,":"):])
+	// }
 	
-	if !strings.Contains(hostQuicAddress, ":") {
-		hostQuicAddress = fmt.Sprintf("%s%s", hostQuicAddress, cfg.QuicHost[strings.Index(cfg.QuicHost,":"):])
-	}
-	logger.Debug("SYNCNODE-HandleHandShake")
 	lastBlock, err := ds.GetLastSyncedBlock(MainContext)
 	if err != nil {
 		logger.Fatal(err)
@@ -686,72 +752,78 @@ func SyncNode(cfg *configs.MainConfiguration, hostQuicAddress string, pubKey str
 	}
 	fmt.Println("Starting node sync from block: ", lastBlock)
 	// if chain.NetworkInfo.CurrentBlock != new(big.Int).SetBytes(lastBlock) {
-	batchSize := int64(100)
+	batchSize := int64(5000000)
 
 	// logger.Info("BLOCK NILL %v, %v", lastBlock==nil, chain.NetworkInfo.CurrentBlock==nil)
 	_range := Range{}
-	for i := int64(0); i <= (chain.NetworkInfo.CurrentBlock.Int64() - lastBlock.Int64())/batchSize; i++ {
+	fmt.Println()
+	for i := int64(0); i <= (endBlock.Int64() - lastBlock.Int64())/batchSize; i++ {
 			from := (i*batchSize)+lastBlock.Int64()+1
+			to := big.NewInt(from+batchSize)
+			if to.Cmp(chain.NetworkInfo.CurrentBlock) > 0 {
+				to = chain.NetworkInfo.CurrentBlock
+			}
 			_range = Range{ 
 				From: big.NewInt(from).Bytes(),
-				To:  big.NewInt(from+batchSize).Bytes(),
+				To:  to.Bytes(),
 			}
-			err := syncBlocks(cfg, hostQuicAddress,pubKey, _range)
+			err := syncBlocks(cfg, hostMaddr, pubKey, _range)
 			if err != nil {
-				logger.Fatalf("Error Syncing Block %d-%d: %v", from, from+batchSize, err)
-				panic(err)
+				return fmt.Errorf("Error Syncing Block %d-%d: %v", from, from+batchSize, err)
+				//panic(err)
 			}
 			ds.SetLastSyncedBlock(MainContext, new(big.Int).SetBytes(_range.To) )
-			logger.Debugf("Synced blocks %s to %s",  new(big.Int).SetBytes(_range.From), new(big.Int).SetBytes(_range.To))
+			
+			fmt.Printf("Synced blocks %s to %s",  new(big.Int).SetBytes(_range.From), new(big.Int).SetBytes(_range.To))
+			fmt.Println()
 	}
+
 	fmt.Println("Completed node sync at block: ", new(big.Int).SetBytes(_range.To))
 	return nil
 }
 
-func sendHandshake(stream network.Stream, data []byte) {
-	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-	// _, err := rw.WriteString(fmt.Sprintf("%s\n", string(data)))
-	data = append(data, '\n')
-	var err error
-	written := 0
-	for  {
-		n, err := rw.Write(data)
-		written += n
-		if written >= len(data) || err != nil {
-			break
-		}
-	}
-	if err != nil {
-		logger.Warn("Error writing to to stream")
-		return
-	}
+// func sendHandshake(stream network.Stream, data []byte) {
+// 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+// 	// _, err := rw.WriteString(fmt.Sprintf("%s\n", string(data)))
+// 	data = append(data, '\n')
+// 	var err error
+// 	written := 0
+// 	for  {
+// 		n, err := rw.Write(data)
+// 		written += n
+// 		if written >= len(data) || err != nil {
+// 			break
+// 		}
+// 	}
+// 	if err != nil {
+// 		logger.Warn("Error writing to to stream")
+// 		return
+// 	}
 
-	err = rw.Flush()
-	logger.Debugf("Flushed data to stream %s", stream.ID())
-	if err != nil {
-		// fmt.Println("Error flushing buffer")
-		// panic(err)
-		logger.Error("Error flushing to handshake stream")
-		return
-	}
-}
+// 	err = rw.Flush()
+// 	logger.Debugf("Flushed data to stream %s", stream.ID())
+// 	if err != nil {
+// 		// fmt.Println("Error flushing buffer")
+// 		// panic(err)
+// 		logger.Error("Error flushing to handshake stream")
+// 		return
+// 	}
+// }
 
 func storeAddress(ctx *context.Context, h *host.Host) {
 	for {
 		peers := idht.RoutingTable().ListPeers()
-		logger.Debug("NOPEERS ", len(peers))
-		if len(peers) < 2 {
-			// logger.Debug("NOPEERS ", (*h).Peerstore().PeersWithAddrs().Len())
+		if len(peers) < 1 {
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		mad, err := NewNodeMultiAddressData(config, config.PrivateKeyEDD, GetMultiAddresses(*h), config.PublicKeyEDD)
+		mad, err := NewNodeMultiAddressData(cfg, cfg.PrivateKeySECP, GetMultiAddresses(*h), cfg.PublicKeyEDD)
 		if err != nil {
 			logger.Error(err)
 		}
-		key := "/ml/val/" + config.PublicKey
-		keySecP := "/ml/val/" + hex.EncodeToString(config.PublicKeySECP)
+		key := "/ml/val/" + cfg.PublicKeyEDDHex
+		keySecP := "/ml/val/" + cfg.PublicKeySECPHex
 		
 		packed :=  mad.MsgPack()
 		err = idht.PutValue(*ctx, key, packed)
@@ -764,7 +836,7 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 			logger.Debugf("Successfully stored key: %s", key)
 		}
 
-		logger.Debugf("Saving SECP: %s", hex.EncodeToString(config.PublicKeySECP))
+		logger.Debugf("Saving SECP: %s", hex.EncodeToString(cfg.PublicKeySECP))
 		err = idht.PutValue(*ctx, keySecP, packed)
 		if err != nil {
 			logger.Errorf("DHT_PUT_ERROR: %v", err)
@@ -803,105 +875,190 @@ func GetNodeMultiAddressData(ctx *context.Context, key string) (*NodeMultiAddres
 		}
 		return &mad, err
 }
-
-// called when a peer connects
-func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
-	// pi := *pa
-	//id := pairAddr.ID.String()
-	// if peerDiscoverySyncMap[id] == nil {
-	// 	peerDiscoverySyncMap[id] = &sync.Mutex{}
-	// }
-	// if !peerDiscoverySyncMap[id].TryLock() {
-	// 	return
-	// }
-	// defer peerDiscoverySyncMap[id].Unlock()
-	logger.Debug("NewPeerDetected: ", pairAddr.ID)
-	if (*h).ID() == pairAddr.ID {
-		return
-	}
-	peerDiscoveryMutex.Lock()
-	
-	defer peerDiscoveryMutex.Unlock()
-	logger.Debug("My multiaddress: ", GetMultiAddresses(*h))
-	if pairAddr == nil {
-		return
-	}
+func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
 	DisconnectFromPeer[pairAddr.ID] = true
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	handshakeStream, err := (*h).NewStream(ctx, pairAddr.ID, protocol.ID(handShakeProtocolId))
-	if err != nil {
-		logger.Warningf("Unable to establish handshake stream with peer: %s %o", pairAddr.ID, err)
-		(*h).Peerstore().RemovePeer(pairAddr.ID)
-	} else {
-		nodeType := constants.SentryNodeType
-		if config.Validator {
-			nodeType = constants.ValidatorNodeType
-		}
-		
-		hs, _ := NewNodeHandshake(config, handShakeProtocolId, config.PrivateKeyEDD, nodeType)
-	
-		lastSynced, err := ds.GetLastSyncedBlock(MainContext)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		hs.LastSyncedBlock = lastSynced.Bytes()
-		logger.Debugf("Created handshake with salt %s", hs.Salt)
-		logger.Debugf("Created new stream %s with peer %s", handshakeStream.ID(), pairAddr.ID)
-		defer func(pairID peer.ID) {
+	defer func(pairID peer.ID) {
 			time.Sleep(3 * time.Second)
 			if DisconnectFromPeer[pairAddr.ID] {
-				handshakeStream.Close()
 				disconnect(pairAddr.ID)
 			}
-		}(pairAddr.ID)
-		go sendHandshake(handshakeStream, (*hs).MsgPack())
-		go handleHandshake(handshakeStream)
+	}(pairAddr.ID)
+	payload := NewP2pPayload(cfg, P2pActionGetHandshake, []byte{'0'})
+	payload.Sign(cfg.PrivateKeyEDD)
+	pubKey := (*h).Peerstore().PubKey(pairAddr.ID)
+	pubk, err := pubKey.Raw()
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	// hostPubKey, _ := Host.ID().ExtractPublicKey()
+	// raw, _ := hostPubKey.Raw()
+	// logger.Debugf("HOSTPUBKEY2 %s ", hex.EncodeToString(pubk))
 
-		host := idht.Host()
-		networkStream, err := host.NewStream(idht.Context(), pairAddr.ID, protocol.ID(p2pProtocolId))
-		if err != nil {
-			(networkStream).Reset()
-			return
-		}
-		go handlePayload(networkStream)
-
-
-		syncStream, err := host.NewStream(idht.Context(), pairAddr.ID, protocol.ID(syncProtocolId))
-		if err != nil {
-			(syncStream).Reset()
-			return
-		}
+	_, quicmad, err :=  extractQuicAddress(cfg, pairAddr.Addrs)
+	if !strings.Contains(quicmad.String(), "/p2p/") {
+		quicmad, _ = multiaddr.NewMultiaddr(fmt.Sprintf("%s/p2p/%s", quicmad.String(), pairAddr.ID.String()))
+	}
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	if hex.EncodeToString(pubk) == hex.EncodeToString(cfg.PublicKeyEDD) {
+		logger.Debug("Attempt to respond to self")
+		return
+	}
+	logger.Debug("NODEADDRESS: ", quicmad.String(), " ", hex.EncodeToString(pubk))
+	// response, err := SendSecureQuicRequest(cfg, quicmad, entities.PublicKeyString(hex.EncodeToString(pubk)), payload.MsgPack())
+	// if err != nil {
 		
-		go handleSync(syncStream)
-		logger.Debugf("NewConnectionFromPeer: %s", pairAddr.ID)
-		// _, pub, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
-		//time.Sleep(5 * time.Second)
-		// peerID, _ := peer.IDFromPublicKey(pub)
-		// logger.Debugf("Waiting to send data to peer")
-		// time.Sleep(5 * time.Second)
-		// logger.Debugf("Starting send process...")
-		// eventBytes := (&entities.EventPath{entities.EntityPath{Model: entities.TopicModel,Hash:"23032", Validator: "02c4435e768b4bae8236eeba29dd113ed607813b4dc5419d33b9294f712ca79ff4"}}).MsgPack()
-		// payload := NewP2pPayload(config, P2pActionGetEvent, eventBytes)
-		// if err != nil {
-		// 	logger.Errorf("ERrror: %s", err)
-		// 	return
-		// }
-		// err = payload.Sign(config.PrivateKeyEDD)
-		// if err != nil {
-		// 	logger.Debugf("Error SIgning: %v", err)
-		// 	return
-		// }
-		// logger.Debugf("Payload data signed: %s", payload.Id)
-		// resp, err := payload.SendRequestToAddress(config.PrivateKeyEDD, multiaddr.StringCast("/ip4/127.0.0.1/tcp/6000/ws/p2p/12D3KooWH7Ch4EETUDfCZAG1aBDUD2WmXukXuDVfpJqxxbVx7jBm"))
-		// if err != nil {
-		// 	logger.Errorf("Error :%v", err)
-		// }
-		// logger.Debugf("Resopnse :%v", resp)
-
+	// 	disconnect(pairAddr.ID)
+	// 	logger.Error(err)
+	// 	return
+	// }
+	responsePayload, err := payload.SendRequestToAddress(cfg.PrivateKeyEDD, quicmad, DataRequest)
+	
+	if err != nil ||  responsePayload == nil || len(responsePayload.Error) > 0 || !responsePayload.IsValid(cfg.ChainId) {
+		disconnect(pairAddr.ID)
+		logger.WithFields(logrus.Fields{"response": responsePayload}).Error(err, responsePayload)
+		return 
+	}
+	
+	
+	handshake, err := UnpackNodeHandshake(responsePayload.Data)
+	if err != nil {
+		disconnect(pairAddr.ID)
+		logger.Error(err)
+		return
+	}
+	if validateHandShake(cfg, handshake, pairAddr.ID) {
+		lastSync, err := ds.GetLastSyncedBlock(MainContext)
+		if err == nil {
+			if !chain.NetworkInfo.Synced && new(big.Int).SetBytes(handshake.LastSyncedBlock).Cmp(lastSync) == 1 {
+				syncMutex.Lock()
+				defer syncMutex.Unlock()
+				if !chain.NetworkInfo.Synced  {
+					// hostIP, err := extractIP((stream).Conn().RemoteMultiaddr())
+					//if err == nil {
+					logger.Debugf("HANDSHAKESIGNER %s", hex.EncodeToString(handshake.PubKeyEDD))
+					err :=	SyncNode(cfg, new(big.Int).SetBytes(handshake.LastSyncedBlock), quicmad, hex.EncodeToString(handshake.PubKeyEDD))	
+					if err == nil  {
+						lastSync, _ := ds.GetLastSyncedBlock(MainContext)
+						if lastSync.Cmp(new(big.Int).Sub(chain.NetworkInfo.CurrentBlock, big.NewInt(50))) >= 0 {
+							chain.NetworkInfo.Synced = true
+						}
+					} else {
+						logger.Debugf("Failed to sync with peer: %v", err)
+						// wait for another node
+					}
+				}
+			}
+		} else {
+			logger.Errorf("handshke: %v", err)
+		}
 	}
 }
+// called when a peer connects
+// func handleConnect(h *host.Host, pairAddr *peer.AddrInfo) {
+// 	// pi := *pa
+// 	//id := pairAddr.ID.String()
+// 	// if peerDiscoverySyncMap[id] == nil {
+// 	// 	peerDiscoverySyncMap[id] = &sync.Mutex{}
+// 	// }
+// 	// if !peerDiscoverySyncMap[id].TryLock() {
+// 	// 	return
+// 	// }
+// 	// defer peerDiscoverySyncMap[id].Unlock()
+// 	logger.Debug("NewPeerDetected: ", pairAddr.ID)
+// 	if (*h).ID() == pairAddr.ID {
+// 		return
+// 	}
+// 	peerDiscoveryMutex.Lock()
+	
+// 	defer peerDiscoveryMutex.Unlock()
+// 	logger.Debug("My multiaddress: ", GetMultiAddresses(*h))
+// 	if pairAddr == nil {
+// 		return
+// 	}
+// 	DisconnectFromPeer[pairAddr.ID] = true
+
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
+	
+// 	handshakeStream, err := (*h).NewStream(ctx, pairAddr.ID, protocol.ID(handShakeProtocolId))
+// 	if err != nil {
+// 		logger.Warningf("Unable to establish handshake stream with peer: %s %o", pairAddr.ID, err)
+// 		(*h).Peerstore().ClearAddrs(pairAddr.ID)
+		
+// 	} else {
+// 		nodeType := constants.SentryNodeType
+// 		if cfg.Validator {
+// 			nodeType = constants.ValidatorNodeType
+// 		}
+// 		lastSync, err := ds.GetLastSyncedBlock(MainContext)
+// 		if err != nil {
+// 			lastSync = big.NewInt(0)
+// 			logger.Infof("LastSynceError: %v", err)
+// 		}
+// 		hs, _ := NewNodeHandshake(cfg, handShakeProtocolId, cfg.PrivateKeySECP,  cfg.PublicKeyEDD, nodeType, lastSync, utils.RandomAplhaNumString(6))
+	
+		
+// 		logger.Debugf("Created handshake with salt %s", hs.Salt)
+// 		logger.Debugf("Created new stream %s with peer %s", handshakeStream.ID(), pairAddr.ID)
+// 		defer func(pairID peer.ID) {
+// 			time.Sleep(3 * time.Second)
+// 			if DisconnectFromPeer[pairAddr.ID] {
+// 				handshakeStream.Close()
+// 				disconnect(pairAddr.ID)
+// 			}
+// 		}(pairAddr.ID)
+// 		go sendHandshake(handshakeStream, (*hs).MsgPack())
+// 		go handleHandshake(handshakeStream)
+
+// 		host := idht.Host()
+// 		networkStream, err := host.NewStream(idht.Context(), pairAddr.ID, protocol.ID(p2pProtocolId))
+// 		if err != nil {
+// 			if networkStream != nil {
+// 				(networkStream).Reset()
+// 			}
+// 			return
+// 		}
+// 		go handlePayload(networkStream)
+
+
+// 		syncStream, err := host.NewStream(idht.Context(), pairAddr.ID, protocol.ID(syncProtocolId))
+// 		if err != nil {
+// 			(syncStream).Reset()
+// 			return
+// 		}
+		
+// 		go handleSync(syncStream)
+// 		logger.Debugf("NewConnectionFromPeer: %s", pairAddr.ID)
+// 		// _, pub, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
+// 		//time.Sleep(5 * time.Second)
+// 		// peerID, _ := peer.IDFromPublicKey(pub)
+// 		// logger.Debugf("Waiting to send data to peer")
+// 		// time.Sleep(5 * time.Second)
+// 		// logger.Debugf("Starting send process...")
+// 		// eventBytes := (&entities.EventPath{entities.EntityPath{Model: entities.TopicModel,Hash:"23032", Validator: "02c4435e768b4bae8236eeba29dd113ed607813b4dc5419d33b9294f712ca79ff4"}}).MsgPack()
+// 		// payload := NewP2pPayload(config, P2pActionGetEvent, eventBytes)
+// 		// if err != nil {
+// 		// 	logger.Errorf("ERrror: %s", err)
+// 		// 	return
+// 		// }
+// 		// err = payload.Sign(cfg.PrivateKeyEDD)
+// 		// if err != nil {
+// 		// 	logger.Debugf("Error SIgning: %v", err)
+// 		// 	return
+// 		// }
+// 		// logger.Debugf("Payload data signed: %s", payload.Id)
+// 		// resp, err := payload.SendRequestToAddress(cfg.PrivateKeyEDD, multiaddr.StringCast("/ip4/127.0.0.1/tcp/6000/ws/p2p/12D3KooWH7Ch4EETUDfCZAG1aBDUD2WmXukXuDVfpJqxxbVx7jBm"))
+// 		// if err != nil {
+// 		// 	logger.Errorf("Error :%v", err)
+// 		// }
+// 		// logger.Debugf("Resopnse :%v", resp)
+
+// 	}
+// }
 
 func disconnect(id peer.ID) {
 	idht.Host().Network().ClosePeer(id)
@@ -911,9 +1068,9 @@ func disconnect(id peer.ID) {
 
 // setupDiscovery creates an mDNS discovery service and attaches it to the libp2p Host.
 // This lets us automatically discover peers on the same LAN and connect to them.
-func setupDiscovery(h host.Host, serviceName string) error {
+func setupMDNSDiscovery(h host.Host, serviceName string) error {
 	logger.Debugf("Setting up Discovery on %s ....", serviceName)
-	n := notifee.DiscoveryNotifee{Host: h, HandleConnect: handleConnect, Dht: idht}
+	n := notifee.DiscoveryNotifee{Host: h, HandleConnect: handleConnectV2, Dht: idht}
 
 	disc := mdns.NewMdnsService(h, serviceName, &n)
 	return disc.Start()
@@ -921,15 +1078,17 @@ func setupDiscovery(h host.Host, serviceName string) error {
 
 
 func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *peer.AddrInfo, p2pStream *network.Stream, syncStream *network.Stream,  err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Error("Recovered from panic:", r)
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		logger.Error("Recovered from panic:", r)
+	// 	}
+	// }()
 	
+	logger.Infof("TARGET: %s", targetAddr.String())
 	targetInfo, err := peer.AddrInfoFromP2pAddr(targetAddr)
 	if err != nil {
 		logger.Errorf("Failed to get peer info: %v", err)
+		
 		return targetInfo, nil, nil, err
 	}
 	// logger.Debugf("P2PCHANNELIDS %s", connectionId)
@@ -974,13 +1133,8 @@ func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *pe
 func GetMultiAddresses(h host.Host) []string {
 	m := []string{}
 	addrs := h.Addrs()
-	logger.Printf("HOSTMLA %v", addrs)
 	for _, addr := range addrs {
-		if strings.Contains(addr.String(), "127.0.0.1") || 
-		strings.Contains(addr.String(), "localhost") || 
-		strings.Contains(addr.String(), "/::/") ||  
-		strings.Contains(addr.String(), "/::1/") ||
-		strings.Contains(addr.String(), "0.0.0.0") {
+		if !isRemote(addr) {
 			continue
 		}
 		m = append(m, fmt.Sprintf("%s/p2p/%s", addr.String(), h.ID().String()))
@@ -991,6 +1145,17 @@ func GetMultiAddresses(h host.Host) []string {
 		}
 	}
 	return m
+}
+
+func isRemote(addr multiaddr.Multiaddr)  bool {
+	if strings.Contains(addr.String(), "127.0.0.1") || 
+		strings.Contains(addr.String(), "localhost") || 
+		strings.Contains(addr.String(), "/::/") ||  
+		strings.Contains(addr.String(), "/::1/") ||
+		strings.Contains(addr.String(), "0.0.0.0") {
+			return false
+		}
+		return true
 }
 
 func handlePayload(stream network.Stream) {
@@ -1043,7 +1208,7 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 			return
 			// break
 		}
-		validPayload := payload.IsValid(config.ChainId)
+		validPayload := payload.IsValid(cfg.ChainId)
 		logger.Debugf("Received Data from remote peer with valid payload: %v", validPayload)
 		if !validPayload {
 			logger.Debugf("Invalid payload received from peer %s", peerId)
@@ -1051,14 +1216,17 @@ func readPayload(rw *bufio.ReadWriter, peerId peer.ID, stream network.Stream) {
 			(stream).Reset()
 			return
 		}
-		response, err := processP2pPayload(config, payload, true)
+		response, err := processP2pPayload(cfg, payload, true)
 		if err != nil {
 			logger.Debugf("readPayload: %v", err)
 		}
 		delimeter := []byte{'\n'}
 		b := response.MsgPack()
-		resp, _ := UnpackP2pPayload(b)
-		logger.Debugf("BYTESSSSS: %s, %v", resp.Id, err)
+		_, err = UnpackP2pPayload(b)
+		if err != nil {
+			logger.Errorf("readPayload: %v", err)
+			return
+		}
 		_, err = stream.Write(append(b, delimeter...))
 		if err != nil {
 			logger.Errorf("readPayload: %v", err)

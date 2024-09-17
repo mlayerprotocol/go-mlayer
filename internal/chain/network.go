@@ -13,16 +13,16 @@ import (
 )
 var syncMu sync.Mutex
 type NetworkParams struct {
-	StartTime *big.Int
-	StartBlock *big.Int
-	CurrentCycle *big.Int
-	CurrentBlock *big.Int
-	ActiveValidatorLicenseCount uint64
-	ActiveSentryLicenseCount uint64
-	Validators map[string]string
-	Sentries map[string]uint64
-	Config *configs.MainConfiguration
-	Synced bool
+	StartTime *big.Int 	`json:"start_time"`
+	StartBlock *big.Int `json:"start_block"`
+	CurrentCycle *big.Int `json:"current_cycle"`
+	CurrentBlock *big.Int `json:"current_block"`
+	ActiveValidatorLicenseCount uint64 `json:"active_validator_license_count"`
+	ActiveSentryLicenseCount uint64 `json:"active_sentry_license_count"`
+	Validators map[string]string `json:"-"`
+	Sentries map[string]uint64 `json:"-"`
+	Config *configs.MainConfiguration `json:"-"`
+	Synced bool `json:"synced"`
 }
 func (n *NetworkParams) IsValidator(key string) (bool, error) {
 	if len(key) == 0 {
@@ -38,7 +38,7 @@ func (n *NetworkParams) IsValidator(key string) (bool, error) {
 		// if err != nil {
 		// 	return false, err
 		// }
-		return false, fmt.Errorf("IsValidator: not a validator")
+		return false, fmt.Errorf("IsValidator: not a validator: %s", key)
 		// return DefaultProvider(n.Config).IsValidatorNodeOperator(p, n.CurrentCycle)	
 }
 func (n *NetworkParams) IsValidatorOwner(address string) (bool, error) {

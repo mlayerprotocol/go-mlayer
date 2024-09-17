@@ -351,12 +351,14 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command, storeF
 	cfg.PrivateKeySECP = pk
 	_, pubKey := btcec.PrivKeyFromBytes(pk)
 	cfg.PublicKeySECP = pubKey.SerializeCompressed()
+	cfg.PublicKeySECPHex = hex.EncodeToString(cfg.PublicKeySECP)
 	
 	// EDD KEYS
 	cfg.PrivateKeyEDD = ed25519.NewKeyFromSeed(pk)
 	cfg.PrivateKey = hex.EncodeToString(cfg.PrivateKeyEDD)
 	cfg.PublicKeyEDD = cfg.PrivateKeyEDD[32:]
-	cfg.PublicKey = hex.EncodeToString(cfg.PublicKeyEDD)
+	cfg.PublicKeyEDDHex = hex.EncodeToString(cfg.PublicKeyEDD)
+	// cfg.PublicKey = hex.EncodeToString(cfg.PublicKeyEDD)
 	cfg.OperatorAddress = crypto.ToBech32Address(cfg.PublicKeySECP, string(cfg.AddressPrefix))
 
 	return *cfg
