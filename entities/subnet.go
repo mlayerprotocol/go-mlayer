@@ -28,7 +28,7 @@ type Subnet struct {
 	Balance       uint64        `json:"bal" gorm:"default:0"`
 	// Readonly
 	Account DIDString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
-	Agent   DeviceString `json:"-"  gorm:"-"`
+	
 
 	// CreateTopicPrivilege   *constants.AuthorizationPrivilege `json:"cTopPriv"` //
 	DefaultAuthPrivilege *constants.AuthorizationPrivilege `json:"dAuthPriv"` // privilege for external users who joins the subnet. 0 indicates people cant join
@@ -42,6 +42,7 @@ type Subnet struct {
 
 	//Deprecated
 	Owner         string     `json:"-" gorm:"owner" msgpack:"-"`
+	Agent   DeviceString `json:"-"  gorm:"agent" msgpack:"-"`
 }
 
 func (item *Subnet) Key() string {

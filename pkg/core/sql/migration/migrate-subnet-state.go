@@ -13,3 +13,9 @@ import (
 	return err
  }
 
+ func DropAgentColumnFromSubnetState(db *gorm.DB) (err error) {
+	if db.Migrator().HasColumn(&models.SubnetState{}, "Agent") {
+		err = db.Migrator().DropColumn(&models.SubnetState{}, "Agent")
+	}
+	return err
+ }
