@@ -21,14 +21,14 @@ type Subnet struct {
 	Meta          string        `json:"meta,omitempty"`
 	Ref           string        `json:"ref,omitempty" binding:"required"  gorm:"unique;type:varchar(64);default:null"`
 	Categories    pq.Int32Array `gorm:"type:integer[]"`
-	// Owner         DIDString     `json:"own,omitempty" binding:"required"  gorm:"not null;type:varchar(100);default:did"`
+	
 	SignatureData SignatureData `json:"sigD" gorm:"json;"`
 	Status        *uint8        `json:"st" gorm:"boolean;default:0"`
 	Timestamp     uint64        `json:"ts,omitempty" binding:"required"`
 	Balance       uint64        `json:"bal" gorm:"default:0"`
 	// Readonly
 	Account DIDString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
-	Agent   DeviceString `json:"_"  gorm:"_"`
+	Agent   DeviceString `json:"-"  gorm:"-"`
 
 	// CreateTopicPrivilege   *constants.AuthorizationPrivilege `json:"cTopPriv"` //
 	DefaultAuthPrivilege *constants.AuthorizationPrivilege `json:"dAuthPriv"` // privilege for external users who joins the subnet. 0 indicates people cant join
@@ -39,6 +39,9 @@ type Subnet struct {
 	BlockNumber uint64          `json:"blk"`
 	Cycle   	uint64			`json:"cy"`
 	Epoch		uint64			`json:"ep"`
+
+	//Deprecated
+	Owner         string     `json:"-" gorm:"owner" msgpack:"-"`
 }
 
 func (item *Subnet) Key() string {
