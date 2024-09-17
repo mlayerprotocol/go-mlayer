@@ -8,16 +8,10 @@ import (
 
 
  func DropTopicIdColumnFromMessageState(db *gorm.DB) (err error) {
-	if db.Migrator().HasColumn(&models.MessageState{}, "TopicId") {
-		err = db.Migrator().DropColumn(&models.MessageState{}, "TopicId")
-	}
-	return err
+	return  db.Migrator().DropColumn(&models.MessageState{}, "TopicId")
  }
 
 
  func DropAttachmentsColumnFromMessageState(db *gorm.DB) (err error) {
-	if db.Migrator().HasColumn(&models.MessageState{}, "Attachments") {
-		err = db.Migrator().DropColumn(&models.MessageState{}, "Attachments")
-	}
-	return err
+	return  db.Migrator().DropColumn(&models.MessageState{}, "Attachments")
  }
