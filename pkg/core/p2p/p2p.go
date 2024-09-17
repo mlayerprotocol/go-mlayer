@@ -429,9 +429,9 @@ func Run(mainCtx *context.Context) {
 	Host.SetStreamHandler(protocol.ID(handShakeProtocolId), handleHandshake)
 	Host.SetStreamHandler(protocol.ID(p2pProtocolId), handlePayload)
 	Host.SetStreamHandler(protocol.ID(syncProtocolId), handleSync)
-	hostPubKey, _ := Host.ID().ExtractPublicKey()
-	raw, _ := hostPubKey.Raw()
-	logger.Debugf("HOSTPUBKEY %s, %s ", hex.EncodeToString(raw), hex.EncodeToString(cfg.PublicKeyEDD))
+	// hostPubKey, _ := Host.ID().ExtractPublicKey()
+	// raw, _ := hostPubKey.Raw()
+	// logger.Debugf("HOSTPUBKEY %s, %s ", hex.EncodeToString(raw), hex.EncodeToString(cfg.PublicKeyEDD))
 	// create a new PubSub service using the GossipSub router
 	ps, err := pubsub.NewGossipSub(ctx, Host)
 	if err != nil {
