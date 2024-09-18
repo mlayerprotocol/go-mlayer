@@ -17,7 +17,6 @@ import (
 	// "net/rpc/jsonrpc"
 
 	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain/api"
@@ -58,6 +57,7 @@ const (
 	SENTRY_MODE         Flag = "sentry"
 	ARCHIVE_MODE         Flag = "archive"
 	TEST_MODE         Flag = "testing"
+	VERBOSE         Flag = "verbose"
 )
 const MaxDeliveryProofBlockSize = 1000
 
@@ -101,6 +101,7 @@ func init() {
 	daemonCmd.Flags().BoolP(string(VALIDATOR_MODE), "v", false, "Run as validator")
 	daemonCmd.Flags().BoolP(string(TEST_MODE), "", false, "Run test functions")
 	daemonCmd.Flags().StringP(string(QUIC_HOST), "", "", "Quic server listening address")
+	daemonCmd.Flags().BoolP(string(VERBOSE), "", false, "Sets log level to debug")
 }
 
 func daemonFunc(cmd *cobra.Command, _ []string) {
@@ -125,30 +126,30 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		)
 		ethAPI, err := api.NewEthAPI(cfg.ChainId, cfg.EvmRpcConfig[string(cfg.ChainId)], &cfg.PrivateKeySECP)
 		if err != nil {
-			logger.Fatal(err)
+			logger.Fatal("APIERROR: ", err)
 		}
 		chain.RegisterProvider(
 			"84532", ethAPI,
 		)
 		
-		// chain.DefaultProvider = chain.Network.Default()
-		ownerAddress, _ := hex.DecodeString(constants.ADDRESS_ZERO)
-		if cfg.Validator {
-			ownerAddress, err = chain.Provider(cfg.ChainId).GetValidatorLicenseOwnerAddress(cfg.PublicKeySECP)
-		} else {
-			ownerAddress, err = chain.Provider(cfg.ChainId).GetSentryLicenseOwnerAddress(cfg.PublicKeySECP)
-		}
-		if err != nil  {
-			logger.Fatalf("unable to get license owner: %v", err)
-		}
-		if hex.EncodeToString(ownerAddress) == constants.ADDRESS_ZERO {
-			if cfg.Validator {
-				logger.Fatalf("Failed to run in validator mode because no license is assigned to this operators public key (SECP).")
-			}
-			logger.Debugf("Operator not yet deligated. Running is archive mode.")
-		}
-		cfg.OwnerAddress = common.BytesToAddress(ownerAddress)
-		fmt.Println("Chain initialized!")
+		// // chain.DefaultProvider = chain.Network.Default()
+		// ownerAddress, _ := hex.DecodeString(constants.ADDRESS_ZERO)
+		// if cfg.Validator {
+		// 	ownerAddress, err = chain.Provider(cfg.ChainId).GetValidatorLicenseOwnerAddress(cfg.PublicKeySECP)
+		// } else {
+		// 	ownerAddress, err = chain.Provider(cfg.ChainId).GetSentryLicenseOwnerAddress(cfg.PublicKeySECP)
+		// }
+		// if err != nil  {
+		// 	logger.Fatalf("unable to get license owner: %v", err)
+		// }
+		// if hex.EncodeToString(ownerAddress) == constants.ADDRESS_ZERO {
+		// 	if cfg.Validator {
+		// 		logger.Fatalf("Failed to run in validator mode because no license is assigned to this operators public key (SECP).")
+		// 	}
+		// 	logger.Debugf("Operator not yet deligated. Running is archive mode.")
+		// }
+		// cfg.OwnerAddress = common.BytesToAddress(ownerAddress)
+		// fmt.Println("Chain initialized!")
 	}()
 	defer sql.Init(&cfg)
 	
@@ -254,6 +255,10 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		cfg.Validator = true
 	}
 
+	verbose, _ := cmd.Flags().GetBool(string(VERBOSE))	
+	if verbose {
+		cfg.LogLevel = "debug"
+	}
 	
 
 	// ****** INITIALIZE CONTEXT ****** //

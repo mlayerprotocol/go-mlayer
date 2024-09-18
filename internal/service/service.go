@@ -179,7 +179,7 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 				}
 			}
 			if previousEvent != nil {
-				go HandleNewPubSubEvent(previousEvent, ctx)
+				go HandleNewPubSubEvent(*previousEvent, ctx)
 			}
 			
 		}

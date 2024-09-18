@@ -47,6 +47,9 @@ type EthereumAPI struct {
 
 
 func NewEthAPI(chainId configs.ChainId, ethConfig configs.EthConfig, privateKey *[]byte) (*EthereumAPI, error) {
+	if len(ethConfig.Http) == 0 {
+		logger.Fatal("Invalid chain config for chainId ", chainId)
+	}
 	api := EthereumAPI{EthConfig: ethConfig}
 	client, err := ethclient.Dial(ethConfig.Http)
     if err != nil {

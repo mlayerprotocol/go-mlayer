@@ -149,13 +149,13 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 
 	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
-
+	peerCount := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			logger.Debug("Finding Peer at rendezvous: ", rendezvous)
+			fmt.Println("Finding Peer at rendezvous:", rendezvous)
 			peers, err := routingDiscovery.FindPeers(ctx, rendezvous)
 			if err != nil {
 				logger.Error(err)
@@ -164,14 +164,18 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 			
 			for p := range peers {
 			
-				if p.ID == h.ID() {
+				if p.ID.String() == h.ID().String() {
 					continue
 				}
-				logger.Debugf("Found peer: %s \n", p.ID.String())
+				if len(p.ID.String()) == 0 {
+					continue
+				}
+				
 				 // if h.Network().Connectedness(p.ID) != network.Connected {
 				if !connectedPeer[p.ID.String()] {
+					// fmt.Println("Found peer: \n", p.ID.String())
 					connectedPeer[p.ID.String()] = true
-					logger.Debugf("Attempting to connect to peer: %s \n", p.ID.String())
+					// logger.Debugf("Attempting to connect to peer: %s \n", p.ID.String())
 					h.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.PermanentAddrTTL)
 					err := h.Connect(ctx, p)
 					// _, err = h.Network().DialPeer(ctx, p.ID)
@@ -182,11 +186,11 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 						connectedPeer[p.ID.String()] = false
 						continue
 					}
-					if len(p.ID) == 0 {
-						continue
-					}
-					logger.Debugf("Connected to discovered peer: %s \n", p.ID.String())
-					go handleConnectV2(&h, &p)
+					
+					peerCount += 1
+					go handleConnectV2(&h, p)
+					fmt.Printf("- Connected to peer %s; %d total  \n", p.ID.String(), peerCount)
+					
 				}
 			}
 		}
@@ -212,7 +216,7 @@ func Run(mainCtx *context.Context) {
 	if !ok {
 		panic("Unable to load config from context")
 	}
-	discoveryService := fmt.Sprintf("%s/%s", constants.NETWORK_NAME, cfg.ChainId)
+	discoveryService := fmt.Sprintf("%s/%s", cfg.ProtocolVersion, cfg.ChainId)
 	p2pDhtStore, ok := (*MainContext).Value(constants.P2PDhtStore).(*ds.Datastore)
 	if !ok {
 		logger.Fatalf("node.Run: unable to load p2pDhtStore from context")
@@ -882,7 +886,7 @@ func GetNodeMultiAddressData(ctx *context.Context, key string) (*NodeMultiAddres
 		}
 		return &mad, err
 }
-func handleConnectV2(h *host.Host, pairAddr *peer.AddrInfo) {
+func handleConnectV2(h *host.Host, pairAddr peer.AddrInfo) {
 	DisconnectFromPeer[pairAddr.ID] = true
 	defer func(pairID peer.ID) {
 			time.Sleep(3 * time.Second)

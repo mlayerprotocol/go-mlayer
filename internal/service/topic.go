@@ -170,7 +170,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 				}
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, event.GetPath(), &savedEvent.Payload.Subnet, err)
+				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet, err)
 			}
 			
 			
@@ -181,7 +181,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 					logger.Debug("Unable to get dependent events", err)
 				}
 				for _, dep := range *dependent {
-					HandleNewPubSubEvent(&dep, ctx)
+					HandleNewPubSubEvent(dep, ctx)
 				}
 				}()
 			}

@@ -16,7 +16,7 @@ var logger = &log.Logger
 type DiscoveryNotifee struct {
 	Host host.Host
 	Dht *dht.IpfsDHT
-	HandleConnect func (*host.Host, *peer.AddrInfo)
+	HandleConnect func (*host.Host, peer.AddrInfo)
 }
 func (n *DiscoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	logger.Debugf("Discovered new peer in notifee %s\n", pi.ID.String())
@@ -34,7 +34,7 @@ func (n *DiscoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 			return
 		}
 		n.Host.Peerstore().AddAddrs(pi.ID, pi.Addrs, peerstore.PermanentAddrTTL)
-		go n.HandleConnect(&n.Host, &pi)
+		go n.HandleConnect(&n.Host, pi)
 	}	
 }
 
