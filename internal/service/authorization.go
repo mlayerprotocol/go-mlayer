@@ -259,7 +259,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 				
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, event.GetPath(), &savedEvent.Payload.Subnet, err)
+				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet, err)
 			}
 			
 			
@@ -271,7 +271,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 				}
 				for _, dep := range *dependent {
 					logger.Debugf("Processing Dependend Event %s", dep.Hash)
-					go HandleNewPubSubEvent(&dep, ctx)
+					go HandleNewPubSubEvent(dep, ctx)
 				}
 				}()
 			}

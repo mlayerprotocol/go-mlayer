@@ -178,25 +178,25 @@ func ValidateMessageClient(
 	return nil
 }
 
-func HandleNewPubSubEvent (event *entities.Event, ctx *context.Context) {
+func HandleNewPubSubEvent (event entities.Event, ctx *context.Context) {
 	switch val := event.Payload.Data.(type) {
 	case entities.Subnet:
 		logger.Debug(val)
-		HandleNewPubSubSubnetEvent(event, ctx)
+		HandleNewPubSubSubnetEvent(&event, ctx)
 	case entities.Authorization:
-		HandleNewPubSubAuthEvent(event, ctx)
+		HandleNewPubSubAuthEvent(&event, ctx)
 	case entities.Topic:
-		HandleNewPubSubTopicEvent(event, ctx)
+		HandleNewPubSubTopicEvent(&event, ctx)
 	case entities.Subscription:
-		HandleNewPubSubSubscriptionEvent(event, ctx)
+		HandleNewPubSubSubscriptionEvent(&event, ctx)
 	case entities.Message:
-		HandleNewPubSubMessageEvent(event, ctx)
+		HandleNewPubSubMessageEvent(&event, ctx)
 	}
 }
 
-func OnFinishProcessingEvent (ctx *context.Context, eventPath *entities.EventPath, subnetId *string, err error) {
+func OnFinishProcessingEvent (ctx *context.Context, eventPath entities.EventPath, subnetId *string, err error) {
 	
-	event, err := query.GetEventFromPath(eventPath)
+	event, err := query.GetEventFromPath(&eventPath)
 	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*ds.Datastore)
 
 	if !ok {

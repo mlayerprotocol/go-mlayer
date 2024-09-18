@@ -4,7 +4,7 @@ var TestNetConfig = MainConfiguration{
 	AddressPrefix:   "mldev",
 	ChainId:         "84532",
 	ProtocolVersion: "/mlayer/1.0.0",
-	LogLevel:        "info",
+	LogLevel:        "warn",
 	DataDir:         "./data/",
 	ListenerAdresses: []string{
 		"/ip4/0.0.0.0/udp/5002/quic-v1",
@@ -16,8 +16,8 @@ var TestNetConfig = MainConfiguration{
 	BootstrapPeers: []string{
 		 "/ip4/154.12.228.25/tcp/7001/ws/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in",
 		"/ip4/154.12.228.25/udp/5002/quic-v1/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in",
-		"/ip4/154.12.228.25/tcp/6001/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in",
-		"/ip4/154.12.228.25/udp/5002/quic-v1/webtransport/certhash/uEiA-5eiPdqljQ0S7mQhfcjn63eLwp2yvx3IjMlerBP9n2A/certhash/uEiDByOLXkNBStJPkb5UE9g9wZKc1l0dCI76IiRTmAV3iAQ/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in",
+		// "/ip4/154.12.228.25/tcp/6001/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in",
+		// "/ip4/154.12.228.25/udp/5002/quic-v1/webtransport/certhash/uEiA-5eiPdqljQ0S7mQhfcjn63eLwp2yvx3IjMlerBP9n2A/certhash/uEiDByOLXkNBStJPkb5UE9g9wZKc1l0dCI76IiRTmAV3iAQ/p2p/12D3KooWFipGipTgu1XxtqpV1wUXcosTjK351Yip7Nj32npo68in",
 	},
 	BootstrapNode: false,
 	EvmRpcConfig: map[string]EthConfig{
