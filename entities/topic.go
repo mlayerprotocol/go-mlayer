@@ -67,7 +67,6 @@ func TopicToByte(i uint64) []byte {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, i)
 
-	fmt.Println(b)
 	return b
 }
 
