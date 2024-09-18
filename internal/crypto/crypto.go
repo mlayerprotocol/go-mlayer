@@ -484,10 +484,10 @@ func GetOrGenerateCert(ctx *context.Context) *CertData {
 
 		}
 		if generated { // store the new cert
-			fmt.Println("Generated New Cert")
-			fmt.Println("------------------------")
-			fmt.Println(cd.Cert)
-			fmt.Println("------------------------")
+			logger.Println("Generated New Cert")
+			logger.Println("------------------------")
+			logger.Println(cd.Cert)
+			logger.Println("------------------------")
 
 			
 			cdBytes, err := json.Marshal(*cd)

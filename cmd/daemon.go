@@ -111,15 +111,20 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		testnet = false
 	}
 	configs.Init(testnet)
-	log.Initialize()
 	cfg := configs.Config
+	verbose, _ := cmd.Flags().GetBool(string(VERBOSE))	
+	if verbose {
+		cfg.LogLevel = "debug"
+	}
+	log.Initialize(cfg.LogLevel)
+	
 	ctx := context.Background()
 
 	chain.NetworkInfo = &chain.NetworkParams{Config: &cfg}
 	defer node.Start(&ctx)
 	defer func () {
 		// chain.Network = chain.Init(&cfg)
-		fmt.Println("Initializing chain...")
+		logger.Println("Initializing chain...")
 		time.Sleep(1*time.Second)
 		chain.RegisterProvider(
 			"31337", api.NewGenericAPI(),
@@ -255,10 +260,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 		cfg.Validator = true
 	}
 
-	verbose, _ := cmd.Flags().GetBool(string(VERBOSE))	
-	if verbose {
-		cfg.LogLevel = "debug"
-	}
+	
 	
 
 	// ****** INITIALIZE CONTEXT ****** //

@@ -155,7 +155,7 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			fmt.Println("Finding Peer at rendezvous:", rendezvous)
+			logger.Println("Finding Peer at rendezvous:", rendezvous)
 			peers, err := routingDiscovery.FindPeers(ctx, rendezvous)
 			if err != nil {
 				logger.Error(err)
@@ -473,17 +473,17 @@ func Run(mainCtx *context.Context) {
 		time.Sleep(5 * time.Second)
 	}
 	fmt.Println("------------------------------- MLAYER -----------------------------------")
-	fmt.Println("- Server Mode: ", utils.IfThenElse(cfg.Validator, "Validator", "Sentry/Archive"))
-	fmt.Println("- Bootstrap Node: ", cfg.BootstrapNode)
-	fmt.Println("- Licence Operator Public Key (SECP): ", cfg.PublicKeySECPHex)
-	fmt.Println("- Network Public Key (EDD): ", cfg.PublicKeyEDDHex)
-	fmt.Println("- Host started with ID: ", Host.ID().String())
-	fmt.Println("- Host Network: ", p2pProtocolId)
-	fmt.Println("- Host MultiAddresses: ", GetMultiAddresses(Host))
+	logger.Println("- Server Mode: ", utils.IfThenElse(cfg.Validator, "Validator", "Sentry/Archive"))
+	logger.Println("- Bootstrap Node: ", cfg.BootstrapNode)
+	logger.Println("- Licence Operator Public Key (SECP): ", cfg.PublicKeySECPHex)
+	logger.Println("- Network Public Key (EDD): ", cfg.PublicKeyEDDHex)
+	logger.Println("- Host started with ID: ", Host.ID().String())
+	logger.Println("- Host Network: ", p2pProtocolId)
+	logger.Println("- Host MultiAddresses: ", GetMultiAddresses(Host))
 	if cfg.Validator {
-		fmt.Println("- RPC server started on: ", cfg.RPCHost+":"+cfg.RPCPort)
-		fmt.Println("- HTTP/REST server started on: ", cfg.RestAddress)
-		fmt.Println("- QUIC server started on: ", cfg.QuicHost)
+		logger.Println("- RPC server started on: ", cfg.RPCHost+":"+cfg.RPCPort)
+		logger.Println("- HTTP/REST server started on: ", cfg.RestAddress)
+		logger.Println("- QUIC server started on: ", cfg.QuicHost)
 	}
 	fmt.Println("---------------------------------------------------------------------------")
 
@@ -761,7 +761,7 @@ func SyncNode(cfg *configs.MainConfiguration, endBlock *big.Int, hostMaddr multi
 	if lastBlock.Cmp(chain.NetworkInfo.StartBlock) == -1 {
 		lastBlock = chain.NetworkInfo.StartBlock
 	}
-	fmt.Println("Starting node sync from block: ", lastBlock)
+	logger.Println("Starting node sync from block: ", lastBlock)
 	// if chain.NetworkInfo.CurrentBlock != new(big.Int).SetBytes(lastBlock) {
 	batchSize := int64(5000000)
 
@@ -780,7 +780,7 @@ func SyncNode(cfg *configs.MainConfiguration, endBlock *big.Int, hostMaddr multi
 			}
 			err := syncBlocks(cfg, hostMaddr, pubKey, _range)
 			if err != nil {
-				return fmt.Errorf("Error Syncing Block %d-%d: %v", from, from+batchSize, err)
+				return logger.Errorf("Error Syncing Block %d-%d: %v", from, from+batchSize, err)
 				//panic(err)
 			}
 			ds.SetLastSyncedBlock(MainContext, new(big.Int).SetBytes(_range.To) )
@@ -789,7 +789,7 @@ func SyncNode(cfg *configs.MainConfiguration, endBlock *big.Int, hostMaddr multi
 			fmt.Println()
 	}
 
-	fmt.Println("Completed node sync at block: ", new(big.Int).SetBytes(_range.To))
+	logger.Println("Completed node sync at block: ", new(big.Int).SetBytes(_range.To))
 	return nil
 }
 

@@ -12,7 +12,7 @@ go run . daemon \
 -l "/ip4/0.0.0.0/udp/5002/quic-v1" \
 -l "/ip4/0.0.0.0/udp/5002/quic-v1/webtransport" \
 -l "/ip4/127.0.0.1/tcp/7001/ws" \
--l "/ip4/127.0.0.1/tcp/6001"
-    
+-l "/ip4/127.0.0.1/tcp/6001" \
+--verbose true
 
  

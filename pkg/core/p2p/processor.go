@@ -415,7 +415,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 				case models.EventCounter:
 					b, err = query.GenerateImportScript(sql.SqlDb, models.EventCounter{}, where, fileName, config )
 				default:
-					fmt.Println("Unknown type or not a struct")
+					logger.Println("Unknown type or not a struct")
 				}
 				if err != nil {
 					logger.Error("SQLERROR", err)
