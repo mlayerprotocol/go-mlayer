@@ -780,8 +780,7 @@ func SyncNode(cfg *configs.MainConfiguration, endBlock *big.Int, hostMaddr multi
 			}
 			err := syncBlocks(cfg, hostMaddr, pubKey, _range)
 			if err != nil {
-				return logger.Errorf("Error Syncing Block %d-%d: %v", from, from+batchSize, err)
-				//panic(err)
+				return fmt.Errorf("error syncing block %d-%d: %v", from, from+batchSize, err)
 			}
 			ds.SetLastSyncedBlock(MainContext, new(big.Int).SetBytes(_range.To) )
 			
