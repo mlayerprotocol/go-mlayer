@@ -140,7 +140,7 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		logger.Debug("Channel no more nil")
+		logger.Infof("Listening for broadcasted \"%s\" events...", modelType)
 		
 		message, ok := <-fromPubSubChannel.Messages
 		if !ok {
@@ -149,7 +149,6 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 		}
 		
 		event, errT := entities.UnpackEvent(message.Data,  modelType)
-		logger.Debugf("UNPASCKEDEVENT %s  %s, %v", event.PreviousEventHash, event.PayloadHash,  event.Payload.Data)
 		
 		if errT != nil {
 			logger.Errorf("Error receiving event  %v\n", errT)
