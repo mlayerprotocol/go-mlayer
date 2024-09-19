@@ -586,7 +586,7 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 				lastSync = big.NewInt(0)
 			}
 			// TODO  remove when we have several bootstrap nodes
-			if chain.NetworkInfo.Synced {
+			if cfg.NoSync {
 				lastSync = chain.NetworkInfo.CurrentBlock
 			}
 			handshake, err := NewNodeHandshake(cfg, cfg.ProtocolVersion, cfg.PrivateKeySECP, cfg.PublicKeyEDD, utils.IfThenElse(cfg.Validator, constants.ValidatorNodeType, constants.SentryNodeType), lastSync, payload.Id)
