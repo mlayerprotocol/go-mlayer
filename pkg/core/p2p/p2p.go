@@ -631,7 +631,6 @@ func validateHandShake(cfg *configs.MainConfiguration, handshake NodeHandshake, 
 				return false
 			}
 		} else {
-			
 			validHandshake, err := chain.NetworkInfo.IsSentry(hex.EncodeToString(handshake.Signer), nil)
 			if err != nil || !validHandshake {
 				logger.Error(err)
@@ -685,7 +684,6 @@ func syncBlocks(cfg *configs.MainConfiguration, hostQuicAddress multiaddr.Multia
 			var postgresData [][]string
 			values := ""
 			for i, row := range b.Data {
-				logger.Debugf("DATAROW: %v", row)
 				if sql.Driver(cfg.SQLDB.DbDialect) == sql.Postgres {
 					postgresData = append(postgresData, utils.ToStringSlice(row))
 					if i==len(b.Data)-1 || i+1 % batchSize == 0 {
@@ -943,6 +941,7 @@ func handleConnectV2(h *host.Host, pairAddr peer.AddrInfo) {
 	}
 	if validateHandShake(cfg, handshake, pairAddr.ID) {
 		lastSync, err := ds.GetLastSyncedBlock(MainContext)
+	
 		if err == nil {
 			if handshake.NodeType == constants.ValidatorNodeType && new(big.Int).SetBytes(handshake.LastSyncedBlock).Cmp(lastSync) == 1 {
 				isBootStrap := false
@@ -955,6 +954,7 @@ func handleConnectV2(h *host.Host, pairAddr peer.AddrInfo) {
 				if !isBootStrap {
 					return
 				}
+				
 				syncMutex.Lock()
 				defer syncMutex.Unlock()
 				if !chain.NetworkInfo.Synced  {
@@ -1102,13 +1102,6 @@ func setupMDNSDiscovery(h host.Host, serviceName string) error {
 
 
 func connectToNode(targetAddr multiaddr.Multiaddr, ctx context.Context) (pid *peer.AddrInfo, p2pStream *network.Stream, syncStream *network.Stream,  err error) {
-	// defer func() {
-	// 	if r := recover(); r != nil {
-	// 		logger.Error("Recovered from panic:", r)
-	// 	}
-	// }()
-	
-	logger.Infof("TARGET: %s", targetAddr.String())
 	targetInfo, err := peer.AddrInfoFromP2pAddr(targetAddr)
 	if err != nil {
 		logger.Errorf("Failed to get peer info: %v", err)

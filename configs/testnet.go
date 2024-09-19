@@ -5,7 +5,7 @@ var TestNetConfig = MainConfiguration{
 	ChainId:         "84532",
 	ProtocolVersion: "/mlayer/1.0.0",
 	LogLevel:        "warn",
-	DataDir:         "./data/",
+	DataDir:         "data/84532/",
 	ListenerAdresses: []string{
 		"/ip4/0.0.0.0/udp/5002/quic-v1",
 		"/ip4/0.0.0.0/udp/5002/quic-v1/webtransport",
@@ -23,8 +23,8 @@ var TestNetConfig = MainConfiguration{
 	EvmRpcConfig: map[string]EthConfig{
 		"84532": {
 			Name:                  "base-sepolia",
-			Http:                  "https://snowy-multi-liquid.base-sepolia.quiknode.pro/7dac4517f70845dc1d5ee3ffe539fa43352fce9f/",
-			Wss:                   "wss://snowy-multi-liquid.base-sepolia.quiknode.pro/7dac4517f70845dc1d5ee3ffe539fa43352fce9f/",
+			Http:                  "https://snowy-multi-liquid.base-sepolia.quiknode.pro/7dac4517f70845dc1d5ee3ffe539fa43352fce9f",
+			Wss:                   "wss://snowy-multi-liquid.base-sepolia.quiknode.pro/7dac4517f70845dc1d5ee3ffe539fa43352fce9f",
 			TokenContract:         "0xEdC160695971977326Ff10f285a6cd7dA6B2186c",
 			XTokenContract:        "0xBf58C54DA1c778D3f77c47332C1554bda1D95ea0",
 			ChainInfoContract:     "0x7b45C5Bf6b4f27E9ac0F9a6907656c2BE342c16F",

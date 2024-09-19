@@ -361,7 +361,6 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 				// := entities.EventPathFromString(eventPath)
 				path := eventPath.(entities.EventPath)
 				event, err := query.GetEventFromPath(&path)
-				logger.Debugf("STATESEVENNNT %v, %v", event, eventPath)
 				if err == nil {
 					states := []json.RawMessage{}
 					states = append(states, state.(IState).MsgPack())
@@ -585,6 +584,10 @@ func processP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 			lastSync, err := ds.GetLastSyncedBlock(ctx)
 			if err != nil {
 				lastSync = big.NewInt(0)
+			}
+			// TODO  remove when we have several bootstrap nodes
+			if chain.NetworkInfo.Synced {
+				lastSync = chain.NetworkInfo.CurrentBlock
 			}
 			handshake, err := NewNodeHandshake(cfg, cfg.ProtocolVersion, cfg.PrivateKeySECP, cfg.PublicKeyEDD, utils.IfThenElse(cfg.Validator, constants.ValidatorNodeType, constants.SentryNodeType), lastSync, payload.Id)
 			if err != nil {
