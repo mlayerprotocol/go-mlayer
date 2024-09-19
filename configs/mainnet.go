@@ -5,7 +5,7 @@ var MainNetConfig = MainConfiguration{
 	ChainId:         "8453",
 	ProtocolVersion: "/mlayer/1.0.0",
 	LogLevel:        "error",
-	DataDir:         "./data/",
+	DataDir:         "data/8453/",
 	ListenerAdresses: []string{
 		"/ip4/0.0.0.0/udp/5002/quic-v1",
 		"/ip4/0.0.0.0/udp/5002/quic-v1/webtransport",

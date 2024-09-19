@@ -7,12 +7,13 @@ go run . daemon \
 --rpc-port 9090 \
 --ws-address localhost:9091 \
 --rest-address localhost:8080   \
---data-dir "data/dev2/" \
 --quic-host localhost:9544  \
 -l "/ip4/0.0.0.0/udp/5002/quic-v1" \
 -l "/ip4/0.0.0.0/udp/5002/quic-v1/webtransport" \
 -l "/ip4/127.0.0.1/tcp/7001/ws" \
 -l "/ip4/127.0.0.1/tcp/6001" \
 --verbose true
+
+#--data-dir "data/dev2/" \
 
  

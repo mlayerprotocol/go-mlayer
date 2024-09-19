@@ -163,7 +163,7 @@ func Start(mainCtx *context.Context) {
 				time.Sleep(10*time.Second)
 				continue
 			}
-			time.Sleep(60 * time.Second)
+			time.Sleep(30 * time.Second)
 		}
 	}()
 
