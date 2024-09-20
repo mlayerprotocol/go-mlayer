@@ -4,7 +4,7 @@ var MainNetConfig = MainConfiguration{
 	AddressPrefix:   "mldev",
 	ChainId:         "8453",
 	ProtocolVersion: "/mlayer/1.0.0",
-	LogLevel:        "error",
+	LogLevel:        "info",
 	DataDir:         "data/8453/",
 	ListenerAdresses: []string{
 		"/ip4/0.0.0.0/udp/5002/quic-v1",
