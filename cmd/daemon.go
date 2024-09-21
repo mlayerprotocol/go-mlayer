@@ -9,7 +9,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"sync"
@@ -219,12 +221,18 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	if len(cfg.DataDir) == 0 {
 		cfg.DataDir = constants.DefaultDataDir
 	}
-
+	
 	cfg.TestMode, _ = cmd.Flags().GetBool(string(TEST_MODE))
 	
 
 	if len(cfg.SQLDB.DbStoragePath) == 0 {
-		cfg.SQLDB.DbStoragePath = fmt.Sprintf("%s/store/sql", cfg.DataDir)
+		cfg.SQLDB.DbStoragePath = filepath.Join( cfg.DataDir, "store", "sql")
+	}
+	if strings.HasPrefix(cfg.DataDir, "./") && !strings.HasPrefix(cfg.SQLDB.DbStoragePath, "./") {
+		cfg.SQLDB.DbStoragePath = "./"+cfg.SQLDB.DbStoragePath
+	}
+	if strings.HasPrefix(cfg.DataDir, "../") && !strings.HasPrefix(cfg.SQLDB.DbStoragePath, "../") {
+		cfg.SQLDB.DbStoragePath = "../"+cfg.SQLDB.DbStoragePath
 	}
 
 

@@ -7,12 +7,12 @@ import (
 
 
  func DropOwnerColumnFromSubnetState(db *gorm.DB) (err error) {
-	return db.Migrator().DropColumn(&models.SubnetState{}, "Owner")
+	return db.Migrator().DropColumn(&models.SubnetState{}, "owner")
  }
 
- func DropAgentColumnFromSubnetState(db *gorm.DB) (err error) {
-	// if db.Migrator().HasColumn(&models.SubnetState{}, "Agent") {
-	// 	err = db.Migrator().DropColumn(&models.SubnetState{}, "Agent")
-	// }
-	return  db.Migrator().DropColumn(&models.SubnetState{}, "Agent")
- }
+//  func DropAgentColumnFromSubnetState(db *gorm.DB) (err error) {
+// 	// if db.Migrator().HasColumn(&models.SubnetState{}, "Agent") {
+// 	// 	err = db.Migrator().DropColumn(&models.SubnetState{}, "Agent")
+// 	// }
+// 	return  db.Migrator().DropColumn(&models.SubnetState{}, "Agent")
+//  }

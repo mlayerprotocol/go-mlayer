@@ -190,7 +190,7 @@ func (p *P2pPayload) SendRequestToAddress(privateKey []byte, address multiaddr.M
 	if err != nil {
 		return nil, fmt.Errorf("P2pPayload: %v", err)
 	}
-	logger.Debugf("Preparing to send paylaod to peer: %s", p.Id)
+	logger.Debugf("Preparing to send paylaod to peer: %s", peer.ID)
 	stream := dataStream
 	if _type == SyncRequest {
 		stream = syncStream

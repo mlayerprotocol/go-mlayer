@@ -155,7 +155,7 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			logger.Println("Finding Peer at rendezvous:", rendezvous)
+			logger.Println("Finding Peer at", rendezvous)
 			peers, err := routingDiscovery.FindPeers(ctx, rendezvous)
 			if err != nil {
 				logger.Error(err)
@@ -189,7 +189,7 @@ func discover(ctx context.Context, h host.Host, kdht *dht.IpfsDHT, rendezvous st
 					
 					peerCount += 1
 					go handleConnectV2(&h, p)
-					fmt.Printf("- Connected to peer %s; %d total  \n", p.ID.String(), peerCount)
+					logger.Printf("- Connected to peer %s; %d total  \n", p.ID.String(), peerCount)
 					
 				}
 			}
@@ -782,7 +782,7 @@ func SyncNode(cfg *configs.MainConfiguration, endBlock *big.Int, hostMaddr multi
 			}
 			ds.SetLastSyncedBlock(MainContext, new(big.Int).SetBytes(_range.To) )
 			
-			fmt.Printf("Synced blocks %s to %s",  new(big.Int).SetBytes(_range.From), new(big.Int).SetBytes(_range.To))
+			logger.Printf("Synced blocks %s to %s",  new(big.Int).SetBytes(_range.From), new(big.Int).SetBytes(_range.To))
 			fmt.Println()
 	}
 
@@ -841,19 +841,20 @@ func storeAddress(ctx *context.Context, h *host.Host) {
 			time.Sleep(2 * time.Second)
 			continue
 		} else {
-			logger.Debugf("Successfully stored key: %s", key)
+			logger.Debugf("Successfully saved network key to DHT: %s", key)
 		}
 
-		logger.Debugf("Saving SECP: %s", hex.EncodeToString(cfg.PublicKeySECP))
+		
 		err = idht.PutValue(*ctx, keySecP, packed)
 		if err != nil {
 			logger.Errorf("DHT_PUT_ERROR: %v", err)
 			time.Sleep(2 * time.Second)
 			continue
 		} else {
-			logger.Debugf("Successfully saved key: %s", keySecP)
+			logger.Debugf("Successfully saved chain key to DHT: %s", keySecP)
 		}
-		time.Sleep(1 * time.Hour)
+		break
+		// time.Sleep(1 * time.Hour)
 		// else {
 		// 	time.Sleep(2 * time.Second)
 		// 	v, err := idht.GetValue(ctx, key)

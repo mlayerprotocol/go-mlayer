@@ -19,6 +19,7 @@ import (
 
 	// "net/rpc/jsonrpc"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gorilla/websocket"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -413,8 +414,17 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 					page = new(big.Int).Add(page, big.NewInt(1))
 				}
 			}
-			
-
+			ownerAddress := chain.NetworkInfo.Validators[fmt.Sprintf("secp/%s/addr", cfg.PublicKeySECPHex)]
+			if len(ownerAddress) > 0 {
+				cfg.Validator = true
+				cfg.OwnerAddress = common.HexToAddress(ownerAddress)
+			} else {
+				address, err := chain.Provider(cfg.ChainId).GetSentryLicenseOwnerAddress(cfg.PublicKeySECP)
+				if err != nil {
+					logger.Fatal(err)
+				}
+				cfg.OwnerAddress = common.BytesToAddress(address)
+			}
 			if cfg.NoSync {
 				chain.NetworkInfo.Synced = true
 			}

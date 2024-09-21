@@ -4,7 +4,7 @@ var MainNetConfig = MainConfiguration{
 	AddressPrefix:   "mldev",
 	ChainId:         "8453",
 	ProtocolVersion: "/mlayer/1.0.0",
-	LogLevel:        "error",
+	LogLevel:        "info",
 	DataDir:         "data/8453/",
 	ListenerAdresses: []string{
 		"/ip4/0.0.0.0/udp/5002/quic-v1",
@@ -16,7 +16,7 @@ var MainNetConfig = MainConfiguration{
 	},
 	BootstrapNode: false,
 	EvmRpcConfig: map[string]EthConfig{
-		"8453": {
+		"8453": { 
 			Name:                  "base-sepolia",
 			Http:                  "https://snowy-multi-liquid.base-sepolia.quiknode.pro/7dac4517f70845dc1d5ee3ffe539fa43352fce9f/",
 			Wss:                   "wss://snowy-multi-liquid.base-sepolia.quiknode.pro/7dac4517f70845dc1d5ee3ffe539fa43352fce9f/",

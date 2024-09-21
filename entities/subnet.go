@@ -39,10 +39,11 @@ type Subnet struct {
 	BlockNumber uint64          `json:"blk"`
 	Cycle   	uint64			`json:"cy"`
 	Epoch		uint64			`json:"ep"`
+	Agent   	DeviceString `json:"agent"  gorm:"agent" msgpack:"agent"`
 
 	//Deprecated
-	Owner         string     `json:"-" gorm:"owner" msgpack:"-"`
-	Agent   DeviceString `json:"-"  gorm:"agent" msgpack:"-"`
+	Owner         string     `json:"-" gorm:"-" msgpack:"-"`
+	
 }
 
 func (item *Subnet) Key() string {

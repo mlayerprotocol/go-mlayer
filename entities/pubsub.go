@@ -35,7 +35,7 @@ func JoinChannel(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, walletA
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("Peer joined channel %s", channelName)
+	logger.Infof("Joined \"%s\" channel", channelName)
 
 	
 	// and subscribe to it
