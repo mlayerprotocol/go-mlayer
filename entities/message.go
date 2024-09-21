@@ -143,8 +143,8 @@ type Message struct {
 	Epoch		uint64			`json:"ep"`
 
 	// DEPRECATED COLUMNS
-	TopicId string        `json:"-" gorm:"topic_id" msgpack:"-"`
-	Attachments  string `json:"-" gorm:"attachments" msgpack:"-"`
+	TopicId string        `json:"-" gorm:"-" msgpack:"-"`
+	Attachments  string `json:"-" gorm:"-" msgpack:"-"`
 }
 
 func (chatMessage Message) ToString() string {

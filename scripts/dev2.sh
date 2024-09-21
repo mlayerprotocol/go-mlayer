@@ -12,8 +12,7 @@ go run . daemon \
 -l "/ip4/0.0.0.0/udp/5002/quic-v1/webtransport" \
 -l "/ip4/127.0.0.1/tcp/7001/ws" \
 -l "/ip4/127.0.0.1/tcp/6001" \
---verbose true
-
-#--data-dir "data/dev2/" \
+--verbose true \
+--data-dir "./data/dev2/" 
 
  

@@ -5,7 +5,7 @@ var TestNetConfig = MainConfiguration{
 	ChainId:         "84532",
 	ProtocolVersion: "/mlayer/1.0.0",
 	LogLevel:        "info",
-	DataDir:         "data/84532/",
+	DataDir:         "./data/84532/",
 	ListenerAdresses: []string{
 		"/ip4/0.0.0.0/udp/5002/quic-v1",
 		"/ip4/0.0.0.0/udp/5002/quic-v1/webtransport",

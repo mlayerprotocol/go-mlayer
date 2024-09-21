@@ -31,7 +31,7 @@ func copyStructValues(src, dst interface{}) error {
 	if srcVal.Kind() != reflect.Struct || dstVal.Kind() != reflect.Struct {
 		return fmt.Errorf("input types must be structs")
 	}
-
+	
 	for i := 0; i < srcVal.NumField(); i++ {
 		fieldName := srcVal.Type().Field(i).Name
 		srcField := srcVal.Field(i)
@@ -186,7 +186,7 @@ func LoadConfig(testnet bool) (*MainConfiguration, error) {
 	} else {
 		config = MainNetConfig
 	}
-
+	
 	// Try loading the configuration file from the possible paths
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {
@@ -199,6 +199,7 @@ func LoadConfig(testnet bool) (*MainConfiguration, error) {
 			fmt.Printf("\nLoaded configuration from: %s",path)
 			// Override with environment variables
 			// kong.Parse(&config)
+			
 			if err = copyStructValues(configData, &config); err != nil {
 				panic(err)
 			}
@@ -210,15 +211,15 @@ func LoadConfig(testnet bool) (*MainConfiguration, error) {
 }
 func Init(testnet bool) *MainConfiguration {
 	v := initViper()
-	parsed, _ := LoadConfig(testnet)
-	m, err := json.Marshal(parsed)
+	c, _ := LoadConfig(testnet)
+	m, err := json.Marshal(c)
 	d := make(map[string]interface{})
 	json.Unmarshal(m, &d)
 	v.MergeConfigMap(d)
 	if err != nil {         // Handle errors reading the config file
 		panic( err)
 	   }
-	var c MainConfiguration
+	
 	if err := v.Unmarshal(&c); err != nil {
 		fmt.Printf("Fatal: Couldn't read config: %s \n", err.Error())
 	}
@@ -232,10 +233,10 @@ func Init(testnet bool) *MainConfiguration {
 	
 
 	
-	if len(v.GetString("data_dir")) == 0 {
-		c.DataDir = v.GetString("data_dir") // needed to load from environment var
+	if len(v.GetString("data_dir")) > 0 {
+		c.DataDir = v.GetString("data_dir") // needed to load from environment var or flag
 	}
 
-	Config = c
-	return &c
+	Config = *c
+	return c
 }

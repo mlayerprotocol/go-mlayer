@@ -120,7 +120,7 @@ func Init(cfg *configs.MainConfiguration) {
 
 func logLevel() dbLogger.LogLevel {
 	if config.Config.LogLevel == "info" {
-		return dbLogger.Info
+		return dbLogger.Warn
 	}
 	if strings.Contains(config.Config.LogLevel, "warn")  {
 		return dbLogger.Warn
@@ -142,6 +142,7 @@ func getDSN(cfg *configs.MainConfiguration) string {
 		} else {
 			dsn = fmt.Sprintf("%s/db.sqlite", cfg.SQLDB.DbStoragePath)
 		}
+		logger.Debug("DBPATH",cfg.SQLDB.DbStoragePath )
 	case "mysql":
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.Config.SQLDB.DbUser, config.Config.SQLDB.DbPassword, config.Config.SQLDB.DbHost, config.Config.SQLDB.DbPort, config.Config.SQLDB.DbDatabase)
 	// case "postgres":

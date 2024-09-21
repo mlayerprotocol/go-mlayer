@@ -16,7 +16,7 @@ var MainNetConfig = MainConfiguration{
 	},
 	BootstrapNode: false,
 	EvmRpcConfig: map[string]EthConfig{
-		"8453": {
+		"8453": { 
 			Name:                  "base-sepolia",
 			Http:                  "https://snowy-multi-liquid.base-sepolia.quiknode.pro/7dac4517f70845dc1d5ee3ffe539fa43352fce9f/",
 			Wss:                   "wss://snowy-multi-liquid.base-sepolia.quiknode.pro/7dac4517f70845dc1d5ee3ffe539fa43352fce9f/",
