@@ -10,7 +10,7 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v2
 
-      - name: Deploy Node
+      - name: Deploy Node 1
         uses: appleboy/ssh-action@v0.1.4
         with:
           host: ${{secrets.SSH_HOST}}

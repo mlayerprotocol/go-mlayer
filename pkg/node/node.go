@@ -228,7 +228,7 @@ func Start(mainCtx *context.Context) {
 		go p2p.ProcessEventsReceivedFromOtherNodes(entities.TopicModel, &entities.TopicPubSub, &ctx, service.HandleNewPubSubTopicEvent)
 		go p2p.ProcessEventsReceivedFromOtherNodes(entities.SubnetModel, &entities.SubnetPubSub, &ctx, service.HandleNewPubSubSubnetEvent)
 		go p2p.ProcessEventsReceivedFromOtherNodes(entities.WalletModel, &entities.WalletPubSub, &ctx, service.HandleNewPubSubWalletEvent)
-		go p2p.ProcessEventsReceivedFromOtherNodes(entities.SubnetModel, &entities.SubscriptionPubSub, &ctx, service.HandleNewPubSubSubscriptionEvent)
+		go p2p.ProcessEventsReceivedFromOtherNodes(entities.SubscriptionModel, &entities.SubscriptionPubSub, &ctx, service.HandleNewPubSubSubscriptionEvent)
 		go p2p.ProcessEventsReceivedFromOtherNodes(entities.MessageModel, &entities.MessagePubSub, &ctx, service.HandleNewPubSubMessageEvent)
 		
 
