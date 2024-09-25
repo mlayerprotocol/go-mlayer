@@ -194,7 +194,7 @@ func HandleNewPubSubEvent (event entities.Event, ctx *context.Context) {
 	}
 }
 
-func OnFinishProcessingEvent (ctx *context.Context, eventPath entities.EventPath, subnetId *string, err error) {
+func OnFinishProcessingEvent (ctx *context.Context, eventPath entities.EventPath, subnetId *string) {
 	
 	event, err := query.GetEventFromPath(&eventPath)
 	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*ds.Datastore)

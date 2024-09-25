@@ -108,7 +108,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	}
 	data.Hash = hex.EncodeToString(hash)
 	var subnet = data.Subnet
-	
+
 	var localState models.SubscriptionState
 	// err := query.GetOne(&models.TopicState{Topic: entities.Topic{ID: id}}, &localTopicState)
 	err = sql.SqlDb.Where(&models.SubscriptionState{Subscription: entities.Subscription{Subnet: subnet, Topic: data.Topic, Agent: entities.AddressFromString(string(data.Agent)).ToDeviceString()}}).Take(&localState).Error
@@ -220,7 +220,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 				
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet, err)
+				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet)
 			}
 			
 			

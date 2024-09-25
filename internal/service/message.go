@@ -43,7 +43,7 @@ func ValidateMessageData(payload *entities.ClientPayload, topic *entities.Topic)
 
 	
 	subsribers := []entities.DIDString{entities.DIDString(payload.Agent), entities.DIDString(payload.Account.ToString())}
-	subscriptions, err := query.GetSubscriptionStateBySuscriber(payload.Subnet, message.Topic, subsribers, nil)
+	subscriptions, err := query.GetSubscriptionStateBySubscriber(payload.Subnet, message.Topic, subsribers, nil)
 	
 	if err != nil {
 		return
