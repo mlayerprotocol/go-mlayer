@@ -32,7 +32,7 @@ type Subscription struct {
 	Timestamp *uint64       `json:"ts"`
 	Hash      string       `json:"h" gorm:"unique" `
 	Event     EventPath    `json:"e" gorm:"index;char(64);"`
-	Agent     DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100);index"`
+	Agent     DeviceString `json:"agt,omitempty"  gorm:"not null;type:varchar(100);index"`
 	BlockNumber uint64          `json:"blk"`
 	Cycle   	uint64			`json:"cy"`
 	Epoch		uint64			`json:"ep"`

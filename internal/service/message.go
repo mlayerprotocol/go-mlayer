@@ -44,9 +44,11 @@ func ValidateMessageData(payload *entities.ClientPayload, topic *entities.Topic)
 	
 	subsribers := []entities.DIDString{entities.DIDString(payload.Agent), entities.DIDString(payload.Account.ToString())}
 	subscriptions, err := query.GetSubscriptionStateBySuscriber(payload.Subnet, message.Topic, subsribers, nil)
+	
 	if err != nil {
 		return
 	}
+	logger.Debugf("Found Subscribers: %d, Readonly: %v", len(*subscriptions),  *topic.ReadOnly)
 	if len(*subscriptions) > 0 {
 		if  len(*subscriptions) > 1 {
 			// if string(payload.Account)  != "" && (*subscriptions)[0].Subscription.Subscriber.ToString() == string(payload.Account) {
