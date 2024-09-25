@@ -122,6 +122,9 @@ func logLevel() dbLogger.LogLevel {
 	if config.Config.LogLevel == "info" {
 		return dbLogger.Warn
 	}
+	if config.Config.LogLevel == "debug" {
+		return dbLogger.Info
+	}
 	if strings.Contains(config.Config.LogLevel, "warn")  {
 		return dbLogger.Warn
 	}
