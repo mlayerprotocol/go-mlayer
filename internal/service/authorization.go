@@ -259,7 +259,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 				
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet, err)
+				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet)
 			}
 			
 			

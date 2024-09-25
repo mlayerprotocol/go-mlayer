@@ -30,7 +30,10 @@ const (
 	Sqlite Driver = "sqlite"
 )
 
-func InitializeDb(driver Driver, dsn string) (*gorm.DB, error) {
+func InitializeDb(cfg *configs.MainConfiguration) (*gorm.DB, error) {
+	
+	driver := Driver(cfg.SQLDB.DbDialect)
+	dsn := getDSN(cfg)
 	logger.Debugf("\nInitializing %s db", driver)
 	var dialect gorm.Dialector
 	switch driver {
@@ -43,7 +46,7 @@ func InitializeDb(driver Driver, dsn string) (*gorm.DB, error) {
 		dialect = sqlite.NewSQLiteDialector(dsn)
 	}
 	SqlDb, err := gorm.Open(dialect, &gorm.Config{
-		Logger: dbLogger.Default.LogMode(logLevel()),
+		Logger: dbLogger.Default.LogMode(logLevel(cfg)),
 	})
 
 	if err != nil {
@@ -73,7 +76,7 @@ func GetTableName(table any, db *gorm.DB) string {
 
 func Init(cfg *configs.MainConfiguration) {
 	
-	SqlDb, SqlDBErr = InitializeDb(Driver(config.Config.SQLDB.DbDialect), getDSN(cfg))
+	SqlDb, SqlDBErr = InitializeDb(cfg)
 	if SqlDBErr != nil {
 		panic(SqlDBErr)
 	}
@@ -118,14 +121,14 @@ func Init(cfg *configs.MainConfiguration) {
 	
 }
 
-func logLevel() dbLogger.LogLevel {
-	if config.Config.LogLevel == "info" {
+func logLevel(cfg *configs.MainConfiguration) dbLogger.LogLevel {
+	if cfg.LogLevel == "info" {
 		return dbLogger.Warn
 	}
-	if config.Config.LogLevel == "debug" {
+	if cfg.LogLevel == "debug" {
 		return dbLogger.Info
 	}
-	if strings.Contains(config.Config.LogLevel, "warn")  {
+	if strings.Contains(cfg.LogLevel, "warn")  {
 		return dbLogger.Warn
 	}
 	return dbLogger.Warn
