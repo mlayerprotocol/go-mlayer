@@ -3,7 +3,7 @@ package query
 import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
-	db "github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
+	"github.com/mlayerprotocol/go-mlayer/pkg/core/sql"
 	"gorm.io/gorm"
 )
 
@@ -12,7 +12,7 @@ func GetSubscriptionStateBySubscriber(subnet string, topic string, subscribers [
 	data := []models.SubscriptionState{}
 	tx := DB
 	if DB == nil {
-		tx = db.SqlDb
+		tx = sql.SqlDb
 	}
 	subsc := []entities.DIDString{}
 	for _, sub := range subscribers {
@@ -21,11 +21,11 @@ func GetSubscriptionStateBySubscriber(subnet string, topic string, subscribers [
 		}
 		subsc = append(subsc, sub)
 	}
-	
-	err := tx.Model(models.SubscriptionState{}).Where(models.SubscriptionState{
+	err := tx.Where(models.SubscriptionState{
 		Subscription: entities.Subscription{ Subnet: subnet, Topic: topic },
-	}).Where("subscriber IN ?", subsc).Assign(&data).Error
+	}).Where("subscriber IN ?", subsc).Find(&data).Error
 	if err != nil {
+		logger.Debugf("ERROR::: %v", err)
 		return nil, err
 	}
 	// if DB == nil {

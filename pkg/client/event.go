@@ -138,6 +138,7 @@ func CreateEvent[S *models.EventInterface](payload entities.ClientPayload, ctx *
 		eventPayloadType = constants.MessagePayloadType
 		assocPrevEvent, assocAuthEvent, err = ValidateMessagePayload(payload, authState)
 		if err != nil {
+			logger.Error("ERRRRRRR:::", err)
 			return nil, err
 		}
 	default:
