@@ -227,7 +227,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 	
 	previousEventUptoDate,  authEventUpToDate, _, eventIsMoreRecent, err := ProcessEvent(event,  eventData, false, saveAuthorizationEvent, tx, ctx)
 	if err != nil {
-		logger.Debugf("Processing Error...: %v", err)
+		logger.Warnf("Processing Error: %v", err)
 		return
 	}
 	logger.Debugf("Processing 2...: %v,  %v", previousEventUptoDate, authEventUpToDate)

@@ -43,12 +43,12 @@ func ValidateMessageData(payload *entities.ClientPayload, topic *entities.Topic)
 
 	
 	subsribers := []entities.DIDString{entities.DIDString(payload.Agent), entities.DIDString(payload.Account.ToString())}
-	subscriptions, err := query.GetSubscriptionStateBySubscriber(payload.Subnet, message.Topic, subsribers, nil)
+	subscriptions, err := query.GetSubscriptionStateBySubscriber(payload.Subnet, message.Topic, subsribers, sql.SqlDb)
 	
 	if err != nil {
 		return
 	}
-	logger.Debugf("Found Subscribers: %d, Readonly: %v", len(*subscriptions),  *topic.ReadOnly)
+	
 	if len(*subscriptions) > 0 {
 		if  len(*subscriptions) > 1 {
 			// if string(payload.Account)  != "" && (*subscriptions)[0].Subscription.Subscriber.ToString() == string(payload.Account) {
@@ -64,12 +64,15 @@ func ValidateMessageData(payload *entities.ClientPayload, topic *entities.Topic)
 		} else {
 			subscription = (*subscriptions)[0]
 		}
+		
 		if *topic.ReadOnly && payload.Account != topic.Account && *subscription.Role < constants.TopicManagerRole {
 			return nil, apperror.Unauthorized("Not allowed to post to this topic")
 		}
 		if payload.Account != topic.Account && *subscription.Role < constants.TopicWriterRole {
 			return  nil, apperror.Unauthorized("Not allowed to post to this topic")
 		}
+		logger.Debugf("Found Subscribers: %v", subscription)
+		return &subscription, nil
 	} else {
 		// check if the sender is a subnet admin
 		 subnet := models.SubnetState{}

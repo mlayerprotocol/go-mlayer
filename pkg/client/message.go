@@ -120,23 +120,18 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 	subscription, err := service.ValidateMessageData(&payload, &topicData.Topic)
 	
 	
-
-	if  payload.Account != topicData.Account {
-		if err != gorm.ErrRecordNotFound {
-			if payload.Account != topicData.Account {
-				return nil, &currentAuthState.Event, apperror.Forbidden("Not subscribed to topic")
-			}
-		}
-		return nil, &currentAuthState.Event, apperror.Internal(err.Error())
-	}
+	
 	if err != nil {
+		if  payload.Account != topicData.Account {
+			if err == gorm.ErrRecordNotFound {
+				if payload.Account != topicData.Account {
+					return nil, &currentAuthState.Event, apperror.Forbidden(err.Error())
+				}
+			}
+			return nil, &currentAuthState.Event, apperror.Internal(err.Error())
+		}
 		return nil, nil, err
 	}
-
-	// dont worry validating the AuthHash for Authorization requests
-	// if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
-	// 	return  errors.New("Authorization timestamp exceeded")
-	// }
 
 	// generate associations
 		if subscription != nil  {
