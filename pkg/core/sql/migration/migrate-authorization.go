@@ -7,6 +7,9 @@ import (
 
 
  func MigrateAuthIndex(db *gorm.DB) (err error) {
+	if !db.Migrator().HasTable(&models.AuthorizationState{}) {
+		return nil
+	}
 	// if db.Migrator().HasIndex(&models.AuthorizationState{}, "signature_data") {
 		err = db.Migrator().DropIndex(&models.AuthorizationState{}, "signature_data")
 	// }

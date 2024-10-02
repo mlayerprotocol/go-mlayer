@@ -38,7 +38,7 @@ type TopicEvent struct {
 // 	authState := &models.AuthorizationState{}
 // 	topic := d.Payload.Data.(*entities.Topic)
 // 	err = db.SqlDb.Where(&AuthorizationState{
-// 		Authorization: entities.Authorization{Event: d.Event.AuthEventHash},
+// 		Authorization: entities.Authorization{Event: d.Event.AuthEvent},
 // 	}).Take(authState).Error
 // 	if err != nil {
 // 		return nil, err

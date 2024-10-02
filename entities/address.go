@@ -17,6 +17,9 @@ type DIDString string
 type DeviceString DIDString
 
 func (s PublicKeyString) Bytes() []byte {
+	if strings.HasPrefix(string(s), "0x") {
+		s = PublicKeyString(strings.Replace(string(s), "0x", "", 1))
+	}
 	b, _ := hex.DecodeString(string(s))
 	return b
 }
@@ -46,7 +49,9 @@ func (address *DID) MsgPack() []byte {
 }
 
 func (address DID) ToDeviceString() DeviceString {
-	address.Prefix = "did"
+	if address.Prefix == "" {
+		address.Prefix = "did"
+	}
 	return DeviceString(address.ToString())
 }
 
@@ -100,8 +105,22 @@ func (address *DID) ToBytes() []byte {
 	return []byte(address.ToString())
 }
 
+func DIDFromString(s string) (DID) {
+	return AddressFromString(s)
+	//return Address{Addr: values[0], Prefix: "", Chain: uint64(chain)}, nil
+}
+
+func AccountFromString(s string) (DID) {
+	return buildAddress(s, "mid")
+	//return Address{Addr: values[0], Prefix: "", Chain: uint64(chain)}, nil
+}
+
 func AddressFromString(s string) (DID) {
-	addr := DID{Prefix: "mid"}
+	return buildAddress(s, "did")
+	//return Address{Addr: values[0], Prefix: "", Chain: uint64(chain)}, nil
+}
+func buildAddress(s string, prefix string) DID {
+	addr := DID{Prefix: prefix}
 	values := strings.Split(strings.Trim(string(s), " "), ":")
 	if len(values) == 0 {
 		return DID{}
@@ -119,8 +138,5 @@ func AddressFromString(s string) (DID) {
 		addr.Addr = values2[0]
 		addr.Chain = values2[1]
 	}
-
 	return addr
-
-	//return Address{Addr: values[0], Prefix: "", Chain: uint64(chain)}, nil
 }

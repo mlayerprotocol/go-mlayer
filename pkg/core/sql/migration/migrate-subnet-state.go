@@ -7,6 +7,9 @@ import (
 
 
  func DropOwnerColumnFromSubnetState(db *gorm.DB) (err error) {
+	if !db.Migrator().HasTable(&models.SubnetState{}) {
+		return nil
+	}
 	return db.Migrator().DropColumn(&models.SubnetState{}, "owner")
  }
 

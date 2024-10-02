@@ -50,7 +50,7 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	data := event.Payload.Data.(*entities.Wallet)
 	hash, _ := data.GetHash()
 	data.Hash = hex.EncodeToString(hash)
-	authEventHash := event.AuthEventHash
+	authEventHash := event.AuthEvent
 	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
 
 	currentState, err := ValidateWalletData(data)
@@ -61,8 +61,8 @@ func HandleNewPubSubWalletEvent(event *entities.Event, ctx *context.Context) {
 	}
 
 	// check if we are upto date on this event
-	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
-	authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
+	prevEventUpToDate := query.EventExist(&event.PreviousEvent) || (currentState == nil && event.PreviousEvent.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEvent.Hash)
+	authEventUpToDate := query.EventExist(&event.AuthEvent) || (authState == nil && event.AuthEvent.Hash == "") || (authState != nil && authState.Event == authEventHash)
 
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state

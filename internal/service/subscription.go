@@ -220,7 +220,9 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 				
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet)
+				go OnFinishProcessingEvent(ctx, event, &models.SubscriptionState{
+					Subscription: data,
+				}, &savedEvent.Payload.Subnet)
 			}
 			
 			

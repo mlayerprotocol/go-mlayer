@@ -29,3 +29,19 @@ func UpdateSubnetState(Subnet *entities.Subnet, DB *gorm.DB) (*models.SubnetStat
 	// }
 	return &data, nil
 }
+
+func GetSubnetById(id string) (*models.SubnetState, error) {
+	state := models.SubnetState{}
+
+	err := GetOne(models.SubnetState{
+		Subnet: entities.Subnet{ID: id},
+	}, &state)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &state, nil
+
+}

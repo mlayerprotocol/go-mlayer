@@ -54,9 +54,10 @@ func ValidateAuthPayloadData(clientPayload *entities.ClientPayload, chainId conf
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	action := "Authorization"
 	switch auth.SignatureData.Type {
 	case entities.EthereumPubKey:
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, "AuthorizeAgent", chainId, agent.Addr, encoder.ToBase64Padded(msg))
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, action, chainId, agent.Addr, encoder.ToBase64Padded(msg))
 		logger.Debug("MSG:: ", authMsg)
 		
 		msgByte := crypto.EthMessage([]byte(authMsg))
@@ -110,7 +111,7 @@ func ValidateAuthPayloadData(clientPayload *entities.ClientPayload, chainId conf
 		// if err == nil {
 		// 	address = crypto.ToBech32Address(decoded, "cosmos")
 		// }
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, "AuthorizeAgent", chainId, agent.Addr, encoder.ToBase64Padded(msg))
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, action, chainId, agent.Addr, encoder.ToBase64Padded(msg))
 
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, grantor.Addr, publicKeyBytes)
 		if err != nil {
@@ -259,7 +260,9 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) {
 				
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet)
+				go OnFinishProcessingEvent(ctx, event,  &models.AuthorizationState{
+					Authorization: data,
+				},  &savedEvent.Payload.Subnet, )
 			}
 			
 			

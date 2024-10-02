@@ -13,6 +13,7 @@ go run . daemon \
 -l "/ip4/127.0.0.1/tcp/7001/ws" \
 -l "/ip4/127.0.0.1/tcp/6001" \
 --verbose true \
---data-dir "./data/dev2/" 
+--data-dir "./data/dev2/" \
+--no-sync
 
  

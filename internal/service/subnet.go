@@ -62,9 +62,10 @@ func ValidateSubnetData(clientPayload *entities.ClientPayload, chainID configs.C
 	if err != nil {
 		return nil, err
 	}
+	action :=  "Subnet"
 	switch subnet.SignatureData.Type {
 	case entities.EthereumPubKey:
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", chainID, subnet.Ref, encoder.ToBase64Padded(msg))
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, action, chainID, subnet.Ref, encoder.ToBase64Padded(msg))
 		logger.Debug("MSG:: ", authMsg)
 		msgByte := crypto.EthMessage([]byte(authMsg))
 
@@ -82,7 +83,7 @@ func ValidateSubnetData(clientPayload *entities.ClientPayload, chainID configs.C
 		if err != nil {
 			return nil, err
 		}
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, "CreateSubnet", chainID, subnet.Ref, encoder.ToBase64Padded(msg))
+		authMsg := fmt.Sprintf(constants.SignatureMessageString, action, chainID, subnet.Ref, encoder.ToBase64Padded(msg))
 		logger.Debug("MSG:: ", authMsg)
 		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
 		if err != nil {
@@ -233,7 +234,9 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 				
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.ID)
+				go OnFinishProcessingEvent(ctx, event, &models.SubnetState{
+					Subnet: data,
+				}, &savedEvent.ID)
 			}
 			
 			
@@ -272,7 +275,7 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	// data := event.Payload.Data.(entities.Subnet)
 	// hash, _ := data.GetHash()
 	// data.Hash = hex.EncodeToString(hash)
-	// // authEventHash := event.AuthEventHash
+	// // authEventHash := event.AuthEvent
 	// // authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
 	// logger.Debug("data.Meta Ref ", data.Meta, " ", data.Ref)
 	// h, _ := data.GetHash()
@@ -286,8 +289,8 @@ func HandleNewPubSubSubnetEvent(event *entities.Event, ctx *context.Context) {
 	// }
 
 	// // check if we are upto date on this event
-	// prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEventHash.Hash)
-	// // authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
+	// prevEventUpToDate := query.EventExist(&event.PreviousEvent) || (currentState == nil && event.PreviousEvent.Hash == "") || (currentState != nil && currentState.Event.Hash == event.PreviousEvent.Hash)
+	// // authEventUpToDate := query.EventExist(&event.AuthEvent) || (authState == nil && event.AuthEvent.Hash == "") || (authState != nil && authState.Event == authEventHash)
 
 	// // Confirm if this is an older event coming after a newer event.
 	// // If it is, then we only have to update our event history, else we need to also update our current state

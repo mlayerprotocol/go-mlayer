@@ -40,6 +40,7 @@ func GetId(d Payload) (string, error) {
 
 type ClientPayload struct {
 	// Primary
+	Id string `json:"id"`
 	Data      interface{}   `json:"d"`
 	Timestamp uint64           `json:"ts"`
 	EventType uint16        `json:"ty"`
@@ -100,10 +101,12 @@ func (msg *ClientPayload) ToString() (string, error) {
 func (msg ClientPayload) GetHash() ([]byte, error) {
 	b, err := msg.EncodeBytes()
 	if err != nil {
-		return []byte(""), err
+		logger.Debugf("ENCODBYTEERROR: %v",err)
+		return nil, err
 	}
-	logger.Debugf("BYTESSSS: %s", hex.EncodeToString(b))
+	
 	bs := crypto.Keccak256Hash(b)
+	
 	return bs, nil
 }
 
@@ -115,7 +118,8 @@ func (msg ClientPayload) GetSigner() (DeviceString, error) {
 		if err != nil {
 			return "", err
 		}
-		agent, _ := crypto.GetSignerECC(&b, &msg.Signature)
+		
+		agent, _ := crypto.GetSignerECC(&b,  &msg.Signature)
 		msg.Agent = AddressFromString(agent).ToDeviceString()
 		return msg.Agent, nil
 	//}
@@ -146,9 +150,11 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	if msg.Data != nil {
 		b, err := msg.Data.(Payload).EncodeBytes()
 		if err != nil {
-			return []byte(""), err
+			
+			return nil, err
 		}
 		hashed = crypto.Keccak256Hash(b)
+		
 		logger.Debug("ENCODED==== ", hex.EncodeToString(b), " HASHED==== ", hex.EncodeToString(hashed))
 	}
 
@@ -156,6 +162,7 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()})
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
+	params = append(params, encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Id})
 	if msg.Subnet != "" {
 		params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(msg.Subnet)})
 	}
@@ -165,7 +172,7 @@ func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	params = append(params, encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: msg.Validator})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Nonce})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.Timestamp})
-
+	
 	return encoder.EncodeBytes(
 		params...,
 	)
@@ -228,3 +235,5 @@ func (sD *ClientPayload) Value() (driver.Value, error) {
 	// return encoder.ToBase64Padded(sD.MsgPack()), nil
 	return string(sD.ToJSON()), nil
 }
+
+

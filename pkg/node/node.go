@@ -51,7 +51,12 @@ import (
 
 var logger = &log.Logger
 
+// var wsClients =  make(map[string]map[*websocket.Conn]*entities.ClientWsSubscription)
+// var subscribedWsClientIndex =  make(map[string]map[*websocket.Conn][]int)
+// var wsClients =  make(map[string][]*websocket.Conn)
 
+
+var wsClients = entities.NewWsClientLog()
 
 func Start(mainCtx *context.Context) {
 	time.Sleep(1*time.Second)
@@ -88,6 +93,8 @@ func Start(mainCtx *context.Context) {
 	p2pDhtStore := ds.New(&ctx,   string(constants.P2PDhtStore))
 	defer p2pDhtStore.Close()
 	ctx = context.WithValue(ctx, constants.P2PDhtStore, p2pDhtStore)
+
+	ctx = context.WithValue(ctx, constants.WSClientLogId, &wsClients)
 
 	// defer func () {
 	// 	if chain.NetworkInfo.Synced && systemStore != nil && !systemStore.DB.IsClosed() {
@@ -196,22 +203,21 @@ func Start(mainCtx *context.Context) {
 		}()
 	}
 
-	if cfg.Validator {
-		wg.Add(1)
+	wg.Add(1)
+		// start the REST server
 		go func() {
-			_, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			defer wg.Done()
-			TrackReward(&ctx)
+			for {
+				subscription, ok := <-channelpool.ClientWsSubscriptionChannel
+				if !ok {
+					logger.Errorf("Client WS subscription channel closed")
+					continue
+				}
+			
+				wsClients.RegisterClient(subscription)
+			}
+		
 		}()
-		wg.Add(1)
-		go func() {
-			_, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			defer wg.Done()
-			ProcessPendingClaims(&ctx)
-		}()
-	}
+
 	
 
 	wg.Add(1)
@@ -239,7 +245,27 @@ func Start(mainCtx *context.Context) {
 		// }
 	}()
 
+
+	if cfg.Validator {
+		wg.Add(1)
+		go func() {
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer wg.Done()
+			TrackReward(&ctx)
+		}()
+		wg.Add(1)
+		go func() {
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer wg.Done()
+			ProcessPendingClaims(&ctx)
+		}()
+	}
 	
+	
+
+
 
 	
 
@@ -287,6 +313,7 @@ func Start(mainCtx *context.Context) {
 
 	// start the RPC server
 	if cfg.Validator {
+		waitToSync()
 		wg.Add(1)
 		go func() {
 			_, cancel := context.WithCancel(context.Background())
@@ -357,7 +384,7 @@ func Start(mainCtx *context.Context) {
 			defer wg.Done()
 			wss := ws.NewWsService(&ctx)
 			logger.Debugf("WsAddress: %s\n", cfg.WSAddress)
-			http.HandleFunc("/echo", wss.ServeWebSocket)
+			http.HandleFunc("/ws", wss.HandleConnection)
 
 			logger.Fatal(http.ListenAndServe(cfg.WSAddress, nil))
 		}()
@@ -437,4 +464,15 @@ func loadChainInfo(cfg *configs.MainConfiguration) error {
 			chain.NetworkInfo.ActiveSentryLicenseCount = info.SentryActiveLicenseCount.Uint64()
 			
 			return err
+}
+
+
+func waitToSync() {
+	for{
+		if !chain.NetworkInfo.Synced {
+			time.Sleep(2 * time.Second)
+		} else {
+			break
+		}
+	}
 }

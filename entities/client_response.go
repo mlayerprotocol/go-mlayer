@@ -2,6 +2,8 @@ package entities
 
 import (
 	"encoding/json"
+
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 )
 
 type ResponsePayload interface {
@@ -18,9 +20,10 @@ type ResponseMeta struct {
 }
 
 type ClientResponse struct {
-	Data  any    `json:"data"`
-	Error string `json:"error,omitempty"`
-
+	Id string `json:"id"`
+	Data  interface{}  `json:"data"`
+	Error string  `json:"error,omitempty"`
+	ResponseCode int `json:"rCode,omitempty"`
 	Meta ResponseMeta `json:"_meta"`
 }
 
@@ -29,6 +32,24 @@ func (cr ClientResponse) ToMap() map[string]any {
 	var data map[string]any
 	json.Unmarshal(v, &data)
 	return data
+}
+
+func (msg ClientResponse) EncodeBytes() ([]byte, error) {
+
+
+	meta, err := encoder.MsgPackStruct(msg.Meta)
+	if err != nil {
+		return nil, err
+	}
+	var params []encoder.EncoderParam
+	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.Data})
+	params = append(params, encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Error})
+	params = append(params, encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Id})
+	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value:meta})
+	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.ResponseCode})
+	return encoder.EncodeBytes(
+		params...,
+	)
 }
 
 func NewClientResponse(cr ClientResponse) ClientResponse {
@@ -70,3 +91,7 @@ type Presence struct {
  }
 
 	
+ type SocketSubscriptoinResponseData struct {
+	SubscriptionId string `json:"subscriptionId"`
+	Event map[string]interface{} `json:"event"`
+}

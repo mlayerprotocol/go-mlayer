@@ -427,3 +427,28 @@ func DecompressGzip(compressedData []byte) ([]byte, error) {
 	}
 	return result.Bytes(), err
 }
+
+func MatchUrlPath(pattern, path string) (exist bool, params map[string]string) {
+	params = make(map[string]string)
+	patternSegments := strings.Split(pattern, "/")
+	pathSegments := strings.Split(path, "/")
+
+	// Handle different segment lengths
+	if len(patternSegments) != len(pathSegments) {
+		return false, nil
+	}
+
+	for i, segment := range patternSegments {
+		// If the segment is a parameter (e.g., :id) or matches the path segment, continue
+		if strings.HasPrefix(segment, ":") {
+			params[segment[1:]] = pathSegments[i]
+		}
+		if strings.HasPrefix(segment, ":") || segment == pathSegments[i] {
+			continue
+		}
+
+		// If it doesn't match and isn't a parameter, it's a mismatch
+		return false, nil
+	}
+	return true, params
+}

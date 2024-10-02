@@ -483,6 +483,7 @@ func Run(mainCtx *context.Context) {
 	if cfg.Validator {
 		logger.Println("- RPC server started on: ", cfg.RPCHost+":"+cfg.RPCPort)
 		logger.Println("- HTTP/REST server started on: ", cfg.RestAddress)
+		logger.Println("- Websocket server listening on: ", fmt.Sprintf("%s/ws", cfg.WSAddress))
 		logger.Println("- QUIC server started on: ", cfg.QuicHost)
 	}
 	fmt.Println("---------------------------------------------------------------------------")
