@@ -55,7 +55,6 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 
 	// Extract and validate the Data of the paylaod which is an Events Payload Data,
 	
-	logger.Debugf("NEWEVENT: %s", event.Hash)
 	previousEventUptoDate := false
 	authEventUptoDate :=  !validAgentRequired
 	eventIsMoreRecent := true
@@ -158,9 +157,9 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 	// 	// check the node that sent the event to see if it has the record
 
 	// }
-	logger.Debug("PreviousEvent", event.PreviousEventHash)
-	if len(event.PreviousEventHash.Hash) > 0 {
-		previousEvent, err = query.GetEventFromPath(&event.PreviousEventHash)
+	logger.Debug("PreviousEvent", event.PreviousEvent)
+	if len(event.PreviousEvent.Hash) > 0 {
+		previousEvent, err = query.GetEventFromPath(&event.PreviousEvent)
 		if err != nil && err != query.ErrorNotFound {
 			logger.Debug(err)
 			return false, false, nil, eventIsMoreRecent, fmt.Errorf("db err: %s", err.Error())
@@ -170,11 +169,11 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 			previousEventUptoDate = true
 		} else {
 			// get the previous event from the sending node and process it as well
-			previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEventHash, nil)
+			previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEvent, nil)
 			if err != nil {
 				logger.Error(err)
-				if event.Validator != event.PreviousEventHash.Validator {
-					previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEventHash, &event.Validator)
+				if event.Validator != event.PreviousEvent.Validator {
+					previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEvent, &event.Validator)
 					logger.Error(err)
 				}
 			}
@@ -189,19 +188,19 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 	}
 
 	
-		if (validAgentRequired || len(event.AuthEventHash.Hash) > 0) && (agentAuthState.ID != "" || agentAuthState.Event.Hash != event.AuthEventHash.Hash) {
+		if (validAgentRequired || len(event.AuthEvent.Hash) > 0) && (agentAuthState.ID != "" || agentAuthState.Event.Hash != event.AuthEvent.Hash) {
 			// check if we have the associated auth event locally, if we dont we can't proceed until we get it
-			if event.AuthEventHash.Hash == "" {
+			if event.AuthEvent.Hash == "" {
 				return previousEventUptoDate, authEventUptoDate, nil, eventIsMoreRecent, fmt.Errorf("auth event not provided")
 			}
-			authEvent, err = query.GetEventFromPath(&event.AuthEventHash)
+			authEvent, err = query.GetEventFromPath(&event.AuthEvent)
 			if err != nil  {
 				if err == query.ErrorNotFound {
 					// get it from another node and broadcast it
-					authEv, _, err := p2p.GetEvent(cfg, event.AuthEventHash, &event.Validator)
+					authEv, _, err := p2p.GetEvent(cfg, event.AuthEvent, &event.Validator)
 					if err != nil {
-						if  event.AuthEventHash.Validator != event.Validator {
-							authEv, _, err = p2p.GetEvent(cfg, event.AuthEventHash, nil)
+						if  event.AuthEvent.Validator != event.Validator {
+							authEv, _, err = p2p.GetEvent(cfg, event.AuthEvent, nil)
 						}
 						if err != nil {
 							return previousEventUptoDate, authEventUptoDate, nil, eventIsMoreRecent, fmt.Errorf("auth event not found")
@@ -215,7 +214,7 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 				if authEvent.Synced {
 					authEventUptoDate = true
 					// get the authstate since we have the event
-					err = query.GetOneState(entities.Authorization{Event: event.AuthEventHash}, &eventAuthState)
+					err = query.GetOneState(entities.Authorization{Event: event.AuthEvent}, &eventAuthState)
 					if err != nil {
 						authEventUptoDate = false
 					}
@@ -247,7 +246,7 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 		
 		if entityState != nil &&  len(entityState.ID) > 0 {
 			// check if state.Event is same as events previous has
-			if entityState.Event.Hash != event.PreviousEventHash.Hash {
+			if entityState.Event.Hash != event.PreviousEvent.Hash {
 				// either we are not upto date, or the sender is not
 				// get the event that resulted in current state
 				// topicEvent, err = query.GetEventFromPath(&topicState.Event)
@@ -259,7 +258,7 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 
 					logger.Debugf("STATEEVENT %v, %v", stateEvent, previousEvent)
 					 // if this event is more recent, then it must referrence our local event or an event after it
-					if eventIsMoreRecent  && stateEvent.Hash != event.PreviousEventHash.Hash {
+					if eventIsMoreRecent  && stateEvent.Hash != event.PreviousEvent.Hash {
 						previousEventMoreRecent := IsMoreRecentEvent(stateEvent.Hash, int(stateEvent.Timestamp), previousEvent.Hash, int(previousEvent.Timestamp))
 						if !previousEventMoreRecent {
 							badEvent = fmt.Errorf(constants.ErrorBadRequest)
@@ -282,15 +281,15 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 		// if its a new one, we have to confirm that it is referencing the true latest auth event
 
 		// so lets get the referrenced authorization
-		// if event.AuthEventHash.Hash != "" {
-		// 	err = query.GetOne(models.AuthorizationState{Authorization: entities.Authorization{Event: event.AuthEventHash}}, eventAuthState)
+		// if event.AuthEvent.Hash != "" {
+		// 	err = query.GetOne(models.AuthorizationState{Authorization: entities.Authorization{Event: event.AuthEvent}}, eventAuthState)
 		// 	if err != nil && err != query.ErrorNotFound {
 		// 		return false, false, nil, false,fmt.Errorf("db error: %s", err.Error())
 		// 	}
 		// 	// if we dont have it, get it from another node
 		// }
 		// if event is more recent that our local state, we have to check its validity since it updates state
-		if eventIsMoreRecent && validAgentRequired && agentAuthState.ID  != "" && agentAuthState.Event.Hash != event.AuthEventHash.Hash && authEvent != nil {
+		if eventIsMoreRecent && validAgentRequired && agentAuthState.ID  != "" && agentAuthState.Event.Hash != event.AuthEvent.Hash && authEvent != nil {
 			// get the event that is responsible for the current state
 			err := query.GetOne(models.AuthorizationEvent{Event: entities.Event{Hash: agentAuthState.Event.Hash}}, &agentAuthStateEvent)
 			if err != nil && err != query.ErrorNotFound {
@@ -328,3 +327,4 @@ func ProcessEvent(event *entities.Event, data PayloadData, validAgentRequired bo
 	return previousEventUptoDate, authEventUptoDate, &eventAuthState, eventIsMoreRecent, nil
 
 }
+

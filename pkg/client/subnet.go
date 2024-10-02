@@ -178,6 +178,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	e := json.Unmarshal(d, &payloadData)
 	if e != nil {
 		logger.Errorf("UnmarshalError %v", e)
+		return nil, nil, apperror.BadRequest(e.Error())
 	}
 
 	payload.Data = payloadData
@@ -214,7 +215,7 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	if err != nil {
 		return nil, nil, err
 	}
-
+	
 	// generate associations
 	if currentState != nil {
 		//logger.Debugf("SUBNETINFO %v, %s, %s", strings.EqualFold(currentState.Account.ToString(), payloadData.Account.ToString()), currentState.Account.ToString(), payloadData.Account.ToString())
@@ -226,5 +227,6 @@ func ValidateSubnetPayload(payload entities.ClientPayload, authState *models.Aut
 	if authState != nil {
 		assocAuthEvent = &authState.Event
 	}
+	
 	return assocPrevEvent, assocAuthEvent, nil
 }

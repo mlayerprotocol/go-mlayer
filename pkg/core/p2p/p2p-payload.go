@@ -74,6 +74,13 @@ type P2pPayload struct {
 	config *configs.MainConfiguration `json:"-" msgpack:"-"`
 }
 
+
+type RequestType int8
+const (
+	DataRequest RequestType = 1
+	SyncRequest RequestType = 2
+)
+
 func (hs *P2pPayload) MsgPack() []byte {
 	b, _ := encoder.MsgPackStruct(hs)
 	return b
@@ -99,8 +106,8 @@ func (nma * P2pPayload) IsValid(chainId configs.ChainId) bool {
 	now := uint64(time.Now().UnixMilli())
 	
 	if utils.Abs(now, nma.Timestamp) > uint64(15 * time.Second.Milliseconds()) {
-		panic(fmt.Errorf("expired"))
-		logger.WithFields(logrus.Fields{"data": *nma, "d": 15 * time.Second.Milliseconds(), "t": utils.Abs(now, nma.Timestamp)}).Debugf("P2pPayload: Expired -> %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
+		// panic(fmt.Errorf("expired"))
+		// logger.WithFields(logrus.Fields{"data": *nma, "d": 15 * time.Second.Milliseconds(), "t": utils.Abs(now, nma.Timestamp)}).Debugf("P2pPayload: Expired -> %d", uint64(time.Now().UnixMilli()) - nma.Timestamp)
 		return false
 	}
 	// signer, err := hex.DecodeString(string(nma.Signer));
@@ -127,11 +134,9 @@ func (nma * P2pPayload) IsValid(chainId configs.ChainId) bool {
 	}
 	return true
 }
-type RequestType int8
-const (
-	DataRequest RequestType = 1
-	SyncRequest RequestType = 2
-)
+
+
+
 func (p *P2pPayload) SendDataRequest(receiverPublicKey string) (*P2pPayload, error) {
 	defer func() {
 		if r := recover(); r != nil {

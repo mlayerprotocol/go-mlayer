@@ -149,8 +149,8 @@ func GetManyGroupBy[T any, U any](item T, data *U, gb string) error {
 
 // 	var data []T
 // 	err := sql.SqlDb.Where(
-// 		&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: event.Hash}},
-// 	).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: event.Hash}},
+// 		&models.AuthorizationEvent{Event: entities.Event{PreviousEvent: event.Hash}},
+// 	).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEvent: event.Hash}},
 // 	// ).Or("? LIKE ANY (associations)", fmt.Sprintf("%%%s%%", event.Hash)
 // 	).Find(&data).Error
 // 	if err != nil {
@@ -255,18 +255,18 @@ func GetDependentEvents(event *entities.Event) (*[]entities.Event, error) {
 
 	data := []entities.Event{}
 	// err := db.SqlDb.Where(
-	// 	&models.AuthorizationEvent{Event: entities.Event{PreviousEventHash: *entities.NewEventPath(entities.AuthModel, event.Hash)}},
-	// ).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEventHash: *entities.NewEventPath(entities.AuthModel, event.Hash)}},
+	// 	&models.AuthorizationEvent{Event: entities.Event{PreviousEvent: *entities.NewEventPath(entities.AuthModel, event.Hash)}},
+	// ).Or(&models.AuthorizationEvent{Event: entities.Event{AuthEvent: *entities.NewEventPath(entities.AuthModel, event.Hash)}},
 	// // ).Or("? LIKE ANY (associations)", fmt.Sprintf("%%%s%%", event.Hash)
 	// ).Find(&data).Error
 	// if err != nil {
 	// 	return nil, err
 	// }
-	prevEvent, _ := GetEventFromPath(&(event.PreviousEventHash))
+	prevEvent, _ := GetEventFromPath(&(event.PreviousEvent))
 	if prevEvent != nil {
 		data = append(data, *prevEvent)
 	}
-	authEvent, _ := GetEventFromPath(&(event.AuthEventHash))
+	authEvent, _ := GetEventFromPath(&(event.AuthEvent))
 	if authEvent != nil {
 		data = append(data, *authEvent)
 	}

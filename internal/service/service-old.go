@@ -107,11 +107,11 @@ package service
 // 	var subnet string
 // 	// var currentAgentAuthState *models.AuthorizationState
 
-// 	previousEventHash := event.PreviousEventHash
-// 	authEventHash := event.AuthEventHash
+// 	previousEventHash := event.PreviousEvent
+// 	authEventHash := event.AuthEvent
 // 	// val := reflect.ValueOf(eventType)
-// 	// previousEventHash := val.FieldByName("PreviousEventHash").Interface().(entities.EventPath)
-// 	// authEventHash := val.FieldByName("AuthEventHash").Interface().(entities.EventPath)
+// 	// previousEventHash := val.FieldByName("PreviousEvent").Interface().(entities.EventPath)
+// 	// authEventHash := val.FieldByName("AuthEvent").Interface().(entities.EventPath)
 // 	d, err := event.Payload.EncodeBytes()
 // 	if err != nil {
 // 		logger.Errorf("Invalid event payload")
@@ -215,7 +215,7 @@ package service
 // 						// return
 // 					} else {
 // 						logger.Debugf("SUBNETTTTT: %v", subnetState)
-// 						if event.PreviousEventHash.Model != entities.SubnetModel {
+// 						if event.PreviousEvent.Model != entities.SubnetModel {
 
 // 						}
 
@@ -271,7 +271,7 @@ package service
 
 // 		logger.Debugf("PREVIOUSEVENTHASH: %s", previousEventHash.ToString())
 // 	prevEventUpToDate := query.EventExist(&previousEventHash) || (currentState == nil && previousEventHash.Hash == "") || (currentState != nil && currentState.Event.Hash == previousEventHash.Hash)
-// 	authEventUpToDate := query.EventExist(&authEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
+// 	authEventUpToDate := query.EventExist(&authEventHash) || (authState == nil && event.AuthEvent.Hash == "") || (authState != nil && authState.Event == authEventHash)
 
 // 	if validAuth {
 
@@ -571,9 +571,9 @@ package service
 // 	//3. I have the event auth, but its different from the current auth of the agent - check which is most recent, if mine, check if the event was initiated before my state, if it was, then its valid, else, check if the authEvent was older than mine, if it was, throw error else accept the event
 // 	if eventAuthState == nil { // my local auth state is either different or I have none
 // 		// get the auth event from the sending node
-// 		payload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetEvent, event.AuthEventHash.MsgPack())
+// 		payload := p2p.NewP2pPayload(cfg, p2p.P2pActionGetEvent, event.AuthEvent.MsgPack())
 
-// 		response, err := payload.SendDataRequest(cfg.PrivateKeyEDD, string(event.AuthEventHash.Validator))
+// 		response, err := payload.SendDataRequest(cfg.PrivateKeyEDD, string(event.AuthEvent.Validator))
 // 		if response.ResponseCode != 0 {
 // 			logger.Errorf("P2pPayload.SendRequest: %d-%s", response.ResponseCode, response.Error)
 // 			return false, fmt.Errorf(response.Error)

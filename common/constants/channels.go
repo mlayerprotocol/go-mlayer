@@ -1,9 +1,10 @@
 package constants
 
 // Channel Ids within main context
+type ChannelsId string
 const (
-	// BroadcastAuthorizationEventChId 		string = "BroadcastAuthorizationEventChannel"
-	// BroadcastTopicEventChId             	string  = "BroadcastTopicEventChannel"
+	// BroadcastAuthorizationEventChId 		ChannelsId = "BroadcastAuthorizationEventChannel"
+	// BroadcastTopicEventChId             	ChannelsId  = "BroadcastTopicEventChannel"
 	// BroadcastSubnetEventChId               			= "BroadcastSubnetEventChannel"
 	// IncomingAuthorizationEventChId         = "IncomingAuthorizationEventChannel"
 	// IncomingTopicEventChId 							= "IncomingTopicEventChannel"
@@ -15,11 +16,12 @@ const (
 	// PublishMessageChId              				= "PublishMessageChannel"
 	// SubscribeChId                   				= "SubscribeChannel"
 	// SubscriptionDP2PChId            				= "SubscriptionDP2PChannel"
-	ClientHandShackChId             				= "ClientHandshakeChannel"
+	ClientHandShackChId             			ChannelsId	= "ClientHandshakeChannel"
 	// OutgoingDeliveryProof_BlockChId 				= "OutgoingDeliveryProofBlockChannel"
 	// OutgoingDeliveryProofChId       				= "OutgoinDeliveryProofChannel"
 	// PubSubBlockChId                 				= "PubSubBlockChannel"
 	// PubsubDeliverProofChId          				= "PubsubProofChannel"
 	// PublishedSubChId                				= "PublishedSubChannel"
 	EventCountChId                					= "EventCountChannel"
+	WSClientLogId					ChannelsId		= "WSClientLogChannel"
 )

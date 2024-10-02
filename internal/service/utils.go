@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
-	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
-	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -24,96 +23,30 @@ import (
 )
 
 var logger = &log.Logger
-var	eventCounterStore *ds.Datastore
+var eventCounterStore *ds.Datastore
 
-func ConnectClient(message []byte, protocol constants.Protocol, client interface{}) (*entities.ClientHandshake, error) {
-	verifiedRequest, _ := entities.UnpackClientHandshake(message)
-	verifiedRequest.ClientSocket = &client
-	// verifiedRequest.Protocol = protocol
+func ConnectClient(cfg *configs.MainConfiguration, handshake *entities.ClientHandshake, protocol constants.Protocol) (*entities.ClientHandshake, error) {
+	if utils.Abs(uint64(time.Now().UnixMilli()), uint64(handshake.Timestamp)) > uint64(15*time.Millisecond) {
+		return nil, fmt.Errorf("handshake expired")
+	}
+
+	if !handshake.IsValid(cfg.ChainId) {
+		return nil, fmt.Errorf("invalid handshake data")
+	}
+
+	handshake.Protocol = protocol
 	// logger.Debug("VerifiedRequest.Message: ", verifiedRequest.Message)
-	vByte, err := verifiedRequest.EncodeBytes()
+	vByte, err := handshake.EncodeBytes()
 	if err != nil {
 		return nil, apperror.Internal("Invalid client handshake")
 	}
-	if crypto.VerifySignatureECC(string(verifiedRequest.Signer), &vByte, verifiedRequest.Signature) {
+	if crypto.VerifySignatureECC(string(handshake.Signer), &vByte, handshake.Signature) {
 		// verifiedConn = append(verifiedConn, c)
-		logger.Debug("Verification was successful: ", verifiedRequest)
-		return &verifiedRequest, nil
+		logger.Debug("Verification was successful: ", handshake)
+		return handshake, nil
 	}
 	return nil, apperror.Forbidden("Invaliad handshake")
 
-}
-
-func IsMoreRecent(
-	currenStatetEventId string,
-	currenStatetHash string,
-	currentStateEventTimestamp uint64,
-	eventHash string,
-	eventPayloadTimestamp uint64,
-	markedAsSynced bool,
-	) (isMoreRecent bool , markAsSynced bool) {
-	isMoreRecent = false
-	markAsSynced = markedAsSynced
-		if currentStateEventTimestamp < eventPayloadTimestamp {
-			isMoreRecent = true
-		}
-		if currentStateEventTimestamp  > eventPayloadTimestamp {
-			isMoreRecent = false
-		}
-		// if the authorization was created at exactly the same time but their hash is different
-		// use the last 4 digits of their event hash
-		if currentStateEventTimestamp == eventPayloadTimestamp  {
-			// get the event payload of the current state
-
-			// if err != nil && err != gorm.ErrRecordNotFound {
-			// 	logger.Error("DB error", err)
-			// }
-			if currenStatetEventId == "" {
-				markAsSynced = false
-			} else {
-				// if currentStateEventTimestamp < event.Payload.Timestamp {
-				// 	isMoreRecent = true
-				// }
-				// if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
-					// logger.Debugf("Current state %v", currentStateEvent.Payload)
-					csN := new(big.Int)
-					csN.SetString(currenStatetHash[56:], 16)
-					nsN := new(big.Int)
-					nsN.SetString(eventHash[56:], 16)
-
-					if csN.Cmp(nsN) < 1 {
-						isMoreRecent = true
-					}
-				//}
-			}
-		}
-		return isMoreRecent, markAsSynced
-}
-
-func IsMoreRecentEvent(
-	eventHash string,
-	eventTimestamp int,
-	event2Hash string,
-	event2Timestamp int,
-	) (bool) {
-	
-		if eventTimestamp < event2Timestamp {
-			return true
-		}
-		if eventTimestamp  > event2Timestamp {
-			return false
-		}
-		// if the authorization was created at exactly the same time but their hash is different
-		// use the last 4 digits of their event hash
-		csN := new(big.Int)
-		csN.SetString(eventHash[50:], 16)
-		nsN := new(big.Int)
-		nsN.SetString(eventHash[50:], 16)
-
-		if csN.Cmp(nsN) < 1 {
-			return true
-		}
-		return false
 }
 
 func ValidateEvent(event interface{}) error {
@@ -124,7 +57,7 @@ func ValidateEvent(event interface{}) error {
 		return err
 	}
 	// logger.Debugf("Payload Validator: %s; Event Signer: %s; Validatos: %v", e.Payload.Validator, e.GetValidator(), chain.NetworkInfo.Validators)
-	if !strings.EqualFold(utils.AddressToHex(chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))]),utils.AddressToHex(e.Payload.Validator)) {
+	if !strings.EqualFold(utils.AddressToHex(chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))]), utils.AddressToHex(e.Payload.Validator)) {
 		return apperror.Forbidden("payload validator does not match event validator")
 	}
 	logger.Debugf("EVENT:: %s %s", string(e.GetValidator()), e.GetSignature())
@@ -147,12 +80,12 @@ func ValidateMessageClient(
 ) error {
 	connectedSubscribers, ok := (*ctx).Value(constants.ConnectedSubscribersMap).(*map[string]map[string][]interface{})
 	if !ok {
-		return errors.New("Could not connect to subscription datastore")
+		return errors.New("could not connect to subscription datastore")
 	}
 
 	var subscriptionStates []models.SubscriptionState
 	query.GetMany(models.SubscriptionState{Subscription: entities.Subscription{
-		Subscriber: clientHandshake.Signer,
+		Subscriber: entities.DIDString(string(clientHandshake.Signer)),
 	}}, &subscriptionStates, nil)
 
 	// VALIDATE AND DISTRIBUTE
@@ -178,7 +111,7 @@ func ValidateMessageClient(
 	return nil
 }
 
-func HandleNewPubSubEvent (event entities.Event, ctx *context.Context) {
+func HandleNewPubSubEvent(event entities.Event, ctx *context.Context) {
 	switch val := event.Payload.Data.(type) {
 	case entities.Subnet:
 		logger.Debug(val)
@@ -194,103 +127,205 @@ func HandleNewPubSubEvent (event entities.Event, ctx *context.Context) {
 	}
 }
 
-func OnFinishProcessingEvent (ctx *context.Context, eventPath entities.EventPath, subnetId *string) {
+func OnFinishProcessingEvent(ctx *context.Context, event  *entities.Event, state  interface{}, eventId *string) {
 	
-	event, err := query.GetEventFromPath(&eventPath)
-	eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*ds.Datastore)
 
+	wsClientList, ok := (*ctx).Value(constants.WSClientLogId).(*entities.WsClientLog)
 	if !ok {
-		panic("Unable to connect to counter data store")
+		panic("Unable to connect to counter wsClients list")
 	}
-	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-	if err == nil || event != nil {
-		
-		// increment count
-		currentSubnetCount := uint64(0);
-		currentCycleCount := uint64(0);
-		
-		batch, err :=	eventCounterStore.Batch(*ctx)
-		if err != nil {
-			panic(err)
-		}
-		// TODO consider storing cycle with event so we dont need another network call here
-		cycle, err :=  chain.DefaultProvider(cfg).GetCycle(big.NewInt(int64(event.BlockNumber)))
-		if err != nil {
-			// TODO
-			panic(err)
-		}
-		subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, cycle, utils.IfThenElse(event.Payload.Subnet == "", *subnetId, event.Payload.Subnet)))
-		cycleKey :=  datastore.NewKey(fmt.Sprintf("%s/%d", event.Payload.Validator, cycle))
-		val, err := eventCounterStore.Get(*ctx, subnetKey)
-		
-		if err != nil  {
-			if err != datastore.ErrNotFound {
-				logger.Error(err)
-				return;
+	eventModelType := event.GetDataModelType()
+	payload := entities.SocketSubscriptoinResponseData{
+		Event: map[string]interface{}{
+			"id": event.ID,
+			"snet": event.Subnet,
+			 "blk": event.BlockNumber,
+			 "cy": event.Cycle,
+			 "ep": event.Epoch,
+			 "h": event.Hash,
+			 "preE": event.PreviousEvent,
+			 "authE": event.AuthEvent,
+			 "modelType": eventModelType,
+			 "t": event.EventType,
+		},
+	}
+	if eventModelType == entities.MessageModel {
+		message := state.(*models.MessageState)
+		payload.Event["topic"] = message.Topic
+		for _, subs := range wsClientList.GetClients(event.Subnet, message.Topic) {
+			if subs != nil {
+				payload.SubscriptionId = subs.Id
+				subs.Conn.WriteJSON(payload)
 			}
-		} else {
-			currentSubnetCount = encoder.NumberFromByte(val)
 		}
-		
-		cycleCount, err := eventCounterStore.Get(*ctx, cycleKey)
-		
-		if err != nil  {
-			if err != datastore.ErrNotFound {
-				logger.Error(err)
-				return;
-			}
-		} else {
-			currentCycleCount = encoder.NumberFromByte(cycleCount)
+	}
+	for _, subs := range wsClientList.GetClients(event.Subnet, string(eventModelType)) {
+		if subs != nil {
+			payload.SubscriptionId = subs.Id
+			subs.Conn.WriteJSON(payload)
 		}
-		logger.Debugf("CURRENTCYCLE %d, %d", cycleCount, currentCycleCount)
-		// if event.Payload.Validator == entities.PublicKeyString(cfg.NetworkPublicKey) {
-		// 	subnetCycleClaimed := uint64(0);
-		// 	subnetClaimStatusKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s/claimed", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
-		// 	claimStatus, err := eventCounterStore.Get(*ctx, subnetClaimStatusKey)
-		// 	logger.Debugf("CURRENTCYCLECLAIM %d", claimStatus)
-		// 	if err != nil  {
-		// 		if err != badger.ErrKeyNotFound {
-		// 			logger.Error(err)
-		// 			return;
-		// 		} else {
-		// 			err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(0))
-		// 			if err != nil {
-		// 				panic(err)
-		// 			}	
-		// 		}
-		// 	} else {
-		// 		subnetCycleClaimed = encoder.NumberFromByte(claimStatus)
-		// 	}
-		// 	if subnetCycleClaimed == 0 {
-		// 		err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(1))
-		// 		if err != nil {
-		// 			panic(err)
-		// 		}	
-		// 	}
+	}
+	// event, err := query.GetEventFromPath(&eventPath)
+	// eventCounterStore, ok := (*ctx).Value(constants.EventCountStore).(*ds.Datastore)
+
+	// if !ok {
+	// 	panic("Unable to connect to counter data store")
+	// }
+	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	// if err == nil || event != nil {
+
+	// 	// increment count
+	// 	currentSubnetCount := uint64(0);
+	// 	currentCycleCount := uint64(0);
+
+	// 	batch, err :=	eventCounterStore.Batch(*ctx)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	// TODO consider storing cycle with event so we dont need another network call here
+	// 	cycle, err :=  chain.DefaultProvider(cfg).GetCycle(big.NewInt(int64(event.BlockNumber)))
+	// 	if err != nil {
+	// 		// TODO
+	// 		panic(err)
+	// 	}
+	// 	subnetKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s", event.Payload.Validator, cycle, utils.IfThenElse(event.Payload.Subnet == "", *subnetId, event.Payload.Subnet)))
+	// 	cycleKey :=  datastore.NewKey(fmt.Sprintf("%s/%d", event.Payload.Validator, cycle))
+	// 	val, err := eventCounterStore.Get(*ctx, subnetKey)
+
+	// 	if err != nil  {
+	// 		if err != datastore.ErrNotFound {
+	// 			logger.Error(err)
+	// 			return;
+	// 		}
+	// 	} else {
+	// 		currentSubnetCount = encoder.NumberFromByte(val)
+	// 	}
+
+	// 	cycleCount, err := eventCounterStore.Get(*ctx, cycleKey)
+
+	// 	if err != nil  {
+	// 		if err != datastore.ErrNotFound {
+	// 			logger.Error(err)
+	// 			return;
+	// 		}
+	// 	} else {
+	// 		currentCycleCount = encoder.NumberFromByte(cycleCount)
+	// 	}
+	// 	logger.Debugf("CURRENTCYCLE %d, %d", cycleCount, currentCycleCount)
+	// 	// if event.Payload.Validator == entities.PublicKeyString(cfg.NetworkPublicKey) {
+	// 	// 	subnetCycleClaimed := uint64(0);
+	// 	// 	subnetClaimStatusKey :=  datastore.NewKey(fmt.Sprintf("%s/%d/%s/claimed", event.Payload.Validator, chain.GetCycle(event.BlockNumber), utils.IfThenElse(event.Payload.Subnet == "", *stateId, event.Payload.Subnet)))
+	// 	// 	claimStatus, err := eventCounterStore.Get(*ctx, subnetClaimStatusKey)
+	// 	// 	logger.Debugf("CURRENTCYCLECLAIM %d", claimStatus)
+	// 	// 	if err != nil  {
+	// 	// 		if err != badger.ErrKeyNotFound {
+	// 	// 			logger.Error(err)
+	// 	// 			return;
+	// 	// 		} else {
+	// 	// 			err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(0))
+	// 	// 			if err != nil {
+	// 	// 				panic(err)
+	// 	// 			}
+	// 	// 		}
+	// 	// 	} else {
+	// 	// 		subnetCycleClaimed = encoder.NumberFromByte(claimStatus)
+	// 	// 	}
+	// 	// 	if subnetCycleClaimed == 0 {
+	// 	// 		err = batch.Put(*ctx, subnetClaimStatusKey, encoder.NumberToByte(1))
+	// 	// 		if err != nil {
+	// 	// 			panic(err)
+	// 	// 		}
+	// 	// 	}
+	// 	// }
+
+	// 	err = batch.Put(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount))
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	err = batch.Put(*ctx, cycleKey, encoder.NumberToByte(1+currentCycleCount))
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+
+	// 	// err = eventCounterStore.Set(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount), true)
+	// 	err = batch.Commit(*ctx)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+
+	// } else {
+	// 	logger.Error(err)
+	// }
+
+}
+
+func IsMoreRecentEvent(
+	eventHash string,
+	eventTimestamp int,
+	event2Hash string,
+	event2Timestamp int,
+) bool {
+
+	if eventTimestamp < event2Timestamp {
+		return true
+	}
+	if eventTimestamp > event2Timestamp {
+		return false
+	}
+	// if the authorization was created at exactly the same time but their hash is different
+	// use the last 4 digits of their event hash
+	csN := new(big.Int)
+	csN.SetString(eventHash[50:], 16)
+	nsN := new(big.Int)
+	nsN.SetString(eventHash[50:], 16)
+
+	return csN.Cmp(nsN) < 1
+}
+
+func IsMoreRecent(
+	currenStatetEventId string,
+	currenStatetHash string,
+	currentStateEventTimestamp uint64,
+	eventHash string,
+	eventPayloadTimestamp uint64,
+	markedAsSynced bool,
+) (isMoreRecent bool, markAsSynced bool) {
+	isMoreRecent = false
+	markAsSynced = markedAsSynced
+	if currentStateEventTimestamp < eventPayloadTimestamp {
+		isMoreRecent = true
+	}
+	if currentStateEventTimestamp > eventPayloadTimestamp {
+		isMoreRecent = false
+	}
+	// if the authorization was created at exactly the same time but their hash is different
+	// use the last 4 digits of their event hash
+	if currentStateEventTimestamp == eventPayloadTimestamp {
+		// get the event payload of the current state
+
+		// if err != nil && err != gorm.ErrRecordNotFound {
+		// 	logger.Error("DB error", err)
 		// }
+		if currenStatetEventId == "" {
+			markAsSynced = false
+		} else {
+			// if currentStateEventTimestamp < event.Payload.Timestamp {
+			// 	isMoreRecent = true
+			// }
+			// if currentStateEvent.Payload.Timestamp == event.Payload.Timestamp {
+			// logger.Debugf("Current state %v", currentStateEvent.Payload)
+			csN := new(big.Int)
+			csN.SetString(currenStatetHash[56:], 16)
+			nsN := new(big.Int)
+			nsN.SetString(eventHash[56:], 16)
 
-		
-
-		err = batch.Put(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount))
-		if err != nil {
-			panic(err)
+			if csN.Cmp(nsN) < 1 {
+				isMoreRecent = true
+			}
+			//}
 		}
-		err = batch.Put(*ctx, cycleKey, encoder.NumberToByte(1+currentCycleCount))
-		if err != nil {
-			panic(err)
-		}
-
-		
-		// err = eventCounterStore.Set(*ctx, subnetKey, encoder.NumberToByte(1+currentSubnetCount), true)
-		err = batch.Commit(*ctx)
-		if err != nil {
-			panic(err)
-		}
-		
-	} else {
-		logger.Error(err)
 	}
-
+	return isMoreRecent, markAsSynced
 }
 
 // func ValidateAndAddToDeliveryProofToBlock(ctx context.Context,
@@ -403,7 +438,7 @@ type Model struct {
 }
 func FinalizeEvent [ T entities.Payload, State any] (
 	payloadType constants.EventPayloadType,
-	event entities.Event, 
+	event entities.Event,
 	currentStateHash string,
 	currentStateEventHash string,
 	dataHash string,
@@ -416,9 +451,9 @@ func FinalizeEvent [ T entities.Payload, State any] (
 	var eventError string
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
-	
-	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && currentStateEventHash == event.PreviousEventHash.Hash)
-	// authEventUpToDate := query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
+
+	prevEventUpToDate := query.EventExist(&event.PreviousEvent) || (currentState == nil && event.PreviousEvent.Hash == "") || (currentState != nil && currentStateEventHash == event.PreviousEvent.Hash)
+	// authEventUpToDate := query.EventExist(&event.AuthEvent) || (authState == nil && event.AuthEvent.Hash == "") || (authState != nil && authState.Event == authEventHash)
 	isMoreRecent := false
 	if currentState != nil && currentStateHash != dataHash {
 		err := query.GetOne(entities.Event{Hash: currentStateEventHash}, currentStateEvent)
@@ -575,15 +610,15 @@ func FinalizeEvent [ T entities.Payload, State any] (
 
 func saveEvent(payloadType constants.EventPayloadType, where entities.Event, data *entities.Event,  update bool, tx *gorm.DB) (interface{}, bool, error) {
 	switch (payloadType) {
-	case constants.AuthorizationPayloadType: 
+	case constants.AuthorizationPayloadType:
 		return query.SaveRecord(models.AuthorizationEvent{
 			Event: where,
 		}, models.AuthorizationEvent{
 			Event: *data,
 		}, update, tx)
-		
-	
-	case constants.SubnetPayloadType: 
+
+
+	case constants.SubnetPayloadType:
 		return query.SaveRecord(models.SubnetEvent{
 			Event: where,
 		}, models.SubnetEvent{
@@ -601,7 +636,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	updateState := false
 	var eventError string
 	// hash, _ := event.GetHash()
-	
+
 
 	logger.Debugf("Event is a valid event %s", event.PayloadHash)
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
@@ -619,7 +654,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	}
 	dataHash, _ := data.GetHash()
 	stateMap["hash"] = hex.EncodeToString(dataHash)
-	authEventHash := event.AuthEventHash
+	authEventHash := event.AuthEvent
 	authState, authError := query.GetOneAuthorizationState(entities.Authorization{Event: authEventHash})
 
 	currentState, err := validator(data)
@@ -630,13 +665,13 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 	}
 
 	// check if we are upto date on this event
-	
-	prevEventUpToDate := query.EventExist(&event.PreviousEventHash) || (currentState == nil && event.PreviousEventHash.Hash == "") || (currentState != nil && (*currentState).GetEvent().Hash == event.PreviousEventHash.Hash)
+
+	prevEventUpToDate := query.EventExist(&event.PreviousEvent) || (currentState == nil && event.PreviousEvent.Hash == "") || (currentState != nil && (*currentState).GetEvent().Hash == event.PreviousEvent.Hash)
 	authEventUpToDate := true
-	if event.AuthEventHash.Hash != "" {
-		authEventUpToDate = query.EventExist(&event.AuthEventHash) || (authState == nil && event.AuthEventHash.Hash == "") || (authState != nil && authState.Event == authEventHash)
+	if event.AuthEvent.Hash != "" {
+		authEventUpToDate = query.EventExist(&event.AuthEvent) || (authState == nil && event.AuthEvent.Hash == "") || (authState != nil && authState.Event == authEventHash)
 	}
-	
+
 	// Confirm if this is an older event coming after a newer event.
 	// If it is, then we only have to update our event history, else we need to also update our current state
 	isMoreRecent := false
@@ -678,7 +713,7 @@ func HandleNewPubSubEvent(event *entities.Event, ctx *context.Context, validator
 			}
 		}
 	}
-	
+
 	if authError != nil {
 		// check if we are upto date. If we are, then the error is an actual one
 		// the error should be attached when saving the event

@@ -36,9 +36,14 @@ var Subscribers_RPC_D_C = make(chan *entities.Subscription)
 var Subscription_D_P2P_C = make(chan *entities.Subscription)
 
 var ClientHandshakeC = make(chan *entities.ClientHandshake)
+var ClientWsSubscriptionChannel = make(chan *entities.ClientWsSubscription)
 var IncomingDeliveryProofsC = make(chan *entities.DeliveryProof)
 var OutgoingDeliveryProof_BlockC = make(chan *entities.Block)
 var OutgoingDeliveryProofC = make(chan *entities.DeliveryProof)
 var PubSubInputBlockC = make(chan *entities.Block)
 var PubSubInputProofC = make(chan *entities.DeliveryProof)
 var PublishedSubC = make(chan *entities.Subscription)
+
+func init() {
+
+}

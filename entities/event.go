@@ -33,6 +33,10 @@ const (
 	WalletModel       EntityModel = "wal"
 )
 
+var EntityModels = []EntityModel{
+	AuthModel, TopicModel, SubscriptionModel, MessageModel, SubnetModel, WalletModel,
+}
+
 
 
 /*
@@ -159,8 +163,8 @@ type Event struct {
 	Timestamp         uint64        `json:"ts"`
 	EventType         uint16        `json:"t"`
 	Associations      []string      `json:"assoc" gorm:"type:text[]"`
-	PreviousEventHash EventPath     `json:"preE" gorm:"type:varchar;default:null"`
-	AuthEventHash     EventPath     `json:"authE" gorm:"type:varchar;default:null"`
+	PreviousEvent EventPath     `json:"preE" gorm:"type:varchar;default:null"`
+	AuthEvent     EventPath     `json:"authE" gorm:"type:varchar;default:null"`
 	PayloadHash       string        `json:"pH" gorm:"type:char(64);unique"`
 	// StateHash string `json:"sh"`
 	// Secondary
@@ -178,7 +182,6 @@ type Event struct {
 
 	Total int `json:"total"`
 }
-
 func (d *Event) BeforeCreate(tx *gorm.DB) (err error) {
 	if d.ID == "" {
 		hash, _ := d.GetHash()
@@ -324,8 +327,8 @@ func (e Event) ToString() string {
 	values = append(values, fmt.Sprintf("%d", e.BlockNumber))
 	values = append(values, fmt.Sprintf("%d", e.EventType))
 	values = append(values, strings.Join(e.Associations, ","))
-	values = append(values, e.PreviousEventHash.ToString())
-	values = append(values, e.AuthEventHash.ToString())
+	values = append(values, e.PreviousEvent.ToString())
+	values = append(values, e.AuthEvent.ToString())
 	values = append(values, fmt.Sprintf("%d", e.Timestamp))
 	return strings.Join(values, "")
 }
@@ -338,13 +341,13 @@ func (e Event) EncodeBytes() ([]byte, error) {
 	}
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: d},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: strings.Join(e.Associations, "")},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.AuthEventHash.Hash},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: strings.Join(e.Associations, "")},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.AuthEvent.Hash},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.BlockNumber},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.Cycle},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.Epoch},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.EventType},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.PreviousEventHash.Hash},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.PreviousEvent.Hash},
 		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(e.Subnet)},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: e.Timestamp},
 	)

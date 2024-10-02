@@ -27,7 +27,7 @@ type Flag string
 type RestService struct {
 	Ctx                    *context.Context
 	Cfg                    *configs.MainConfiguration
-	ClientHandshakeChannel *chan *entities.ClientHandshake
+	// ClientHandshakeChannel *chan *entities.ClientHandshake
 }
 
 type RestResponse struct {
@@ -38,11 +38,11 @@ type RestResponse struct {
 
 func NewRestService(mainCtx *context.Context) *RestService {
 	cfg, _ := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-	clientVerificationc, _ := (*mainCtx).Value(constants.ClientHandShackChId).(*chan *entities.ClientHandshake)
+	// clientVerificationc, _ := (*mainCtx).Value(constants.ClientHandShackChId).(*chan *entities.ClientHandshake)
 	return &RestService{
 		Ctx:                    mainCtx,
 		Cfg:                    cfg,
-		ClientHandshakeChannel: clientVerificationc,
+		//ClientHandshakeChannel: clientVerificationc,
 	}
 }
 func CORSMiddleware() gin.HandlerFunc {
@@ -68,6 +68,7 @@ func (p *RestService) Initialize() *gin.Engine {
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
+	requestProcessor := client.NewClientRequestProcess(p.Ctx)
 	// router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
     //     logger.Infof("[GIN]: %s - [%s] \"%s %s %s %d %s \"%s\" \"%s\"\n",
     //         param.ClientIP,
@@ -96,7 +97,7 @@ func (p *RestService) Initialize() *gin.Engine {
 
 	// get info about the node
 	router.GET("/api/info", func(c *gin.Context) {
-		info, err := client.Info(p.Cfg)
+		info, err := requestProcessor.Process(client.GetNodeInfoRequest, nil, nil)
 		if err != nil {
 			logger.Error(err)
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
@@ -129,14 +130,12 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: auths}))
 	})
 
-	router.PUT("/api/authorize", func(c *gin.Context) {
+	router.PUT("/api/authorization", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		// logger.Debugf("PUT %s %v", "/api/authorize", payload.ToJSON())
-		// copier.Copy(&payload.ClientPayload, &payload)
 		authorization := entities.Authorization{}
 		d, _ := json.Marshal(payload.Data)
 		e := json.Unmarshal(d, &authorization)
@@ -619,17 +618,7 @@ func (p *RestService) Initialize() *gin.Engine {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
 			return
 		}
-		logger.Debugf("Payload %v", payload)
-		Subnet := entities.Subnet{}
-		d, _ := json.Marshal(payload.Data)
-		e := json.Unmarshal(d, &Subnet)
-		if e != nil {
-			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: e.Error()}))
-		}
-		// Subnet.ID = id
-		payload.Data = Subnet
-		event, err := client.CreateEvent(payload, p.Ctx)
-
+		event, err := requestProcessor.Process(client.WriteSubnetRequest, nil, payload)
 		if err != nil {
 			logger.Error(err)
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))
@@ -642,7 +631,6 @@ func (p *RestService) Initialize() *gin.Engine {
 	})
 
 	router.GET("/api/subnets", func(c *gin.Context) {
-
 		b, parseError := utils.ParseQueryString(c)
 		if parseError != nil {
 			logger.Error(parseError)

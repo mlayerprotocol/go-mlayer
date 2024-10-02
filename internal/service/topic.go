@@ -170,7 +170,9 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) {
 				}
 			}
 			if err == nil {
-				go OnFinishProcessingEvent(ctx, *event.GetPath(), &savedEvent.Payload.Subnet)
+				go OnFinishProcessingEvent(ctx, event, &models.TopicState{
+					Topic: data,
+				}, &savedEvent.Payload.Subnet)
 			}
 			
 			

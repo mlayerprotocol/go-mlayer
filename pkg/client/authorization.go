@@ -13,20 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func getAuthorizations(auth entities.Authorization) (*[]models.AuthorizationState, error) {
-	var authState []models.AuthorizationState
 
-	err := query.GetMany(models.AuthorizationState{
-		Authorization: auth,
-	}, &authState, nil)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &authState, nil
-}
 
 func ValidateAuthPayloadData(cfg *configs.MainConfiguration, payload entities.ClientPayload) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 	authData := entities.Authorization{}
@@ -86,13 +73,7 @@ func ValidateAuthPayloadData(cfg *configs.MainConfiguration, payload entities.Cl
 }
 
 func GetAccountAuthorizations(auth *entities.Authorization) (*[]models.AuthorizationState, error) {
-	//agentAuthState, _ := ValidateClientPayload(clientPayload)
-
-	// if agentAuthState == nil || agentAuthState.Priviledge == 0 {
-	// 	return nil, apperror.Unauthorized("Agent not authorized")
-	// }
 	var authState []models.AuthorizationState
-	// // auth.Account = clientPayload.Account
 
 	err := query.GetMany(models.AuthorizationState{
 		Authorization: *auth,

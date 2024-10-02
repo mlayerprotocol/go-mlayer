@@ -57,12 +57,6 @@ func InitializeDb(cfg *configs.MainConfiguration) (*gorm.DB, error) {
 		//d, _ := SqlDb.DB()
 		SqlDb.Exec("PRAGMA busy_timeout = 1000")
 	}
-	for _, model := range models.Models {
-		err := SqlDb.AutoMigrate(&model)
-		if err != nil {
-			logger.Errorf("SQL_MIGRATION_ERROR: %v", err)
-		}
-	}
 	
 	
 	return SqlDb, err
@@ -80,6 +74,7 @@ func Init(cfg *configs.MainConfiguration) {
 	if SqlDBErr != nil {
 		panic(SqlDBErr)
 	}
+
 	for _, migration := range migration.Migrations {
 		err := migration.Migrate(SqlDb)
 			
@@ -101,6 +96,13 @@ func Init(cfg *configs.MainConfiguration) {
 		// 	}
 		// }
 	}
+	for _, model := range models.Models {
+		err := SqlDb.AutoMigrate(&model)
+		if err != nil {
+			logger.Errorf("SQL_MIGRATION_ERROR: %v", err)
+		}
+	}
+	
 	db, err := SqlDb.DB()
 	if err != nil {
 		panic(err)
