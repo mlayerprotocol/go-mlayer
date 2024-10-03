@@ -119,17 +119,20 @@ type Message struct {
 	// Timestamp      uint64   `json:"ts"`
 	Topic string        `json:"top,omitempty"`
 	
-	Sender  DIDString `json:"s"`
+	
 	// OwnerAddress  string              `json:"oA"`
 	Receiver DIDString   `json:"r,omitempty"`
 	Data     string          `json:"d"`
 	DataType     constants.DataType      `json:"dTy"`
 	Actions  []MessageAction `json:"a" gorm:"json;"`
+	Sender  DIDString `json:"s"`
 	// Length int `json:"len"`
-	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	
 	Nonce uint64 `json:"nonce,omitempty" binding:"required"`
 
 	/// DERIVED
+	
+	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	Event       EventPath           `json:"e,omitempty" gorm:"index;char(64);"`
 	Hash        string              `json:"h"`
 	// Attachments []MessageAttachment `json:"atts" gorm:"json;"`
@@ -143,8 +146,9 @@ type Message struct {
 	Epoch		uint64			`json:"ep"`
 
 	// DEPRECATED COLUMNS
-	TopicId string        `json:"-" gorm:"-" msgpack:"-"`
-	Attachments  string `json:"-" gorm:"-" msgpack:"-"`
+	// TopicId string        `json:"-" gorm:"-" msgpack:"-"`
+	// Attachments  string `json:"-" gorm:"-" msgpack:"-"`
+	
 }
 
 func (chatMessage Message) ToString() string {

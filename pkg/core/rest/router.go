@@ -130,7 +130,7 @@ func (p *RestService) Initialize() *gin.Engine {
 		c.JSON(http.StatusOK, entities.NewClientResponse(entities.ClientResponse{Data: auths}))
 	})
 
-	router.PUT("/api/authorization", func(c *gin.Context) {
+	router.PUT("/api/authorizations", func(c *gin.Context) {
 		var payload entities.ClientPayload
 		if err := c.BindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, entities.NewClientResponse(entities.ClientResponse{Error: err.Error()}))

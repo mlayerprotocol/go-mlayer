@@ -136,6 +136,8 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) {
 		return
 	}
 	data.Hash = hex.EncodeToString(hash)
+	data.Agent = event.Payload.Agent
+	data.Sender = event.Payload.Account
 	var subnet = event.Payload.Subnet
 	
 	var localState models.MessageState
