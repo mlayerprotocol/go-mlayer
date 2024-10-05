@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"net/http"
 
@@ -155,9 +156,10 @@ func (p *WsService) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			payload := WsPayload{}
 			err = c.ReadJSON(&payload)
 			if err != nil {
-				// if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				// 	// remove from subscribers
-				// } 
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, ) || strings.Contains(err.Error(), "close 1006") {
+					// remove from subscribers
+					return
+				} 
 				logger.Println("ReadERROR:", err, payload)
 			}
 		

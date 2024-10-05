@@ -147,6 +147,7 @@ func OnFinishProcessingEvent(ctx *context.Context, event  *entities.Event, state
 			 "authE": event.AuthEvent,
 			 "modelType": eventModelType,
 			 "t": event.EventType,
+			 "pld": event.Payload,
 		},
 	}
 	if eventModelType == entities.MessageModel {

@@ -55,7 +55,7 @@ func InitializeDb(cfg *configs.MainConfiguration) (*gorm.DB, error) {
 	
 	if driver == "sqlite" {
 		//d, _ := SqlDb.DB()
-		SqlDb.Exec("PRAGMA busy_timeout = 1000")
+		SqlDb.Exec("PRAGMA busy_timeout = 5000")
 	}
 	
 	
