@@ -147,7 +147,10 @@ func (msg ClientPayload) GetSigner() (DeviceString, error) {
 
 func (msg ClientPayload) EncodeBytes() ([]byte, error) {
 	hashed := []byte("")
+	
 	if msg.Data != nil {
+		d, _ :=  json.Marshal(msg.Data.(Payload))
+		logger.Debugf(string(d))
 		b, err := msg.Data.(Payload).EncodeBytes()
 		if err != nil {
 			
