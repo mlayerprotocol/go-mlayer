@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [deploy-v2]
+    branches: [deploy-v3]
 
 jobs:
   extract_tag:
@@ -53,7 +53,6 @@ jobs:
           host: ${{secrets.SSH_HOST}}
           username: ${{secrets.SSH_USER}}
           password: ${{ secrets.SSH_PASS }}
-
           script: |
             ./mlayer-deploy_v3.sh
   
