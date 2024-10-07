@@ -7,8 +7,7 @@ on:
 jobs:
   extract_tag:
     runs-on: ubuntu-latest
-    permissions: write-all
-    
+    environment: dev
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -22,6 +21,9 @@ jobs:
    
     outputs: 
       ref: ${{ steps.get_tag.outputs.tag }}
+      sshUser: ${{ secrets.SSH_USER }}
+      sssHost: ${{ secrets.SSH_HOST }}
+      sshPass: ${{ secrets.SSH_PASS }}
 
   build:
     runs-on: ubuntu-latest
@@ -46,13 +48,13 @@ jobs:
       # - name: Test with the Go CLI
       #   run: go test
       - name: Deploy with rsync
-        run: rsync -avz ./build/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/mlayer/binaries/
+        run: rsync -avz ./build/ ${{ needs.extract_tag.outputs.sshUser }}@${{ needs.extract_tag.outputs.sssHost }}:/home/mlayer/binaries/
       - name: Deploy Node 1
         uses: appleboy/ssh-action@v0.1.4
         with:
-          host: ${{secrets.SSH_HOST}}
-          username: ${{secrets.SSH_USER}}
-          password: ${{ secrets.SSH_PASS }}
+          host: ${{needs.extract_tag.outputs.sssHost }}
+          username: ${{ needs.extract_tag.outputs.sshUser  }}
+          password: ${{ needs.extract_tag.outputs.sshPass }}
           script: |
             ./mlayer-deploy_v3.sh
   
