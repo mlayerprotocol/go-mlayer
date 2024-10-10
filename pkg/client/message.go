@@ -128,7 +128,7 @@ func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *mo
 					return nil, &currentAuthState.Event, apperror.Forbidden(err.Error())
 				}
 			}
-			return nil, &currentAuthState.Event, apperror.Internal(err.Error())
+			return nil, &currentAuthState.Event, err
 		}
 		return nil, nil, err
 	}
