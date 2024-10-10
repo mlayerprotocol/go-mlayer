@@ -90,7 +90,7 @@ func init() {
 	daemonCmd.Flags().StringP(string(PRIVATE_KEY), "k", "", "The deligated operators private key. This is the key used to sign handshakes and messages. The coresponding public key must be assigned to the validator")
 	daemonCmd.Flags().StringP(string(PROTOCOL_VERSION), "", constants.DefaultProtocolVersion, "Protocol version")
 	daemonCmd.Flags().StringP(string(RPC_PORT), "r", constants.DefaultRPCPort, "RPC server port")
-	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", constants.DefaultWebSocketAddress, "ws service address")
+	daemonCmd.Flags().StringP(string(WS_ADDRESS), "w", "", "ws service address")
 	daemonCmd.Flags().StringP(string(REST_ADDRESS), "R", constants.DefaultRestAddress, "rest api service address")
 	daemonCmd.Flags().StringP(string(DATA_DIR), "d", "", "data storage directory")
 	daemonCmd.Flags().StringSliceP(string(LISTENERS), "l", []string{}, "libp2p multiaddress array eg. [\"/ip4/127.0.0.1/tcp/5000/ws\", \"/ip4/127.0.0.1/tcp/5001\"]")
@@ -191,6 +191,9 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	cfg = injectPrivateKey(&cfg, cmd, getKeyStoreFilePath("account", dir))
 	if len(wsAddress) > 0 {
 		cfg.WSAddress = wsAddress
+	}
+	if len(cfg.WSAddress) == 0 {
+		cfg.WSAddress = constants.DefaultWebSocketAddress
 	}
 
 	
