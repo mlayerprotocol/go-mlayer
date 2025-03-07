@@ -14,7 +14,7 @@ import (
 
 
 
-func ValidateAuthPayload(cfg *configs.MainConfiguration, payload entities.ClientPayload) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+func ValidateAuthPayload(cfg *configs.MainConfiguration, payload entities.ClientPayload) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, appState *entities.Application, err error) {
 	authData := entities.Authorization{}
 	
 	d, _ := json.Marshal(payload.Data)
@@ -25,26 +25,27 @@ func ValidateAuthPayload(cfg *configs.MainConfiguration, payload entities.Client
 	
 	payload.Data = authData
 	if uint64(*authData.Timestamp) == 0 || uint64(*authData.Timestamp) > uint64(time.Now().UnixMilli())+15000 || uint64(*authData.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
-		return nil, nil, apperror.BadRequest("Invalid event timestamp")
+		return nil, nil, nil, apperror.BadRequest("Invalid event timestamp")
 	}
 	logger.Debugf("CurrentStateDD: %+v", payload.Data)
 	if *authData.Duration != 0 && uint64(time.Now().UnixMilli()) >
 		(uint64(*authData.Timestamp)+uint64(*authData.Duration)) {
-		return nil, nil, apperror.BadRequest("Authorization duration exceeded")
+		return nil, nil, nil, apperror.BadRequest("Authorization duration exceeded")
 	}
 	logger.Debugf("CurrentStateEE")
-	dataStates := dsquery.NewDataStates(cfg)
-	currentState, grantorAuthState, _, err := service.ValidateAuthPayloadData(&payload, cfg, dataStates, "")
-	if !dataStates.Empty() {
-		dataStates.Commit(nil, nil, nil)
-	}
+	// dataStates := dsquery.NewDataStates(cfg)
+	currentState, grantorAuthState, _, err := service.ValidateAuthPayloadData(&payload, cfg, "")
+	// if !dataStates.Empty() {
+	// 	dataStates.Commit(nil, nil, nil)
+	// }
 	
-	// TODO If error is because the subnet was not found, check the dht for the subnet
+	// TODO If error is because the app was not found, check the dht for the app
 	if err != nil {
 		logger.Error("ValidateuthPayload: ", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-
+	appState, _ = dsquery.GetApplicationStateById(authData.Application)
+	
 	// generate associations
 	if currentState != nil {
 		
@@ -55,14 +56,14 @@ func ValidateAuthPayload(cfg *configs.MainConfiguration, payload entities.Client
 		// 	Model: entities.AuthorizationEventModel,
 		// }.ToString()
 	} else {
-		// Get the subnets state event
-		// subnetState := &models.SubnetState{}
-		//err = query.GetOne(&models.SubnetState{Subnet: entities.Subnet{ID: authData.Subnet }}, subnetState)
-		subnetState, err := dsquery.GetSubnetStateById(authData.Subnet)
-		if err != nil {
-			// find ways to get the subnet
+		// Get the apps state event
+		// appState := &models.ApplicationState{}
+		//err = query.GetOne(&models.ApplicationState{Application: entities.Application{ID: authData.Application }}, appState)
+		
+		if appState == nil {
+			// find ways to get the app
 		} else {
-			assocPrevEvent = &subnetState.Event
+			assocPrevEvent = &appState.Event
 		}
 
 
@@ -75,7 +76,7 @@ func ValidateAuthPayload(cfg *configs.MainConfiguration, payload entities.Client
 		// 	Model: entities.AuthorizationEventModel,
 		// }
 	}
-	return assocPrevEvent, assocAuthEvent, nil
+	return assocPrevEvent, assocAuthEvent, appState, nil
 }
 
 func GetAuthorizations(auth *entities.Authorization) (*[]models.AuthorizationState, error) {

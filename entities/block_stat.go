@@ -9,13 +9,14 @@ import (
 // "math"
 
 type BlockStats struct {
+	Version float32 `json:"_v"`
 	ID                 string `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	BlockNumber        uint64 `json:"blk"`
 	EventCount         uint64 `json:"eC"`
 	MessageCount       uint64 `json:"mC"`
 	TopicCount         uint64 `json:"tC"`
 	AuthorizationCount uint64 `json:"authC"`
-	SubnetCount uint64 `json:"snetC"`
+	ApplicationCount uint64 `json:"snetC"`
 	SubscriptionCount uint64 `json:"subC"`
 	Cycle uint64 `json:"cy"`
 	Epoch uint64 `json:"ep"`

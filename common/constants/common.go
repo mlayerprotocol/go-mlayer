@@ -1,16 +1,18 @@
 package constants
 
-import "html/template"
-
-
-
-const (
-	NETWORK_NAME = "mlayer" // time interval within which to accept a handshake
+import (
+	"html/template"
+	"time"
 )
 
+
 const (
+    NETWORK_NAME = "mlayer" // time interval within which to accept a handshake
 	VALID_HANDSHAKE_SECONDS = 15 // time interval within which to accept a handshake
+    TOPIC_INTEREST_TTL = 12 * time.Hour // duration a node is considered still interested in a topic after initialy showing interest
 )
+
+
 
 var VALID_PROTOCOLS = []string{"/mlayer/1.0.0"}
 
@@ -23,7 +25,7 @@ const (
 	DefaultRestAddress        string = ":9531"
 	DefaultDataDir            string = "./data"
 	DefaultMLBlockchainAPIUrl string = ":9520"
-    DefaultQuickHost        string = "127.0.0.1:9533"
+    DefaultQuicPort        uint16 = 9533
 	DefaultProtocolVersion           string = "/mlayer/1.0.0"
 )
 
@@ -69,20 +71,20 @@ const (
 	RPC  Protocol = "rpc"
 )
 
-type SubnetCategory int16
+type ApplicationCategory int16
 
 const (
-	CategoryGeneral       SubnetCategory = 1
-	CategoryMobility      SubnetCategory = 2
-	CategoryEnergy        SubnetCategory = 3
-	CategoryEnvironmental SubnetCategory = 4
-	CategoryHealthcare    SubnetCategory = 5
-	CategorySmartCity     SubnetCategory = 6
-	CategorySmartHome     SubnetCategory = 7
-	CategoryGeoLocation   SubnetCategory = 8
-	CategoryP2PMessaging  SubnetCategory = 9
-	CategorySharedCompute SubnetCategory = 10
-	CategoryFileSharing   SubnetCategory = 11
+	CategoryGeneral       ApplicationCategory = 1
+	CategoryMobility      ApplicationCategory = 2
+	CategoryEnergy        ApplicationCategory = 3
+	CategoryEnvironmental ApplicationCategory = 4
+	CategoryHealthcare    ApplicationCategory = 5
+	CategorySmartCity     ApplicationCategory = 6
+	CategorySmartHome     ApplicationCategory = 7
+	CategoryGeoLocation   ApplicationCategory = 8
+	CategoryP2PMessaging  ApplicationCategory = 9
+	CategorySharedCompute ApplicationCategory = 10
+	CategoryFileSharing   ApplicationCategory = 11
 )
 
 const SignatureMessageString string = `{"action":"%s","identifier":"%s","network":"%s","hash":"%s"}`
@@ -174,7 +176,7 @@ Socket          = sock
 Status          = st
 Subject         = su
 SubjectHash     = suH
-Subnet        	= snet
+Application        	= app
 Subscriber      = sub
 Synced          = sync
 Timestamp       = ts

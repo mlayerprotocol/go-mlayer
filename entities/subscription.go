@@ -18,13 +18,13 @@ import (
 var logger = &log.Logger
 
 type Subscription struct {
-
+	Version float32 `json:"_v"`
 	ID         string    `gorm:"primaryKey;type:char(36);not null"  json:"id,omitempty"`
 	Topic      string    `json:"top" binding:"required"  gorm:"not null;uniqueIndex:idx_sub_topic;type:char(36);index"`
-	Ref        string    `json:"ref,omitempty" gorm:"uniqueIndex:idx_ref_subnet;type:varchar(100);default:null"`
+	Ref        string    `json:"ref,omitempty" gorm:"uniqueIndex:idx_ref_app;type:varchar(100);default:null"`
 	Meta       string    `json:"meta,omitempty"  gorm:"type:varchar(100);"`
-	Subnet     string    `json:"snet"  binding:"required" gorm:"not null;uniqueIndex:idx_ref_subnet;type:varchar(36)"`
-	Subscriber DIDString `json:"sub"  gorm:"not null;uniqueIndex:idx_sub_topic;type:varchar(100);index"`
+	Application     string    `json:"app"  binding:"required" gorm:"not null;uniqueIndex:idx_ref_app;type:varchar(36)"`
+	Subscriber AddressString `json:"sub"  gorm:"not null;uniqueIndex:idx_sub_topic;type:varchar(100);index"`
 	// Device     DeviceString                  `json:"dev,omitempty" binding:"required"  gorm:"not null;uniqueIndex:idx_acct_dev_topic;type:varchar(100);index"`
 	Status *constants.SubscriptionStatus `json:"st"  gorm:"not null;type:smallint;default:2"`
 	Role   *constants.SubscriberRole  `json:"rol" gorm:"default:0"`
@@ -33,7 +33,7 @@ type Subscription struct {
 	Timestamp *uint64       `json:"ts,omitempty"`
 	Hash      string       `json:"h,omitempty" gorm:"unique" `
 	Event     EventPath    `json:"e,omitempty" gorm:"index;char(64);"`
-	Agent     DeviceString `json:"agt,omitempty"  gorm:"not null;type:varchar(100);index"`
+	AppKey     DeviceString `json:"aKey,omitempty"  gorm:"not null;type:varchar(100);index"`
 	BlockNumber uint64          `json:"blk,omitempty"`
 	Cycle   	uint64			`json:"cy,omitempty"`
 	Epoch		uint64			`json:"ep,omitempty"`
@@ -134,14 +134,14 @@ func (sub Subscription) GetHash() ([]byte, error) {
 		log.Logger.Errorf("Subscription Hashing error, %v", err)
 		return []byte(""), err
 	}
-	return crypto.Keccak256Hash(b), nil
+	return crypto.Sha256(b), nil
 }
 
 func (sub Subscription) GetEvent() EventPath {
 	return sub.Event
 }
-func (sub Subscription) GetAgent() DeviceString {
-	return sub.Agent
+func (sub Subscription) GetAppKey() DeviceString {
+	return sub.AppKey
 }
 
 func (sub Subscription) EncodeBytes() ([]byte, error) {

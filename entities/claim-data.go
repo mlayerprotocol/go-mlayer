@@ -9,13 +9,14 @@ import (
 // "math"
 
 type ClaimData struct {
+	Version float32 `json:"_v"`
 	// Cycle uint64
 	// Signature [32]byte
 	// Commitment []byte
 	// PubKeys []*btcec.PublicKey
-	// SubnetRewardCount []SubnetCount
+	// ApplicationRewardCount []ApplicationCount
 	Validator  []byte
-	ClaimData  []SubnetCount
+	ClaimData  []ApplicationCount
 	Cycle      *big.Int
 	Index      *big.Int
 	Signers    []schnorr.Point

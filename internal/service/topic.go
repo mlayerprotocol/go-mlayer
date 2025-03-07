@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/hex"
+	"strings"
 
 	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -26,17 +27,20 @@ func ValidateTopicData(topic *entities.Topic, authState *models.AuthorizationSta
 		_topicState, err := dsquery.GetTopicById(topic.ID)
 		if err != nil && !dsquery.IsErrorNotFound(err) {
 			if err == gorm.ErrRecordNotFound {
-				return nil, apperror.Forbidden("Invalid subnet id")
+				return nil, apperror.Forbidden("Invalid app id")
 			}
 		}
 		if _topicState != nil {
 			currentTopicState = &models.TopicState{Topic: *_topicState}
 		}
 	}
-	if authState != nil && *authState.Priviledge < constants.MemberPriviledge {
+	logger.Infof("AUTHORIXATION: %+v", authState)
+	if authState != nil && authState.Priviledge != nil && *authState.Priviledge < constants.MemberPriviledge {
 		return nil, apperror.Forbidden("Agent does not have enough permission to create topics")
 	}
-
+	if strings.Contains(strings.ToLower(topic.Ref), "global") || strings.Contains(strings.ToLower(topic.Ref), "giobal") {
+		return nil, apperror.BadRequest("Topic reference can not contain the word \"global\"")
+	}
 	if len(topic.Ref) > 40 {
 		return nil, apperror.BadRequest("Topic reference can not be more than 40 characters")
 	}
@@ -57,7 +61,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 		panic("Unable to get config from context")
 	}
 
-	dataStates := dsquery.NewDataStates(cfg)
+	dataStates := dsquery.NewDataStates(event.ID, cfg)
 	dataStates.AddEvent(*event)
 	
 	data := event.Payload.Data.(entities.Topic)
@@ -79,7 +83,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 	}
 	data.Hash = hex.EncodeToString(hash)
 	data.Account = event.Payload.Account
-	data.Agent = event.Payload.Agent
+	data.AppKey = event.Payload.AppKey
 	data.Timestamp = event.Payload.Timestamp
 	logger.Debug("Processing 1...")
 	var localState models.TopicState
@@ -87,37 +91,36 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 	validator := utils.IfThenElse(event.IsLocal(cfg),  "",  string(event.Validator))
 	
 	defer func () {
-		stateUpdateError := dataStates.Commit(nil, nil, nil)
+		// stateUpdateError := dataStates.Commit(nil, nil, nil, event.ID, err)
+		stateUpdateError := dataStates.Save( event.ID)
 		if stateUpdateError != nil {
 			
 			panic(stateUpdateError)
 		} else {
-			go  OnFinishProcessingEvent(ctx, event,  &data)
+			go  OnFinishProcessingEvent(cfg, event,  &data, nil)
 			// go utils.WriteBytesToFile(filepath.Join(cfg.DataDir, "log.txt"), []byte("newMessage" + "\n"))
 		}	
 	}()
 	// err := query.GetOne(&models.TopicState{Topic: entities.Topic{ID: id}}, &localState)
 	// err = sql.SqlDb.Where(&models.TopicState{Topic: entities.Topic{ID: id}}).Take(&localState).Error
-	// topic :=  &entities.Topic{}
+	 topic :=  entities.Topic{}
 	if data.ID != "" {
-		topic :=  &entities.Topic{}
-	 //topic, err := dsquery.GetTopicById(id)
-		_, err = SyncTypedStateById(id, topic, cfg, validator)
-		if err != nil {
-			logger.Error("HandleNewPubSubAuthEvent/SyncTypedStateById", err)
+		_, err := SyncTypedStateById(id, &topic,  cfg, validator )
+		if (err != nil  ) {
+			logger.Error("HandleNewPubSubTopicEvent/SyncTypedStateById", err)
 			return err
 		}
-		localState = models.TopicState{Topic: *topic}
+		localState = models.TopicState{Topic: topic}
 
 	}
-	logger.Debug("Processing 2...")
+	logger.Debug("Processing 2... ", "topic")
 	// stateTxn, err := stores.StateStore.NewTransaction(context.Background(), false) // true for read-write, false for read-only
 	// if err != nil {
-	// 	// either subnet does not exist or you are not uptodate
+	// 	// either app does not exist or you are not uptodate
 	// }
 	// txn, err := stores.EventStore.NewTransaction(context.Background(), false) // true for read-write, false for read-only
 	// if err != nil {
-	// 	// either subnet does not exist or you are not uptodate
+	// 	// either app does not exist or you are not uptodate
 	// }
 	// defer stateTxn.Discard(context.Background())
 	// defer txn.Discard(context.Background())
@@ -156,7 +159,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 		}
 	}
 
-	eventData := PayloadData{Subnet: data.Subnet, localDataState: localDataState, localDataStateEvent: localDataStateEvent}
+	eventData := PayloadData{Application: data.Application, localDataState: localDataState, localDataStateEvent: localDataStateEvent}
 	// tx := sql.SqlDb
 	// // defer func () {
 	// 	if tx.Error != nil {
@@ -166,17 +169,41 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 	// 	}
 	// }()
 
+	if localState.ID == ""  && len(data.Invite) > 0 {
+		for i, subscription := range data.Invite {
+			
+			err := ValidateSubscription(data.Account, &subscription, &data, nil)
+			if err != nil {
+				logger.Errorf("InviteSubscriptionValidationError", err)
+				return err
+			}
+			data.Invite[i].ID, err = entities.GetId(subscription, subscription.ID)
+			data.Invite[i].Topic = id
+			data.Invite[i].Cycle = data.Cycle
+			data.Invite[i].Application = data.Application
+			data.Invite[i].Epoch = data.Epoch
+			subHash, err := subscription.GetHash()
+			if err != nil {
+				logger.Errorf("InviteSubscriptionValidationError", err)
+				return err
+			}
+			data.Invite[i].Hash = hex.EncodeToString(subHash)
+			data.Invite[i].Event = data.Event
+			data.Invite[i].EventSignature = data.EventSignature
+		}
+
+	}
 	previousEventUptoDate, authEventUptoDate, authState, eventIsMoreRecent, err := ProcessEvent(event, eventData, true, saveTopicEvent,nil, nil, ctx, dataStates)
 	if err != nil {
 		logger.Error("ProcessEventError ", err)
 		return err
 	}
-	// err = dsquery.IncrementCounters(event.Cycle, event.Validator, event.Subnet, &txn)
+	// err = dsquery.IncrementCounters(event.Cycle, event.Validator, event.Application, &txn)
 	// if err != nil { 
 	// 	logger.Errorf("ErorrIncrementingCounters: %v", err)
 	// 	return err
 	// }
-	logger.Infof("SuccessfullyIncrementingCounters")
+	logger.Infof("SuccessfullyIncrementingCounters: %v, %v, %v, %v, %v", previousEventUptoDate, authEventUptoDate,  eventIsMoreRecent, authState, err)
 	if previousEventUptoDate && authEventUptoDate {
 		if !event.IsLocal(cfg) {
 			_, err = ValidateTopicData(&data, authState)
@@ -186,6 +213,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 			// update error and mark as synced
 			// notify validator of error
 			// saveTopicEvent(entities.Event{ID: event.ID}, nil, &entities.Event{Error: err.Error(), IsValid: utils.FalsePtr(), Synced: utils.TruePtr()}, &txn, nil)
+			
 			dataStates.AddEvent(entities.Event{ID: event.ID, Error: err.Error(), IsValid: utils.FalsePtr(), Synced:  utils.TruePtr()})
 			logger.Infof("ERROEVENT, %+v ==>",err.Error())
 		} else {
@@ -193,10 +221,16 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 			// _, err := saveTopicEvent(entities.Event{ID: event.ID}, nil, &entities.Event{IsValid: utils.TruePtr(), Synced: utils.TruePtr()}, &txn, nil)
 			dataStates.AddEvent(entities.Event{ID: event.ID, IsValid:  utils.TruePtr(), Synced:  utils.TruePtr()})
 			data.ID, _ = entities.GetId(data, data.ID)
-			logger.Infof("TOPICSTATE, %+v ==>",data.ID)
+			logger.Infof("TOPICSTATE, %v, %+v ==>", eventIsMoreRecent, data)
 			if eventIsMoreRecent {
 				// update state
-					dataStates.AddCurrentState(entities.TopicModel,id, data)	
+					dataStates.AddCurrentState(entities.TopicModel, id, data)	
+					if localState.ID == ""  && len(data.Invite) > 0 {
+						for _, subscription := range data.Invite {
+							
+							dataStates.AddCurrentState(entities.SubscriptionModel, subscription.ID, subscription)
+						}
+					}
 			} else {
 				dataStates.AddHistoricState(entities.TopicModel,id, data.MsgPack())
 			}

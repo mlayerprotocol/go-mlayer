@@ -76,15 +76,15 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 	if e != nil {
 		logger.Errorf("UnmarshalError %v", e)
 	}
-	if payloadData.Subnet == "" {
-		return nil, nil, apperror.Forbidden("Subnet is required")
+	if payloadData.Application == "" {
+		return nil, nil, apperror.Forbidden("Application is required")
 	}
 	
-	if payload.EventType == uint16(constants.CreateTopicEvent) {
+	if payload.EventType ==constants.CreateTopicEvent {
 		// topic, _ := query.GetTopic(models.TopicState{
-		// 	Topic: entities.Topic{Ref: payloadData.Ref, Subnet: payloadData.Subnet},
+		// 	Topic: entities.Topic{Ref: payloadData.Ref, Application: payloadData.Application},
 		// })
-		refExists, err := dsquery.RefExists(entities.TopicModel, payloadData.Ref, payload.Subnet)
+		refExists, err := dsquery.RefExists(entities.TopicModel, payloadData.Ref, payload.Application)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -94,7 +94,7 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 	}
 
 	payload.Data = payloadData
-	if payload.EventType == uint16(constants.CreateTopicEvent) {
+	if payload.EventType == constants.CreateTopicEvent {
 		// dont worry validating the AuthHash for Authorization requests
 		if uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 {
 			return nil, nil, errors.New("Authorization timestamp exceeded")

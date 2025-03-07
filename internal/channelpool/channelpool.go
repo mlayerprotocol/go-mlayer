@@ -11,7 +11,7 @@ var IncomingTopicEventSubscriptionC = make(chan *entities.Event, CHANNEL_SIZE)
 // channels for broadcasting new events to other nodes
 var AuthorizationEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
 var TopicEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
-var SubnetEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
+var ApplicationEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
 var WalletEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
 var SubscriptionEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
 var MessageEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
@@ -19,6 +19,9 @@ var UnSubscribeEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
 var ApproveSubscribeEventPublishC = make(chan *entities.Event, CHANNEL_SIZE)
 var EventProcessorChannel = make(chan *entities.Event, CHANNEL_SIZE)
 var EventCounterChannel = make(chan *entities.Event, CHANNEL_SIZE)
+var SystemMessagePublishC = make(chan *entities.Event, CHANNEL_SIZE)
+var MempoolC = make(chan *entities.KeyByteValue, CHANNEL_SIZE)
+// var RemoteEventProcessorChannel = make(chan *entities.RemoteEvent, CHANNEL_SIZE)
 
 // CLEANUP
 // most of these will be deleted
@@ -39,6 +42,7 @@ var Subscription_D_P2P_C = make(chan *entities.Subscription, CHANNEL_SIZE)
 
 // var ClientHandshakeC = make(chan *entities.ClientHandshake, CHANNEL_SIZE)
  var ClientWsSubscriptionChannel = make(chan *entities.ClientWsSubscription, CHANNEL_SIZE)
+ var ClientWsSubscriptionChannelV2 = make(chan *entities.ClientWsSubscriptionV2, CHANNEL_SIZE)
 // var IncomingDeliveryProofsC = make(chan *entities.DeliveryProof, CHANNEL_SIZE)
 // var OutgoingDeliveryProof_BlockC = make(chan *entities.Block, CHANNEL_SIZE)
 // var OutgoingDeliveryProofC = make(chan *entities.DeliveryProof, CHANNEL_SIZE)

@@ -26,7 +26,7 @@ package constants
 // 	TopicPayloadType         EventPayloadType = "topic"
 // 	SubscriptionPayloadType  EventPayloadType = "subscription"
 // 	MessagePayloadType       EventPayloadType = "message"
-// 	SubnetPayloadType        EventPayloadType = "sub_network"
+// 	ApplicationPayloadType        EventPayloadType = "sub_network"
 // 	WalletPayloadType        EventPayloadType = "wallet"
 // )
 
@@ -35,12 +35,14 @@ package constants
 type EventType uint16
 
 // Authrization
-
-
-// Administrative Subnet Actions
 const (
-	DeleteSubnetEvent EventType = 500
-	CreateSubnetEvent EventType = 501 // m.room.create
+	SystemMessage   EventType = 10
+)
+
+// Administrative Application Actions
+const (
+	DeleteApplicationEvent EventType = 500
+	CreateApplicationEvent EventType = 501 // m.room.create
 	// PrivacySetEvent        EventType = 1002
 	// BanMemberEvent         EventType = 1003
 	// UnbanMemberEvent       EventType = 1004
@@ -49,7 +51,7 @@ const (
 	// UpdateDescriptionEvent EventType = 1007 //  m.room.topic
 	// UpdateAvatarEvent      EventType = 1008 //  m.room.avatar
 	// PinMessageEvent        EventType = 1008 //  m.room.avatar
-	UpdateSubnetEvent EventType = 509
+	UpdateApplicationEvent EventType = 509
 	// UpgradeSubscriberEvent EventType = 1010
 )
 const (

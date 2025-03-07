@@ -60,7 +60,7 @@ func (n GenericAPI) GetCycle(blockNumber *big.Int) (*big.Int, error) {
 	}
 	return cycle, err
 }
-func (n GenericAPI) GetTotalValueLockedInSubnets() (*big.Int, error) {
+func (n GenericAPI) GetTotalValueLockedInApplications() (*big.Int, error) {
 	amount, _ := new(big.Int).SetString("2000000000000000000000", 10)
 	return amount, nil
 }
@@ -134,13 +134,13 @@ func (n GenericAPI) GetCurrentYear() (*big.Int, error) {
 }
 
 
-func (n GenericAPI) GetStakeBalance(address entities.DIDString) big.Int {
+func (n GenericAPI) GetStakeBalance(address entities.AccountString) big.Int {
 	bal := new(big.Int)
 	bal.SetString("100000000000000000000000000", 10)
 	return *bal
 }
 
-func (n GenericAPI) GetSubnetBalance(id [16]byte) (*big.Int, error) {
+func (n GenericAPI) GetApplicationBalance(id [16]byte) (*big.Int, error) {
 	bal := new(big.Int)
 	bal.SetString("100000000000000000000000000", 10)
 	return bal, nil
@@ -202,4 +202,16 @@ func (n GenericAPI) IsValidatorLicenseOwner(address string) (bool, error) {
 }
 func (n GenericAPI) IsSentryLicenseOwner(address string)  (bool, error) {
 	return true, nil
+}
+
+func (n GenericAPI) GetOperatorCount(cycle *big.Int) (*big.Int, error) {
+	return big.NewInt(10), nil
+}
+
+func (n GenericAPI) GetValidatorOperatorCount(cycle *big.Int) (*big.Int, error) {
+	return big.NewInt(10), nil
+}
+
+func (n GenericAPI) GetSentryOperatorCount(cycle *big.Int) (*big.Int, error) {
+	return big.NewInt(10), nil
 }

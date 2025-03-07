@@ -24,7 +24,7 @@ import (
 // 	return &data, errp
 // }
 
-func GetAccountAuthorizations( auth entities.Authorization, limits *QueryLimit, txn *datastore.Txn) (data []*entities.Authorization, err error) {
+func GetAccountAuthorizations( auth entities.Authorization, limits *entities.QueryLimit, txn *datastore.Txn) (data []*entities.Authorization, err error) {
 	ds :=  stores.StateStore
 	var rsl query.Results
 	if limits == nil {
@@ -36,12 +36,14 @@ func GetAccountAuthorizations( auth entities.Authorization, limits *QueryLimit, 
 			Prefix: auth.AccountAuthorizationsKey(),
 			Limit:  limits.Limit,
 			Offset: limits.Offset,
+			Orders: []query.Order{query.OrderByKeyDescending{}},
 		})
 	} else {
 		rsl,  err = (*ds).Query(context.Background(), query.Query{
 			Prefix: auth.AccountAuthorizationsKey(),
 			Limit:  limits.Limit,
 			Offset: limits.Offset,
+			Orders: []query.Order{query.OrderByKeyDescending{}},
 		})
 	}
 
@@ -72,8 +74,8 @@ func GetAccountAuthorizations( auth entities.Authorization, limits *QueryLimit, 
 }
 
 func CreateAuthorizationState(newState *entities.Authorization, tx *datastore.Txn) (sub *entities.Authorization, err error) {
-	if newState.Account == "" || newState.Agent == "" || newState.Subnet == "" {
-		return nil, fmt.Errorf("new state must include acc, snet and agent fields")
+	if newState.Account == "" || newState.Authorized == "" || newState.Application == "" {
+		return nil, fmt.Errorf("new auth state must include acc, app and authorized fields")
 	}
 	ds := stores.StateStore
 	
@@ -103,7 +105,7 @@ func CreateAuthorizationState(newState *entities.Authorization, tx *datastore.Tx
 	
 	if len(entries) == 0 {
 		agentCount := 0
-		if agentCountBytes, err := txn.Get(context.Background(), datastore.NewKey(entities.AgentCountKey())); err != nil {
+		if agentCountBytes, err := txn.Get(context.Background(), datastore.NewKey(entities.AppKeyCountKey())); err != nil {
 			if !IsErrorNotFound(err) {
 				return nil, err
 			}
@@ -118,7 +120,7 @@ func CreateAuthorizationState(newState *entities.Authorization, tx *datastore.Tx
 			}			
 		}
 		agentCount++
-		txn.Put(context.Background(), datastore.NewKey(entities.AgentCountKey()), []byte(fmt.Sprint(agentCount)) )
+		txn.Put(context.Background(), datastore.NewKey(entities.AppKeyCountKey()), []byte(fmt.Sprint(agentCount)) )
 		
 	}
 	
@@ -127,7 +129,7 @@ func CreateAuthorizationState(newState *entities.Authorization, tx *datastore.Tx
 		txn.Delete(context.Background(), datastore.NewKey(entry.Key))
 	}
 	agentRsl,  err := txn.Query(context.Background(), query.Query{
-		Prefix: newState.AuthorizedAgentStateKey(),
+		Prefix: newState.AuthorizedAppKeyStateKey(),
 	})
 	if err != nil && !IsErrorNotFound(err) {
 		return nil, err
@@ -198,8 +200,8 @@ func CreateAuthorizationState(newState *entities.Authorization, tx *datastore.Tx
 // 	if tx == nil {
 // 		defer txn.Discard(context.Background())
 // 	}
-// 	if newState.Account == "" || newState.Agent == "" || newState.Subnet == "" {
-// 		return nil, fmt.Errorf("new state must include acc, snet and agent field")
+// 	if newState.Account == "" || newState.AppKey == "" || newState.Application == "" {
+// 		return nil, fmt.Errorf("new state must include acc, app and agent field")
 // 	}
 
 // 	stateBytes := newState.MsgPack()
@@ -250,10 +252,10 @@ func CreateAuthorizationState(newState *entities.Authorization, tx *datastore.Tx
 // }
 
 
-func GetAgentAuthorizationStates(subnet string, agent entities.DeviceString, limits QueryLimit) (rsl []*entities.Authorization, err error) {
+func GetAgentAuthorizationStates(app string, agent entities.DeviceString, limits entities.QueryLimit) (rsl []*entities.Authorization, err error) {
 	ds :=  stores.StateStore
 	result,  err := ds.Query(context.Background(), query.Query{
-		Prefix: (&entities.Authorization{Subnet: subnet, Agent: agent}).AuthorizedAgentStateKey(),
+		Prefix: (&entities.Authorization{Application: app, Authorized: entities.AddressString(agent)}).AuthorizedAppKeyStateKey(),
 		Limit:  limits.Limit,
 		Offset: limits.Offset,
 	})

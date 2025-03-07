@@ -13,14 +13,15 @@ import (
 )
 
 type Wallet struct {
+	Version float32 `json:"_v"`
 	// Primary
 	ID        string        `gorm:"primaryKey;type:uuid;not null" json:"id,omitempty"`
-	Account   DIDString `json:"acct"`
-	Subnet    string        `json:"snet" gorm:"type:varchar(32);index;not null" msgpack:",noinline"`
+	Account   AccountString `json:"acct"`
+	Application    string        `json:"app" gorm:"type:varchar(32);index;not null" msgpack:",noinline"`
 	Name      string        `json:"n" gorm:"type:varchar(12);not null"`
-	Symbol      string        `json:"sym" gorm:"type:varchar(8);not null"`
-	Timestamp uint64        `json:"ts"`
-	Agent DeviceString `json:"agt,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	Symbol      string      `json:"sym" gorm:"type:varchar(8);not null"`
+	Timestamp 	uint64       `json:"ts"`
+	AppKey 	DeviceString `json:"aKey,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 
 	// Derived
 	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`
@@ -82,22 +83,24 @@ func (e Wallet) GetHash() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	return crypto.Keccak256Hash(b), nil
+	return crypto.Sha256(b), nil
 }
 
 func (entity Wallet) GetEvent() (EventPath) {
 	return entity.Event
 }
 func (entity Wallet) GetAgent() (DeviceString) {
-	return entity.Agent
+	return entity.AppKey
 }
 
 func (e Wallet) ToString() (string, error) {
+	
+
 	values := []string{}
 	values = append(values, e.ID)
 	values = append(values, e.Name)
-	values = append(values, e.Subnet)
-	values = append(values, e.Account.ToString())
+	values = append(values, e.Application)
+	values = append(values, string(e.Account))
 
 	return strings.Join(values, ""), nil
 }
@@ -106,7 +109,7 @@ func (e Wallet) EncodeBytes() ([]byte, error) {
 
 	return encoder.EncodeBytes(
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: e.Name},
-		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.Subnet},
-		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: e.Account.ToString()},
+		encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: e.Application},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: e.Account},
 	)
 }

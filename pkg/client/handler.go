@@ -23,9 +23,9 @@ type RequestType string
 
 const (
 	GetNodeInfoRequest   RequestType = "READ:info"
-	FindSubnetsRequest   RequestType = "READ:subnets"
-	GetSubnetByIdRequest             = "READ:subnets/:id"
-	WriteSubnetRequest               = "WRITE:subnets"
+	FindApplicationsRequest   RequestType = "READ:apps"
+	GetApplicationByIdRequest             = "READ:apps/:id"
+	WriteApplicationRequest               = "WRITE:apps"
 	FindAuthorizationsRequest RequestType = "READ:authorizations"
 	WriteAuthorizationRequest RequestType = "WRITE:authorizations"
 	FindTopicsRequest          = "READ:topics"
@@ -45,9 +45,9 @@ const (
 
 var requestPatterns = []RequestType{
 	GetNodeInfoRequest,
-	FindSubnetsRequest,
-	GetSubnetByIdRequest,
-	WriteSubnetRequest,
+	FindApplicationsRequest,
+	GetApplicationByIdRequest,
+	WriteApplicationRequest,
 
 	FindAuthorizationsRequest,
 	WriteAuthorizationRequest,
@@ -71,7 +71,7 @@ var requestPatterns = []RequestType{
 	GetMainStatsRequest,
 }
 
-type ClientRequestProcessor struct {
+type ClientRequestHandler struct {
 	Ctx *context.Context
 	Cfg *configs.MainConfiguration
 }
@@ -80,9 +80,9 @@ var (
 	ErrorInvalidRequest error = fmt.Errorf("invalid request type")
 )
 
-func NewClientRequestProcess(mainCtx *context.Context) *ClientRequestProcessor {
+func NewClientRequestHandler(mainCtx *context.Context) *ClientRequestHandler {
 	cfg, _ := (*mainCtx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-	return &ClientRequestProcessor{
+	return &ClientRequestHandler{
 		Ctx: mainCtx,
 		Cfg: cfg,
 	}
@@ -112,7 +112,7 @@ func parseEntity[M any](_type M, payload *entities.ClientPayload) {
 func parseClientPayload(payload *entities.ClientPayload, requestType RequestType) {
 	switch requestType {
 	case GetNodeInfoRequest:
-		parseEntity(entities.Subnet{}, payload)
+		parseEntity(entities.Application{}, payload)
 	case WriteAuthorizationRequest:
 		parseEntity(entities.Authorization{}, payload)
 		// data := entities.Authorization{}
@@ -139,7 +139,7 @@ func parseClientPayload(payload *entities.ClientPayload, requestType RequestType
 	}
 }
 
-func (p *ClientRequestProcessor) Process(requestPath RequestType, params map[string]interface{}, payload interface{}) (interface{}, error) {
+func (p *ClientRequestHandler) Process(requestPath RequestType, params map[string]interface{}, payload interface{}) (interface{}, error) {
 	var request RequestType
 	queryLimit := dsquery.DefaultQueryLimit
 	for _, pattern := range requestPatterns {
@@ -186,9 +186,9 @@ func (p *ClientRequestProcessor) Process(requestPath RequestType, params map[str
 		// return getAuthorizations(&authEntity)
 	case FindTopicsRequest:
 		return dsquery.GetAccountTopics(payload.(entities.Topic), dsquery.DefaultQueryLimit, nil)
-	case WriteSubnetRequest: // "WRITE:topics/subscribers/approve", "PATCH:topics/unsubscribe", "PATCH:topics/ban":
+	case WriteApplicationRequest: // "WRITE:topics/subscribers/approve", "PATCH:topics/unsubscribe", "PATCH:topics/ban":
 		cpl := payload.(entities.ClientPayload)
-		data := entities.Subnet{}
+		data := entities.Application{}
 		d, _ := json.Marshal(cpl.Data)
 		e := json.Unmarshal(d, &data)
 		if e != nil {
@@ -221,6 +221,7 @@ func (p *ClientRequestProcessor) Process(requestPath RequestType, params map[str
 	case WriteSubscriptionRequest:
 		cpl := payload.(entities.ClientPayload)
 		parseClientPayload(&cpl, request)
+		
 		data := entities.Subscription{}
 		d, _ := json.Marshal(cpl.Data)
 		e := json.Unmarshal(d, &data)
@@ -228,6 +229,7 @@ func (p *ClientRequestProcessor) Process(requestPath RequestType, params map[str
 			logger.Errorf("UnmarshalError %v", e)
 		}
 		cpl.Data = data
+		
 		return CreateEvent(cpl, p.Ctx)
 	case WriteMessageRequest:
 		cpl := payload.(entities.ClientPayload)
@@ -267,7 +269,7 @@ func (p *ClientRequestProcessor) Process(requestPath RequestType, params map[str
 
 		}
 		json.Unmarshal(pB, &subs)
-		return GetAccountSubscriptionsV2(subs)
+		return GetAccountSubscriptionsV2(p.Cfg, subs)
 	// case SyncClientRequest:
 	// 	//var authEntity entities.Authorization
 	// 	// var payload entities.ClientPayload
@@ -325,24 +327,24 @@ func (p *ClientRequestProcessor) Process(requestPath RequestType, params map[str
 			return nil, err
 		}
 		return event, nil
-	case FindSubnetsRequest:
+	case FindApplicationsRequest:
 
 		b, parseError := json.Marshal(params)
 		if parseError != nil {
 			return nil, parseError
 		}
 
-		var subnetState models.SubnetState
+		var appState models.ApplicationState
 
-		json.Unmarshal(b, &subnetState)
+		json.Unmarshal(b, &appState)
 
-		return GetSubscribedSubnets(subnetState)
-	case GetSubnetByIdRequest:
-		subnet, err := dsquery.GetSubnetStateById(params["id"].(string))
+		return GetSubscribedApplications(appState)
+	case GetApplicationByIdRequest:
+		app, err := dsquery.GetApplicationStateById(params["id"].(string))
 		if err != nil {
 			return nil, err
 		}
-		return models.SubnetState{Subnet: *subnet}, nil
+		return models.ApplicationState{Application: *app}, nil
 	default:
 		return nil, ErrorInvalidRequest
 	}

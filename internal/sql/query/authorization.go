@@ -65,8 +65,8 @@ func SaveAuthorizationState(auth *entities.Authorization, DB *gorm.DB) (*models.
 	}
 	result := tx.Where(utils.EnsureNotEmpty(models.AuthorizationState{
 		Authorization: entities.Authorization{
-			Agent:  auth.Agent,
-			Subnet: auth.Subnet,
+			Authorized:  auth.Authorized,
+			Application: auth.Application,
 		},
 	})).Assign(data).FirstOrCreate(&data)
 	
@@ -167,7 +167,7 @@ func SaveAuthorizationStateAndEvent(authEvent *entities.Event, tx *gorm.DB) (*mo
 		//tx.Commit()
 		return state, event, nil
 	} else {
-		state, err := GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Agent: auth.Agent})
+		state, err := GetOneAuthorizationState(entities.Authorization{Account: auth.Account, Authorized: auth.Authorized})
 		if err != nil {
 			logger.Errorf("SQL: %v", err)
 			// tx.Rollback()

@@ -38,13 +38,13 @@ import (
 // 	}
 // 	return &data, err
 // }
-func GetSubscriptions( filter entities.Subscription, limits *QueryLimit, txn *datastore.Txn) (data []*entities.Subscription, err error) {
+func GetSubscriptions( filter entities.Subscription, limits *entities.QueryLimit, txn *datastore.Txn) (data []*entities.Subscription, err error) {
 	defer utils.TrackExecutionTime(time.Now(), "GetSubscriptions::")
 
 	ds :=  stores.StateStore
 	var rsl query.Results
 	if limits == nil {
-		limits = &QueryLimit{}
+		limits = &entities.QueryLimit{}
 	}
 	key := filter.SubscriberKey()
 	if filter.Status != nil {
@@ -59,12 +59,14 @@ func GetSubscriptions( filter entities.Subscription, limits *QueryLimit, txn *da
 			Prefix: key,
 			Limit:  limits.Limit,
 			Offset: limits.Offset,
+			Orders: []query.Order{query.OrderByKeyDescending{}},
 		})
 	} else {
 		rsl,  err = ds.Query(context.Background(), query.Query{
 			Prefix: key,
 			Limit:  limits.Limit,
 			Offset: limits.Offset,
+			Orders: []query.Order{query.OrderByKeyDescending{}},
 		})
 	}
 	if err != nil {
@@ -106,8 +108,8 @@ func GetSubscriptions( filter entities.Subscription, limits *QueryLimit, txn *da
 }
 
 func CreateSubscriptionState(newState *entities.Subscription, tx *datastore.Txn) (sub *entities.Subscription, err error) {
-	if newState.Subscriber == "" || newState.Topic == "" || newState.Subnet == "" {
-		return nil, fmt.Errorf("new state must include acc, snet and agent fields")
+	if newState.Subscriber == "" || newState.Topic == "" || newState.Application == "" {
+		return nil, fmt.Errorf("new state must include acc, app and agent fields")
 	}
 	ds := stores.StateStore
 	txn, err := InitTx(ds, tx)
@@ -180,7 +182,7 @@ func CreateSubscriptionState(newState *entities.Subscription, tx *datastore.Txn)
 			return  nil, err
 		}
 		if len(val) > 0  && string(val) != newState.ID {
-			return nil, fmt.Errorf("\"%s\" ref already exists", entities.SubnetModel)
+			return nil, fmt.Errorf("\"%s\" ref already exists", entities.ApplicationModel)
 		}
 	} else {
 		refKey = nil
@@ -212,8 +214,8 @@ func CreateSubscriptionState(newState *entities.Subscription, tx *datastore.Txn)
 // 	if tx == nil {
 // 		defer txn.Discard(context.Background())
 // 	}
-// 	if newState.Topic == "" || newState.Subscriber == "" || newState.Subnet == "" {
-// 		return nil, fmt.Errorf("new state must include acc, snet and agent field")
+// 	if newState.Topic == "" || newState.Subscriber == "" || newState.Application == "" {
+// 		return nil, fmt.Errorf("new state must include acc, app and agent field")
 // 	}
 	
 // 	accountRsl,  err := txn.Query(context.Background(), query.Query{
@@ -243,10 +245,10 @@ func CreateSubscriptionState(newState *entities.Subscription, tx *datastore.Txn)
 // }
 
 
-func GetSubscriptionStates(subnet string, topic string, subscriber entities.DeviceString, limits QueryLimit) (rsl []*entities.Subscription, err error) {
+func GetSubscriptionStates(app string, topic string, subscriber entities.AddressString, limits entities.QueryLimit) (rsl []*entities.Subscription, err error) {
 	ds :=  stores.StateStore
 	result,  err := ds.Query(context.Background(), query.Query{
-		Prefix: (&entities.Subscription{Subnet: subnet, Topic: topic, Subscriber: entities.DIDString(subscriber)}).SubscriberKey(),
+		Prefix: (&entities.Subscription{Application: app, Topic: topic, Subscriber: subscriber}).SubscriberKey(),
 		Limit:  limits.Limit,
 		Offset: limits.Offset,
 	})
