@@ -33,7 +33,7 @@ type WalletBalance struct {
 	Signature		string			`json:"sig"`
 }
 
-func (d WalletBalance) GetSignature() (string) {
+func (d WalletBalance) GetKey() (string) {
 	return d.Signature
 }
 func (d *WalletBalance) BeforeCreate(tx *gorm.DB) (err error) {

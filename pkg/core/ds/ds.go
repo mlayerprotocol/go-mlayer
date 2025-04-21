@@ -34,11 +34,11 @@ func New(mainCtx *context.Context, keyStore string) (*Datastore) {
 			dir = "." + dir
 		}
 	}
-	err := os.MkdirAll(dir, os.ModePerm)
+	err := os.MkdirAll(dir,0775)
 	if err != nil {
 		panic(err)
 	}
-	err = os.MkdirAll(valueLogDir, os.ModePerm)
+	err = os.MkdirAll(valueLogDir,  0775)
 	if err != nil {
 		panic(err)
 	}

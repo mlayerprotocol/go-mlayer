@@ -25,16 +25,20 @@ type Authorization struct {
 	Version float32 `json:"_v"`
 	ID            string                           	`json:"id" gorm:"type:uuid;not null;primaryKey"`
 	Authorized    AddressString                 	`json:"auth" gorm:"uniqueIndex:idx_agent_account_app;index:idx_authorization_states_agent"`
+	Account       AccountString                     `json:"acct" gorm:"varchar(40);"` // the agent or account authorizing
+	Grantor       AddressString                       	`json:"gr" gorm:"index"`
+	
+
+	// Updates
 	Meta          string                           	`json:"meta,omitempty"`
-	Account       AccountString                     `json:"acct" gorm:"varchar(40);"`
-	Grantor       AccountString                       	`json:"gr" gorm:"index"`
 	Priviledge    *constants.AuthorizationPrivilege	`json:"privi"  gorm:""`
 	TopicIds      string                           	`json:"topIds"`
-	Timestamp     *uint64                           `json:"ts"`
 	Duration      *uint64                           `json:"du"`
+	
 	SignatureData SignatureData                    	`json:"sigD" gorm:"json;"`
 	Hash          string                           	`json:"h" gorm:"unique" `
 	Event         EventPath                        	`json:"e,omitempty" gorm:"index;varchar;"`
+	Timestamp     *uint64                           `json:"ts"`
 	Application        string                           	`json:"app" gorm:"uniqueIndex:idx_agent_account_app;char(36)"`
 	BlockNumber uint64          `json:"blk"`
 	Cycle   	uint64			`json:"cy"`
@@ -43,9 +47,14 @@ type Authorization struct {
 	EventSignature  string    `json:"sig,omitempty"`
 }
 
-func (d Authorization) GetSignature() (string) {
-	return d.EventSignature
-}  
+func (d Authorization) GetKey() (string) {
+	b, _ := encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(d.Application)},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: strings.ToLower(string(d.Authorized))},
+	)
+	return hex.EncodeToString(crypto.Sha256(b))
+} 
+
 func (g Authorization) GetHash() ([]byte, error) {
 	if g.Hash != "" {
 		return hex.DecodeString(g.Hash)
@@ -77,7 +86,7 @@ func (g Authorization) ToString() (string, error) {
 
 
 
-func (g *Authorization) GetKeys() (keys []string)  {
+func (g *Authorization) GetDataStoreKeys() (keys []string)  {
 	if g.ID == "" {
 		g.ID, _ = GetId(g, "")
 	}
@@ -86,7 +95,7 @@ func (g *Authorization) GetKeys() (keys []string)  {
 	 keys = append(keys, fmt.Sprintf("%s/%s", g.AccountAuthorizationsKey(), utils.IntMilliToTimestampString(int64(*g.Timestamp))))
 	 keys = append(keys, g.Key())
 	 keys = append(keys, g.DataKey())
-	 if (g.Account != g.Grantor) {
+	 if (string(g.Account) != string(g.Grantor)) {
 		keys = append(keys, fmt.Sprintf("%s/%s/%s/%s", AuthModel, g.Grantor, g.Application, g.ID))
 	 }
 	 return keys;
@@ -118,6 +127,9 @@ func (g *Authorization) AccountAuthorizationsKey() (string) {
 	}
 }
 
+func (p Authorization) GetId() string {
+	return p.ID
+}
 func AccountAuthorizationsKeyToAuthorization(key string) (*Authorization, error) {
 	parts := strings.Split(key, "/")
 	if len(parts) > 3 {

@@ -12,7 +12,7 @@ const (
     TOPIC_INTEREST_TTL = 12 * time.Hour // duration a node is considered still interested in a topic after initialy showing interest
 )
 
-
+const OsModeReadWriteOnly = 0666
 
 var VALID_PROTOCOLS = []string{"/mlayer/1.0.0"}
 

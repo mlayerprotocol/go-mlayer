@@ -72,20 +72,22 @@ const (
   TOPIC_UUID_PRIFIX string = "746f7069"
   REGISTERY_TOPIC_REF string  = "global.x1.registry"
   HANDSHAKE_TOPIC_REF string  = "global.x1.hanshake"
+  APP_DEPOSIT_TOPIC_REF string = "app.deposit"
 )
-var RegistryTopicRef = []byte("global.x1.registry")
+var RegistryTopicHandler = []byte(REGISTERY_TOPIC_REF)
+var DepositTopicHandler = []byte(APP_DEPOSIT_TOPIC_REF)
 
 var GlobalTopics = []entities.Topic {
   {
     ID: TOPIC_UUID_PRIFIX+"-0000-0000-0000-000000000000",
     Application: APP_UUID_PRIFIX+"-0000-0000-0000-000000000000",
-    Meta: "{\"name\":\"global topic registry\"}",
+    Meta: "{\"name\":\"global entity registry\"}",
     Ref: REGISTERY_TOPIC_REF,
     DefaultSubscriberRole: &constants.TopicWriterRole,
     Timestamp: TIMESTAMP, 
     Account: "mid:0x0000000000000000000000000000000000000000",
     Public: utils.BoolPtr(true),
-    Handler: RegistryTopicRef,
+    Handler: RegistryTopicHandler,
     BlockNumber: 0,
     Cycle  : 0,
     Epoch:		0,
@@ -102,7 +104,7 @@ var GlobalTopics = []entities.Topic {
     Timestamp: TIMESTAMP, 
     Account: "mid:0x0000000000000000000000000000000000000000",
     Public: utils.BoolPtr(true),
-    Handler: RegistryTopicRef,
+    Handler: RegistryTopicHandler,
     BlockNumber: 0,
     Cycle  : 0,
     Epoch:		0,
@@ -110,4 +112,22 @@ var GlobalTopics = []entities.Topic {
     AppKey:  "did:0x0000000000000000000000000000000000000000",
     Event: entities.EventPath{EntityPath: entities.EntityPath{ Model: "top", ID: "00000000-0000-0000-0000-000000000001", Validator: ""}},
   },
+}
+
+var DefaultAppTopics = []entities.Topic {
+  {
+    ID: TOPIC_UUID_PRIFIX+"-1111-0000-0000-000000000000",
+    Meta: "{\"name\":\"app deposit topic\"}",
+    Ref: APP_DEPOSIT_TOPIC_REF,
+    DefaultSubscriberRole: &constants.TopicWriterRole,
+    Timestamp: TIMESTAMP, 
+    Account: "mid:0x0000000000000000000000000000000000000000",
+    Public: utils.BoolPtr(true),
+    Handler: RegistryTopicHandler,
+    BlockNumber: 0,
+    Cycle  : 0,
+    Epoch:		0,
+    AppKey:  "did:0x0000000000000000000000000000000000000000",
+  },
+  
 }

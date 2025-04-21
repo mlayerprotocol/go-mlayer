@@ -3,6 +3,7 @@ package entities
 import (
 	// "errors"
 
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -40,11 +41,22 @@ type Subscription struct {
 	EventSignature  string    `json:"sig,omitempty"`
 }
 
-func (d Subscription) GetSignature() (string) {
-	return d.EventSignature
+func (d Subscription) GetKey() (string) {
+
+		b, _ := encoder.EncodeBytes(
+			// encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(d.Application)},
+			encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(d.Topic)},
+			encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: strings.ToLower(string(d.Subscriber))},
+		)
+		return hex.EncodeToString(crypto.Sha256(b))
+
 }
 
-func (g *Subscription) GetKeys() (keys []string)  {
+func (p Subscription) GetId() string {
+	return p.ID
+}
+
+func (g *Subscription) GetDataStoreKeys() (keys []string)  {
 	keys = append(keys, fmt.Sprintf("%s/%s", g.SubscriberKey(), utils.IntMilliToTimestampString(int64(utils.SafePointerValue(g.Timestamp, uint64(time.Now().UnixMilli())))),))
 	keys = append(keys, fmt.Sprintf("%s/%d/%s", g.SubscriptionStatusKey(), *g.Status, utils.IntMilliToTimestampString(int64(utils.SafePointerValue(g.Timestamp, uint64(time.Now().UnixMilli()))))))
 	if g.Status != &constants.UnsubscribedSubscriptionStatus &&  g.Status != &constants.BannedSubscriptionStatus {

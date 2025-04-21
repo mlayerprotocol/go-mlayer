@@ -131,6 +131,10 @@ type MainConfiguration struct {
 	PublicKeySECP []byte 
 	PublicKeySECPHex string
 
+	PrivateKeyBLS  []byte 
+	PublicKeyBLS []byte 
+	PublicKeyBLSPHex string
+
 	OwnerAddress common.Address 
 	NoSync bool 
 	Context *context.Context

@@ -24,6 +24,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain/api"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto/bls"
 
 	// "github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
@@ -345,7 +346,7 @@ func daemonFunc(cmd *cobra.Command, _ []string) {
 	if strings.HasPrefix(cfg.DataDir, "../") && !strings.HasPrefix(archiveDir, "../") {
 		archiveDir = "../"+archiveDir
 	}
-	if err = os.MkdirAll(archiveDir, os.ModePerm); err!=nil {
+	if err = os.MkdirAll(archiveDir, constants.OsModeReadWriteOnly); err!=nil {
 		logger.Fatal(err)
 	}
 	cfg.ArchiveDir = archiveDir
@@ -449,6 +450,14 @@ func injectPrivateKey(cfg *configs.MainConfiguration, cmd *cobra.Command, storeF
 	_, pubKey := btcec.PrivKeyFromBytes(pk)
 	cfg.PublicKeySECP = pubKey.SerializeCompressed()
 	cfg.PublicKeySECPHex = hex.EncodeToString(cfg.PublicKeySECP)
+	
+
+	// BLS KEYS
+	blsProofGenerator := bls.NewBlsProofGenerator()
+	blsPriv, blsPub, err := blsProofGenerator.BLSKeyPairFromSeed(pk)
+	cfg.PrivateKeyBLS = blsPriv
+	cfg.PublicKeyBLS = blsPub
+	cfg.PublicKeyBLSPHex = hex.EncodeToString(cfg.PublicKeyBLS)
 	
 	// EDD KEYS
 	cfg.PrivateKeyEDD = ed25519.NewKeyFromSeed(pk)

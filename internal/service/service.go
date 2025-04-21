@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
+	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -20,7 +22,7 @@ import (
 )
 
 type PayloadData struct {
-	Application         string
+	Application    string
 	localDataState *LocalDataState
 
 	localDataStateEvent *LocalDataStateEvent
@@ -31,6 +33,7 @@ type LocalDataState struct {
 	ID        string
 	Event     *entities.EventPath
 	Timestamp uint64
+	Ref string
 }
 type LocalDataStateEvent struct {
 	Hash      string
@@ -94,7 +97,7 @@ func ProcessEvent(
 	data PayloadData,
 	validAgentRequired bool,
 	saveEvent func(entities.Event, *entities.Event, *entities.Event, *datastore.Txn, *gorm.DB) (*entities.Event, error),
-	txn *datastore.Txn, tx *gorm.DB, ctx *context.Context, dataDataStates *dsquery.DataStates) (preEvUptoDate bool, authEvUptoDate bool, authSt *models.AuthorizationState, isRecent bool, err error) {
+	txn *datastore.Txn, tx *gorm.DB, ctx *context.Context, dataDataStates *dsquery.DataStates) (preEvUptoDate bool, authEvUptoDate bool, authSt *entities.Authorization, isRecent bool, err error) {
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	// logger.WithFields(logrus.Fields{"event": event}).Debug("New topic event from pubsub channel")
 	// markAsSynced := false
@@ -103,6 +106,7 @@ func ProcessEvent(
 	// // hash, _ := event.GetHash()
 
 	if !event.IsLocal(cfg) {
+
 		if len(event.AuthEvent.ID) > 0 {
 			_, stateByte, _, err := GetEventByPath(&event.AuthEvent, cfg, string(event.Validator))
 			if err != nil {
@@ -112,7 +116,7 @@ func ProcessEvent(
 			if err != nil {
 				return true, true, nil, true, nil
 			}
-			return true, true, &models.AuthorizationState{Authorization: state}, true, nil
+			return true, true, &state, true, nil
 		}
 		return true, true, nil, true, nil
 	}
@@ -135,7 +139,7 @@ func ProcessEvent(
 	var badEvent error
 	// eventIsMoreRecent := true
 	// authMoreRecent := false
-	logger.Errorf("EVENTHASSSS RECEIVED: %d-%s %v", event.EventType, event.ID, event.Payload)
+	// logger.Errorf("EVENTHASSSS RECEIVED: %d-%s %v", event.EventType, event.ID, event.Payload)
 	err = ValidateEvent(*event)
 
 	if err != nil {
@@ -158,7 +162,8 @@ func ProcessEvent(
 				logger.Debugf("EVENTINFO: %v %s", err, data.Application)
 				// get the appstate from the sending node
 				subPath := entities.NewEntityPath(event.Validator, entities.ApplicationModel, data.Application)
-				pp, err := p2p.GetState(cfg, *subPath, &event.Validator, &_app)
+				//_app = &entities.Application{}
+				pp, err := p2p.GetState(cfg, *subPath, &event.Validator, nil)
 				if err != nil {
 					logger.Error(err, " ", (*subPath).ToString(), " ", event.Validator)
 					return false, false, nil, eventIsMoreRecent, fmt.Errorf("unable to get appdata")
@@ -179,11 +184,13 @@ func ProcessEvent(
 				// }
 				dataDataStates.AddEvent(*appEvent)
 				// dataDataStates.Events[appEvent.ID] = *appEvent
-				for _, snetData := range pp.States {
-					_app, err := entities.UnpackApplication(snetData)
+				for _, state := range pp.States {
+					var result any = entities.GetStateModelFromEntityType(state.Type)
+					err := encoder.MsgPackUnpackStruct([]byte(state.StateData), &result)
 					if err == nil {
 						// dataDataStates.CurrentStates[_app.ID] = _app
-						dataDataStates.AddCurrentState(entities.ApplicationModel, _app.ID, _app)
+
+						dataDataStates.AddCurrentState(state.Type, result.(entities.State).GetId(), result)
 						// s, err := dsquery.CreateApplicationState(&_app, nil)
 						// if err != nil {
 						// 	return false, false, nil, eventIsMoreRecent, fmt.Errorf("unable to save app state")
@@ -197,7 +204,7 @@ func ProcessEvent(
 		}
 	}
 
-	 agent, _ := entities.AddressFromString(string(event.Payload.AppKey))
+	agent, _ := entities.AddressFromString(string(event.Payload.AppKey))
 	if validAgentRequired || agent.Addr != "" {
 		agentString, err := crypto.GetSignerECC(&d, &event.Payload.Signature)
 		if err != nil {
@@ -225,10 +232,9 @@ func ProcessEvent(
 	// 	}
 	// }
 
-	
 	// get agent auth state
 
-	var eventAuthState models.AuthorizationState
+	var eventAuthState entities.Authorization
 	currentLocaltAuthState := models.AuthorizationState{}
 	// var agentAuthStateEvent models.AuthorizationEvent
 
@@ -270,57 +276,65 @@ func ProcessEvent(
 	if len(event.PreviousEvent.ID) > 0 {
 		// previousEvent, err = query.GetEventFromPath(&event.PreviousEvent)
 
-		previousEvent, err = dsquery.GetEventFromPath(&event.PreviousEvent)
+		previousEvent, _, isLocal, err := GetEventByPath(&event.PreviousEvent, cfg, string(event.Validator))
+		// previousEvent, err = dsquery.GetEventFromPath(&event.PreviousEvent)
+		logger.Debugf("GettingPreviousEvent: %v, Found: %v", event.PreviousEvent, previousEvent)
 
 		if err != nil && err != query.ErrorNotFound && !dsquery.IsErrorNotFound(err) {
 			logger.Debug("GetLocalPreviousEventError: ", err)
-			return false, false, nil, eventIsMoreRecent, fmt.Errorf("db err: %s", err.Error())
+			return false, false, nil, eventIsMoreRecent, fmt.Errorf("%s", err.Error())
 		}
-		// check if we have the previous event locally, if we dont we can't proceed until we get it
 
 		if previousEvent != nil {
 			// logger.Debugf("FoundPreviousEvent: %s", previousEvent.ID)
 			previousEventUptoDate = true
+			if !isLocal {
+				dataDataStates.AddEvent(*previousEvent)
+			}
 		} else {
-			// get the previous event from the sending node and process it as well
-			logger.Infof("GettingPreviousEvent: %s", event.PreviousEvent.ID)
-			previousEvent, pl, err := getEventFromP2p(cfg, event.PreviousEvent, nil)
-			if err != nil {
-				logger.Debugf("ErrorRetrievingPreviousEvent: %v, %v", err, event.PreviousEvent)
-				 
-			}
-			if  previousEvent != nil && previousEvent.Synced != nil && *previousEvent.Synced {
-				// save event
-				// err = dsquery.CreateEvent(previousEvent, txn)
-				dataDataStates.Events[previousEvent.ID] = *previousEvent
-
-				// if err != nil {
-				// 	logger.Errorf("Create previous event error %v", err)
-				// } else {
-				for _, stData := range pl.States {
-					dataDataStates.AddHistoricState(event.PreviousEvent.Model, event.PreviousEvent.ID, stData)
-					// err = dsquery.SaveHistoricState(event.PreviousEvent.Model, event.PreviousEvent.ID, stData)
-					// if err != nil {
-					// 	logger.Errorf("Save previous historic state error %v", err)
-					// }
-				}
-				previousEventUptoDate = true
-				// }
-			}
-
-			// previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEvent, nil)
-			// if err != nil {
-			// 	logger.Error("GetPreviousEventError: ", err)
-			// 	if event.Validator != event.PreviousEvent.Validator {
-			// 		previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEvent, &event.Validator)
-			// 		logger.Error("GetPReviousFromSameValidatorError %v", err)
-			// 	}
-			// }
-			// if previousEvent != nil {
-			// 	go HandleNewPubSubEvent(*previousEvent, ctx)
-			// }
-
+			previousEventUptoDate = false
 		}
+		//  else {
+		// 	// get the previous event from the sending node and process it as well
+		// 	logger.Infof("GettingPreviousEvent: %s", event.PreviousEvent.ID)
+		// 	// previousEvent, pl, err := getEventFromP2p(cfg, event.PreviousEvent, nil)
+
+		// 	if err != nil {
+		// 		logger.Debugf("ErrorRetrievingPreviousEvent: %v, %v", err, event.PreviousEvent)
+
+		// 	}
+		// 	if  previousEvent != nil && previousEvent.Synced != nil && *previousEvent.Synced {
+		// 		// save event
+		// 		// err = dsquery.CreateEvent(previousEvent, txn)
+		// 		dataDataStates.Events[previousEvent.ID] = *previousEvent
+
+		// 		// if err != nil {
+		// 		// 	logger.Errorf("Create previous event error %v", err)
+		// 		// } else {
+		// 		for _, stData := range pl.States {
+		// 			dataDataStates.AddHistoricState(event.PreviousEvent.Model, event.PreviousEvent.ID, stData)
+		// 			// err = dsquery.SaveHistoricState(event.PreviousEvent.Model, event.PreviousEvent.ID, stData)
+		// 			// if err != nil {
+		// 			// 	logger.Errorf("Save previous historic state error %v", err)
+		// 			// }
+		// 		}
+		// 		previousEventUptoDate = true
+		// 		// }
+		// 	}
+
+		// previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEvent, nil)
+		// if err != nil {
+		// 	logger.Error("GetPreviousEventError: ", err)
+		// 	if event.Validator != event.PreviousEvent.Validator {
+		// 		previousEvent, _, err = p2p.GetEvent(cfg, event.PreviousEvent, &event.Validator)
+		// 		logger.Error("GetPReviousFromSameValidatorError %v", err)
+		// 	}
+		// }
+		// if previousEvent != nil {
+		// 	go HandleNewPubSubEvent(*previousEvent, ctx)
+		// }
+
+		// }
 
 	} else {
 		previousEventUptoDate = true
@@ -329,9 +343,9 @@ func ProcessEvent(
 	updateAuthState := validAgentRequired
 	syncAuthEvent := validAgentRequired
 	authEventAuthState := &entities.Authorization{}
-	if validAgentRequired && currentLocaltAuthState.ID == event.AuthEvent.ID && event.AuthEvent.ID  != "" {
+	if validAgentRequired && currentLocaltAuthState.ID == event.AuthEvent.ID && event.AuthEvent.ID != "" {
 		authEventAuthState = &currentLocaltAuthState.Authorization
-		eventAuthState = models.AuthorizationState{Authorization: *authEventAuthState}
+		eventAuthState = *authEventAuthState
 		authEvent, err = dsquery.GetEventFromPath(&event.AuthEvent)
 		if err != nil {
 			logger.Infof("AutheEventError: %v", err)
@@ -356,7 +370,6 @@ func ProcessEvent(
 		// 	logger.Errorf("GetEventFromPathError %v", err)
 		// 	return previousEventUptoDate, authEventUptoDate, nil, eventIsMoreRecent, err
 		// }
-		
 
 		if err != nil {
 			if dsquery.IsErrorNotFound(err) {
@@ -380,14 +393,17 @@ func ProcessEvent(
 					return previousEventUptoDate, false, nil, eventIsMoreRecent, err
 				}
 				for _, authData := range payload.States {
-					auth, err := entities.UnpackAuthorization(authData)
-					if err != nil {
-						logger.Errorf("AuthEventAuth %v", err)
-						continue
+					if authData.Type == entities.AuthModel {
+						auth, err := entities.UnpackAuthorization(authData.StateData)
+						if err != nil {
+							logger.Errorf("AuthEventAuth %v", err)
+							continue
+						}
+						authEventAuthState = &auth
 					}
-					authEventAuthState = &auth
 
 				}
+
 			} else {
 
 				return previousEventUptoDate, false, nil, eventIsMoreRecent, err
@@ -405,7 +421,7 @@ func ProcessEvent(
 					}
 					authEventUptoDate = false
 				}
-				eventAuthState = models.AuthorizationState{Authorization: *authEventAuthState}
+				eventAuthState = *authEventAuthState
 			} else {
 				// authEventUptoDate = false
 				// event.Error = "authEvent not synced"
@@ -435,7 +451,6 @@ func ProcessEvent(
 			// if len(localAuthState) == 0 || IsMoreRecentEvent(localAuthState[0].Event.ID, int(*localAuthState[0].Timestamp), _auth.Event.ID, int(*_auth.Timestamp), ) {
 			logger.Infof("CHECKINGIFAUTHISVALID: %s", currentLocaltAuthState.ID)
 			updateAuthState = true
-			
 
 			// HandleNewPubSubAuthEvent(authEv, ctx)
 		} else {
@@ -445,7 +460,7 @@ func ProcessEvent(
 	}
 
 	if updateAuthState {
-		if (!validAgentRequired && currentLocaltAuthState.ID == "") || (currentLocaltAuthState.Event.ID ==  authEventAuthState.Event.ID) ||  IsMoreRecentEvent(currentLocaltAuthState.Event.ID, int(*currentLocaltAuthState.Timestamp), authEventAuthState.Event.ID, int(*authEventAuthState.Timestamp)) {
+		if (!validAgentRequired && currentLocaltAuthState.ID == "") || (currentLocaltAuthState.Event.ID == authEventAuthState.Event.ID) || IsMoreRecentEvent(currentLocaltAuthState.Event.ID, int(*currentLocaltAuthState.Timestamp), authEventAuthState.Event.ID, int(*authEventAuthState.Timestamp)) {
 			// dataDataStates.CurrentStates[entities.EntityPath{Model: entities.AuthModel, Hash: authEventAuthState.ID}] = authEventAuthState
 			logger.Info("SAVEAUTHEVENTSTATEASWELL")
 			if authEventAuthState != nil {
@@ -531,7 +546,7 @@ func ProcessEvent(
 		// 	// if we dont have it, get it from another node
 		// }
 		// if event is more recent that our local state, we have to check its validity since it updates state
-	
+
 		if eventIsMoreRecent && validAgentRequired && currentLocaltAuthState.ID != "" && currentLocaltAuthState.Event.ID != event.AuthEvent.ID && authEvent != nil {
 			// get the event that is responsible for the current state
 			// err := query.GetOne(models.AuthorizationEvent{Event: entities.Event{Hash: agentAuthState.Event.ID}}, &agentAuthStateEvent)
@@ -586,3 +601,42 @@ func getEventFromP2p(cfg *configs.MainConfiguration, event entities.EventPath, v
 	return evt, payload, err
 }
 
+func GetStateDelta(stateData entities.StateDataInterface, event entities.Event) (*entities.StateDelta, error) {
+	stateBytes, err := encoder.MsgPackStruct(stateData.StateData)
+	// stateBytes, err := dsquery.GetStateBytesFromEventPath(event.GetPath())
+	if err == nil {
+		delta := make(map[string]interface{})
+		state := make(map[string]interface{})
+		prevState := map[string]interface{}{}
+		encoder.MsgPackUnpackStruct(stateBytes, &state)
+		var previousStateBytes []byte
+
+		if event.PreviousEvent.ID != "" && event.PreviousEvent.EntityPath.Model == event.GetPath().Model {
+			previousStateBytes, err = dsquery.GetStateBytesFromEventPath(&event.PreviousEvent)
+			
+			if err == nil {
+				encoder.MsgPackUnpackStruct(previousStateBytes, &prevState)
+				delta = utils.GetDifference(prevState, state)
+			}
+		} else {
+			delta = state
+		}
+
+		if _, ok := delta["id"]; !ok {
+			delta["id"] = prevState["id"]
+		}
+		b, err := encoder.MsgPackStruct(delta)
+		if err == nil {
+			// logger.Infof("STATEDELTA %v", delta)
+			// pack, err := encoder.MsgPackStruct(delta)
+			//if err == nil {
+			var previousHash []byte
+			if len(fmt.Sprint(prevState["h"])) > 0 {
+				previousHash, _ = hex.DecodeString(fmt.Sprint(prevState["h"]))
+			}
+			return &entities.StateDelta{Type: stateData.Type, Delta: b, StateID: stateData.StateID, PreviousHash: previousHash}, nil
+		}
+
+	}
+	return nil, err
+}

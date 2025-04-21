@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
@@ -226,7 +227,7 @@ func getKeyStoreFilePath(keystoreName string, ksPath string) (string) {
 	} else {
 		ksPath = fmt.Sprintf("%s/keystores/.goml", cfg.DataDir)
 	}
-	err := os.MkdirAll(ksPath, os.ModePerm)
+	err := os.MkdirAll(ksPath, constants.OsModeReadWriteOnly)
 		if err != nil {
 			panic(err)
 		}

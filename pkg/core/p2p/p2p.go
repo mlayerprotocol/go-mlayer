@@ -949,7 +949,7 @@ func storeAddress( cfg *configs.MainConfiguration, h *host.Host)  {
 		} else {
 			logger.Debugf("Successfully saved chain key to DHT: %s", keySecP)
 		}
-		time.Sleep(30 * time.Second)
+		time.Sleep(5 * time.Second)
 		// break
 		// time.Sleep(1 * time.Hour)
 		// else {
@@ -964,24 +964,29 @@ func storeAddress( cfg *configs.MainConfiguration, h *host.Host)  {
 	}
 }
 
-func GetNodeMultiAddressData(ctx *context.Context, key string) (*NodeMultiAddressData, error) {
-	
-		key = "/ml/val/" + key
+func GetNodeMultiAddressData(ctx *context.Context, key string) (mad *NodeMultiAddressData, err error) {
 		
-		data, err := idht.GetValue(*ctx, key)
-		if err != nil {
-			logger.Errorf("Unable to get value for dht key: %s. Error: %v", key, err)
-			return  nil, err
+		if madData, ok := ValidMads[key]; ok {
+			 mad = madData
+		} else {
+			key = "/ml/val/" + key
+			logger.Infof("ValidatorKey: %v", key)
+			data, err := idht.GetValue(*ctx, key)
+			if err != nil {
+				logger.Errorf("Unable to get value for dht key: %s. Error: %v", key, err)
+				return  nil, err
+			}
+			madD, err := UnpackNodeMultiAddressData(data)
+			if err != nil {
+				return nil, err
+			}
+			cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+			if !madD.IsValid(cfg.ChainId) {
+				return nil, fmt.Errorf("invalid multiaddress data")
+			}
+			mad = &madD
 		}
-		mad, err := UnpackNodeMultiAddressData(data)
-		if err != nil {
-			return nil, err
-		}
-		cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
-		if !mad.IsValid(cfg.ChainId) {
-			return nil, fmt.Errorf("invalid multiaddress data")
-		}
-		return &mad, err
+		return mad, err
 }
 func handleConnectV2(h *host.Host, pairAddr peer.AddrInfo) {
 	DisconnectFromPeer[pairAddr.ID] = true
@@ -1050,7 +1055,7 @@ func handleConnectV2(h *host.Host, pairAddr peer.AddrInfo) {
 				if new(big.Int).SetBytes(handshake.LastSyncedBlock).Uint64() > chain.NetworkInfo.CurrentBlock.Uint64() - 60 {
 					addr := ExtractQuicMultiAddress(ToMultiAddressStrings(pairAddr.ID, pairAddr.Addrs))
 					logger.Infof("SyncedValidators: %s, %s, %v", hex.EncodeToString(handshake.Signer), addr.String(), true)
-					chain.NetworkInfo.SyncedValidators[hex.EncodeToString(handshake.Signer)] = addr
+					//chain.NetworkInfo.SyncedValidators[hex.EncodeToString(handshake.Signer)] = addr
 				} else {
 					logger.Infof("SyncedValidators: %s, %v", hex.EncodeToString(handshake.Signer), false)
 					// chain.NetworkInfo.SyncedValidators[hex.EncodeToString(handshake.Signer)] = false

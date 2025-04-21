@@ -43,6 +43,7 @@ const (
 const (
 	DeleteApplicationEvent EventType = 500
 	CreateApplicationEvent EventType = 501 // m.room.create
+	
 	// PrivacySetEvent        EventType = 1002
 	// BanMemberEvent         EventType = 1003
 	// UnbanMemberEvent       EventType = 1004
@@ -52,6 +53,7 @@ const (
 	// UpdateAvatarEvent      EventType = 1008 //  m.room.avatar
 	// PinMessageEvent        EventType = 1008 //  m.room.avatar
 	UpdateApplicationEvent EventType = 509
+	FundApplicationEvent EventType = 510 
 	// UpgradeSubscriberEvent EventType = 1010
 )
 const (

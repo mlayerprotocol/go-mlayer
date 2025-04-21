@@ -36,6 +36,9 @@ func ValidateAuthPayloadData(clientPayload *entities.ClientPayload, cfg *configs
 	if auth.Application == "" {
 		return nil, nil, nil, apperror.BadRequest("Application is required")
 	}
+	if auth.Application != clientPayload.Application {
+		return nil, nil, nil, apperror.BadRequest("payload.application should be same with auth.application")
+	}
 
 	// TODO find apps state prior to the current state
 	// err = query.GetOne(models.ApplicationState{Application: entities.Application{ID: auth.Application}}, &app)
@@ -47,57 +50,57 @@ func ValidateAuthPayloadData(clientPayload *entities.ClientPayload, cfg *configs
 	// 			return nil, nil, nil, err
 	// 		}
 	// 		_app = app.(*entities.Application)
-			
+
 	// 	} else {
 	// 		return nil, nil, nil, err
 	// 	}
 	// }
-	 _app := entities.Application{}
-	_, err = SyncTypedStateById(auth.Application, &_app,  cfg, validator )
-	 if err != nil {
-		return  nil, nil, app, err
-	 }
+	_app := entities.Application{}
+	_, err = SyncTypedStateById(auth.Application, &_app, cfg, validator)
+	if err != nil {
+		return nil, nil, app, err
+	}
 	//  _app := app.(entities.Application)
-	 if *_app.Status ==  0 {
+	if *_app.Status == 0 && clientPayload.ProofData == nil {
 		return nil, nil, app, apperror.Forbidden("Application is disabled")
 	}
 	app = &models.ApplicationState{Application: _app}
-
-	if auth.Account != app.Account && *auth.Priviledge > *app.DefaultAuthPrivilege {
-		return nil, nil, app, apperror.Internal("invalid auth priviledge. Cannot be higher than apps default")
+	grantor, err := entities.AddressFromString(string(auth.Grantor))
+	if err != nil {
+		return nil, nil, app, apperror.BadRequest("grantor: " + err.Error())
 	}
 	account, err := entities.AddressFromString(string(auth.Account))
 	if err != nil {
 		return nil, nil, app, apperror.BadRequest("account: " + err.Error())
 	}
-	if !account.IsAccount(){
-        return nil, nil, app, apperror.BadRequest("account: " + string(account.ToAddressString()))
-	}
-	grantor, err := entities.AddressFromString(string(auth.Grantor))
-	if err != nil {
-		return nil, nil, app, apperror.BadRequest("grantor: " + err.Error())
+	if !account.IsAccount() {
+		return nil, nil, app, apperror.BadRequest("account: account must be prefixed with mid: " + string(account.ToAddressString()))
 	}
 	agent, err := entities.AddressFromString(string(auth.Authorized))
 	if err != nil {
 		return nil, nil, app, apperror.BadRequest("authorized: " + err.Error())
 	}
-	if account.Addr == agent.Addr {
-		return nil, nil, app, apperror.Internal("cannot reassign app owner role")
-	}
-	if account.Addr == agent.Addr {
-		return nil, nil, app, apperror.Internal("cannot reassign app owner role")
-	}
+	if clientPayload.ProofData == nil {
+		if auth.Account != app.Account && *auth.Priviledge > *app.DefaultAuthPrivilege {
+			return nil, nil, app, apperror.Internal("invalid auth priviledge. Cannot be higher than apps default")
+		}
 
-	msg, err := clientPayload.GetHash()
-	if err != nil {
-		return nil, nil, app, err
-	}
-	/////
+		if account.Addr == agent.Addr {
+			return nil, nil, app, apperror.Internal("cannot reassign app owner role")
+		}
 
-	if err = VerifyAuthDataSignature(auth, msg, cfg.ChainId); err != nil {
-		return nil, nil, app, apperror.Unauthorized("Invalid authorization data signature")
+		msg, err := clientPayload.GetHash()
+		if err != nil {
+			return nil, nil, app, err
+		}
+		/////
+
+		if err = VerifyAuthDataSignature(auth, msg, cfg.ChainId); err != nil {
+			return nil, nil, app, apperror.Unauthorized("Invalid authorization data signature")
+		}
 	}
-	if auth.Grantor != auth.Account  {
+	logger.Infof("Grantor %s=%s", auth.Grantor, auth.Account)
+	if string(auth.Grantor) != string(auth.Account) {
 		// grantorAuthState, err = query.GetOneAuthorizationState(entities.Authorization{Account: entities.AccountString(string(account.ToDeviceString())), Application: auth.Application, Agent: grantor.ToDeviceString()})
 		_grantorAuthState, err := dsquery.GetAccountAuthorizations(entities.Authorization{Account: entities.AccountString(account.ToString()), Application: auth.Application, Authorized: grantor.ToAddressString()}, dsquery.DefaultQueryLimit, nil)
 
@@ -116,7 +119,7 @@ func ValidateAuthPayloadData(clientPayload *entities.ClientPayload, cfg *configs
 		// 		logger.Error(err)
 		// 		return  nil, nil, app, err
 		// 	}
-			
+
 		// 	if authEvent != nil  && *authEvent.Synced && len(pp.States) > 0 {
 		// 		// return HandleNewPubSubTopicEvent(topicEvent, ctx)
 		// 		// dataStates.Events[topicEvent.ID] = *topicEvent
@@ -126,7 +129,7 @@ func ValidateAuthPayloadData(clientPayload *entities.ClientPayload, cfg *configs
 		// 			return nil, nil, app, err
 		// 		}
 		// 		// err = dsquery.CreateEvent(topicEvent, &txn)
-				
+
 		// 		// dataStates.CurrentStates[*entities.NewEntityPath("", entities.TopicModel, topic.ID)] = topic
 		// 		dataStates.AddCurrentState(entities.AuthModel, authState.ID, &authState)
 		// 		// if err == nil {
@@ -135,14 +138,14 @@ func ValidateAuthPayloadData(clientPayload *entities.ClientPayload, cfg *configs
 		// 		if err != nil {
 		// 			return nil, nil, app, err
 		// 		}
-				
+
 		// 	}
-			
+
 		// }
-		if err != nil ||! dsquery.IsErrorNotFound(err) {
+		if err != nil || !dsquery.IsErrorNotFound(err) {
 			return nil, grantorAuthState, app, apperror.Forbidden(" Grantor does not have enough permission")
 		}
-		if err == nil && len(_grantorAuthState) > 0 {
+		if len(_grantorAuthState) > 0 {
 			grantorAuthState = &models.AuthorizationState{Authorization: *_grantorAuthState[0]}
 			if *grantorAuthState.Authorization.Priviledge != constants.AdminPriviledge {
 				return nil, grantorAuthState, app, apperror.Forbidden(" Grantor does not have enough permission")
@@ -169,18 +172,18 @@ func VerifyAuthDataSignature(auth entities.Authorization, msg []byte, chainId co
 
 	account, err := entities.AddressFromString(string(auth.Account))
 	if err != nil {
-		return  apperror.BadRequest("account: " + err.Error())
+		return apperror.BadRequest("account: " + err.Error())
 	}
-	if !account.IsAccount(){
-		return  apperror.BadRequest("account: " + fmt.Sprint("invalid account"))
+	if !account.IsAccount() {
+		return apperror.BadRequest("account: " + fmt.Sprint("invalid account"))
 	}
 	grantor, err := entities.AddressFromString(string(auth.Grantor))
 	if err != nil {
-		return  apperror.BadRequest("grantor: " + err.Error())
+		return apperror.BadRequest("grantor: " + err.Error())
 	}
 	agent, err := entities.AddressFromString(string(auth.Authorized))
 	if err != nil {
-		return  apperror.BadRequest("authorized: " + err.Error())
+		return apperror.BadRequest("authorized: " + err.Error())
 	}
 	valid := false
 
@@ -252,12 +255,13 @@ func saveAuthorizationEvent(where entities.Event, createData *entities.Event, up
 	return SaveEvent(entities.AuthModel, where, createData, updateData, txn)
 }
 
-func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) error {
+func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) (resp *entities.EventProcessorResponse, err error)  {
 
 	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		panic("Unable to load config from context")
 	}
+	modelType := event.GetDataModelType()
 	dataStates := dsquery.NewDataStates(event.ID, cfg)
 	dataStates.AddEvent(*event)
 
@@ -266,32 +270,38 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) error
 	data.Cycle = event.Cycle
 	data.Epoch = event.Epoch
 	data.Event = *event.GetPath()
-	hash, err := data.GetHash()
+	// hash, err := data.GetHash()
 	data.EventSignature = event.Signature
 	// data.Authorized = entities.AddressString(data.Authorized)
 	if err != nil {
-		return err
+		return  nil, err
 	}
-	data.Hash = hex.EncodeToString(hash)
+	id, _ := entities.GetId(data, data.ID)
+	// data.Hash = hex.EncodeToString(hash)
 	var app = data.Application
 
-	defer func () {
-	
-		
+	defer func() {
+
 		// stateUpdateError := dataStates.Commit(nil, nil, nil, event.ID, err)
-		stateUpdateError := dataStates.Save( event.ID)
+		stateUpdateError := dataStates.Save(event.ID)
 		if stateUpdateError != nil {
 			logger.Error("HandleNewPubSubAuthEvent/Commit", err)
 			panic(stateUpdateError)
 		} else {
-			go OnFinishProcessingEvent(cfg, event,  data, nil)
-			
+		
+			resp = &entities.EventProcessorResponse{
+				States: []entities.StateDataInterface{{Type: modelType, StateID: id, StateData: dataStates.CurrentStates[entities.EntityPath{Model: modelType, ID: id}]}},
+				Hash: data.Hash,
+			}
+			 logger.Debug("HandleNewPubSubAuthEvent",id)
+			go OnFinishProcessingEvent(cfg, event, data, nil)
+
 			// go utils.WriteBytesToFile(filepath.Join(cfg.DataDir, "log.txt"), []byte("newMessage" + "\n"))
 		}
-	
+
 	}()
 
-	var localState *models.AuthorizationState
+	var localState *entities.Authorization
 	// err := query.GetOne(&models.TopicState{Topic: entities.Topic{ID: id}}, &localTopicState)
 	// err = sql.SqlDb.Where(&models.AuthorizationState{Authorization: entities.Authorization{Application: app, Agent: entities.AddressFromString(string(data.AppKey)).ToDeviceString()}}).Take(&localState).Error
 	stateTxn, err := stores.StateStore.NewTransaction(context.Background(), false) // true for read-write, false for read-only
@@ -310,19 +320,26 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) error
 		logger.Error("GetAccountAuthorizations:", err)
 	}
 	if len(_localState) > 0 {
-		localState = &models.AuthorizationState{Authorization: *_localState[0]}
-	} else {
-		localState = &models.AuthorizationState{}
+		localState = _localState[0]
 	}
 
 	var localDataState *LocalDataState
-	if localState.ID != "" {
+	if localState != nil {
+		updatedData := *localState
+		utils.CopyStructToStruct(data, &updatedData)
+		data = updatedData
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
+
 		localDataState = &LocalDataState{
 			ID:        localState.ID,
 			Hash:      localState.ID,
 			Event:     &localState.Event,
 			Timestamp: *localState.Timestamp,
 		}
+	} else {
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
 	}
 	// localDataState := utils.IfThenElse(localTopicState != nil, &LocalDataState{
 	// 	ID: localTopicState.ID,
@@ -331,7 +348,8 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) error
 	// 	Timestamp: localTopicState.Timestamp,
 	// }, nil)
 	var stateEvent *entities.Event
-	if localState.ID != "" {
+	if localState != nil {
+	
 		stateEvent, err = dsquery.GetEventFromPath(&(localState.Event))
 		if err != nil && dsquery.IsErrorNotFound(err) {
 			logger.Debug(err)
@@ -351,14 +369,14 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) error
 	previousEventUptoDate, authEventUpToDate, _, eventIsMoreRecent, err := ProcessEvent(event, eventData, false, saveAuthorizationEvent, &txn, tx, ctx, dataStates)
 	if err != nil {
 		logger.Warnf("Processing Error: %v", err)
-		return err
+		return nil, err
 	}
 	logger.Debugf("Processing 2 auth...: %v,  %v", previousEventUptoDate, authEventUpToDate)
 	if previousEventUptoDate && authEventUpToDate {
 		err = dsquery.IncrementCounters(event.Cycle, event.Validator, event.Application, &txn)
 		if err != nil {
 			logger.Debugf("IncrementError: %+v", err)
-			return err
+			return nil, err
 		}
 		if !event.IsLocal(cfg) {
 			_, _, _, err = ValidateAuthPayloadData(&event.Payload, cfg, string(event.Validator))
@@ -366,18 +384,20 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) error
 		if err != nil {
 			logger.Infof("ErrorValidatingAuth %v", err)
 			// saveAuthorizationEvent(entities.Event{ID: event.ID}, nil, &entities.Event{Error: err.Error(), IsValid: utils.FalsePtr(), Synced: utils.TruePtr()}, &txn, nil)
-			dataStates.AddEvent(entities.Event{ID: event.ID, Error: err.Error(), IsValid: utils.FalsePtr(), Synced:  utils.TruePtr()})
+			dataStates.AddEvent(entities.Event{ID: event.ID, Error: err.Error(), IsValid: utils.FalsePtr(), Synced: utils.TruePtr()})
 
 		} else {
 			// TODO if event is older than our state, just save it and mark it as synced
 
 			// savedEvent, err := saveAuthorizationEvent(entities.Event{ID: event.ID}, nil, &entities.Event{IsValid: utils.TruePtr(), Synced: utils.TruePtr()}, &txn, nil)
-			dataStates.AddEvent(entities.Event{ID: event.ID, IsValid:  utils.TruePtr(), Synced:  utils.TruePtr()})
-		
+			dataStates.AddEvent(entities.Event{ID: event.ID, IsValid: utils.TruePtr(), Synced: utils.TruePtr()})
+			data.ID = id
+			
 			if eventIsMoreRecent && err == nil {
-				dataStates.AddCurrentState(entities.AuthModel, data.DataKey(), data)
+				logger.Infof("MORERESCENT %v, ERROR %v", eventIsMoreRecent, err)
+				dataStates.AddCurrentState(modelType, id, data)
 			} else {
-				dataStates.AddHistoricState(entities.AuthModel, data.DataKey(), data.MsgPack())
+				dataStates.AddHistoricState(modelType, id, data.MsgPack())
 			}
 			go dsquery.UpdateAccountCounter(string(event.Payload.Account))
 			// if eventIsMoreRecent && err == nil {
@@ -389,7 +409,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) error
 			// 		if err != nil {
 			// 			// TODO worker that will retry processing unSynced valid events with error
 			// 			_, err = saveAuthorizationEvent(entities.Event{ID: event.ID}, nil, &entities.Event{Error: err.Error(), IsValid: utils.TruePtr(), Synced: utils.TruePtr()}, &txn, nil)
-					
+
 			// 		}
 			// 	} else {
 			// 		_, err = dsquery.CreateAuthorizationState(&data, &stateTxn)
@@ -438,9 +458,7 @@ func HandleNewPubSubAuthEvent(event *entities.Event, ctx *context.Context) error
 
 		}
 	}
-	return nil
+	return resp, err
 }
-
-
 
 // {"action":"AuthorizeAgent","network":"84532","identifier":"0xD466f0C2506b69e091b4356cd55b55f6DF00491b","hash":"kXTFkj7NkzQt5VQKvTcxXq6RHd5KvhO7eEDxtcsy+Ec="}

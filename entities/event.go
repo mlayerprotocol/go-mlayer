@@ -37,6 +37,7 @@ const (
 	TopicInterestModel       EntityModel = "topInt"
 	WalletModel       EntityModel = "wal"
 	SystemModel		EntityModel = "sys"
+	AppAccountModel       EntityModel = "appAcc"
 	
 )
 
@@ -205,7 +206,7 @@ func (sD *EntityPath) Value() (driver.Value, error) {
 type EventInterface interface {
 	EncodeBytes() ([]byte, error)
 	GetValidator() PublicKeyString
-	GetSignature() string
+	GetKey() string
 	ValidateData(config *configs.MainConfiguration)  (authState any, err error)
 }
 
@@ -228,12 +229,40 @@ func (sh StateEvents) EncodeBytes() ([]byte) {
 	return b
 }
 
-type EventDelta struct {
+
+type StateDelta struct {
+	Type EntityModel `json:"t"`
 	Delta json.RawMessage `json:"d"`
-	Event Event `json:"e"`
+	StateID string `json:"id"`
 	PreviousHash json.RawMessage `json:"ph"`
+}
+
+func (s StateDelta) EncodeBytes() ([]byte, error) {
+	return encoder.EncodeBytes(
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: s.Delta},
+		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: s.Type},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(s.StateID)},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: s.PreviousHash},
+	)
+}
+
+type StateDataInterface struct {
+	Type EntityModel `json:"t"`
+	StateData interface{} `json:"d"`
+	StateID string `json:"id"`
+}
+
+type StateDataRaw struct {
+	Type EntityModel `json:"t"`
+	StateData json.RawMessage `json:"d"`
+}
+
+type EventDelta struct {
+	Deltas []StateDelta `json:"d"`
+	Event string `json:"e"`
+
 	Hash json.RawMessage `json:"hash"`
-	Signatures []SignatureData `json:"sig"`
+	SignatureData BlsSignatureData `json:"sig"`
 	Error string  `json:"err"`
 }
 
@@ -243,14 +272,19 @@ func (e EventDelta) MsgPack() ([]byte) {
 }
 
 func (e EventDelta) EncodeBytes() ([]byte, error) {
-	b, err :=  e.Event.EncodeBytes()
-	if err != nil {
-		return nil, err
+	// b, err :=  e.Event.EncodeBytes()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	b := []byte{}
+	for _, d := range e.Deltas {
+		enc, _ := d.EncodeBytes()
+		b = append(b, enc...)
 	}
 	return encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: e.Delta},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: e.PreviousHash},
-		encoder.EncoderParam{Type: encoder.ByteEncoderDataType,Value: b},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: b},
+		encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(e.Event)},
+		// encoder.EncoderParam{Type: encoder.ByteEncoderDataType,Value: b},
 	)
 }
 func (e EventDelta) GetHash() ([]byte, error) {
@@ -262,7 +296,7 @@ func (e EventDelta) GetHash() ([]byte, error) {
 }
 
 type EventProcessorResponse struct {
-	State interface{} `json:"state"`
+	States []StateDataInterface `json:"state"`
 	Event EventPath `json:"e"`
 	Hash  string `json:"hash"`
 	Signature json.RawMessage `json:"sign"`
@@ -307,7 +341,7 @@ type Event struct {
 	// Associations      []string      `json:"assoc,omitempty" gorm:"type:text[]"` // deprecated
 }
 
-func (g *Event) GetKeys() (keys []string)  {
+func (g *Event) GetDataStoreKeys() (keys []string)  {
 	keys = append(keys, g.ApplicationKey())
 	keys = append(keys, g.BlockKey())
 	// keys = append(keys, fmt.Sprintf("cy/%d/%d/%s/%s", g.Cycle, utils.IfThenElse(g.Synced, 1,0), g.Application, g.ID))
@@ -323,15 +357,15 @@ func (g *Event) GetKeys() (keys []string)  {
 	return keys;
 }
 func (e *Event) DataKey() string {
-	return fmt.Sprintf("id/%s",  e.ID)
+	return fmt.Sprintf("/id/%s",  e.ID)
 }
 
 func (e *Event) VectorKey(topic string) string {
-	return fmt.Sprintf("vec/%s/%s", e.Validator, topic)
+	return fmt.Sprintf("/vec/%s/%s", e.Validator, topic)
 }
 
 func (e *Event) ApplicationKey()  string {
-	return  fmt.Sprintf("app/%s/%015d", e.Application, e.Cycle)
+	return  fmt.Sprintf("/app/%s/%015d", e.Application, e.Cycle)
 }
 func (e *Event) BlockKey() string {
 	// if e.ID != "" {
@@ -445,14 +479,20 @@ func GetModel(ent any) EntityModel {
 			model = MessageModel
 		case SystemMessage:
 			model = SystemModel
+		case AppAccount:
+			model = AppAccountModel
 	}
 	return model
 }
 
 func (e *Event) GetPath() *EventPath {
-	id, err := e.GetId()
-	if err != nil {
-		return nil
+	id := e.ID
+	var err  error
+	if len(id)== 0 {
+		id, err = e.GetId()
+		if err != nil {
+			return nil
+		}
 	}
 	path := NewEventPath(e.Validator, e.GetDataModelType(), id)
 	path.Timestamp = e.Timestamp
@@ -617,20 +657,12 @@ func (e Event) EncodeBytes() ([]byte, error) {
 func (e Event) GetValidator() PublicKeyString {
 	return e.Validator
 }
-func (e Event) GetSignature() string {
+func (e Event) GetKey() string {
 	return e.Signature
 }
 
-
 func GetEventEntityFromModel(eventType EntityModel) *Event {
-	// cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
-	// check if client payload is valid
-	// if err := payload.Validate(PublicKeyString(cfg.NetworkPublicKey)); err != nil {
-	// 	return  err
-	// }
-
-	//Perfom checks base on event types
 	event := &Event{Payload: ClientPayload{}}
 	switch eventType {
 	case AuthModel:
@@ -653,6 +685,8 @@ func GetEventEntityFromModel(eventType EntityModel) *Event {
 
 	case WalletModel:
 		event.Payload.Data = Wallet{}
+	case AppAccountModel:
+		event.Payload.Data = AppAccount{}
 	}
 
 	return event
@@ -665,24 +699,26 @@ func GetStateModelFromEntityType(entityType EntityModel) any {
 	switch entityType {
 	case AuthModel:
 
-		return Authorization{}
+		return &Authorization{}
 
 	case TopicModel:
-		return Topic{}
+		return &Topic{}
 
 	case SubscriptionModel:
-		return Subscription{}
+		return &Subscription{}
 
 	case MessageModel:
-		return Message{}
+		return &Message{}
 
 	case ApplicationModel:
-		return Application{}
+		return &Application{}
 	case SystemModel:
-		return SystemMessage{}
+		return &SystemMessage{}
 
 	case WalletModel:
-		return Wallet{}
+		return &Wallet{}		
+	case AppAccountModel:
+		return &AppAccount{}
 	}
 
 	return 0
@@ -696,6 +732,9 @@ func GetModelTypeFromEventType(eventType constants.EventType ) EntityModel {
 	}
 	if eventType < 600 {
 		return  ApplicationModel	
+	}
+	if eventType < 650 {
+		return  AppAccountModel	
 	}
 	if eventType < 700 {	
 		return  AuthModel	
@@ -720,15 +759,15 @@ func GetModelTypeFromEventType(eventType constants.EventType ) EntityModel {
 
 func CycleCounterKey(cycle uint64, validator *PublicKeyString, claimed *bool, app *string) string {
 	if validator == nil && claimed == nil && app == nil {
-		return fmt.Sprintf("cy/%015d/n", cycle)
+		return fmt.Sprintf("/cy/%015d/n", cycle)
 	}
 	if claimed == nil {
-		return fmt.Sprintf("cy/%015d/%s", cycle, *validator )
+		return fmt.Sprintf("/cy/%015d/%s", cycle, *validator )
 	}
 	if app == nil {
-		return fmt.Sprintf("cy/%015d/%s/%d", cycle, *validator, utils.IfThenElse(*claimed, 1, 0) )
+		return fmt.Sprintf("/cy/%015d/%s/%d", cycle, *validator, utils.IfThenElse(*claimed, 1, 0) )
 	}
-	return fmt.Sprintf("cy/%015d/%s/%d/%s", cycle, *validator, utils.IfThenElse(*claimed, 1, 0), *app)
+	return fmt.Sprintf("/cy/%015d/%s/%d/%s", cycle, *validator, utils.IfThenElse(*claimed, 1, 0), *app)
 }
 
 

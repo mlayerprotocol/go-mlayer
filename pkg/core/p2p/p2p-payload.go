@@ -15,7 +15,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/chain"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
@@ -29,7 +28,7 @@ type P2pAction int8
 
 type P2pEventResponse struct {
 	Event json.RawMessage `json:"e"`
-	States []json.RawMessage `json:"s"`
+	States []entities.StateDataRaw `json:"s"`
 }
 
 func (hs *P2pEventResponse) MsgPack() []byte {
@@ -311,35 +310,36 @@ func GetState(config *configs.MainConfiguration, path entities.EntityPath,  vali
 		validator = &path.Validator
 	}
 	// resp, err := (&pl).SendDataRequest(string(*validator))
-	var err error
-	
-	address := chain.NetworkInfo.SyncedValidators[string(*validator)]
-	logger.Infof("SyncedNodeAddress: %s", address)
-	if address == nil {
-		address, err = GetNodeAddress(config.Context, string(*validator))
-		if err != nil || address == nil {
-			return nil, fmt.Errorf("p2p.GetNodeAddress: %v", err)
-		}
-		logger.Infof("GotNodeAddress: %s", address)
-	}
-	
-	resp, err :=  (&pl).SendRequestToAddress(pl.config.PrivateKeyEDD, address, DataRequest, string(*validator))
+
+	respByte, err := SendSecureQuicRequestToValidator(cfg, string(*validator), &pl)
 	if err != nil {
 		return nil, err
 	}
-	if resp == nil {
+	if respByte == nil {
 		return nil, apperror.Internal("timedout")
+	}
+	resp, err := UnpackP2pPayload(respByte)
+	if err != nil {
+		logger.Errorf("ErrorUnpackingResponse %v", len(resp.Data))
+		return nil, err
 	}
 	data, err := UnpackP2pEventResponse(resp.Data)
 	if err != nil {
-		logger.Errorf("ErrorUnpackingResponse %v", resp.Data)
+		logger.Errorf("ErrorUnpackingResponse %v", len(resp.Data))
 		return nil, err
 	}
 	if len(data.States) == 0 {
 		return nil, apperror.NotFound("state not found")
 	}
 	logger.Infof("State of %s: %v", path.Model, data.States[0])
-	return &data, encoder.MsgPackUnpackStruct(data.States[0], &result)
+	if result != nil {
+		for _, state :=  range data.States {
+			if state.Type == entities.GetModel(result) {
+				return &data, encoder.MsgPackUnpackStruct([]byte(state.StateData), &result)
+			}
+		}
+	}
+	return &data, nil
 }
 
 func GetEvent(config *configs.MainConfiguration, eventPath entities.EventPath, validator *entities.PublicKeyString) (*entities.Event, *P2pEventResponse, error) {
@@ -348,18 +348,27 @@ func GetEvent(config *configs.MainConfiguration, eventPath entities.EventPath, v
 	if validator == nil {
 		validator = &eventPath.Validator
 	}
-	var err error
-	address := chain.NetworkInfo.SyncedValidators[string(*validator)]
-	if address == nil {
-		address, err = GetNodeAddress(config.Context, string(*validator))
-		if err != nil || address == nil {
-			return nil, nil, fmt.Errorf("p2p.GetNodeAddress: %v", err)
-		}
-	}
-	resp, err :=  (&pl).SendRequestToAddress(pl.config.PrivateKeyEDD, address, DataRequest, string(*validator))
+	// var address string = ""
+	// var err error
+	// if mad, ok := ValidMads[string(*validator)]; ok {
+	// 	address = mad.QuicAddress()
+	// }
+	// if address == "" {
+	// 	mad, err := GetNodeMultiAddressData(cfg.Context, string(*validator))
+	// 	if err != nil {
+	// 		logger.Error("KDHT_GET_ERROR: ", err)
+	// 		return nil, nil,  err
+	// 	}
+	// 	address = mad.QuicAddress()
+	// }
+	respByte, err :=  SendSecureQuicRequestToValidator(cfg, string(*validator), &pl)
 	if err != nil {
 		return nil, nil, err
 	}
+	if respByte == nil {
+		return nil, nil, apperror.Internal("timedout")
+	}
+	resp, err := UnpackP2pPayload(respByte)
 	if resp == nil {
 		return nil, nil, apperror.Internal("timedout")
 	}

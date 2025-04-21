@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
@@ -545,7 +546,7 @@ func ImportDataPostgres(cfg *configs.MainConfiguration, table string, columns []
 	// 	return fmt.Errorf("invalid db")
 	// }
 	dir := filepath.Join(cfg.DataDir, "tmp")
-	err := os.MkdirAll(dir, os.ModePerm)
+	err := os.MkdirAll(dir, constants.OsModeReadWriteOnly)
 	if err != nil {
 		return  err
 	}

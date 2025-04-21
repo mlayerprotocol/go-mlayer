@@ -753,3 +753,10 @@ func GetDifference(oldState, newState map[string]interface{}) map[string]interfa
 
 	return diffs
 }
+
+func PrefixedKey(key string) string {
+	if !strings.HasPrefix(key, "/") {
+		return "/"+key
+	}
+	return key
+}

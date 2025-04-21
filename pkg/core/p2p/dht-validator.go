@@ -26,7 +26,7 @@ type NodeMultiAddressDataIndexed struct {
     Data NodeMultiAddressData
 }
 
-var keyPrefixes = []string{"val","cost"}
+var keyPrefixes = []string{string(ValDhtPrefix), string(AppDhtPrefix), string(AppRefDhtPrefix) , "cost"}
 
 func (v *DhtValidator) Validate(key string, value []byte) error {
     if strings.Index(key, "/") != 0 {
@@ -50,7 +50,7 @@ func (v *DhtValidator) Validate(key string, value []byte) error {
         return v.validateValidatorListKey(parts, value)
     case "cost":
         return v.validatePriceKey(&parts, &value)
-    case "app", "snetRef":
+    case string(AppDhtPrefix), string(AppRefDhtPrefix):
         return v.validateApplicationKey(&parts, &value)
     }
 
@@ -66,7 +66,7 @@ func (v *DhtValidator) Select(key string, values [][]byte) (int, error) {
     case "val":
 		return v.selectFromValidatorList(&parts, &values)
 	
-    case "app", "snetRef":
+    case string(AppDhtPrefix), string(AppRefDhtPrefix):
 		return v.selectFromApplicationValidatorList(&parts, &values)
 	}
     // Handle selecting the valid value among multiple
@@ -86,15 +86,18 @@ func (v *DhtValidator) validateValidatorListKey(parts []string, value []byte ) e
     if err != nil {
         return fmt.Errorf("DhtValidator: Invalid validator multiaddress data - %v", err)
     }
-    
+   
     if !addresses.IsValid(v.config.ChainId) {
+     
         return errors.New("DhtValidator: Invalid validator address signature")
     }
    
-   
+
     if parts[3] != hex.EncodeToString(addresses.Signer) && parts[3] != hex.EncodeToString(addresses.PubKeyEDD) {
+        logger.Errorf("DHTVALUDATOR: %s", "NOT_VALID_SIGNER")
         return errors.New("DhtValidator: Signer and PubKeySecp does not match key public key")
     }
+   
     isValidator,  _ := chain.NetworkInfo.IsValidator(hex.EncodeToString(addresses.Signer))
     if !isValidator {
         return errors.New("DhtValidator: Signer is not a validator")
@@ -109,6 +112,7 @@ func (v *DhtValidator) validateValidatorListKey(parts []string, value []byte ) e
 func (v *DhtValidator) selectFromValidatorList(parts *[]string, value *[][]byte ) (int, error) {
     result := []NodeMultiAddressDataIndexed{}
     for idx, b := range *value {
+        logger.Debugf("DHTLEN: %v, %d", *parts, idx)
         d, err := UnpackNodeMultiAddressData(b)
         if err != nil {
             continue
@@ -152,12 +156,7 @@ func (v *DhtValidator) validatePriceKey(parts *[]string, value *[]byte ) error {
     if !priceData.IsValid(cfg.ChainId) {
         return errors.New("DhtValidator: Invalid price signature")
     }
-   
-   
-    // check if signer is validator
-    // if chain.HasValidStake(addresses.Signer, &v.config) {
-    //     return errors.New("DhtValidator: Signer is not a validator")
-    // }
+
 
 	return nil
 }
@@ -166,7 +165,7 @@ func (v *DhtValidator) validateApplicationKey(parts *[]string, value *[]byte ) e
     if len((*parts)) != 4 {
 		return errors.New("DhtValidator: app key parts too short or long")
 	}
-	if len((*parts)[3]) != 32 || len((*parts)[3]) != 64 {
+	if len((*parts)[3]) != 32  &&  len((*parts)[3]) != 36 {
 		return errors.New("DhtValidator: app key value must be app uuid or Keccak hash of app ref")
 	}
 
@@ -179,14 +178,14 @@ func (v *DhtValidator) validateApplicationKey(parts *[]string, value *[]byte ) e
         if !isValidator {
             return errors.New("DhtValidator: Signer is not a validator")
         }
-        if (*parts)[2] == "app" {
+        if (*parts)[2] == string(AppDhtPrefix) {
             validators := bytes.Split(validatorData.Validators, []byte{':'})
             if len(validators) == 0 {
                 return fmt.Errorf("DhtValidator: must contain list of validators")
             }
             for _, validator := range validators {
-                if len(validator) != 0 && len(validator) != 32 {
-                    return fmt.Errorf("DhtValidator: invalid validator public key")
+                if len(validator) < 16 && len(validators) == 1  {
+                    return fmt.Errorf("DhtValidator: invalid validator public key - %X", validator)
                 }
             }
      }
@@ -195,6 +194,7 @@ func (v *DhtValidator) validateApplicationKey(parts *[]string, value *[]byte ) e
     
 	return nil
 }
+
 
 func (v *DhtValidator) selectFromApplicationValidatorList(_ *[]string, values *[][]byte ) (int, error) {
     result := []ApplicationValidator{}

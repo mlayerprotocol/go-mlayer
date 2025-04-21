@@ -36,7 +36,7 @@ type SystemMessage struct {
 }
 
 
-func (d SystemMessage) GetSignature() (string) {
+func (d SystemMessage) GetKey() (string) {
 	if d.SignatureData.Type == TendermintsSecp256k1PubKey {
 		val, _ := base64.StdEncoding.DecodeString(string(d.SignatureData.Signature))
 		 return hex.EncodeToString(val)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"sort"
 
 	"fmt"
 	"io"
@@ -13,7 +14,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto/bls"
 	dsquery "github.com/mlayerprotocol/go-mlayer/internal/ds/query"
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/internal/system"
@@ -26,7 +27,7 @@ func HandleQuicConnection(ctx *context.Context, cfg *configs.MainConfiguration, 
 		logger.Infof("NewRemoteStreamStarted: %s", connection.RemoteAddr().String())
 		newStream, err := connection.AcceptStream(*ctx)
 		if err != nil {
-			if  _, ok := err.(*quic.StreamError); ok {
+			if _, ok := err.(*quic.StreamError); ok {
 				continue
 			} else {
 				return
@@ -55,11 +56,11 @@ func HandleQuicConnection(ctx *context.Context, cfg *configs.MainConfiguration, 
 			}
 			if len(data.Bytes()) == 0 {
 				return
-			} 
+			}
 			payload, err := p2p.UnpackP2pPayload(data.Bytes())
 
 			if err != nil {
-				
+
 				logger.Errorf("HandleQuicConnection/UnpackP2pPayload: %v, %d", err, data.Len())
 				return
 			}
@@ -74,56 +75,79 @@ func HandleQuicConnection(ctx *context.Context, cfg *configs.MainConfiguration, 
 			case p2p.P2pActionPostEvent:
 				eventPayload := entities.EventPayload{}
 				err := encoder.MsgPackUnpackStruct(payload.Data, &eventPayload)
+				modelType := entities.GetModelTypeFromEventType(eventPayload.EventType)
 				if err == nil {
-					event, err := entities.UnpackEvent(eventPayload.Event, entities.GetModelTypeFromEventType(eventPayload.EventType))
+					event, err := entities.UnpackEvent(eventPayload.Event, modelType)
 					if err == nil {
-						resp, err := service.HandleNewPubSubEvent(*event, cfg.Context)
+						eventResp, err := service.HandleNewPubSubEvent(*event, cfg.Context)
+						logger.Infof("EVENTRESP: %+v", eventResp)
+						resp := entities.EventDelta{}
 						if err == nil {
-							stateBytes, err := encoder.MsgPackStruct(resp.State)
-							// stateBytes, err := dsquery.GetStateBytesFromEventPath(event.GetPath())
-							if err == nil {
-								delta := map[string]interface{}{}
-								state := map[string]interface{}{}
-								prevState := map[string]interface{}{}
-								encoder.MsgPackUnpackStruct(stateBytes, &state)
-								var previousStateBytes []byte
-								logger.Infof("STATEMAP %+v", resp.State)
-								if event.PreviousEvent.ID != "" && event.PreviousEvent.EntityPath.Model == event.GetPath().Model {
-									previousStateBytes, err = dsquery.GetStateBytesFromEventPath(&event.PreviousEvent)
-									logger.Infof("STATEMAP %v", previousStateBytes)
-									if err == nil {
-										encoder.MsgPackUnpackStruct(previousStateBytes, &prevState)
-										delta = utils.GetDifference(prevState, state)
-									} else {
-										delta = state
-									}
-								} else {
-									delta = state
+							for _, stateData := range eventResp.States {
+								delta, errD := service.GetStateDelta(stateData, *event)
+								if errD != nil {
+									err = errD
+									break 
 								}
-								b, err := encoder.MsgPackStruct(delta)
-								 if err == nil {
-									// logger.Infof("STATEDELTA %v", delta)
-									// pack, err := encoder.MsgPackStruct(delta)
-									//if err == nil {
-										var previousHash []byte
-										if len(fmt.Sprint(prevState["h"])) > 0 {
-											previousHash, _ = hex.DecodeString(fmt.Sprint(prevState["h"]))
-										}
-										resp := entities.EventDelta{Delta: b, PreviousHash: previousHash}
-										resp.Hash, _ = resp.GetHash()
-										sig, _ := crypto.SignSECP(resp.Hash, cfg.PrivateKeySECP)
-										resp.Signatures = []entities.SignatureData{
-											{Signature: entities.HexString(hex.EncodeToString(sig)), PublicKey: entities.PublicKeyString(cfg.PublicKeySECPHex)},
-										}
-										// resp.Signature, _ = crypto.SignSECP(resp.Hash, cfg.PrivateKeySECP)
-										// resp.Validator = cfg.PublicKeySECP
-										response.Data, _ = encoder.MsgPackStruct(resp)
-									//}
+								resp.Deltas = append(resp.Deltas, *delta)
+								// stateBytes, err := encoder.MsgPackStruct(stateData.StateData)
+								// // stateBytes, err := dsquery.GetStateBytesFromEventPath(event.GetPath())
+								// if err == nil {
+								// 	delta := make(map[string]interface{})
+								// 	state := make(map[string]interface{})
+								// 	prevState := map[string]interface{}{}
+								// 	encoder.MsgPackUnpackStruct(stateBytes, &state)
+								// 	var previousStateBytes []byte
+								
+								// 	if event.PreviousEvent.ID != "" && event.PreviousEvent.EntityPath.Model == event.GetPath().Model {
+								// 		previousStateBytes, err = dsquery.GetStateBytesFromEventPath(&event.PreviousEvent)
+								// 		logger.Infof("STATEMAP %v", previousStateBytes)
+								// 		if err == nil {
+								// 			encoder.MsgPackUnpackStruct(previousStateBytes, &prevState)
+								// 			delta = utils.GetDifference(prevState, state)
+								// 		}
+								// 	} else {
+								// 		delta = state
+								// 	}
+								
+								// 	if _, ok := delta["id"]; !ok {
+								// 		delta["id"] = prevState["id"]
+								// 	}
+								// 	b, err := encoder.MsgPackStruct(delta)
+								// 	if err == nil {
+								// 		// logger.Infof("STATEDELTA %v", delta)
+								// 		// pack, err := encoder.MsgPackStruct(delta)
+								// 		//if err == nil {
+								// 		var previousHash []byte
+								// 		if len(fmt.Sprint(prevState["h"])) > 0 {
+								// 			previousHash, _ = hex.DecodeString(fmt.Sprint(prevState["h"]))
+								// 		}
+								// 		resp.Deltas = append(resp.Deltas, entities.StateDelta{Type: stateData.Type, Delta: b, StateID: stateData.StateID, PreviousHash: previousHash})
+								// 	}
 
-								 }
+								// 	// sig, _ := crypto.SignSECP(resp.Hash, cfg.PrivateKeySECP)
+								// 	// resp.Signatures = []entities.SignatureData{
+								// 	// 	{Signature: entities.HexString(hex.EncodeToString(sig)), PublicKey: entities.PublicKeyString(cfg.PublicKeySECPHex)},
+								// 	// }
+								// 	// resp.Signature, _ = crypto.SignSECP(resp.Hash, cfg.PrivateKeySECP)
+								// 	// resp.Validator = cfg.PublicKeySECP
+
+								// 	//}
+
+								// }
 							}
+							resp.Hash, _ = resp.GetHash()
+							resp.Event = event.ID
+							sig, _ := bls.BlsProofGenerator.Sign(cfg.PrivateKeyBLS, resp.Hash)
+							resp.SignatureData = entities.BlsSignatureData{
+								Signature: entities.HexString(hex.EncodeToString(sig)), PublicKeys: []entities.PublicKeyString{entities.PublicKeyString(cfg.PublicKeyBLSPHex)},
+							}
+							// resp.Validator = cfg.PublicKeyBLSPHex
+							response.Data, _ = encoder.MsgPackStruct(resp)
+
 						}
 					}
+
 				}
 				if err != nil {
 					logger.Errorf("ErrorProccessingEvent: %v", err)
@@ -131,10 +155,10 @@ func HandleQuicConnection(ctx *context.Context, cfg *configs.MainConfiguration, 
 					response.ResponseCode = 500
 				}
 			case p2p.P2pActionNotifyValidEvent:
-				
+
 				eventPath := entities.EventPath{}
 				err := encoder.MsgPackUnpackStruct(payload.Data, &eventPath)
-				
+
 				if err == nil {
 					if v, err := system.Mempool.GetData(eventPath.ID); err == nil {
 
@@ -165,35 +189,55 @@ func HandleQuicConnection(ctx *context.Context, cfg *configs.MainConfiguration, 
 				if err == nil {
 					valid := true
 					hash, _ := stateDelta.GetHash()
-					for _, sig := range stateDelta.Signatures {
-						if v, _ := crypto.VerifySignatureSECP(sig.PublicKey.GetBytes(), hash, sig.Signature.GetBytes()); !v {
-							valid = false
-						}
+					pubKeys := stateDelta.SignatureData.PublicKeys
+					sort.Slice(&pubKeys, func(i, j int) bool {
+						return string(pubKeys[i]) < string(pubKeys[j])
+					})
+					// for _, sig := range stateDelta.SignatureData.PublicKeys {
+					// 	if v, _ := crypto.VerifySignatureSECP(sig.PublicKey.GetBytes(), hash, sig.Signature.GetBytes()); !v {
+					// 		valid = false
+					// 	}
+					// }
+					pubKeysBytes := [][]byte{}
+					for _, pubk := range pubKeys {
+						b, _ := hex.DecodeString(string(pubk))
+						pubKeysBytes = append(pubKeysBytes, b)
 					}
+					valid, err := bls.BlsProofGenerator.VerifyAggregateSignature(pubKeysBytes, hash, stateDelta.SignatureData.Signature.GetBytes())
+
 					if valid {
-						delta := map[string]interface{}{}
-						encoder.MsgPackUnpackStruct([]byte(stateDelta.Delta), delta)
-						id := fmt.Sprint(delta["id"])
-						model := entities.GetModelTypeFromEventType(stateDelta.Event.EventType)
-						var newState = entities.GetStateModelFromEntityType(model)
-						//var prevEventPath *entities.EventPath
-						if stateDelta.PreviousHash != nil {
-							// prevEvent := &entities.Event{}
-							newState, _, err = service.SyncStateFromPeer(fmt.Sprint(delta["id"]), model, cfg, string(stateDelta.Event.Validator))
-							if err != nil {
-								logger.Errorf("ErrorSyncingOldState")
-								
+						dataState := dsquery.NewDataStates(stateDelta.Event, cfg)
+						for _, deltaData := range stateDelta.Deltas {
+							delta := map[string]interface{}{}
+							encoder.MsgPackUnpackStruct([]byte(deltaData.Delta), delta)
+							id := fmt.Sprint(delta["id"])
+							model := deltaData.Type
+							var newState = entities.GetStateModelFromEntityType(model)
+							//var prevEventPath *entities.EventPath
+							if deltaData.PreviousHash != nil {
+								// prevEvent := &entities.Event{}
+								newState, _, err = service.SyncStateFromPeer(fmt.Sprint(delta["id"]), model, cfg, string(stateDelta.SignatureData.PublicKeys[0]))
+								if err != nil {
+									logger.Errorf("ErrorSyncingOldState")
+
+								}
+								// if prevEvent != nil {
+								// 	prevEventPath = prevEvent.GetPath()
+								// }
 							}
-							// if prevEvent != nil {
-							// 	prevEventPath = prevEvent.GetPath()
-							// }
+							if err == nil {
+								utils.MapToStruct(delta, &newState)
+								dataState.AddCurrentState(model, id, newState)
+							} else {
+								logger.Errorf("state sync error: %v", err)
+							}
+
 						}
-						if err != nil {
-							utils.MapToStruct(delta, &newState)
-							dataState := dsquery.NewDataStates(stateDelta.Event.ID, cfg)
-							dataState.AddCurrentState(model, id, newState)
+						if err == nil {
 							// dataState.AddEvent(stateDelta.Event)
-							err = dataState.Commit(nil, nil, nil, stateDelta.Event.ID, nil)
+							err = dataState.Commit(nil, nil, nil, stateDelta.Event, nil)
+						} else {
+							logger.Errorf("state sync error: %v", err)
 						}
 					}
 				}

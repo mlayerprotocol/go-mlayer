@@ -22,6 +22,7 @@ type DataStates struct {
 	DhtSync map[string][]byte
 	Config *configs.MainConfiguration	`json:"-"`
 	DataCount uint16
+	mainEventId string
 }
 
 
@@ -33,6 +34,7 @@ func NewDataStates(eventId string, cfg *configs.MainConfiguration) *DataStates {
 		HistoricState: make(map[entities.EntityPath][]byte),
 		Config: cfg,
 		DhtSync: make(map[string][]byte),
+		mainEventId: eventId,
 	}
 }
 
@@ -44,12 +46,12 @@ func (ds *DataStates) AddEvent( event entities.Event) {
 	if len(event.Error) > 0 {
 		event.IsValid = utils.FalsePtr()
 	}
-	if ds.Events[event.ID].ID == "" {
-		id, err := event.GetId()
-		if err != nil {
-			panic(err)
-		}
-		ds.Events[id] = event
+	if _, found := ds.Events[event.ID]; !found {
+		// id, err := event.GetId()
+		// if err != nil {
+		// 	panic(err)
+		// }
+		ds.Events[event.ID] = event
 		ds.DataCount++
 	} else {
 		var s = ds.Events[event.ID];
@@ -92,8 +94,9 @@ func (ds *DataStates) error(updateError error, eventId string, eventTx *datastor
 		wb = stores.EventStore.DB.NewWriteBatch()
 	}
 	for _, v := range ds.Events {
-		logger.Debugf("EVENSTTOSAVE: %v", v.Hash)
+		logger.Debugf("EVENSTTOSAVE: %v, %v", v.Hash, updateError)
 		if v.ID == eventId {
+			logger.Debugf("MAINEVENT: %v", v.Hash)
 			v.Error = updateError.Error()
 			v.IsValid = utils.FalsePtr()
 			v.Synced = utils.TruePtr()
@@ -119,6 +122,7 @@ func (ds *DataStates) Save(key string) error {
 	if err != nil {
 		return err
 	}
+	
 	go func() {
 		channelpool.MempoolC <- &entities.KeyByteValue{Key: key, Value: b};
 	}()
@@ -156,6 +160,7 @@ func (ds *DataStates) Commit(stateTx *datastore.Txn, eventTx *datastore.Txn, mes
 		}
 	} else {
 		_eventWB = stores.EventStore.DB.NewWriteBatch()
+		defer _eventWB.Cancel()
 	}
 	// if eventTx == nil {
 	// 	defer _eventTxn.Discard(context.Background())
@@ -173,11 +178,45 @@ func (ds *DataStates) Commit(stateTx *datastore.Txn, eventTx *datastore.Txn, mes
 		defer _messageTxn.Discard(context.Background())
 	}
 
+	for _, v := range ds.Events {
+		logger.Debugf("EVENSTTOSAVE: %v", v.ID)
+		
+		err = UpdateEvent(&v, eventTx,  _eventWB, true)
+		
+	   if err != nil {
+		   return err
+	   }
+	  //  err = IncrementCounters(v.Cycle, v.Validator, v.Application, &_eventTxn)
+   }
+   
+	if _eventWB != nil && err == nil {
+		if len(ds.Events) == 0 {
+			_eventWB.Cancel()
+		} else {
+			err = _eventWB.Flush()			
+			if err != nil && ds.Events[ds.mainEventId].Validator == entities.PublicKeyString(ds.Config.PublicKeyEDDHex) {
+				logger.Errorf("COMMITEDEVENTError %v", err)
+
+				return err
+			}
+		}
+	}	
+	if eventTx != nil && err == nil {
+		if len(ds.Events) == 0 {
+			_eventTxn.Discard(context.Background())
+		} else {
+			err = _eventTxn.Commit(context.Background())
+			if err != nil {
+				logger.Errorf("COMMITEDEVENTError %v", err)
+			}
+		}
+	}
+	if err != nil {
+		return err
+	}
+
 	for k, v := range ds.CurrentStates {
-		
 		// var state interface{}
-		
-		 
 		switch k.Model {
 		case entities.ApplicationModel:
 			state := entities.Application{}
@@ -237,30 +276,17 @@ func (ds *DataStates) Commit(stateTx *datastore.Txn, eventTx *datastore.Txn, mes
 		}
 
 	}
-
-	for k, v := range ds.DhtSync {
-		err	 = _stateTxn.Put(context.Background(),datastore.NewKey(k), v)
-	   if err != nil {
-		   return err
-	   }
-
-   }
-
+	
+	batch :=  stores.DhtSyncPoolStore.DB.NewWriteBatch()
+	for k, v := range ds.DhtSync  {
+		batch.Set(datastore.NewKey(k).Bytes(), v)
+	}
+	 err = batch.Flush()
 	if len(ds.Events) == 0 {
 		// panic("No events")
 		logger.Warnf("No Event Data")
 	}
-	for _, v := range ds.Events {
-		logger.Debugf("EVENSTTOSAVE: %v", v.Hash)
-		
-		err = UpdateEvent(&v, eventTx,  _eventWB, true)
-		
-	   if err != nil {
-		   return err
-	   }
-	  //  err = IncrementCounters(v.Cycle, v.Validator, v.Application, &_eventTxn)
-
-   }
+	
    if stateTx == nil && err == nil {
 		err = _stateTxn.Commit(context.Background())
 		if err != nil {
@@ -273,26 +299,7 @@ func (ds *DataStates) Commit(stateTx *datastore.Txn, eventTx *datastore.Txn, mes
 			logger.Errorf("COMMITEDEVENT %v", err)
 		}
 	}	
-	if eventTx != nil && err == nil {
-		if len(ds.Events) == 0 {
-			_eventTxn.Discard(context.Background())
-		} else {
-		err = _eventTxn.Commit(context.Background())
-		if err != nil {
-			logger.Errorf("COMMITEDEVENTError %v", err)
-		}
-		}
-	}
-	if _eventWB != nil && err == nil {
-		if len(ds.Events) == 0 {
-			_eventWB.Cancel()
-		} else {
-		err = _eventWB.Flush()
-		if err != nil {
-			logger.Errorf("COMMITEDEVENTError %v", err)
-		}
-		}
-	}	
+	
 	if err == nil {
 		// go utils.WriteBytesToFile(filepath.Join(ds.Config.DataDir, "log.txt"), []byte("newMessage" + "\n"))
 	} else{

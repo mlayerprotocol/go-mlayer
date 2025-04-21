@@ -152,7 +152,7 @@ func saveMessageEvent(where entities.Event, createData *entities.Event, updateDa
 	return SaveEvent(entities.MessageModel, where, createData, updateData, txn)
 
 }
-func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( err error) {
+func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) (resp *entities.EventProcessorResponse, err error) {
 	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		panic("Unable to load config from context")
@@ -160,7 +160,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( 
 	dataStates := dsquery.NewDataStates(event.ID, cfg)
 	dataStates.AddEvent(*event)
 	
-
+	modelType := event.GetDataModelType()
 	validator := utils.IfThenElse(event.IsLocal(cfg), "", string(event.Validator))
 
 	data := event.Payload.Data.(entities.Message)
@@ -175,7 +175,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( 
 	id, _ = entities.GetId(data, data.ID)
 	hash, err := data.GetHash()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	data.Hash = hex.EncodeToString(hash)
 	data.AppKey = event.Payload.AppKey
@@ -272,6 +272,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( 
 					logger.Error("PostCommitError: ", err)
 					return err
 				}
+				
 				app.KeyStore.(smartletKeyStore).Commit()
 				
 				return err
@@ -287,7 +288,10 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( 
 		// }
 
 		if err == nil {
-			
+			resp = &entities.EventProcessorResponse{
+				States:[]entities.StateDataInterface{{StateID: data.ID, Type: modelType, StateData: dataStates.CurrentStates[entities.EntityPath{Model: modelType, ID: data.ID}]}},
+				Hash: data.Hash,
+			}
 			logger.Infof("POOOSIOIOSID")
 			go OnFinishProcessingEvent(cfg, event, &data, app.GetResult())
 			// go utils.WriteBytesToFile(filepath.Join(cfg.DataDir, "log.txt"), []byte("newMessage" + "\n"))
@@ -319,7 +323,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( 
 	previousEventUptoDate, authEventUpToDate, _, _, err := ProcessEvent(event, eventData, true, saveMessageEvent, nil, nil, ctx, dataStates)
 	if err != nil {
 		logger.Errorf("Processing Error...: %v", err)
-		return err
+		return nil, err
 	}
 	logger.Debugf("Processing 2...: %v,  %v, %s", previousEventUptoDate, authEventUpToDate, event.ID)
 	// get the topic, if not found retrieve it
@@ -328,7 +332,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( 
 		
 		_, err = SyncTypedStateById(data.Topic, topic, cfg, validator)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// err = validateState(event, data.Topic, &data.Event, entities.TopicModel, dataStates, cfg)
@@ -369,12 +373,12 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( 
 			err = validateState(event, subscription.ID, &subscription.Event, entities.SubscriptionModel, dataStates, cfg)
 			if err != nil {
 				logger.Debugf("validateSubscriptionStateError: %v", err)
-				return err
+				return nil, err
 			}
 
 			// savedEvent, err := saveMessageEvent(entities.Event{ID: event.ID}, nil, &entities.Event{IsValid:  utils.TruePtr(), Synced:  utils.TruePtr()}, &txn, tx );
 			dataStates.AddEvent(entities.Event{ID: event.ID, IsValid: utils.TruePtr(), Synced: utils.TruePtr()})
-			dataStates.AddCurrentState(entities.MessageModel, id, data)
+			dataStates.AddCurrentState(modelType, id, data)
 			//if  err == nil {
 			// update state
 			// logger.Debugf("CreateMessageData: %+v", data)
@@ -432,7 +436,7 @@ func HandleNewPubSubMessageEvent(event *entities.Event, ctx *context.Context) ( 
 
 		}
 	}
-	return nil
+	return resp, err
 }
 
 
@@ -453,7 +457,7 @@ func validateState(event *entities.Event, stateId string, stateEvent  *entities.
 			logger.Infof("EVENTSTATES %v", event.StateEvents)
 			eventStateEvent, eventState, isLocal, err := GetEventByPath(&event.StateEvents[getEventStateId].Event, cfg, "")
 			if err != nil {
-				logger.Debugf("GetEventByPathError2 %v", err)
+				logger.Debugf("MessageError %v", err)
 				return err
 			}
 			if (!isLocal) {

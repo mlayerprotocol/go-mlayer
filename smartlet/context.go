@@ -1,12 +1,16 @@
 package smartlet
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"sort"
 
+	"github.com/cespare/xxhash"
 	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/sirupsen/logrus"
+	"github.com/vmihailenco/msgpack"
 	"github.com/zeebo/xxh3"
 )
 
@@ -79,7 +83,34 @@ type App struct {
 	
 }
 
-
+func (d *UpdateData) DataHash() (uint64, error) {
+		// Step 1: Sort keys
+		m := d.Data
+		keys := make([]Key, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		
+		sort.Slice(keys, func(i, j int) bool {
+			return bytes.Compare(keys[i][:], keys[j][:]) < 0
+		})
+	
+		// Step 2: Convert to deterministically ordered structure
+		ordered := make([][2]interface{}, 0, len(keys))
+		for _, k := range keys {
+			ordered = append(ordered, [2]interface{}{k, m[k]})
+		}
+	
+		// Step 3: Msgpack encode
+		data, err := msgpack.Marshal(ordered)
+		if err != nil {
+			return 0, err
+		}
+	
+		// Step 4: Hash using xxHash64
+		return xxhash.Sum64(data),  nil
+	
+}
 func NewApplication(event *entities.Event, topic *entities.Topic, logger *logrus.Logger, KeyStore KeystoreInterface, ctx *context.Context) *App {
 	// keystore := KeyStore{db: db, updateData: []UpdateData{}, logger: logger}
 	return &App{ event, topic, KeyStore, logger, &map[uint8][]byte{}, ctx, &Result{}}

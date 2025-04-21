@@ -25,6 +25,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/global"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain/ring"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto/bls"
 	dsquery "github.com/mlayerprotocol/go-mlayer/internal/ds/query"
 	dsstores "github.com/mlayerprotocol/go-mlayer/internal/ds/stores"
 	"github.com/mlayerprotocol/go-mlayer/internal/system"
@@ -113,6 +114,8 @@ func Start(mainCtx *context.Context) {
 	// 	}
 	// }()
 
+	bls.BlsProofGenerator = bls.NewBlsProofGeneratorFromPrivateKey(cfg.PrivateKeyBLS)
+
 	for _, globaEvent := range global.GlobalEvent {
 		// data = append(data, &globalSubs)
 		// dsstores.StateStore.Delete(context.Background(), datastore.NewKey(globaTopic.RefKey()))
@@ -151,7 +154,7 @@ func Start(mainCtx *context.Context) {
 		logger.Fatal(err)
 	}
 	if len(ringNodes) > 0 {
-		ring.GlobalHashRing, err = ring.NewHashRing(ringNodes, 2)
+		ring.GlobalHashRing, err = ring.NewHashRing(ringNodes, 5)
 		if  err != nil {
 			logger.Fatal(err)
 		}
@@ -159,13 +162,26 @@ func Start(mainCtx *context.Context) {
 
 	defer wg.Wait()
 
+	// wg.Add(1)
+	// go func() {
+	// 	_, cancel := context.WithCancel(context.Background())
+	// 	defer cancel()
+	// 	defer wg.Done()
+	// 	circuits.AppCircuitData = map[uint8]*entities.CircuitData{}
+		
+	// 	entities.CircuitProps{Circuit: &circuits.AppCircuit{}, ChainId: cfg.ChainId, Version: 1, Type: constants.APP_CIRCUIT}.LoadData("../data", &circuits.AppCircuitData)
+
+	// }()
+
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		p2p.StateDhtSyncer = p2p.NewDhtSyncer(dsstores.StateStore, context.Background())
+		p2p.StateDhtSyncer = p2p.NewDhtSyncer(dsstores.DhtSyncPoolStore, context.Background())
 		p2p.StateDhtSyncer.Sync()
 	}()
+
+
 	
 	//  wg.Add(1)
 	// go func() {
@@ -290,7 +306,7 @@ func Start(mainCtx *context.Context) {
 		defer cancel()
 		defer wg.Done()
 		
-		chain.NetworkInfo.SyncedValidators = map[string]multiaddr.Multiaddr{}
+		// chain.NetworkInfo.SyncedValidators = map[string]multiaddr.Multiaddr{}
 		// ticker := time.NewTicker(500 * time.Millisecond)
 		// defer ticker.Stop()
 			// for range ticker.C {

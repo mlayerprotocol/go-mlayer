@@ -155,7 +155,7 @@ type Message struct {
 	// Attachments  string `json:"-" gorm:"-" msgpack:"-"`
 }
 
-func (d Message) GetSignature() (string) {
+func (d Message) GetKey() (string) {
 	return d.EventSignature
 }
 
@@ -225,7 +225,7 @@ func (item *Message) DataKey() string {
 }
 
 
-func (g *Message) GetKeys() (keys []string)  {
+func (g *Message) GetDataStoreKeys() (keys []string)  {
 	
 	if g.EventTimestamp == 0 {
 		g.EventTimestamp = uint64(time.Now().UnixMilli())
@@ -281,6 +281,9 @@ func (g *Message) MessageSenderReceiverKey() (string) {
 	} else {
 		return fmt.Sprintf("%s/s/%s/%s", MessageModel, g.Receiver, g.Receiver)
 	}
+}
+func (p Message) GetId() string {
+	return p.ID
 }
 
 

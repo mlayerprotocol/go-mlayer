@@ -29,4 +29,5 @@ const (
 	NodeTopicsStore                 DataStore		= "node-topics-store"
 	GlobalHandlerStore	DataStore		= "global-handler-store"
 	MempoolStore	DataStore		= "mempool-store"
+	DhtSyncStore	DataStore		= "dht-sync-store"
 )

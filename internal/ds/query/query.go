@@ -60,7 +60,7 @@ func EntityDataKey(model entities.EntityModel, eventHash string) string {
 }
 
 func GetStateById(did string, modelType entities.EntityModel) ([]byte, error) {
-	defer utils.TrackExecutionTime(time.Now(), "GetStateById")
+	// defer utils.TrackExecutionTime(time.Now(), "GetStateById")
 	var stateData []byte
 	_store := stores.StateStore
 	if modelType == entities.MessageModel {
@@ -227,10 +227,10 @@ func UpdateState(id string, newState NewStateParam, tx *datastore.Txn) error {
 
 func RefExists(entityType entities.EntityModel, ref string, app string) (bool, error) {
 	ds := stores.StateStore
-	refKey := fmt.Sprintf("%s|ref|%s", entityType, ref)
-	if app != "" {
-		refKey = fmt.Sprintf("%s|ref|%s|%s", entityType, app, ref)
-	}
+	//refKey := fmt.Sprintf("%s|ref|%s", entityType, ref)
+	//if app != "" {
+		refKey := fmt.Sprintf("%s|ref|%s|%s", entityType, app, ref)
+	//}
 	value, err := ds.Get(context.Background(), datastore.NewKey(refKey))
 	if err != nil {
 		if IsErrorNotFound(err) {
@@ -321,7 +321,7 @@ func createArchiveDir(cfg *configs.MainConfiguration) (string, error) {
 	if strings.HasPrefix(cfg.DataDir, "../") && !strings.HasPrefix(dir, "../") {
 		dir = "../" + dir
 	}
-	return dir, os.MkdirAll(dir, os.ModePerm)
+	return dir, os.MkdirAll(dir, constants.OsModeReadWriteOnly)
 }
 
 type ExportData struct {
@@ -453,7 +453,7 @@ func ArchiveEvents(cfg *configs.MainConfiguration) error {
 							
 							cycleDir := filepath.Join(cfg.ArchiveDir, fmt.Sprint(event.Cycle))
 							
-							if err := os.MkdirAll(cycleDir, os.ModePerm); err != nil {
+							if err := os.MkdirAll(cycleDir, constants.OsModeReadWriteOnly); err != nil {
 								panic(err)
 							}
 							if err != nil {
@@ -545,10 +545,10 @@ func ArchiveEvents(cfg *configs.MainConfiguration) error {
 
 	// for cy, v := range rsl {
 	// 	cycleDir := filepath.Join( cfg.ArchiveDir, fmt.Sprint(cy))
-	// 	if err := os.MkdirAll(cycleDir, os.ModePerm); err != nil {
+	// 	if err := os.MkdirAll(cycleDir, constants.OsModeReadWriteOnly); err != nil {
 	// 		panic(err)
 	// 	}
-	// if err := os.MkdirAll(cycleDir, os.ModePerm); err != nil {
+	// if err := os.MkdirAll(cycleDir, constants.OsModeReadWriteOnly); err != nil {
 	// 			panic(err)
 	// 		}
 

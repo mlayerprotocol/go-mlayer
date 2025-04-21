@@ -61,8 +61,8 @@ func HandleNewNodeSystemMessageEvent(event *entities.Event, ctx *context.Context
 			if err != nil {
 				logger.Errorf("HandleAnnounceSelfErrorEncoder: %v", err)
 			}
-			 logger.Infof("NewValidBroadcastedAddressData: %v", mad.Signer)
-			if mad.IsValid(cfg.ChainId) {
+			//  logger.Infof("NewValidBroadcastedAddressData: %v", mad.Signer)
+			//if mad.IsValid(cfg.ChainId) {
 				// err := stores.SystemStore.Set(context.Background(), datastore.NewKey(fmt.Sprintf("/mad/%s", event.Validator)), message.Data, true)
 				// if err != nil {
 				// 	logger.Errorf("MadStoreError: %s ::: %v", fmt.Sprintf("/mad/%s", event.Validator),  err)
@@ -77,9 +77,9 @@ func HandleNewNodeSystemMessageEvent(event *entities.Event, ctx *context.Context
 				// p2p.ValidCerts[remoteAddress] = ""
 				// p2p.ValidCerts[fmt.Sprintf("%s/addr", event.Validator)] = ""
 				// p2p.ValidCerts[hex.EncodeToString(mad.CertHash)] = ""
-			} else {
-				return fmt.Errorf("invalid mad")
-			}
+			// } else {
+			// 	return fmt.Errorf("invalid mad")
+			// }
 			return err
 		}
 

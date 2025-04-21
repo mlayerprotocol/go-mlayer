@@ -43,10 +43,11 @@ func CreateEvent(payload entities.ClientPayload, ctx *context.Context) (model an
 	}
 	stateEvent := []entities.StateEvents{}
 	
-	var authState *models.AuthorizationState
+	var authState *entities.Authorization
 	var agent *entities.DeviceString
-	logger.Infof("SUBSCRIPTION_PAYLOAD2 %+v", payload)
-	excludedEvents := []constants.EventType{constants.CreateApplicationEvent, constants.UpdateApplicationEvent, constants.DeleteApplicationEvent, constants.AuthorizationEvent}
+	logger.Infof("EVENTPAYLOAD %+v", payload)
+	// excludedEvents := []constants.EventType{constants.CreateApplicationEvent, constants.UpdateApplicationEvent, constants.DeleteApplicationEvent, constants.AuthorizationEvent}
+	excludedEvents := []constants.EventType{ constants.DeleteApplicationEvent, constants.AuthorizationEvent}
 	if !slices.Contains(excludedEvents, constants.EventType(payload.EventType)) {
 		logger.Infof("ISNOTEXLUCDED: %d",  payload.EventType)
 		authState, agent, err = ValidateClientPayload( &payload, true, cfg)
@@ -55,34 +56,37 @@ func CreateEvent(payload entities.ClientPayload, ctx *context.Context) (model an
 		if err != nil && err != gorm.ErrRecordNotFound && !dsquery.IsErrorNotFound(err)  {
 			return model, err
 		}
-		if authState == nil || *authState.Authorization.Priviledge < constants.MemberPriviledge {
-			// agent not authorized
-			return model, apperror.Unauthorized("agent unauthorized to write in this app")
-		}
+		if payload.EventType != constants.CreateApplicationEvent && payload.EventType != constants.UpdateApplicationEvent {
+			if authState == nil || *authState.Priviledge < constants.MemberPriviledge {
+				// agent not authorized
+				return model, apperror.Unauthorized("agent unauthorized to write in this app")
+			}
 
-		if *authState.Duration != 0 && uint64(time.Now().UnixMilli()) >
-			(uint64(*authState.Timestamp)+uint64(*authState.Duration)) {
-			return model, apperror.Unauthorized("Agent authorization expired")
+			if *authState.Duration != 0 && uint64(time.Now().UnixMilli()) >
+				(uint64(*authState.Timestamp)+uint64(*authState.Duration)) {
+				return model, apperror.Unauthorized("Agent authorization expired")
+			}
+			payload.AppKey = *agent
 		}
-		payload.AppKey = *agent
+		
 	}
 
 	var assocPrevEvent *entities.EventPath
 	var assocAuthEvent *entities.EventPath
 	eventPayloadType := entities.GetModelTypeFromEventType(constants.EventType(payload.EventType))
-	var appState = models.ApplicationState{}
+	var appState = entities.Application{}
 	logger.Infof("NewRequest: %v",  payload.EventType)
-	if payload.Application != "" {
 		// query.GetOneState(entities.Application{ID: payload.Application}, &appState)
-		app, _ := dsquery.GetApplicationStateById(payload.Application)
+	if payload.EventType != constants.CreateApplicationEvent {
+		_, err = service.SyncTypedStateById(payload.Application,  &appState, cfg, "")
 		if err != nil {
 				logger.Errorf("CreateEvent/GetApplicationError: %v", err)
 				return model, err
 		}
-		appState.Application = *app
-		stateEvent = append(stateEvent, entities.StateEvents{ID: app.ID, Event: app.Event})
-	}
+		
+		stateEvent = append(stateEvent, entities.StateEvents{ID: appState.ID, Event: appState.Event})
 	
+	}
 	//Perfom checks base on event types
 	logger.Debugf("authState****** 2: %v ", authState)
 	
@@ -121,7 +125,7 @@ func CreateEvent(payload entities.ClientPayload, ctx *context.Context) (model an
 		if err != nil {
 			return model, err
 		}
-		if *authState.Authorization.Priviledge < constants.MemberPriviledge {
+		if *authState.Priviledge < constants.MemberPriviledge {
 			return model, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		if assocPrevEvent == nil {
@@ -159,7 +163,7 @@ func CreateEvent(payload entities.ClientPayload, ctx *context.Context) (model an
 			return model, err
 		}
 	case constants.SubscribeTopicEvent, constants.ApprovedEvent, constants.BanMemberEvent, constants.UnbanMemberEvent:
-		if *authState.Authorization.Priviledge < constants.MemberPriviledge {
+		if *authState.Priviledge < constants.MemberPriviledge {
 			return model, apperror.Forbidden("Agent not authorized to perform this action")
 		}
 		
@@ -173,7 +177,7 @@ func CreateEvent(payload entities.ClientPayload, ctx *context.Context) (model an
 		}
 		stateEvent = append(stateEvent, entities.StateEvents{ID: _topic.ID, Event: _topic.Event})
 	case constants.SendMessageEvent:
-		logger.Debugf("authState 2: %d ", *authState.Authorization.Priviledge)
+		logger.Debugf("authState 2: %d ", *authState.Priviledge)
 		// 1. Agent message
 		// if *authState.Authorization.Priviledge < constants.MemberPriviledge {
 		// 	return nil, apperror.Forbidden("Agent not authorized to perform this action")
@@ -213,14 +217,14 @@ func CreateEvent(payload entities.ClientPayload, ctx *context.Context) (model an
 	}
 	
 	app := payload.Application
-	if payload.EventType == constants.CreateApplicationEvent {
-		app, err = entities.GetId(payload.Data.(entities.Application), "")
-		if err != nil {
-			logger.Debugf("Application error: %v", err)
-			return model, err
-		}
+	// if payload.EventType == constants.CreateApplicationEvent {
+	// 	app, err = entities.GetId(payload.Data.(entities.Application), "")
+	// 	if err != nil {
+	// 		logger.Debugf("Application error: %v", err)
+	// 		return model, err
+	// 	}
 		
-	}
+	// }
 	if payload.EventType == constants.UpdateAvatarEvent {
 		app = payload.Data.(entities.Application).ID
 	}
@@ -301,16 +305,16 @@ func CreateEvent(payload entities.ClientPayload, ctx *context.Context) (model an
 
 	event.Hash = hex.EncodeToString(crypto.Sha256(b))
 	_, event.Signature = crypto.SignEDD(b, cfg.PrivateKeyEDD)
+	event.ID, _ = event.GetId()
 	// err = dsquery.CreateEvent(&event, nil)
 	// 	if err != nil {
 	// 		return nil, err
 	// 	}
 	// 	logger.Infof("EventCreated...")
-	event.ID, err = event.GetId()
-	if err != nil {
-		return model, err
+	
+	if err == nil {
+		service.HandleNewPubSubEvent(event, ctx) 
 	}
-	service.HandleNewPubSubEvent(event, ctx) 
 	
 	// dispatch to network
 

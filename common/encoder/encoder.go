@@ -35,12 +35,14 @@ func MsgPackStruct(msg interface{}) ([]byte, error) {
 	return data, err
 }
 
-func MsgPackUnpackStruct[T interface{}](b []byte, message T) error {
-	buf := bytes.NewBuffer(b)
+func MsgPackUnpackStruct(b []byte, message any) error {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset() // Reuse buffer
+	buf.Write(b)
 	dec := msgpack.NewDecoder(buf)
 	// dec.UseLooseInterfaceDecoding(true)
 	dec.SetCustomStructTag("json")
-	err := dec.Decode(message)
+	err := dec.Decode(&message)
 	return err
 }
 
@@ -223,4 +225,23 @@ func ExtractHRP(address string) (string, error) {
         return "", fmt.Errorf("invalid Bech32 address: %s", address)
     }
     return parts[0], nil
+}
+
+func BigintToBytes(value *big.Int) []byte {
+	// Convert to hex first
+	hexStr := value.Text(16)
+	
+	// Ensure even length
+	if len(hexStr)%2 == 1 {
+		hexStr = "0" + hexStr
+	}
+
+	// Convert hex to bytes
+	bytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		// Handle error if needed
+		return []byte{}
+	}
+
+	return bytes
 }

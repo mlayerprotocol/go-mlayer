@@ -94,7 +94,7 @@ func NewMessageService(mainCtx *context.Context) *MessageService {
 // 	return nil, errors.New("INVALID MESSAGE SIGNER")
 // }
 
-func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *models.AuthorizationState, topicData *entities.Topic)  (
+func ValidateMessagePayload(payload entities.ClientPayload, currentAuthState *entities.Authorization, topicData *entities.Topic)  (
 	assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath , _subscription *entities.Subscription,  err error) {
 	defer utils.TrackExecutionTime(time.Now(), "ValidateMessagePayload")
 	payloadData := entities.Message{}

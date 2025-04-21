@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/internal/chain/ring"
 	"github.com/mlayerprotocol/go-mlayer/internal/channelpool"
 	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
+	"github.com/mlayerprotocol/go-mlayer/internal/crypto/bls"
 	dsquery "github.com/mlayerprotocol/go-mlayer/internal/ds/query"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/query"
@@ -58,20 +60,26 @@ func ConnectClient(cfg *configs.MainConfiguration, handshake *entities.ClientHan
 
 func GetEventByPath(path *entities.EventPath, cfg *configs.MainConfiguration, validator string) (event *entities.Event, stateResp []byte, local bool, err error) {
 	event, err = dsquery.GetEventById(path.ID, path.Model)
-	logger.Debugf("GetEventByPathError1 %s, %v, %v %v", path.ID, path.Model, path, err)
+	logger.Infof("FOUNDEVENT %v, %v", event, err)
 	if err == nil {
-		state, err := dsquery.GetStateFromEventPath(path)
-		if err == nil {
+		state, err2 := dsquery.GetStateFromEventPath(path)
+		
+		if err2 == nil {
 			data, _ := encoder.MsgPackStruct(state)
 			return event, data, true, err
 		} else {
-			logger.Debugf("GetEventByPathError2 %v", err)
+			logger.Debugf("GetEventStateByPathError %v", err2)
+			err = err2
+			return
 		}
 
 	}
 
 	if validator == "" {
 		validator = string(path.Validator)
+	}
+	if validator == cfg.PublicKeyEDDHex || validator == cfg.PublicKeyBLSPHex || validator == cfg.PublicKeySECPHex {
+		return nil, nil, false, fmt.Errorf("previous event not found")
 	}
 	if err != nil {
 		if !dsquery.IsErrorNotFound(err) {
@@ -82,7 +90,7 @@ func GetEventByPath(path *entities.EventPath, cfg *configs.MainConfiguration, va
 			return nil, nil, false, err
 		}
 
-		return event, resp.States[0], false, err
+		return event, resp.States[0].StateData, false, err
 
 	}
 
@@ -136,38 +144,39 @@ func SyncTypedStateById[M any](did string, state M, cfg *configs.MainConfigurati
 func SyncStateFromPeer(id string, modelType entities.EntityModel, cfg *configs.MainConfiguration, validator string) (any, *entities.Event, error) {
 	state := entities.GetStateModelFromEntityType(modelType)
 
-	if validator == "" {
-		validator = chain.NetworkInfo.GetRandomSyncedNode()
-	}
+	// if validator == "" {
+	// 	validator = Get
+	// }
 	if len(validator) == 0 {
 		return nil, nil, apperror.NotFound(string(modelType) + " state not found")
 	}
-	logger.Infof("GettingTopic 1:::")
+	
+	logger.Infof("GettingStateFromPeer: %s - %s - %s", modelType, id, validator)
 	subPath := entities.NewEntityPath(entities.PublicKeyString(validator), modelType, id)
 	var pp *p2p.P2pEventResponse
 	var err error
 	switch modelType {
 	case entities.ApplicationModel:
-		newState := state.(entities.Application)
-		pp, err = p2p.GetState(cfg, *subPath, nil, &newState)
-		state = newState
+		// newState := state.(*entities.Application)
+		pp, err = p2p.GetState(cfg, *subPath, nil, state.(*entities.Application))
+		// state = newState
 	case entities.AuthModel:
-		newState := state.(entities.Authorization)
-		pp, err = p2p.GetState(cfg, *subPath, nil, &newState)
-		state = newState
+		// newState := state.(*entities.Authorization)
+		pp, err = p2p.GetState(cfg, *subPath, nil, state)
+		// state = newState
 	case entities.TopicModel:
 		logger.Infof("GettingTopic:::")
-		newState := state.(entities.Topic)
-		pp, err = p2p.GetState(cfg, *subPath, nil, &newState)
-		state = newState
+		// newState := state.(*entities.Topic)
+		pp, err = p2p.GetState(cfg, *subPath, nil, state)
+		// state = newState
 	case entities.SubscriptionModel:
-		newState := state.(entities.Subscription)
-		pp, err = p2p.GetState(cfg, *subPath, nil, &newState)
-		state = newState
+		//newState := state.(*entities.Subscription)
+		pp, err = p2p.GetState(cfg, *subPath, nil, state)
+		//state = newState
 	case entities.MessageModel:
-		newState := state.(entities.Message)
-		pp, err = p2p.GetState(cfg, *subPath, nil, &newState)
-		state = newState
+		// newState := state.(*entities.Message)
+		pp, err = p2p.GetState(cfg, *subPath, nil, state)
+		// state = newState
 	default:
 
 	}
@@ -189,26 +198,26 @@ func SyncStateFromPeer(id string, modelType entities.EntityModel, cfg *configs.M
 	}
 	switch modelType {
 	case entities.ApplicationModel:
-		newState := state.(entities.Application)
-		newState.ID = id
-		_, err = dsquery.CreateApplicationState(&newState, nil)
+		// newState := state.(entities.Application)
+		// newState.ID = id
+		_, err = dsquery.CreateApplicationState(state.(*entities.Application), nil)
 	case entities.AuthModel:
-		newState := state.(entities.Authorization)
-		newState.ID = id
-		_, err = dsquery.CreateAuthorizationState(&newState, nil)
+		// newState := state.(entities.Authorization)
+		// newState.ID = id
+		_, err = dsquery.CreateAuthorizationState(state.(*entities.Authorization), nil)
 	case entities.TopicModel:
-		newState := state.(entities.Topic)
-		newState.ID = id
-		logger.Infof("TopicState: %v", newState)
-		_, err = dsquery.CreateTopicState(&newState, nil)
+		// newState := state.(entities.Topic)
+		// newState.ID = id
+		// logger.Infof("TopicState: %v", newState)
+		_, err = dsquery.CreateTopicState(state.(*entities.Topic), nil)
 	case entities.SubscriptionModel:
-		newState := state.(entities.Subscription)
-		newState.ID = id
-		_, err = dsquery.CreateSubscriptionState(&newState, nil)
+		// newState := state.(entities.Subscription)
+		// newState.ID = id
+		_, err = dsquery.CreateSubscriptionState( state.(*entities.Subscription), nil)
 	case entities.MessageModel:
-		newState := state.(entities.Message)
-		newState.ID = id
-		_, err = dsquery.CreateMessageState(&newState, nil)
+		// newState := state.(entities.Message)
+		// newState.ID = id
+		_, err = dsquery.CreateMessageState(state.(*entities.Message), nil)
 	default:
 
 	}
@@ -229,7 +238,7 @@ func SyncStateFromPeer(id string, modelType entities.EntityModel, cfg *configs.M
 	// 		_app = *s;
 
 	// }
-	return &state, event, nil
+	return state, event, nil
 
 }
 
@@ -240,12 +249,12 @@ func ValidateEvent(event interface{}) error {
 		logger.Errorf("Invalid Encoding %v", err)
 		return err
 	}
-	logger.Debugf("Payload Validator: %s; Event Signer: %s; Validatos: %v", e.Payload.Validator, e.GetValidator(), chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))])
+	// logger.Debugf("Payload Validator: %s; Event Signer: %s; Validatos: %v", e.Payload.Validator, e.GetValidator(), chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))])
 	if !strings.EqualFold(utils.AddressToHex(chain.NetworkInfo.Validators[fmt.Sprintf("edd/%s/addr", string(e.GetValidator()))]), utils.AddressToHex(e.Payload.Validator)) {
 		return apperror.Forbidden("payload validator does not match event validator")
 	}
 
-	sign, _ := hex.DecodeString(e.GetSignature())
+	sign, _ := hex.DecodeString(e.GetKey())
 
 	valid, err := crypto.VerifySignatureEDD(e.GetValidator().Bytes(), &b, sign)
 	if err != nil {
@@ -300,107 +309,151 @@ func HandleNewPubSubEvent(event entities.Event, ctx *context.Context) (*entities
 	go func() {
 		channelpool.EventCounterChannel <- &event
 	}()
-	switch event.Payload.Data.(type) {
-	case entities.Application,entities.Authorization,entities.Topic, entities.Subscription,  entities.Message  :
-		return processEvent(&event, ctx)
-		//resp, err := HandleNewPubSubApplicationEvent(&event, ctx)
-		// return nil, nil
-		//	return resp, broadcastEvent(&event, ctx, err)
-		// case entities.Authorization:
-		// 	return nil, broadcastEvent(&event, ctx, HandleNewPubSubAuthEvent(&event, ctx))
-		// case entities.Topic:
-		// 	return nil, broadcastEvent(&event, ctx, HandleNewPubSubTopicEvent(&event, ctx))
-		// case entities.Subscription:
-		// 	return nil, broadcastEvent(&event, ctx, HandleNewPubSubSubscriptionEvent(&event, ctx))
-		// case entities.Message:
-		// 	return nil, broadcastEvent(&event, ctx, HandleNewPubSubMessageEvent(&event, ctx))
-		case entities.SystemMessage:
+	modelType := event.GetDataModelType()
+	switch modelType {
+	case entities.ApplicationModel, entities.AuthModel, entities.TopicModel, entities.SubscriptionModel, entities.MessageModel:
 
-			return nil, HandleNewNodeSystemMessageEvent(&event, ctx)
+		return processEvent(&event, ctx)
+	//resp, err := HandleNewPubSubApplicationEvent(&event, ctx)
+	// return nil, nil
+	//	return resp, broadcastEvent(&event, ctx, err)
+	// case entities.Authorization:
+	// 	return nil, broadcastEvent(&event, ctx, HandleNewPubSubAuthEvent(&event, ctx))
+	// case entities.Topic:
+	// 	return nil, broadcastEvent(&event, ctx, HandleNewPubSubTopicEvent(&event, ctx))
+	// case entities.Subscription:
+	// 	return nil, broadcastEvent(&event, ctx, HandleNewPubSubSubscriptionEvent(&event, ctx))
+	// case entities.Message:
+	// 	return nil, broadcastEvent(&event, ctx, HandleNewPubSubMessageEvent(&event, ctx))
+	case entities.SystemModel:
+
+		return nil, HandleNewNodeSystemMessageEvent(&event, ctx)
 	}
 
 	return nil, nil
 }
-func processEvent(event *entities.Event, ctx *context.Context) (localResponse *entities.EventProcessorResponse, err error) {
+func processEvent(event *entities.Event, ctx *context.Context) (response *entities.EventProcessorResponse, err error) {
 	var wg sync.WaitGroup
+	var localResponse entities.EventProcessorResponse
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	var minValidators = uint8(1)
 	var same bool
 	wg.Add(1)
-	//var localResponse *entities.EventProcessorResponse
-	remoteResponse := []*entities.EventDelta{}
+	remoteResponse := []entities.EventDelta{}
 	go func() {
+		var l *entities.EventProcessorResponse
+		var errh error
 		defer wg.Done()
-		l, errh := HandleNewPubSubApplicationEvent(event, ctx)
+		model := event.GetDataModelType()
+		switch model {
+		case entities.ApplicationModel:
+			l, errh = HandleNewPubSubApplicationEvent(event, ctx)
+		case entities.AuthModel:
+			l, errh = HandleNewPubSubAuthEvent(event, ctx)
+		case entities.TopicModel:
+			l, errh = HandleNewPubSubTopicEvent(event, ctx)
+		case entities.SubscriptionModel:
+			l, errh = HandleNewPubSubSubscriptionEvent(event, ctx)
+		case entities.MessageModel:
+			l, errh = HandleNewPubSubMessageEvent(event, ctx)
+		}
+
 		if errh == nil {
-			localResponse = l
-			logger.Debugf("LOCALHOSREPOS: %v", l)
+			localResponse = *l
 		} else {
-			logger.Errorf("NEWOSODIOSD: %v", err)
 			err = errh
 		}
 	}()
-	if event.Validator != entities.PublicKeyString(cfg.PublicKeyEDDHex) {
+	if !event.IsLocal(cfg)  {
 		wg.Wait()
-		return
+		return &localResponse, err
 	}
-	isTopicMessage := event.GetDataModelType() == entities.MessageModel 
+	if err != nil {
+		return nil, err
+	}
+	
+	isTopicMessage := event.GetDataModelType() == entities.MessageModel
 	if isTopicMessage {
 		// get the topic
 		topic := entities.Topic{}
-		_, err := SyncTypedStateById(event.Payload.Data.(entities.Message).Topic, &topic, cfg, "" )
+		_, err := SyncTypedStateById(event.Payload.Data.(entities.Message).Topic, &topic, cfg, "")
 		if err != nil {
 			wg.Wait()
-			return localResponse, err
+			return &localResponse, err
 		}
 		minValidators = topic.MinimumValidators
-		
+
 	}
 	if minValidators > 0 {
 		wg.Add(1)
-	}
+		// defer wg.Done()
+		// var wg2 sync.WaitGroup
+		responses := []p2p.P2pPayload{}
+		responseChannel := make(chan p2p.P2pPayload)
+		done := make(chan bool)
+		// wg2.Add(1)
 		go func() {
-			if minValidators > 0 {
-				defer wg.Done()
-			}
-			responses, err := broadcastEvent(event, ctx, nil)
-			// logger.Infof("REMOTERESPONSE %+v", responses)
-			if err == nil {
-				for _, resp := range responses {
-					delta := entities.EventDelta{}
-					err := encoder.MsgPackUnpackStruct(resp.Data, &delta)
-					if err != nil {
-						logger.Errorf("REMOTERESPONSEERRROR %d, %v", len(resp.Data), err)
-						continue
-					}
-					remoteResponse = append(remoteResponse, &delta)
+			defer wg.Done()
+			select {
+			case response := <-responseChannel:
+				responses = append(responses, response)
+				if len(responses) >= int(minValidators) {
+					done <- true
+					return
 				}
+			case <-time.After(5 * time.Second):
+				done <- true
+				return
 			}
 		}()
-	
-	
+		_, err := broadcastEvent(event, ctx, responseChannel, done, nil)
+		// wg2.Wait()
+
+		// logger.Infof("REMOTERESPONSE %+v", responses)
+		if err == nil {
+			for _, resp := range responses {
+				delta := entities.EventDelta{}
+				err := encoder.MsgPackUnpackStruct(resp.Data, &delta)
+				if err != nil {
+					logger.Errorf("REMOTERESPONSEERRROR %d, %v", len(resp.Data), err)
+					continue
+				}
+				remoteResponse = append(remoteResponse, delta)
+			}
+		}
+
+	}
+
 	wg.Wait()
-	
+
 	sameMap := map[string]bool{}
 	if minValidators > 0 {
+		// aggregate responses
+		// deltas := []entities.EventDelta{}
+
 		for _, deltaResp := range remoteResponse {
 			delta := map[string]interface{}{}
-			err = encoder.MsgPackUnpackStruct(deltaResp.Delta, &delta)
-			if err == nil && delta["h"] == localResponse.Hash {
-				sameMap[string(deltaResp.Signatures[0].PublicKey)] = true
-				same = true
+			// logger.Infof("REMOTERESPONSEDelta %+v", deltaResp.Deltas)
+			for _, deltaData := range deltaResp.Deltas {
+				err = encoder.MsgPackUnpackStruct(deltaData.Delta, &delta)
+				logger.Infof("REMOTERESPONSEDelta %+v", delta)
+				if err == nil && delta["h"] == localResponse.Hash {
+					// deltas = append(deltas, *deltaResp)
+					sameMap[string(deltaResp.SignatureData.PublicKeys[0])] = true
+					same = true
+				}
 			}
 		}
 	}
-	// logger.Infof("REMOTERESPONSE %+v, %+v", remoteResponse, sameMap)
-	if minValidators > 0  && len(sameMap) < int(minValidators) {
+	
+	if minValidators > 0 && len(sameMap) < int(minValidators) {
 		return nil, fmt.Errorf("minimum commitment count not reached")
 	}
-	if minValidators == 0 || ((len(sameMap) > 0 && len(sameMap) == len(remoteResponse)))  {
+	if minValidators == 0 || (len(sameMap) > 0 && len(sameMap) == len(remoteResponse)) {
 		go func() {
 			v, err := system.Mempool.GetData(event.ID)
 			if err != nil {
-				logger.Errorf("ErrorGettingDataStateFromDB: %v", same)
+				logger.Errorf("ErrorGettingEventFromMempool: %v", same)
 				return
 			}
 			dstate := dsquery.DataStates{}
@@ -412,29 +465,70 @@ func processEvent(event *entities.Event, ctx *context.Context) (localResponse *e
 			err = dstate.Commit(nil, nil, nil, event.ID, err)
 			if err != nil {
 
-				logger.Errorf("ErrorSavingCommitment: %v", same)
+				logger.Errorf("ErrorSavingCommitment: %v", err)
 			}
 		}()
 
-		// notify all validators that it is valid
-		go func() {
-			for k := range sameMap {
-				logger.Infof("NOTIFYNODE %v", k)
-				validPaylaod := p2p.NewP2pPayload(cfg, p2p.P2pActionNotifyValidEvent, event.GetPath().MsgPack())
-				go p2p.SendSecureQuicRequestToValidator(cfg, string(k), validPaylaod)
-			}
-		}()
-		// ALL SAME (sync and notify validators)
-		
-		go func() {
-			sigData := remoteResponse[0]
-			for i, r := range remoteResponse {
-				if i == 0 {
-					continue
+		if minValidators > 0 {
+			// notify all validators that it is valid
+			go func() {
+				for k := range sameMap {
+					logger.Infof("NOTIFYNODE %v", k)
+					validPaylaod := p2p.NewP2pPayload(cfg, p2p.P2pActionNotifyValidEvent, event.GetPath().MsgPack())
+					go p2p.SendSecureQuicRequestToValidator(cfg, string(k), validPaylaod)
 				}
-				sigData.Signatures = append(sigData.Signatures, r.Signatures...)
-			}
+			}()
+		}
+		// ALL SAME (sync and notify validators)
 
+		go func() {
+			var sigData entities.EventDelta
+			var aggSig []byte
+			if minValidators > 0 {
+				sort.Slice(remoteResponse, func(i, j int) bool {
+					return string(remoteResponse[i].SignatureData.PublicKeys[0]) < string(remoteResponse[j].SignatureData.PublicKeys[0])
+				})
+				signatures := [][]byte{}
+				pubKeys := []entities.PublicKeyString{}
+
+				sigData = remoteResponse[0]
+				for _, r := range remoteResponse {
+					signatures = append(signatures, r.SignatureData.Signature.GetBytes())
+					pubKeys = append(pubKeys, r.SignatureData.PublicKeys[0])
+					// if i == 0 {
+					// 	continue
+					// }
+					// sigData.SignatureData.PublicKeys = append(sigData.SignatureData.PublicKeys, r.Signature.P...)
+				}
+				aggSig, err = bls.BlsProofGenerator.AggregateSignatures(signatures)
+				if err != nil {
+					logger.Errorf("REMOTERESPONSEERRROR %v", err)
+					return
+				}
+				sigData.SignatureData = entities.BlsSignatureData{
+					Signature: entities.HexString(hex.EncodeToString(aggSig)), PublicKeys: pubKeys,
+				}
+			} else {
+				
+				logger.Infof("LOCALRESPONSE %+v", localResponse)
+				for _, stateData := range localResponse.States {
+					delta, errD := GetStateDelta(stateData, *event)
+					if errD != nil {
+						err = errD
+						break
+					}
+					sigData.Deltas = append(sigData.Deltas, *delta)
+				}
+				// aggSig, err = bls.BlsProofGenerator.Sign()
+
+				// used for the aggregate
+				sigData.Hash, _ = sigData.GetHash()
+				sigData.Event = event.ID
+				sig, _ := bls.BlsProofGenerator.Sign(cfg.PrivateKeyBLS, sigData.Hash)
+				sigData.SignatureData = entities.BlsSignatureData{
+					Signature: entities.HexString(hex.EncodeToString(sig)), PublicKeys: []entities.PublicKeyString{entities.PublicKeyString(cfg.PublicKeyBLSPHex)},
+				}
+			}
 			// FIND NODES INTERESTED IN THE APP AND SEND THEM THE DELTA
 			app := event.Application
 
@@ -456,10 +550,10 @@ func processEvent(event *entities.Event, ctx *context.Context) (localResponse *e
 	}
 
 	logger.Infof("SAMMMMMME: %v", same)
-	return localResponse, err
+	return &localResponse, err
 	// broadcastEvent(&event, ctx, err)
 }
-func broadcastEvent(event *entities.Event, ctx *context.Context, err error) (responses []p2p.P2pPayload, er error) {
+func broadcastEvent(event *entities.Event, ctx *context.Context, responseChannel chan p2p.P2pPayload, done chan bool, err error) (responses []p2p.P2pPayload, er error) {
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !event.Broadcasted && event.Validator == entities.PublicKeyString(cfg.PublicKeyEDDHex) {
 		event.Broadcasted = true
@@ -479,12 +573,20 @@ func broadcastEvent(event *entities.Event, ctx *context.Context, err error) (res
 		responses = []p2p.P2pPayload{}
 		var wg sync.WaitGroup
 		var mu sync.Mutex
-		 
-		
+
+		logger.Infof("FoundVirtualNode %+v", len(node.VirtualNodes))
+
 		for _, vNode := range node.VirtualNodes {
 			if vNode.Node.PubKey == cfg.PublicKeySECPHex {
 				continue
 			}
+
+			vNode.Node.PubKey = "025d656c976a63b8a1c4c36eff624e097a8f598ca6d19c73a892ed72d2de59cdff"
+			sent := map[string]bool{}
+			if _, ok := sent[vNode.Node.PubKey]; ok {
+				continue
+			}
+			sent[vNode.Node.PubKey] = true
 			logger.Infof("VIRTUALNODESSS %v", vNode.Node.PubKey)
 			// d, err := p2p.GetNodeMultiAddressData(ctx, vNode.Node.PubKey)
 			// if err != nil {
@@ -493,15 +595,14 @@ func broadcastEvent(event *entities.Event, ctx *context.Context, err error) (res
 			//logger.Info(d.Hostname, d.IP, d.QuicPort)
 			// 	// conn, err := p2p.NodeQuicPool.GetConnection(*ctx, address)
 			//if uint8(i) < minCommitments {
-				wg.Add(1)
-			// }
-			
+			wg.Add(1)
 			go func(vNode ring.VirtualNode) error {
+
 				defer wg.Done()
 
 				respData, err := p2p.SendSecureQuicRequestToValidator(cfg, vNode.Node.PubKey, payload)
 				if err != nil {
-					logger.Errorf("P2pQuicReqeuestError %v", err)
+					logger.Errorf("P2pQuicReqeuestError from %s: %v", vNode.Node.PubKey, err)
 					return err
 				}
 				response := p2p.P2pPayload{}
@@ -517,13 +618,23 @@ func broadcastEvent(event *entities.Event, ctx *context.Context, err error) (res
 				defer mu.Unlock()
 				responses = append(responses, response)
 
-				return nil
+				for {
+					select {
+					case <-done:
+						// Exit cleanly
+						return nil
+					case responseChannel <- response:
+						// Sent successfully
+						return nil
+					}
+				}
+
 			}(*vNode)
 			//}
-			
+
 		}
 		wg.Wait()
-			
+
 		// go ring.EventDistribtor.HandleEvent(event, func(primaryNode *ring.Node, backupVNodes []*ring.Node) error {
 		// 	// Get quic connection to node
 		// 	// address , err := p2p.GetNodeQuicAddress(ctx, primaryNode.ID)
@@ -591,7 +702,7 @@ func OnFinishProcessingEvent(cfg *configs.MainConfiguration, event *entities.Eve
 		payload := entities.SocketSubscriptoinResponseData{
 			Event: map[string]interface{}{
 				"id":        event.ID,
-				"app":      event.Application,
+				"app":       event.Application,
 				"blk":       event.BlockNumber,
 				"cy":        event.Cycle,
 				"ep":        event.Epoch,

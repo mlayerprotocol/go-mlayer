@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cespare/xxhash"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/mlayerprotocol/go-mlayer/smartlet"
 	"github.com/sirupsen/logrus"
@@ -49,7 +50,7 @@ const (
 
 type smartletKeyStore struct {
 	db         *badger.DB
-	 UpdateData *[]smartlet.UpdateData
+	UpdateData *[]smartlet.UpdateData
 	logger     *logrus.Logger
 	app        *smartlet.App
 	mutex          *sync.Mutex
@@ -169,7 +170,17 @@ func toKeystoreKey (k []byte) []byte {
 	return []byte(hex.EncodeToString(k))
 }
 
-
+func (ks smartletKeyStore) GetDataHash() (uint64, error) {
+	hash := ""
+	for _, updateData := range *ks.UpdateData {
+		h, err := updateData.DataHash()
+		if err != nil {
+			return 0, err
+		}
+		hash = hash+fmt.Sprint(h)
+	}
+	return xxhash.Sum64([]byte(hash)),  nil
+}
 func (ks smartletKeyStore) update(commit bool) (err error) {
 	ks.mutex.Lock()
 	defer ks.mutex.Unlock()
@@ -192,7 +203,7 @@ func (ks smartletKeyStore) update(commit bool) (err error) {
 		// 	logger.Info("Committing.....")
 		// }
 		countTracker := map [smartlet.Key]int{}
-		txn.Get([]byte(COUNT_KEY))
+		//txn.Get([]byte(COUNT_KEY))
 		logger.Infof("UpdatingStore: %v, %d", commit, len(*ks.UpdateData))
 		for _, updateData := range *ks.UpdateData {
 			for key, value := range updateData.Data {

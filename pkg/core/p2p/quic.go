@@ -18,10 +18,10 @@ import (
 
 // var ValidCerts  = map[string]string{}
 
-type NodeMADs map[string]*NodeMultiAddressData
-var ValidMads  = NodeMADs{}
+type nodeMADs map[string]*NodeMultiAddressData
+var ValidMads  = nodeMADs{}
 
-func (v *NodeMADs) Update(mad *NodeMultiAddressData) {
+func (v *nodeMADs) Update(mad *NodeMultiAddressData) {
 	(*v)[hex.EncodeToString(mad.Signer)] = mad
 	(*v)[hex.EncodeToString(mad.PubKeyEDD)] = mad
 	(*v)[hex.EncodeToString(mad.CertHash)] = mad
@@ -29,9 +29,10 @@ func (v *NodeMADs) Update(mad *NodeMultiAddressData) {
 	if len(mad.Hostname) > 0 {
 		(*v)[mad.Hostname] = mad
 	}
+	logger.Debugf("NewMADUpdated: %v", v)
 }
 
-func (v *NodeMADs) Delete(mad *NodeMultiAddressData) {
+func (v *nodeMADs) Delete(mad *NodeMultiAddressData) {
 	logger.Debugf("DeleteMDA %v", mad.config.PublicKeySECP)
 	(*v)[hex.EncodeToString(mad.Signer)] = nil
 	(*v)[hex.EncodeToString(mad.PubKeyEDD)] = nil
@@ -41,7 +42,7 @@ func (v *NodeMADs) Delete(mad *NodeMultiAddressData) {
 	
 }
 
-func (v NodeMADs) Get(key string, sync bool) *NodeMultiAddressData {
+func (v nodeMADs) Get(key string, sync bool) *NodeMultiAddressData {
 	nma := v[key]
 	if nma == nil {
 		b, err := stores.SystemStore.Get(context.Background(), datastore.NewKey(fmt.Sprintf("/mad/%s", key)))
@@ -62,6 +63,55 @@ func (v NodeMADs) Get(key string, sync bool) *NodeMultiAddressData {
 	return nma
 }
 
+// func  SendSecureQuicRequestToAddress(config *configs.MainConfiguration, address string,  validator string, message []byte) ([]byte, error) {
+	
+// 	mad := &NodeMultiAddressData{}
+// 	if ValidMads.Get(address, true) == nil {
+// 		// get the cert
+// 		certPayload := NewP2pPayload(config, P2pActionGetCert, []byte{'0'})
+// 		err := certPayload.Sign(config.PrivateKeyEDD)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		logger.Infof("SendingP2PRequestTo %s", )
+// 		mad, err := GetNodeMultiAddressData(cfg.Context, validator)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		// mads := []multiaddr.Multiaddr{}
+// 		// for _, addr := mad.Addresses {
+// 		// 	mads = append(mads, multiaddr.NewMultiaddr(addr))
+// 		// }
+// 		maddr, err := multiaddr.NewMultiaddr(mad.Addresses[0])
+	
+// 		certResponse, err := certPayload.SendP2pRequestToAddress(config.PrivateKeyEDD, maddr, DataRequest)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		isValidator, _ := chain.NetworkInfo.IsValidator( hex.EncodeToString(certResponse.Signer))
+// 		if certResponse.IsValid(config.ChainId) && isValidator {
+// 			 err := encoder.MsgPackUnpackStruct(certResponse.Data, mad)
+// 			 if err != nil {
+// 				return nil, err
+// 			 }
+// 			 err = mad.Sync()
+// 			 if err != nil {
+// 				return nil, err
+// 			 }
+// 		} else {
+// 			return nil, fmt.Errorf("quic: invalid signer")
+// 		}
+// 	} else {
+// 		mad = ValidMads[fmt.Sprintf("%s/addr", address)]
+// 	}
+// 	logger.Infof("SendingQuicRequestTo %s", mad.QuicAddress())
+// 	b, err := sendQuicRequest(mad.QuicAddress(), validator, message, false)
+	
+// 	if err == ErrInvalidCert {
+// 		ValidMads.Delete(mad)
+// 	}
+// 	return b, err
+// }
 func  SendSecureQuicRequest(config *configs.MainConfiguration, maddr multiaddr.Multiaddr,  validator string, message []byte) ([]byte, error) {
 	ip, _, err := parseQuicAddress(config, []multiaddr.Multiaddr{maddr})
 	if err != nil {
@@ -135,7 +185,7 @@ func  SendSecureQuicRequestToValidator(config *configs.MainConfiguration, public
 			// } else {
 			// 	return nil, fmt.Errorf("quic: invalid signer")
 			// }
-			return nil, fmt.Errorf("quic: unable to get address for node from dht")
+			return nil, err
 		} else {
 			mad = madFromDht
 		}
@@ -149,7 +199,7 @@ func  SendSecureQuicRequestToValidator(config *configs.MainConfiguration, public
 	b, err := sendQuicRequest(mad.QuicAddress(), publicKeySecP, payload.MsgPack(), false)
 	// logger.Infof("SentQuickRequestToValidator %s, %d", publicKeySecP, payload.Id )
 	if err != nil {
-		logger.Errorf("SendingQuicRequestToValidatorError: %v", err)
+		logger.Errorf("SendingQuicRequestToValidatorError To %s: %v", publicKeySecP, err)
 	}
 	if len(b) == 0 {
 		return nil, fmt.Errorf("empty response from remote peer")

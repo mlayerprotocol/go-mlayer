@@ -5,6 +5,7 @@ import (
 
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
@@ -12,7 +13,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	dsquery "github.com/mlayerprotocol/go-mlayer/internal/ds/query"
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
-	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 )
 
 // type TopicService struct {
@@ -68,7 +68,7 @@ Validate and Process the topic request
 //			go service.HandleNewPubSubTopicEvent(event, ctx)
 //		}
 //	}
-func ValidateTopicPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+func ValidateTopicPayload(payload entities.ClientPayload, authState *entities.Authorization) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
 	payloadData := entities.Topic{}
 	d, _ := json.Marshal(payload.Data)
@@ -91,7 +91,7 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 		if refExists {
 			return nil, nil, apperror.BadRequest("Topic ref already exist")
 		}
-	}
+	} 
 
 	payload.Data = payloadData
 	if payload.EventType == constants.CreateTopicEvent {
@@ -106,6 +106,10 @@ func ValidateTopicPayload(payload entities.ClientPayload, authState *models.Auth
 	currentState, err := service.ValidateTopicData(&payloadData, authState)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if currentState == nil && !strings.EqualFold(currentState.Ref, payloadData.Ref)   {
+
 	}
 
 	// generate associations

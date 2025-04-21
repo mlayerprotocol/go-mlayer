@@ -32,7 +32,7 @@ type Wallet struct {
 	Signature  string    `json:"sig,omitempty" gorm:"type:char(64)"`
 }
 
-func (d Wallet) GetSignature() (string) {
+func (d Wallet) GetKey() (string) {
 	return d.Signature
 }
 func (d *Wallet) BeforeCreate(tx *gorm.DB) (err error) {

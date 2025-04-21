@@ -26,9 +26,14 @@ type Payload interface {
 	ToString() (string, error)
 	EncodeBytes() ([]byte, error)
 	// GetEvent() EventPath
-	GetSignature() string
+	GetKey() string
 }
-func (g ClientPayload) GetSignature()  string {
+
+type State interface {
+	Payload
+	GetId() string
+}
+func (g ClientPayload) GetKey()  string {
 	return g.Signature
 }
 
@@ -40,11 +45,11 @@ func GetId(d Payload, id string) (string, error) {
 	if len(id) > 0 {
 		return id, nil
 	}
-	sig := d.GetSignature()
-	if len(sig) == 0 {
-		return "", fmt.Errorf("payload has no signature")
+	key := d.GetKey()
+	if len(key) == 0 {
+		return "", fmt.Errorf("payload has no key")
 	}
-	b, err := hex.DecodeString(strings.ReplaceAll(sig, "0x","")[:32])
+	b, err := hex.DecodeString(strings.ReplaceAll(key, "0x","")[:32])
 	if err != nil {
 		return "", err
 	}
@@ -53,6 +58,12 @@ func GetId(d Payload, id string) (string, error) {
 		return "", err
 	}
 	return u.String(), nil
+}
+
+type ZK struct {
+	PublicFields json.RawMessage `json:"zkPub"`
+	Proof json.RawMessage `json:"zkProof"`
+	Version uint8 `json:"v"`
 }
 
 type ClientPayload struct {
@@ -74,7 +85,8 @@ type ClientPayload struct {
 	AppKey     DeviceString `gorm:"-" json:"aKey,omitempty"`
 	Application    string       `json:"app,omitempty" gorm:"index;"`
 	Page      uint16       `json:"page,omitempty" gorm:"_"`
-	PerPage   uint16       `json:"perPage,omitempty" gorm:"_"`
+	PerPage   uint16       `json:"perPage,omitempty"`
+	ProofData *ZK `json:"proof,omitempty"`
 }
 
 func (msg ClientPayload) ToJSON() []byte {
@@ -150,24 +162,24 @@ func (msg *ClientPayload) GetSigner() (DeviceString, error) {
 
 
 func (msg ClientPayload) EncodeBytes() ([]byte, error) {
-	hashed := []byte("")
+	b := []byte("")
 	if msg.Data != nil {
 		d, _ :=  json.Marshal(msg.Data.(Payload))
 		logger.Debugf(string(d))
-		b, err := msg.Data.(Payload).EncodeBytes()
+		bb, err := msg.Data.(Payload).EncodeBytes()
 		if err != nil {
-			
 			return nil, err
 		}
-		hashed = crypto.Keccak256Hash(b)
+	
+		b = bb
 	}
 	
 	var params []encoder.EncoderParam
 	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: msg.ChainId.Bytes()})
-	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: hashed})
+	params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: b})
 	params = append(params, encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: msg.EventType})
 	
-	params = append(params, encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Id})
+	// params = append(params, encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: msg.Id})
 	
 	if msg.Application != "" {
 		params = append(params, encoder.EncoderParam{Type: encoder.ByteEncoderDataType, Value: utils.UuidToBytes(msg.Application)})

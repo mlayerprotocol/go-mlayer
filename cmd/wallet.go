@@ -107,7 +107,7 @@ package cmd
 // 	} else {
 // 		ksPath = fmt.Sprintf("%s/keystores/.goml", cfg.DataDir)
 // 	}
-// 	err := os.MkdirAll(ksPath, os.ModePerm)
+// 	err := os.MkdirAll(ksPath,constants.OsModeReadWriteOnly)
 // 		if err != nil {
 // 			logger.Errorf("Error creating keystore directory at %s", ksPath)
 // 			panic(err)
@@ -263,7 +263,7 @@ package cmd
 // 	} else {
 // 		ksPath = fmt.Sprintf("%s/keystores/.goml", cfg.DataDir)
 // 	}
-// 	err := os.MkdirAll(ksPath, os.ModePerm)
+// 	err := os.MkdirAll(ksPath, constants.OsModeReadWriteOnly)
 // 		if err != nil {
 // 			logger.Errorf("Error creating keystore directory at %s", ksPath)
 // 			panic(err)

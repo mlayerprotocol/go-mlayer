@@ -6,40 +6,56 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/ds"
 )
 
-var StateDhtSyncer DhtSyncer
+var StateDhtSyncer dhtSyncer
 type DhtPrefix string
+type DhtSyncData struct {
+    Key string
+    Value []byte
+}
 
 const (
-    SnetDhtPrefix  DhtPrefix = "app"
-    SnetRefDhtPrefix  DhtPrefix = "snetRef"
+    AppDhtPrefix  DhtPrefix = "app"
+    AppRefDhtPrefix  DhtPrefix = "appRef"
     ValDhtPrefix  DhtPrefix = "val"
+    AppNullifierDhtPrefix  DhtPrefix = "apNul"
 )
-type DhtSyncer struct{
+type dhtSyncer struct{
     store *ds.Datastore
     context *context.Context
 }
 
 // func init () {
-//     StateDhtSyncer = NewDhtSyncer(stores.StateStore, context.Background())
+//     StatedhtSyncer = NewdhtSyncer(stores.StateStore, context.Background())
 // }
 
 
-func NewDhtSyncer(store *ds.Datastore, ctx context.Context) DhtSyncer {
-    dht := DhtSyncer{store, &ctx}
+func NewDhtSyncer(store *ds.Datastore, ctx context.Context) dhtSyncer {
+    dht := dhtSyncer{store, &ctx}
     // go dht.sync()
     return dht
 }
 
 
-func (v *DhtSyncer) AdaKey(dhtKeyPrefix DhtPrefix, dataKey string, dataValue []byte) error {
-  return  v.store.Set(*v.context,  ds.Key(fmt.Sprintf("/dht/%s/%s", dhtKeyPrefix, dataKey)), dataValue, true)
+// func (v *dhtSyncer) AddKeys(data []DhtSyncData) error {
+//   batch :=  v.store.DB.NewWriteBatch()
+//     for _, d := data {
+//         batch.Set(ds.Key(d.Key).Bytes(), d.Value)
+//     }
+//   return  batch.Flush()
+// }   
+
+
+func (v *dhtSyncer) AddKey(dhtKeyPrefix DhtPrefix, dataKey string, value []byte) error {
+    dhtKey := fmt.Sprintf("ml/%s/%s", dhtKeyPrefix,  dataKey)
+  return   v.store.Set(context.Background(), datastore.NewKey(dhtKey), value, true)
 }   
 
-func (v *DhtSyncer) GetDhtValue(dhtKeyPrefix DhtPrefix, dataKey string) ([]byte, error) {
+func (v *dhtSyncer) GetDhtValue(dhtKeyPrefix DhtPrefix, dataKey string) ([]byte, error) {
     dhtKey := fmt.Sprintf("ml/%s/%s", dhtKeyPrefix,  dataKey)
     data, err := idht.GetValue(*v.context, dhtKey, nil)
     if err == nil {
@@ -48,7 +64,7 @@ func (v *DhtSyncer) GetDhtValue(dhtKeyPrefix DhtPrefix, dataKey string) ([]byte,
     return data, err
   } 
 
-func (v *DhtSyncer) Sync() {
+func (v *dhtSyncer) Sync() {
     for {
         if Initialized {
             notSynced,  err := v.store.Query(*v.context, query.Query{
@@ -59,12 +75,14 @@ func (v *DhtSyncer) Sync() {
             }
            
             for result := range notSynced.Next() {
-            parts := strings.Split(result.Entry.Key, "/")
-            dhtKey := fmt.Sprintf("ml/%s/%s", parts[len(parts)-2],  parts[len(parts)-1])
-            err := idht.PutValue(*v.context, dhtKey, result.Entry.Value, nil)
-            if err == nil {
-                v.store.Delete(*v.context, ds.Key(result.Entry.Key) )
-            }
+                parts := strings.Split(result.Entry.Key, "/")
+                dhtKey := fmt.Sprintf("/ml/%s/%s", parts[len(parts)-2],  parts[len(parts)-1])
+                err := idht.PutValue(*v.context, dhtKey, result.Entry.Value)
+                if err == nil {
+                    v.store.Delete(*v.context, ds.Key(result.Entry.Key) )
+                } else {
+                    logger.Errorf("FailedToSyncDHt: %v - %v", err, dhtKey)
+                }
             }
         } else {
             logger.Infof("P2pNotInitialized...")

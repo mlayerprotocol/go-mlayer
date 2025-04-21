@@ -22,6 +22,7 @@ var (
 	NodeTopicsStore *ds.Datastore
 	GlobalHandlerStore *ds.Datastore
 	MempoolStore *ds.Datastore
+	DhtSyncPoolStore *ds.Datastore
 	//CacheStore *ds.Datastore 
 )
 
@@ -77,6 +78,10 @@ func InitStores(mainContext *context.Context) (_ctx context.Context,  _stores []
 	MempoolStore = ds.New(&ctx,   string(constants.MempoolStore))
 	ctx = context.WithValue(ctx, constants.MempoolStore, MempoolStore)
 	_stores = append(_stores, MempoolStore)
+
+	DhtSyncPoolStore = ds.New(&ctx,   string(constants.DhtSyncStore))
+	ctx = context.WithValue(ctx, constants.DhtSyncStore, DhtSyncPoolStore)
+	_stores = append(_stores, DhtSyncPoolStore)
 
 	return ctx, _stores
 }

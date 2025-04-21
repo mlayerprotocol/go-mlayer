@@ -65,6 +65,7 @@ func (mad *NodeMultiAddressData) Sync() error {
 			hex.EncodeToString(mad.CertHash),
 			mad.IP,
 		}
+		logger.Debugf("NewMADReceived: %v", keys)
 		if mad.Hostname != "" {
 			keys = append(keys, mad.Hostname)
 		}
@@ -82,6 +83,7 @@ func (mad *NodeMultiAddressData) Sync() error {
 		(&ValidMads).Update(mad)
 		return nil
 	} else {
+		logger.Errorf("invalid mad  %v", mad.Addresses)
 		return fmt.Errorf("invalid mad")
 	}
 }

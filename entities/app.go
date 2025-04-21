@@ -3,7 +3,6 @@ package entities
 import (
 	// "errors"
 
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -19,20 +18,19 @@ import (
 
 
 
-const DataKey = "data/%s/%s"
+const DataKey = "/data/%s/%s"
 type Application struct {
 	Version float32 `json:"_v"`
 	ID            string        `json:"id" gorm:"type:uuid;primaryKey;not null"`
 	Meta          string        `json:"meta,omitempty"`
 	Ref           string        `json:"ref,omitempty" binding:"required"  gorm:"unique;type:varchar(64);default:null"`
-	Categories   []uint8 			`gorm:"type:integer[]" json:"cats,omitempty"`
+	Categories   []uint8 		`gorm:"type:integer[]" json:"cats,omitempty"`
 	
 	SignatureData SignatureData `json:"sigD,omitempty" gorm:"json;"`
 	Status        *uint8        `json:"st" gorm:"boolean;default:0"`
 	Timestamp     uint64        `json:"ts,omitempty" binding:"required"`
 	Balance       uint64        `json:"bal" gorm:"default:0"`
 	// Readonly
-	Account AccountString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
 	
 
 	// CreateTopicPrivilege   *constants.AuthorizationPrivilege `json:"cTopPriv"` //
@@ -40,6 +38,8 @@ type Application struct {
 
 	// Derived
 	Event EventPath `json:"e,omitempty" gorm:"index;varchar;"`
+	Account AccountString    `json:"acct,omitempty" binding:"required"  gorm:"not null;type:varchar(100)"`
+	
 	Hash  string    `json:"h,omitempty" gorm:"type:char(64)"`
 	BlockNumber uint64          `json:"blk"`
 	Cycle   	uint64			`json:"cy"`
@@ -49,23 +49,13 @@ type Application struct {
 	//Deprecated
 	Owner         string     `json:"-" gorm:"-" msgpack:"-"`
 	EventSignature  string    `json:"csig,omitempty"`
+	ZKData *ZK `json:"zkD,omitempty"`
+	Commitment string `json:"comm,omitempty"`
+
 }
 
-func (d Application) GetSignature() (string) {
-	// return string(d.SignatureData.Type)
-	// if d.Hash != "" {
-	// 	return d.Hash
-	// }
-	// hash, _ := d.GetHash()
-	// return hex.EncodeToString(hash)
-	if d.SignatureData.Type == TendermintsSecp256k1PubKey {
-		val, _ := base64.StdEncoding.DecodeString(string(d.SignatureData.Signature))
-		 return hex.EncodeToString(val)
-	}
-	if d.SignatureData.Type == EthereumPubKey {
-		return strings.ReplaceAll(string(d.SignatureData.Signature), "0x", "")
-	}
-	return ""
+func (d Application) GetKey() (string) {
+	return d.Commitment
 }  
 // func (g Application) GetId() (string) {
 // 	// return g.Event.ID[:32]
@@ -73,11 +63,11 @@ func (d Application) GetSignature() (string) {
 // }
 
 
-func (g *Application) GetKeys() (keys []string)  {
+func (g *Application) GetDataStoreKeys() (keys []string)  {
 	if g.ID == "" {
 		g.ID, _ = GetId(g, "")
 	}
-	keys = append(keys, fmt.Sprintf("%s/%s/%s", g.AccountApplicationsKey(), utils.IntMilliToTimestampString(int64(g.Timestamp)), g.ID))
+	// keys = append(keys, fmt.Sprintf("%s/%s/%s", g.AccountApplicationsKey(), utils.IntMilliToTimestampString(int64(g.Timestamp)), g.ID))
 	keys = append(keys, g.Key())
 	keys = append(keys, g.RefKey())
 	// keys = append(keys, fmt.Sprintf("%s/%d/%s", ApplicationModel, g.Cycle, g.ID))
@@ -96,7 +86,7 @@ func (item *Application) DataKey() string {
 }
 
 func (item *Application) ArchiveKey() string {
-	return fmt.Sprintf("arc/%010d/%s", item.Cycle, item.Hash )
+	return fmt.Sprintf("/arc/%010d/%s", item.Cycle, item.Hash )
 }
 
 
@@ -104,11 +94,11 @@ func (g *Application) Key() string {
 	if g.ID == "" {
 		g.ID, _ = GetId(g, "")
 	}
-	return fmt.Sprintf("%s/id/%s", GetModel(g), g.ID)
+	return fmt.Sprintf("/%s/id/%s", GetModel(g), g.ID)
 }
 
 func (item *Application) RefKey() string {
-	return fmt.Sprintf("%s|ref|%s", ApplicationModel, item.Ref)
+	return fmt.Sprintf("/%s|ref|%s", ApplicationModel, item.Ref)
 }
 
 
@@ -116,6 +106,9 @@ func (item *Application) RefKey() string {
 
 func (g *Application) AccountApplicationsKey() string {
 	return fmt.Sprintf("/%s/acct/%s/", ApplicationModel, g.Account)
+}
+func (g *Application) CommitmentApplicationsKey() string {
+	return fmt.Sprintf("/%s/acct/%s/", ApplicationModel, g.Commitment)
 }
 
 
@@ -166,6 +159,10 @@ func (p *Application) IsMember(channel string, sender AccountString) bool {
 	return true
 }
 
+func (p Application) GetId() string {
+	return p.ID
+}
+
 func (item Application) GetHash() ([]byte, error) {
 	if item.Hash != "" {
 		return hex.DecodeString(item.Hash)
@@ -174,7 +171,7 @@ func (item Application) GetHash() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	logger.Debugf("GetHash crypto.Sha256(b) : %v", crypto.Sha256(b))
+	// logger.Debugf("GetHash crypto.Sha256(b) : %v", crypto.Sha256(b))
 	return crypto.Sha256(b), nil
 }
 
@@ -184,7 +181,7 @@ func (item Application) ToString() (string, error) {
 	values = append(values, item.Meta)
 	// values = append(values, fmt.Sprintf("%d", item.Timestamp))
 	// values = append(values, fmt.Sprintf("%d", item.SubscriberCount))
-	values = append(values, string(item.Account))
+	values = append(values, string(item.Commitment))
 	// values = append(values, fmt.Sprintf("%s", item.Signature))
 	return strings.Join(values, ","), nil
 }
@@ -206,11 +203,12 @@ func (item Application) EncodeBytes() ([]byte, error) {
 		cats = append(cats, b...)
 	}
 	return encoder.EncodeBytes(
-		encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: item.Account},
+		// encoder.EncoderParam{Type: encoder.AddressEncoderDataType, Value: item.Account},
+		// encoder.EncoderParam{Type: encoder.HexEncoderDataType, Value: item.Commitment},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(item.DefaultAuthPrivilege, 0)},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Meta},
 		encoder.EncoderParam{Type: encoder.StringEncoderDataType, Value: item.Ref},
 		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: utils.SafePointerValue(item.Status, 0)},
-		encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Timestamp},
+		// encoder.EncoderParam{Type: encoder.IntEncoderDataType, Value: item.Timestamp},
 	)
 }

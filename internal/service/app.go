@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -10,13 +9,10 @@ import (
 	"github.com/ipfs/go-datastore"
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
-	"github.com/mlayerprotocol/go-mlayer/common/encoder"
 	"github.com/mlayerprotocol/go-mlayer/common/utils"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	dsquery "github.com/mlayerprotocol/go-mlayer/internal/ds/query"
-	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
 	query "github.com/mlayerprotocol/go-mlayer/internal/sql/query"
 	"github.com/mlayerprotocol/go-mlayer/pkg/core/p2p"
 	"gorm.io/gorm"
@@ -92,47 +88,47 @@ func ValidateApplicationData(clientPayload *entities.ClientPayload, chainID conf
 	if strings.Contains(strings.ToLower(app.Ref), "global") ||  strings.Contains(strings.ToLower(app.Ref), "giobal") {
 		return nil, apperror.BadRequest("Application ref cannot contain word \"global\"")
 	}
-	var valid bool
-	// b, _ := app.EncodeBytes()
-	msg, err := clientPayload.GetHash()
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("HELLOSJSLIJSDMSG: %s", hex.EncodeToString(msg))
-	action :=  "write_app"
-	switch app.SignatureData.Type {
-	case entities.EthereumPubKey:
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, action,  app.Ref, chainID, encoder.ToBase64Padded(msg))
-		msgByte := crypto.EthMessage([]byte(authMsg))
-		logger.Infof("AUTHMESSAGE %s", authMsg)
-		addr, err := entities.AddressFromString(string(app.Account))
-		if err != nil {
-			return nil,  apperror.BadRequest("invalid account address")
-		}
-		valid = crypto.VerifySignatureECC(addr.Addr, &msgByte, string(app.SignatureData.Signature))
+	// var valid bool
+	// // b, _ := app.EncodeBytes()
+	// msg, err := clientPayload.GetHash()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// logger.Infof("HELLOSJSLIJSDMSG: %s", hex.EncodeToString(msg))
+	// action :=  "write_app"
+	// switch app.SignatureData.Type {
+	// case entities.EthereumPubKey:
+	// 	authMsg := fmt.Sprintf(constants.SignatureMessageString, action,  app.Ref, chainID, encoder.ToBase64Padded(msg))
+	// 	msgByte := crypto.EthMessage([]byte(authMsg))
+	// 	logger.Infof("AUTHMESSAGE %s", authMsg)
+	// 	addr, err := entities.AddressFromString(string(app.Commitment))
+	// 	if err != nil {
+	// 		return nil,  apperror.BadRequest("invalid account address")
+	// 	}
+	// 	valid = crypto.VerifySignatureECC(addr.Addr, &msgByte, string(app.SignatureData.Signature))
 
-	case entities.TendermintsSecp256k1PubKey:
+	// case entities.TendermintsSecp256k1PubKey:
 		
-		decodedSig, err := base64.StdEncoding.DecodeString(string(app.SignatureData.Signature))
-		if err != nil {
-			return nil, err
-		}
-		// account := entities.AddressFromString(string(app.Account))
-		publicKeyBytes, err := base64.RawStdEncoding.DecodeString(string(app.SignatureData.PublicKey))
+	// 	decodedSig, err := base64.StdEncoding.DecodeString(string(app.SignatureData.Signature))
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	// account := entities.AddressFromString(string(app.Account))
+	// 	publicKeyBytes, err := base64.RawStdEncoding.DecodeString(string(app.SignatureData.PublicKey))
 
-		if err != nil {
-			return nil, err
-		}
-		authMsg := fmt.Sprintf(constants.SignatureMessageString, action, chainID, app.Ref, encoder.ToBase64Padded(msg))
-		logger.Debug("MSG:: ", authMsg)
-		valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if !valid {
-		return nil, apperror.Unauthorized("Invalid app data signature")
-	}
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	authMsg := fmt.Sprintf(constants.SignatureMessageString, action, chainID, app.Ref, encoder.ToBase64Padded(msg))
+	// 	logger.Debug("MSG:: ", authMsg)
+	// 	valid, err = crypto.VerifySignatureAmino(encoder.ToBase64Padded([]byte(authMsg)), decodedSig, account.Addr, publicKeyBytes)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+	// if !valid {
+	// 	return nil, apperror.Unauthorized("Invalid app data signature")
+	// }
 	
 
 	if app.ID != "" {
@@ -161,11 +157,13 @@ func saveApplicationEvent(where entities.Event, createData *entities.Event, upda
 func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context, ) (resp *entities.EventProcessorResponse, err error) {
 
 	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
+	var localDataState *LocalDataState
 	
 	if !ok {
 		panic("Unable to load config from context")
 	}
-	
+	logger.Infof("EvENTID: %s", event.ID)
+	modelType := event.GetDataModelType()
 	dataStates := dsquery.NewDataStates(event.ID, cfg)
 	dataStates.AddEvent(*event)
 	
@@ -175,14 +173,16 @@ func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context
 	data.Cycle = event.Cycle
 	data.Epoch = event.Epoch
 	data.EventSignature = event.Signature
-	hash, err := data.GetHash()
-	if err != nil {
-		return nil, err
-	}
-	data.Hash = hex.EncodeToString(hash)
+	
+	
 	logger.Debugf("HandlingNewEvent: %s in app %s", data.ID, event.Payload.Application )
 	var id string
 	if len(data.ID) == 0 {
+		hash, err := data.GetHash()
+		if err != nil {
+			return nil, err
+		}
+		data.Hash = hex.EncodeToString(hash)
 		id, _ = entities.GetId(data, data.ID)
 	} else {
 		id = data.ID
@@ -192,16 +192,24 @@ func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context
 		if err != nil {
 			return
 		}
-		validators, err := p2p.NewApplicationValidator(cfg, utils.UuidToBytes(data.ID), cfg.PublicKeySECP, data.Cycle)
+		uuidBytes := utils.UuidToBytes(data.ID)
+		validators, err := p2p.NewApplicationValidator(cfg, uuidBytes, cfg.PublicKeySECP, data.Cycle)
 		if err != nil  {
 			return
 		}
-		dataStates.AddToDhtSync("app", data.ID, validators.MsgPack())
-		appRefData, err := p2p.NewApplicationValidator(cfg, utils.UuidToBytes(data.ID), []byte{}, 0)
-		if err != nil  {
-			return
+		dataStates.AddToDhtSync(string(p2p.AppDhtPrefix), data.ID, validators.MsgPack())
+		// appRefData, err := p2p.NewApplicationValidator(cfg, utils.UuidToBytes(data.ID), []byte{}, 0)
+		// if err != nil  {
+		// 	return
+		// }
+		if event.EventType == constants.UpdateApplicationEvent {
+			if !strings.EqualFold(localDataState.Ref, data.Ref)  {
+				dataStates.AddToDhtSync(string(p2p.AppRefDhtPrefix), hex.EncodeToString([]byte(strings.ToLower(localDataState.Ref))), []byte{})
+				dataStates.AddToDhtSync(string(p2p.AppRefDhtPrefix), hex.EncodeToString([]byte(strings.ToLower(data.Ref))), uuidBytes)
+			}
+		} else {
+			dataStates.AddToDhtSync(string(p2p.AppRefDhtPrefix), hex.EncodeToString([]byte(strings.ToLower(data.Ref))), uuidBytes)
 		}
-		dataStates.AddToDhtSync("snetRef", hex.EncodeToString(crypto.Keccak256Hash([]byte(data.Ref))), appRefData.MsgPack())
 
 		// stateUpdateError := dataStates.Commit(nil, nil, nil, event.ID, err)
 		// if event.IsLocal(cfg) {
@@ -215,7 +223,7 @@ func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context
 	
 	
 			resp = &entities.EventProcessorResponse{
-				State: dataStates.CurrentStates[entities.EntityPath{Model: entities.ApplicationModel, ID: data.ID}],
+				States: []entities.StateDataInterface{{StateID: data.ID, Type: modelType, StateData: dataStates.CurrentStates[entities.EntityPath{Model: modelType, ID: data.ID}]}},
 				Hash: data.Hash,
 			}
 			// p2p.StateDhtSyncer
@@ -227,31 +235,55 @@ func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context
 
 	}()
 	
-	var localState models.ApplicationState
+	var localState  *entities.Application
 	
-	 app, err := dsquery.GetApplicationStateById(id)
+	localState, err = dsquery.GetApplicationStateById(id)
 	 if err != nil && !dsquery.IsErrorNotFound(err){
 		logger.Debugf("ApplicationStateQueryError: %v", err)
 		return nil, err
 	 }
-	 if (app != nil ) {
-	 	localState =  models.ApplicationState{Application: *app}
+
+	 if localState == nil && event.EventType == constants.UpdateApplicationEvent {
+			// get remote state
+		state, _, syncErr := SyncStateFromPeer(id, modelType, cfg, string(event.Validator))
+		if syncErr != nil {
+			return nil, fmt.Errorf("could not retrieve current state")
+		}
+		s := (state).(entities.Application)
+		localState = &s
 	 }
+	
+		
+	
+	 logger.Infof("APPHASHHHHHH: %s", data.Hash)
 
 	// if err != nil {
 	// 	logger.Error(err)
 	// }
 	
 	
-	var localDataState *LocalDataState
-	if localState.ID != "" {
+	
+	if localState != nil {
+		updatedData := *localState
+		// utils.CopyStructToStruct(localState, &updatedData)
+		utils.CopyStructToStruct(data, &updatedData)
+		data = updatedData
+		data.Ref = localState.Ref
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
+		logger.Infof("localState::: %+v", localState)
 		localDataState = &LocalDataState{
 			ID: localState.ID,
 			Hash: localState.ID,
 			Event: &localState.Event,
 			Timestamp: localState.Timestamp,
+			Ref: localState.Ref,
 		}
-	}
+
+		} else {
+			hash, _ := data.GetHash()
+			data.Hash = hex.EncodeToString(hash)
+		 }
 	// localDataState := utils.IfThenElse(localTopicState != nil, &LocalDataState{
 	// 	ID: localTopicState.ID,
 	// 	Hash: localTopicState.ID,
@@ -259,7 +291,7 @@ func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context
 	// 	Timestamp: localTopicState.Timestamp,
 	// }, nil)
 	var stateEvent *entities.Event
-	if localState.ID != "" {
+	if localState != nil {
 		stateEvent, err = dsquery.GetEventFromPath(&localState.Event)
 		if err != nil && err != query.ErrorNotFound && !dsquery.IsErrorNotFound(err) {
 			logger.Debug(err)
@@ -321,7 +353,7 @@ func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context
 			
 			if eventIsMoreRecent {
 				// update state
-					dataStates.AddCurrentState(entities.ApplicationModel, id, data)
+					dataStates.AddCurrentState(modelType, id, data)
 				
 				// if err != nil {
 				// 	// tx.Rollback()
@@ -331,7 +363,7 @@ func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context
 				// 	_, err = saveApplicationEvent(entities.Event{ID: event.ID}, nil, &entities.Event{IsValid: utils.TruePtr(), Synced:  utils.TruePtr()}, &txn, nil )
 				// }
 			} else {
-				dataStates.AddHistoricState(entities.ApplicationModel, data.ID, data.MsgPack())
+				dataStates.AddHistoricState(modelType, data.ID, data.MsgPack())
 			}
 			go dsquery.UpdateAccountCounter(string(event.Payload.Account))
 			// if err == nil {
@@ -356,7 +388,7 @@ func HandleNewPubSubApplicationEvent(event *entities.Event, ctx *context.Context
 		}
 
 }
-return resp, nil
+return resp, err
 }
 
 // func UpdateApplicationFromPeer(appId string , cfg *configs.MainConfiguration, validator string) (*entities.Application, error) {

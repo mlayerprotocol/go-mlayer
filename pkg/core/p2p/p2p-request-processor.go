@@ -154,8 +154,9 @@ func ProcessEventsReceivedFromOtherNodes(modelType entities.EntityModel, fromPub
 			panic(errT)
 			// continue
 		}
-
-		logger.Debugf("ProcessingEvent \"%s\" in Application: %s", event.ID, event.Application)
+		if event.Application != "" {
+			logger.Debugf("ProcessingEvent \"%s\" in Application: %s", event.ID, event.Application)
+		}
 		// event.ID, _ = event.GetId()
 
 		channelpool.EventProcessorChannel <- event
@@ -267,13 +268,13 @@ func ProcessP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 			logger.Infof("FOUND_EVENT %s", event.ID)
 			// d := models.GetStateModelFromModelType(eventPath.Model)
 			//result := []IState{}
-			states := []json.RawMessage{}
+			states := []entities.StateDataRaw{}
 			state, err := dsquery.GetStateBytesFromEventPath(eventPath)
 			if err != nil && !dsquery.IsErrorNotFound(err) {
 				logger.Errorf("GettingEventStateError: %v", err)
 			}
 			if state != nil {
-				states = append(states, state)
+				states = append(states, entities.StateDataRaw{Type: eventPath.Model, StateData: state})
 			}
 
 			// if err == nil {
@@ -341,9 +342,9 @@ func ProcessP2pPayload(config *configs.MainConfiguration, payload *P2pPayload, m
 			// }}
 			event, err := dsquery.GetEventFromPath(&eventPath)
 			if err == nil {
-				states := []json.RawMessage{}
-				states = append(states, state)
-				data := P2pEventResponse{Event: event.MsgPack(), States: states}
+				// states := []json.RawMessage{}
+				// states = append(states, state)
+				data := P2pEventResponse{Event: event.MsgPack(), States: []entities.StateDataRaw{{Type: eventPath.Model, StateData: state}}}
 				response.Data = (&data).MsgPack()
 			} else {
 				response.ResponseCode = 500

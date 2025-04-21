@@ -19,7 +19,7 @@ import (
 /*
 Validate an agent authorization
 */
-func ValidateTopicData(topic *entities.Topic, authState *models.AuthorizationState) (currentTopicState *models.TopicState, err error) {
+func ValidateTopicData(topic *entities.Topic, authState *entities.Authorization) (currentTopicState *models.TopicState, err error) {
 
 	// TODO state might have changed befor receiving event, so we need to find state that is relevant to this event.
 
@@ -55,11 +55,12 @@ func saveTopicEvent(where entities.Event, createData *entities.Event, updateData
 	return SaveEvent(entities.TopicModel, where, createData, updateData, txn)
 }
 
-func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) error {
+func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) (resp *entities.EventProcessorResponse, err error) {
 	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		panic("Unable to get config from context")
 	}
+	modelType := event.GetDataModelType()
 
 	dataStates := dsquery.NewDataStates(event.ID, cfg)
 	dataStates.AddEvent(*event)
@@ -77,16 +78,16 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 	data.Cycle = event.Cycle
 	data.Epoch = event.Epoch
 	data.EventSignature = event.Signature
-	hash, err := data.GetHash()
-	if err != nil {
-		return err
-	}
-	data.Hash = hex.EncodeToString(hash)
+	// hash, err := data.GetHash()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// data.Hash = hex.EncodeToString(hash)
 	data.Account = event.Payload.Account
 	data.AppKey = event.Payload.AppKey
 	data.Timestamp = event.Payload.Timestamp
 	logger.Debug("Processing 1...")
-	var localState models.TopicState
+	var localState *entities.Topic
 
 	validator := utils.IfThenElse(event.IsLocal(cfg),  "",  string(event.Validator))
 	
@@ -97,6 +98,10 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 			
 			panic(stateUpdateError)
 		} else {
+			resp = &entities.EventProcessorResponse{
+				States: []entities.StateDataInterface{{StateID: data.ID, Type: modelType, StateData: dataStates.CurrentStates[entities.EntityPath{Model: modelType, ID: data.ID}]}},
+				Hash: data.Hash,
+			}
 			go  OnFinishProcessingEvent(cfg, event,  &data, nil)
 			// go utils.WriteBytesToFile(filepath.Join(cfg.DataDir, "log.txt"), []byte("newMessage" + "\n"))
 		}	
@@ -108,9 +113,10 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 		_, err := SyncTypedStateById(id, &topic,  cfg, validator )
 		if (err != nil  ) {
 			logger.Error("HandleNewPubSubTopicEvent/SyncTypedStateById", err)
-			return err
+			return nil, err
 		}
-		localState = models.TopicState{Topic: topic}
+		
+		localState = &topic
 
 	}
 	logger.Debug("Processing 2... ", "topic")
@@ -126,13 +132,22 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 	// defer txn.Discard(context.Background())
 
 	var localDataState *LocalDataState
-	if localState.ID != "" {
+	if localState != nil {
+		updatedData := *localState
+		utils.CopyStructToStruct(data, &updatedData)
+		data = updatedData
+		data.Ref = localState.Ref
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
 		localDataState = &LocalDataState{
 			ID:        localState.ID,
 			Hash:      localState.ID,
 			Event:     &localState.Event,
 			Timestamp: localState.Timestamp,
 		}
+	} else {
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
 	}
 	// localDataState := utils.IfThenElse(localState != nil, &LocalDataState{
 	// 	ID: localState.ID,
@@ -141,12 +156,12 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 	// 	Timestamp: localState.Timestamp,
 	// }, nil)
 	var stateEvent *entities.Event
-	if localState.ID != "" {
+	if localState != nil {
 		stateEvent, err = dsquery.GetEventFromPath(&localState.Event)
 		if err != nil && !dsquery.IsErrorNotFound(err) {
 		
 			logger.Error("HandleNewPubSubAuthEvent/GetEventFromPath", err)
-			return err
+			return nil, err
 		}
 	}
 
@@ -169,13 +184,13 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 	// 	}
 	// }()
 
-	if localState.ID == ""  && len(data.Invite) > 0 {
+	if localState == nil  && len(data.Invite) > 0 {
 		for i, subscription := range data.Invite {
 			
 			err := ValidateSubscription(data.Account, &subscription, &data, nil)
 			if err != nil {
 				logger.Errorf("InviteSubscriptionValidationError", err)
-				return err
+				return nil, err
 			}
 			data.Invite[i].ID, err = entities.GetId(subscription, subscription.ID)
 			data.Invite[i].Topic = id
@@ -185,7 +200,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 			subHash, err := subscription.GetHash()
 			if err != nil {
 				logger.Errorf("InviteSubscriptionValidationError", err)
-				return err
+				return resp, err
 			}
 			data.Invite[i].Hash = hex.EncodeToString(subHash)
 			data.Invite[i].Event = data.Event
@@ -196,7 +211,7 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 	previousEventUptoDate, authEventUptoDate, authState, eventIsMoreRecent, err := ProcessEvent(event, eventData, true, saveTopicEvent,nil, nil, ctx, dataStates)
 	if err != nil {
 		logger.Error("ProcessEventError ", err)
-		return err
+		return nil, err
 	}
 	// err = dsquery.IncrementCounters(event.Cycle, event.Validator, event.Application, &txn)
 	// if err != nil { 
@@ -224,19 +239,19 @@ func HandleNewPubSubTopicEvent(event *entities.Event, ctx *context.Context) erro
 			logger.Infof("TOPICSTATE, %v, %+v ==>", eventIsMoreRecent, data)
 			if eventIsMoreRecent {
 				// update state
-					dataStates.AddCurrentState(entities.TopicModel, id, data)	
-					if localState.ID == ""  && len(data.Invite) > 0 {
+					dataStates.AddCurrentState(modelType, id, data)	
+					if localState == nil  && len(data.Invite) > 0 {
 						for _, subscription := range data.Invite {
 							
 							dataStates.AddCurrentState(entities.SubscriptionModel, subscription.ID, subscription)
 						}
 					}
 			} else {
-				dataStates.AddHistoricState(entities.TopicModel,id, data.MsgPack())
+				dataStates.AddHistoricState(modelType,id, data.MsgPack())
 			}
 			
 		}
 
 	}
-	return nil
+	return resp, err
 }

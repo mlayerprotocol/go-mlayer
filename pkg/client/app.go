@@ -8,13 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/mlayerprotocol/go-mlayer/common/apperror"
 	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
-	"github.com/mlayerprotocol/go-mlayer/internal/crypto"
 	dsquery "github.com/mlayerprotocol/go-mlayer/internal/ds/query"
 	"github.com/mlayerprotocol/go-mlayer/internal/service"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
@@ -126,7 +124,7 @@ func GetSubscribedApplications(item models.ApplicationState) (state *[]models.Ap
 //			go service.HandleNewPubSubApplicationEvent(event, ctx)
 //		}
 //	}
-func ValidateApplicationPayload(payload entities.ClientPayload, authState *models.AuthorizationState, ctx *context.Context) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+func ValidateApplicationPayload(payload entities.ClientPayload, authState *entities.Authorization, ctx *context.Context) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
 	payloadData := entities.Application{}
 	d, _ := json.Marshal(payload.Data)
@@ -139,9 +137,9 @@ func ValidateApplicationPayload(payload entities.ClientPayload, authState *model
 	payload.Data = payloadData
 
 
-	if uint64(payloadData.Timestamp) == 0 || uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 || uint64(payloadData.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
-		return nil, nil, apperror.BadRequest("Invalid event timestamp")
-	}
+	// if uint64(payloadData.Timestamp) == 0 || uint64(payloadData.Timestamp) > uint64(time.Now().UnixMilli())+15000 || uint64(payloadData.Timestamp) < uint64(time.Now().UnixMilli())-15000 {
+	// 	return nil, nil, apperror.BadRequest("Invalid event timestamp")
+	// }
 	cfg, _ := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 
 	currentState, err2 := service.ValidateApplicationData(&payload, cfg.ChainId)
@@ -154,8 +152,11 @@ func ValidateApplicationPayload(payload entities.ClientPayload, authState *model
 		// if entities.AddressFromString(payloadData.Owner.ToString()).Addr == "" {
 		// 	return nil, nil, apperror.BadRequest("You must specify the owner of the app")
 		// }
-		if payloadData.ID != "" {
-			return nil, nil, apperror.BadRequest("You cannot set an id when creating a app")
+		if payloadData.ID == "" {
+			payloadData.ID = payload.Application
+		}
+		if payloadData.ID != payload.Application {
+			return nil, nil, apperror.BadRequest("payload app id and app data id dont match")
 		}
 		// var found []models.ApplicationState
 		// query.GetMany(&models.ApplicationState{Application: entities.Application{Ref: payloadData.Ref}}, &found, nil)
@@ -171,7 +172,7 @@ func ValidateApplicationPayload(payload entities.ClientPayload, authState *model
 		if refExists {
 			return nil, nil, apperror.BadRequest(fmt.Sprintf("Application with reference %s already exists", payloadData.Ref))
 		}
-		keySecP := "/ml/snetref/" + hex.EncodeToString(crypto.Keccak256Hash([]byte(payloadData.Ref)))
+		keySecP := "/ml/" + string(p2p.AppRefDhtPrefix) + "/" + hex.EncodeToString([]byte(strings.ToLower(payloadData.Ref)))
 		v, err := p2p.GetDhtValue(keySecP)
 		if err != nil {
 			logger.Debugf("DHTERROR: %v", err)
@@ -182,10 +183,13 @@ func ValidateApplicationPayload(payload entities.ClientPayload, authState *model
 		}
 		// logger.Debug("FOUNDDDDD", found, payloadData.Ref)
 
-	}
+	} 
 	if payload.EventType == constants.UpdateApplicationEvent {
+		
+		if !strings.EqualFold(currentState.Ref, payloadData.Ref) {
+			return nil, nil,  apperror.BadRequest("Ref cannot be modified")
+		}
 		if payloadData.ID == "" {
-			
 			return nil, nil, apperror.BadRequest("Application ID must be provided")
 		}
 	}

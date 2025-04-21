@@ -194,7 +194,7 @@ func CreateSubscriptionState(newState *entities.Subscription, tx *datastore.Txn)
 		IDKey: newState.Key(),
 		DataKey: newState.DataKey(),
 		RefKey: refKey,
-		Keys: newState.GetKeys(),
+		Keys: newState.GetDataStoreKeys(),
 		Data: newState.MsgPack(),
 		EventHash: newState.Event.ID,
 	}, tx)

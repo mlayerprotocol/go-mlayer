@@ -11,8 +11,6 @@ import (
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/entities"
 	"github.com/mlayerprotocol/go-mlayer/internal/chain/api"
-	"github.com/multiformats/go-multiaddr"
-	"golang.org/x/exp/rand"
 )
 
 type NetworkParams struct {
@@ -24,7 +22,7 @@ type NetworkParams struct {
 	ActiveValidatorLicenseCount uint64 `json:"active_validator_license_count"`
 	ActiveSentryLicenseCount uint64 `json:"active_sentry_license_count"`
 	Validators map[string]string `json:"-"`
-	SyncedValidators map[string]multiaddr.Multiaddr `json:"-"`
+	// SyncedValidators map[string]multiaddr.Multiaddr `json:"-"`
 	Sentries map[string]uint64 `json:"-"`
 	Config *configs.MainConfiguration `json:"-"`
 	Synced bool `json:"synced"`
@@ -47,18 +45,18 @@ func (n *NetworkParams) GetValidatorKeys(key entities.PublicKeyString) (edd enti
 	return edd, secp
 }
 
-func (n *NetworkParams) GetRandomSyncedNode() string {
-		rand.Seed(rand.Uint64())
-		keys := make([]string, 0, len(n.SyncedValidators))
-		for key := range n.SyncedValidators {
-			keys = append(keys, key)
-		}
-		if len(keys) == 0 {
-			return ""
-		}
-		randomKey := keys[rand.Intn(len(keys))]
-		return randomKey
-}
+// func (n *NetworkParams) GetRandomSyncedNode() string {
+// 		rand.New(rand.NewSource(int64(rand.Uint64())))
+// 		keys := make([]*p2p.NodeMultiAddressData, 0, len(p2p.ValidMads))
+// 		for _, val := range p2p.ValidMads{
+// 			keys = append(keys, val)
+// 		}
+// 		if len(keys) == 0 {
+// 			return ""
+// 		}
+// 		randomKey := keys[rand.Intn(len(keys))]
+// 		return string(randomKey.PubKeyEDD)
+// }
 
 func (n *NetworkParams) IsValidator(key string) (bool, error) {
 	if len(key) == 0 {

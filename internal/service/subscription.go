@@ -122,21 +122,18 @@ func ValidateSubscription (account entities.AccountString, subscription *entitie
 func saveSubscriptionEvent(where entities.Event, createData *entities.Event, updateData *entities.Event, txn *datastore.Txn, tx *gorm.DB) (*entities.Event, error) {
 	return SaveEvent(entities.SubscriptionModel, where, createData, updateData, txn)
 }
-func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Context) error {
+func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Context)  (resp *entities.EventProcessorResponse, err error) {
 
 	cfg, ok := (*ctx).Value(constants.ConfigKey).(*configs.MainConfiguration)
 	if !ok {
 		panic("Unable to load config from context")
 	}
+	modelType := event.GetDataModelType()
 	data := event.Payload.Data.(entities.Subscription)
 	dataStates := dsquery.NewDataStates(event.ID, cfg)
 	dataStates.AddEvent(*event)
-	// var id = data.ID
-	// if len(data.ID) == 0 {
-	// 	id, _ = entities.GetId(data)
-	// } else {
-	// 	id = data.ID
-	// }
+	id, _ := entities.GetId(data, data.ID)
+	
 	var topic = models.TopicState{}
 	data.Event = *event.GetPath()
 	data.BlockNumber = event.BlockNumber
@@ -147,7 +144,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	data.Timestamp = &event.Timestamp
 	hash, err := data.GetHash()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	data.Hash = hex.EncodeToString(hash)
 	var app = data.Application
@@ -162,13 +159,17 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 			panic(stateUpdateError)
 		} else {
+			resp = &entities.EventProcessorResponse{
+				States: []entities.StateDataInterface{{StateID: id, Type: modelType, StateData: dataStates.CurrentStates[entities.EntityPath{Model: modelType, ID: id}]}},
+				Hash: data.Hash,
+			}
 			go OnFinishProcessingEvent(cfg, event, &data, nil)
 
 			// go utils.WriteBytesToFile(filepath.Join(cfg.DataDir, "log.txt"), []byte("newMessage" + "\n"))
 		}
 	}()
 
-	localState := models.SubscriptionState{}
+	var localState  *entities.Subscription
 	// err := query.GetOne(&models.TopicState{Topic: entities.Topic{ID: id}}, &localTopicState)
 	// err = sql.SqlDb.Where(&models.SubscriptionState{Subscription: entities.Subscription{Application: app, Topic: data.Topic, Subscriber: entities.AddressFromString(string(data.Subscriber)).ToDIDString()}}).Take(&localState).Error
 	// if err != nil {
@@ -177,19 +178,27 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 	subs, err := dsquery.GetSubscriptions(entities.Subscription{Application: app, Topic: data.Topic, Subscriber: data.Subscriber}, nil, nil)
 	if err == nil && subs != nil && len(subs) > 0 {
-		localState = models.SubscriptionState{
-			Subscription: *subs[0],
-		}
+		localState = subs[0]
 	}
 
 	var localDataState *LocalDataState
-	if localState.ID != "" {
+	if localState != nil {
+		updatedData := *localState
+		// utils.CopyStructToStruct(localState, &updatedData)
+		utils.CopyStructToStruct(data, &updatedData)
+		data = updatedData
+		data.Ref = localState.Ref
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
 		localDataState = &LocalDataState{
 			ID:        localState.ID,
 			Hash:      localState.ID,
 			Event:     &localState.Event,
 			Timestamp: *localState.Timestamp,
 		}
+	} else {
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
 	}
 
 	// localDataState := utils.IfThenElse(localTopicState != nil, &LocalDataState{
@@ -199,7 +208,13 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	// 	Timestamp: localTopicState.Timestamp,
 	// }, nil)
 	var stateEvent *entities.Event
-	if localState.ID != "" {
+	if localState != nil {
+		updatedData := *localState
+		utils.CopyStructToStruct(data, &updatedData)
+		data = updatedData
+		data.Ref = localState.Ref
+		hash, _ := data.GetHash()
+		data.Hash = hex.EncodeToString(hash)
 		stateEvent, err = dsquery.GetEventFromPath(&localState.Event)
 		if err != nil && !dsquery.IsErrorNotFound(err) {
 			logger.Debug(err)
@@ -227,7 +242,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 	previousEventUptoDate, authEventUpToDate, _, eventIsMoreRecent, err := ProcessEvent(event, eventData, true, saveSubscriptionEvent, nil, nil, ctx, dataStates)
 	if err != nil {
 		logger.Debugf("Processing Error...: %v", err)
-		return err
+		return nil, err
 	}
 	// logger.Debugf("Processing 2...: %v,  %v", previousEventUptoDate, authEventUpToDate)
 	// get the topic, if not found retrieve it
@@ -236,7 +251,7 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 		_, err := SyncTypedStateById(data.Topic, &entities.Topic{}, cfg, validator)
 		if err != nil {
 			logger.Error("HandleNewPubSubSubscriptionEvent/SyncTypedStateById", err)
-			return err
+			return nil, err
 		}
 
 		if !event.IsLocal(cfg) {
@@ -249,19 +264,18 @@ func HandleNewPubSubSubscriptionEvent(event *entities.Event, ctx *context.Contex
 
 		} else {
 			// TODO if event is older than our state, just save it and mark it as synced
-			logger.Infof("SAVINGSUBSCRIPITONS: %v, %v", event.ID, eventIsMoreRecent)
 			dataStates.AddEvent(entities.Event{ID: event.ID, IsValid: utils.TruePtr(), Synced: utils.TruePtr()})
-			data.ID, _ = entities.GetId(data, data.ID)
+			data.ID = id
 			if eventIsMoreRecent {
 				// update state
-				dataStates.AddCurrentState(entities.SubscriptionModel, data.DataKey(), data)
+				dataStates.AddCurrentState(modelType, data.ID, data)
 			} else {
-				dataStates.AddHistoricState(entities.SubscriptionModel, data.DataKey(), data.MsgPack())
+				dataStates.AddHistoricState(modelType, data.ID, data.MsgPack())
 			}
 
 		}
 		go dsquery.UpdateAccountCounter(string(event.Payload.Account))
 	}
-	return nil
+	return resp, err
 
 }

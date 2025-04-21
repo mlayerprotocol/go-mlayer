@@ -166,7 +166,7 @@ func GetAccountSubscriptionsV2(cfg *configs.MainConfiguration, payload entities.
 
 // }
 
-func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *models.AuthorizationState, cfg *configs.MainConfiguration) (
+func ValidateSubscriptionPayload(payload entities.ClientPayload, authState *entities.Authorization, cfg *configs.MainConfiguration) (
 	assocPrevEvent *entities.EventPath,
 	assocAuthEvent *entities.EventPath,
 	topic *entities.Topic,

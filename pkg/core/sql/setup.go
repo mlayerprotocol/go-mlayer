@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mlayerprotocol/go-mlayer/common/constants"
 	"github.com/mlayerprotocol/go-mlayer/configs"
 	config "github.com/mlayerprotocol/go-mlayer/configs"
 	"github.com/mlayerprotocol/go-mlayer/internal/sql/models"
@@ -140,7 +141,7 @@ func getDSN(cfg *configs.MainConfiguration) string {
 	dsn := ""
 	switch strings.ToLower(config.Config.SQLDB.DbDialect) {
 	case "sqlite":
-		err := os.MkdirAll(cfg.SQLDB.DbStoragePath, os.ModePerm)
+		err := os.MkdirAll(cfg.SQLDB.DbStoragePath,constants.OsModeReadWriteOnly)
 		if err != nil {
 			logger.Errorf("Error creating sqlite storage directory at %s", config.Config.SQLDB.DbStoragePath)
 			panic(err)

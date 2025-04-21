@@ -85,7 +85,7 @@ func CreateAuthorizationState(newState *entities.Authorization, tx *datastore.Tx
 		return nil, err
 	}
 	stateBytes := newState.MsgPack()
-	keys := newState.GetKeys()
+	keys := newState.GetDataStoreKeys()
 	txn, err := InitTx(ds, tx)
 	if err != nil {
 		return nil, err

@@ -17,6 +17,12 @@ type SignatureData struct {
 	Signature HexString     `json:"sig"`
 }
 
+type BlsSignatureData struct {
+	Type      PubKeyType `json:"ty,omitempty"`
+	PublicKeys []PublicKeyString     `json:"pubK,omitempty"`
+	Signature HexString     `json:"sig"`
+}
+
 func (sD SignatureData) GormDataType() string {
 	return "json"
 }

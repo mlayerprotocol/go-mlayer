@@ -133,7 +133,7 @@ func CreateMessageState(newState *entities.Message, tx *datastore.Txn) (sub *ent
 		IDKey: newState.Key(),
 		DataKey: newState.DataKey(),
 		RefKey: nil,
-		Keys: newState.GetKeys(),
+		Keys: newState.GetDataStoreKeys(),
 		Data: stateBytes,
 		EventHash: newState.Event.ID,
 		RestKeyValue: []byte{},

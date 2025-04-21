@@ -39,7 +39,7 @@ func CreateApplicationState(newState *entities.Application, tx *datastore.Txn) (
 	}
 	logger.Infof("CreatingApplication... %s", newState.ID)
 	stateBytes := newState.MsgPack()
-	keys := newState.GetKeys()
+	keys := newState.GetDataStoreKeys()
 	txn, err := InitTx(ds, tx)
 	if err != nil {
 		return nil, err
@@ -97,16 +97,15 @@ func UpdateApplicationState(id string, newState *entities.Application, tx *datas
 	stateBytes := newState.MsgPack()
 
 	oldState, err := GetApplicationStateById(id)
-
+	
 	if err != nil {
 		if IsErrorNotFound(err) && create {
-			logger.Infof("CRETINGApp: %v, %s", err, newState.ID)
 			return CreateApplicationState(newState, tx)
 		}
 		return nil, err
 	}
 
-	logger.Debugf("UpdateApplication %v, %v, %v, %v", id, oldState.ID, *oldState.DefaultAuthPrivilege, *newState.DefaultAuthPrivilege)
+	// logger.Debugf("UpdateApplication %v, %v, %v, %v", id, oldState.ID, *oldState.DefaultAuthPrivilege, *newState.DefaultAuthPrivilege)
 
 	if err := txn.Put(context.Background(), datastore.NewKey(newState.DataKey()), stateBytes); err != nil {
 		logger.Errorf("error updateing state key: %v", err)

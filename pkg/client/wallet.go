@@ -146,7 +146,7 @@ func GetWalletEvents() (*[]models.WalletEvent, error) {
 //			go service.HandleNewPubSubWalletEvent(event, ctx)
 //		}
 //	}
-func ValidateWalletPayload(payload entities.ClientPayload, authState *models.AuthorizationState) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
+func ValidateWalletPayload(payload entities.ClientPayload, authState *entities.Authorization) (assocPrevEvent *entities.EventPath, assocAuthEvent *entities.EventPath, err error) {
 
 	payloadData := entities.Wallet{}
 	d, _ := json.Marshal(payload.Data)

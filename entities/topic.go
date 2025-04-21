@@ -56,10 +56,12 @@ type Topic struct {
 	EventSignature  string    `json:"csig,omitempty"`
 }
 
-func (d Topic) GetSignature() (string) {
+func (d Topic) GetKey() (string) {
 	return d.EventSignature
 }
-
+func (p Topic) GetId() string {
+	return p.ID
+}
 func (item *Topic) DataKey() string {
 	return fmt.Sprintf(DataKey, GetModel(item), item.Event.ID )
 }
@@ -77,7 +79,7 @@ func (item *Topic) Key() string {
 }
 
 
-func (g *Topic) GetKeys() (keys []string)  {
+func (g *Topic) GetDataStoreKeys() (keys []string)  {
 	keys = append(keys, fmt.Sprintf("%s/%s/%s",  g.GetAccountTopicsKey(), utils.IntMilliToTimestampString(int64(g.Timestamp)), g.ID))
 	// keys = append(keys, fmt.Sprintf("%s/acct/%s/%s/%s", TopicModel, g.Account, g.Application, g.ID))
 	keys = append(keys, g.Key())
@@ -234,7 +236,7 @@ func (intr NodeInterest) ToString() (string, error) {
 	return fmt.Sprintf("%s",intr.Ids), nil
 }
 
-func (intr NodeInterest) GetSignature() (string) {
+func (intr NodeInterest) GetKey() (string) {
 	return intr.EventSignature
 }
 

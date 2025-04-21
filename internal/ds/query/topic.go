@@ -95,7 +95,7 @@ func CreateTopicState(newState *entities.Topic, tx *datastore.Txn) (sub *entitie
 		IDKey: newState.Key(),
 		DataKey: newState.DataKey(),
 		RefKey: &refKey,
-		Keys: newState.GetKeys(),
+		Keys: newState.GetDataStoreKeys(),
 		Data: newState.MsgPack(),
 		EventHash: newState.Event.ID,
 	}, tx)
@@ -110,7 +110,7 @@ func CreateTopicState(newState *entities.Topic, tx *datastore.Txn) (sub *entitie
 	// 	return nil, err
 	// }
 	// stateBytes := newState.MsgPack()
-	// keys := newState.GetKeys()
+	// keys := newState.GetDataStoreKeys()
 	// txn, err := InitTx(ds, tx)
 	// if err != nil {
 	// 	return nil, err
